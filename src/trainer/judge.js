@@ -19,8 +19,14 @@ function label(action, s, L) {
   if (action.type === 'check') return 'Check';
   if (action.type === 'call') return `Call $${L.callAmt}`;
   const allIn = action.to >= L.maxTo;
-  if (s.currentBet === 0) return allIn ? `All-in $${action.to}` : `Bet $${action.to}`;
-  return allIn ? `All-in $${action.to}` : `Raise to $${action.to}`;
+  // Say each size relative to the pot (bets) or to the bet being raised, so sizes read the
+  // same way whatever the dollar amounts are.
+  if (s.currentBet === 0) {
+    const pct = Math.round((100 * action.to) / Math.max(1, L.pot));
+    return `${allIn ? 'All-in' : 'Bet'} $${action.to} (${pct}% pot)`;
+  }
+  const times = action.to / s.currentBet;
+  return `${allIn ? 'All-in' : 'Raise to'} $${action.to} (${times >= 10 ? Math.round(times) : times.toFixed(1)}x)`;
 }
 
 export function candidateActions(s, heroAction) {
@@ -44,7 +50,7 @@ export function candidateActions(s, heroAction) {
         if (s.raises >= 2 || L.maxTo <= base * 8) tos.add(L.maxTo);
       }
     } else if (s.currentBet === 0) {
-      for (const f of [0.33, 0.66, 1.0, 1.5]) tos.add(roundChips(f * pot));
+      for (const f of [0.33, 0.5, 0.75, 1.0, 1.5]) tos.add(roundChips(f * pot));
       if (L.maxTo <= 2 * pot) tos.add(L.maxTo);
     } else {
       tos.add(roundChips(s.currentBet * 2.5));
@@ -65,6 +71,11 @@ export function candidateActions(s, heroAction) {
     to = Math.max(L.minTo, Math.min(top, to));
     if (to >= 0.8 * top) to = top;
     clean.add(to);
+  }
+  // When stacks are so short that every pot-based size is all-in, still offer a smaller bet.
+  if (L.canRaise && clean.size === 1 && clean.has(top)) {
+    const half = roundChips(top * 0.5);
+    if (half >= L.minTo && half < 0.8 * top) clean.add(half);
   }
   for (const to of [...clean].sort((a, b) => a - b)) out.push({ type: 'raise', to });
   for (const a of out) a.label = label(a, s, L);

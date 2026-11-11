@@ -196,9 +196,15 @@ function renderTable() {
     const stack = over ? s.stacks[i] : s.stacks[i];
     const isBtn = pos === 'BTN' || pos === 'BTN/SB';
     const badge = `<span class="badge pos${isBtn ? ' btn' : ''}">${pos}</span>`;
+    // VPIP (how often they voluntarily put money in), once there are enough hands to mean something.
+    let vp = null;
+    if (i !== HERO && p.notes.hands >= 8) {
+      const pct = Math.round((100 * p.notes.vpip) / p.notes.hands);
+      vp = { pct, color: pct < 18 ? '#7db4f2' : pct < 32 ? '#4fe0a0' : pct < 50 ? '#ffd166' : '#ff8585' };
+    }
     seatsHtml += `<div class="${cls.join(' ')}" style="left:${x}%;top:${y}%" data-seat="${i}"${i === HERO ? '' : ' role="button" tabindex="0"'}>
       <div class="cards">${cards}</div>
-      <div class="avatar" style="--h:${(i * 43) % 360}">${i === HERO ? '' : p.icon}${badge}${p.steaming ? '<span class="steam-dot" title="On tilt">🔥</span>' : ''}</div>
+      <div class="avatar${vp ? ' has-vpip' : ''}" style="--h:${(i * 43) % 360}${vp ? `;--v:${vp.pct};--vc:${vp.color}` : ''}">${i === HERO ? '' : p.icon}${badge}${vp ? `<span class="vpip" title="VPIP: put money in voluntarily in ${vp.pct}% of ${p.notes.hands} hands watched"><b>${vp.pct}%</b> VPIP</span>` : ''}${p.steaming ? '<span class="steam-dot" title="On tilt">🔥</span>' : ''}</div>
       <div class="plate"><div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>
       <div class="stack">${money(stack)}</div>${read}</div>${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
     if (isBtn) {

@@ -810,3 +810,27 @@ body:has(.drill-chip) #sim-wrap { display: none; }
 .standing .st-num { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 62px; text-align: center; color: var(--warn); }
 .standing.up .st-num { color: var(--good); }
 .standing.down .st-num { color: var(--bad); }
+
+
+/* ---- VPIP: a ring around the avatar filled to the player's VPIP, with the number beneath ---- */
+.avatar.has-vpip::before {
+  content: ""; position: absolute; inset: -0.62cqw; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from -90deg, var(--vc) calc(var(--v) * 1%), #ffffff1c 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 0.34cqw), #000 calc(100% - 0.34cqw + 1px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 0.34cqw), #000 calc(100% - 0.34cqw + 1px));
+  filter: drop-shadow(0 0 0.35cqw color-mix(in srgb, var(--vc) 55%, transparent));
+}
+.vpip {
+  position: absolute; left: 50%; bottom: -0.95cqw; transform: translateX(-50%); z-index: 3;
+  display: inline-flex; align-items: baseline; gap: 0.28cqw; white-space: nowrap;
+  padding: 0.06cqw 0.55cqw; border-radius: 999px;
+  background: #0d131dee; border: 1px solid color-mix(in srgb, var(--vc) 70%, #000);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: clamp(8px, 0.72cqw, 10px); font-weight: 600; letter-spacing: 0.06em; color: #b1bccd;
+  box-shadow: 0 0.2cqw 0.6cqw #05080e99;
+}
+.vpip b { font-size: clamp(9.5px, 0.95cqw, 13px); font-weight: 800; letter-spacing: 0; color: var(--vc); font-variant-numeric: tabular-nums; }
+.seat:not(.hero) .plate { padding-top: 1.55cqw; }
+.seat.folded .avatar.has-vpip::before { filter: none; opacity: 0.75; }
+.seat.folded .avatar.has-vpip { filter: none; }
+.seat.folded .avatar.has-vpip { border-color: #44506a; }

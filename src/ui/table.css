@@ -834,3 +834,23 @@ body:has(.drill-chip) #sim-wrap { display: none; }
 .seat.folded .avatar.has-vpip::before { filter: none; opacity: 0.75; }
 .seat.folded .avatar.has-vpip { filter: none; }
 .seat.folded .avatar.has-vpip { border-color: #44506a; }
+
+
+/* VPIP pill sits below the name plate, outside the box, with its own hover explanation */
+.seat:not(.hero) .plate { padding-top: 1.25cqw; }
+.vpip {
+  position: relative; left: auto; bottom: auto; transform: none; margin-top: 0.35cqw; cursor: help;
+  padding: 0.1cqw 0.7cqw; z-index: 4;
+}
+.vpip-tip {
+  display: none; position: absolute; left: 50%; top: calc(100% + 0.5cqw); transform: translateX(-50%);
+  width: 220px; padding: 8px 11px; border-radius: 9px; text-align: left; white-space: normal;
+  background: #101722f5; border: 1px solid var(--vc); box-shadow: 0 8px 24px #05080ecc;
+  font-size: 12.5px; font-weight: 400; letter-spacing: 0; line-height: 1.45; color: #e2e7ef; z-index: 40;
+}
+.vpip-tip b { display: block; font-size: 13px; margin-bottom: 2px; }
+.vpip:hover .vpip-tip { display: block; }
+/* hovering the pill shows only its own box, not the player's hover box */
+.seat:has(.vpip:hover) .tip { display: none; }
+.seat .tip.below { top: calc(100% + 0.6cqw); }
+.seat.folded .vpip { opacity: 0.75; }

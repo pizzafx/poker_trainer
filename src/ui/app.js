@@ -204,9 +204,9 @@ function renderTable() {
     }
     seatsHtml += `<div class="${cls.join(' ')}" style="left:${x}%;top:${y}%" data-seat="${i}"${i === HERO ? '' : ' role="button" tabindex="0"'}>
       <div class="cards">${cards}</div>
-      <div class="avatar${vp ? ' has-vpip' : ''}" style="--h:${(i * 43) % 360}${vp ? `;--v:${vp.pct};--vc:${vp.color}` : ''}">${i === HERO ? '' : p.icon}${badge}${vp ? `<span class="vpip" title="VPIP: put money in voluntarily in ${vp.pct}% of ${p.notes.hands} hands watched"><b>${vp.pct}%</b> VPIP</span>` : ''}${p.steaming ? '<span class="steam-dot" title="On tilt">🔥</span>' : ''}</div>
+      <div class="avatar${vp ? ' has-vpip' : ''}" style="--h:${(i * 43) % 360}${vp ? `;--v:${vp.pct};--vc:${vp.color}` : ''}">${i === HERO ? '' : p.icon}${badge}${p.steaming ? '<span class="steam-dot" title="On tilt">🔥</span>' : ''}</div>
       <div class="plate"><div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>
-      <div class="stack">${money(stack)}</div>${read}</div>${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
+      <div class="stack">${money(stack)}</div>${read}</div>${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP ${vp.pct}%</b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vp.pct < 18 ? 'Tight: mostly strong hands.' : vp.pct < 32 ? 'About average.' : vp.pct < 50 ? 'Loose: plays a lot of weak hands.' : 'Plays almost anything.'}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
     if (isBtn) {
       const dx = 50 + 34 * Math.cos(ang + 0.2);
       const dy = 49 + 26.5 * Math.sin(ang + 0.2);

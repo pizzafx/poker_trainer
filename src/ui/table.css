@@ -756,3 +756,8 @@ button:hover:not(:disabled) { border-color: #8fa0bd; }
 #bottom { flex-wrap: wrap; }
 #bottom-left { flex: 1 1 380px; }
 #actions { flex: 0 1 560px; }
+
+/* Quick sim sits in the top-left corner of the room, under the header */
+#stage { position: relative; }
+#btn-sim { position: absolute; left: 14px; top: 12px; z-index: 6; padding: 6px 12px; font-size: 13px; background: #34405a; border-color: #55647d; }
+body:has(.drill-chip) #btn-sim { display: none; }

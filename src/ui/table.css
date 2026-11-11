@@ -561,3 +561,136 @@ button.toast { width: 100%; text-align: left; font: inherit; color: inherit; }
 /* header link styled like the header buttons */
 .top-actions a { font-size: 13px; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; text-decoration: none; }
 .top-actions a:hover { border-color: #5b6880; filter: brightness(1.12); }
+
+/* ================= brightness pass: "lit room" =================
+   Surfaces lifted out of near-black, felt about 2.6x brighter, shadows tinted instead of
+   black, and colour in the action bar and coach strip. Card faces, card backs and the
+   animations are unchanged. */
+:root {
+  --bg: #171d29;
+  --panel: #252e3e;
+  --panel-2: #303b4e;
+  --line: #46546b;
+  --text: #f5f7fb;
+  --muted: #b1bccd;
+  --accent: #ffd166;
+  --good: #4fe0a0;
+  --warn: #ffb648;
+  --bad: #ff8585;
+  --stack: #9ddcff;
+}
+
+/* page + header */
+body {
+  background:
+    radial-gradient(1200px 700px at 38% 30%, #36455f 0%, transparent 62%),
+    linear-gradient(#1c2331, #151b26);
+}
+button:hover:not(:disabled) { border-color: #8fa0bd; }
+#top { background: linear-gradient(#243044, #1e2635); border-bottom-color: #ffffff1f; }
+#stats span { background: #ffffff14; border-color: #ffffff26; }
+.top-actions button, .top-actions a { background: #34405a; border-color: #55647d; }
+
+/* felt + rail: brighter, slightly tealer, tinted (not black) vignette and shadow */
+#felt {
+  background: radial-gradient(ellipse at 50% 42%, #48bba8 0%, #33a08f 40%, #237a6d 74%, #1a6058 100%);
+  border-color: #313b4d;
+  box-shadow:
+    0 0 0 1px #7385a3,
+    0 0 0 0.35cqw #1b2230,
+    0 2.4cqw 5cqw #0a101c99,
+    inset 0 0 0 1px #ffffff33,
+    inset 0 0 6cqw #0b3a3466;
+}
+#felt::after { border-color: #ffffff26; }
+
+/* pot + bet markers: fills stay dark so gold/white keep their punch */
+#pot { background: #06100ec7; border-color: #ffd16699; }
+.chipbet { background: #0a111cd1; border-color: #ffffff40; }
+.chipbet .what { color: #d3dae5; }
+.chipbet.plain { background: #04100d6b; border-color: transparent; }
+.chipbet.plain .what { color: #f1faf7; }
+
+/* seats */
+.avatar {
+  background: radial-gradient(circle at 35% 28%, hsl(var(--h) 42% 50%), hsl(var(--h) 40% 24%));
+  border-color: hsl(var(--h) 55% 70%);
+  box-shadow: 0 0.5cqw 1.2cqw #0a101c99;
+}
+.avatar .badge.pos { background: #141b27; border-color: #5a6880; color: #e8edf5; }
+.badge { background: #55627a; color: #e8edf5; }
+.badge.pos.btn { background: #e7b548; color: #2a1e04; border-color: #e7b548; }
+.badge.steam { background: var(--bad); color: #2b0a0c; }
+.plate {
+  background: linear-gradient(#435069, #313c52);
+  border-color: #7d90b0;
+  box-shadow: 0 0.5cqw 1.4cqw #0a101c8c;
+}
+.seat .nick { color: #dde3ed; }
+.seat .read { color: #c5cedc; }
+.seat .read.firm { color: #a8efcc; }
+.seat.hero .plate { background: linear-gradient(#4a5978, #374460); border-color: #8ea0c0; }
+.seat.hero .plate .badge { background: #5f6d88; color: #eef2f8; }
+
+/* turn / winner: tinted plate adds signal without touching the animations */
+.seat.acting .plate,
+.seat.hero.acting .plate { background: linear-gradient(#54482a, #3a3421); border-color: var(--accent); }
+.seat.acting .nick { color: #fff; }
+.seat.winner .plate,
+.seat.hero.winner .plate { background: linear-gradient(#27503f, #1f3d33); border-color: var(--good); }
+.seat.steaming .avatar { border-color: var(--bad); }
+
+/* folded: still the dimmest thing on the table, but no longer a black hole */
+.seat.folded .plate { background: #212939; border-color: #35405a; box-shadow: none; }
+.seat.folded .nick { color: #9aa5b8; }
+.seat.folded .stack { color: #96a3b7; }
+.seat.folded .read, .seat.folded .read.firm { color: #919db1; }
+.seat.folded .avatar { filter: grayscale(0.85) brightness(0.8); border-color: #44506a; box-shadow: none; }
+.seat.folded .badge { background: #2d3647; color: #9aa5b8; border-color: #2d3647; }
+.seat.hero.folded .cards { filter: saturate(0.4) brightness(0.72); }
+
+/* coach strip: the verdict colour fills the strip instead of a 4px edge */
+.toast { background: #1f3d33; border-color: #2f6b55; border-left-color: var(--good); }
+.toast.mistake { background: #4a3a1a; border-color: #7a5f24; border-left-color: var(--warn); }
+.toast.blunder { background: #52262b; border-color: #8a3a41; border-left-color: var(--bad); }
+.toast .t-tag { color: #cdd5e1; border-color: #ffffff33; }
+.toast .t-more { color: #c4cddb; }
+.toast.blunder .t-icon { color: #2b0a0c; }
+.toast.prev { background: var(--panel); border-color: var(--line); }
+.toast.prev.mistake { border-left-color: var(--warn); }
+.toast.prev.blunder { border-left-color: var(--bad); }
+.toast.prev .t-main { color: #d8dee8; }
+.toast.quiet { background: var(--panel); border-color: var(--line); border-left-color: var(--line); }
+
+/* action bar: three mid-tone buttons of equal weight, each with its own colour */
+.act-row.main button { box-shadow: inset 0 1px 0 #ffffff33, 0 2px 0 #0a101c99; }
+.act-row.main button:active:not(:disabled) { box-shadow: inset 0 1px 0 #ffffff33, 0 0 0 #0a101c99; }
+.act-row.main button small { opacity: 0.95; }
+#a-fold { background: linear-gradient(#5b6880, #48536a); border-color: #8a98b0; color: #fff; }
+#a-call { background: linear-gradient(#2c70c4, #2257a2); border-color: #7db4f2; color: #fff; }
+#a-raise { background: linear-gradient(#5e4a18, #463611); border-color: var(--accent); color: #ffe08a; }
+.act-row.size { background: var(--panel); border-color: var(--line); }
+.act-row.size button { background: var(--panel-2); border-color: #55647d; }
+.presets button.on { border-color: var(--accent); color: var(--accent); background: #ffd1661a; }
+.act-row input[type=number] { background: #161d29; border-color: #55647d; }
+
+/* side panel, feedback cards, log */
+#side { background: #1e2634; border-left-color: #ffffff1f; }
+.fb { background: var(--panel); }
+.fb.mistake { background: linear-gradient(90deg, #ffb64814, #ffb64800 55%), var(--panel); }
+.fb.blunder { background: linear-gradient(90deg, #ff858517, #ff858500 55%), var(--panel); }
+.fb p { color: #e2e7ef; }
+.fb .theory { color: #ecd9a0; }
+#log .ln { color: #d5dbe5; }
+
+/* modals */
+#modal { background: #0a0f1aa6; }
+#modal-box { border-color: #5a6a85; box-shadow: 0 30px 80px #05080e99; }
+.form-row select, .form-row input { background: #161d29; border-color: #55647d; }
+.bar { background: #161d29; }
+.big-avatar { background: radial-gradient(circle at 35% 28%, #7083a3, #36425a); border-color: #8ea0c0; }
+.tune, .leak, .kv div { background: var(--panel-2); }
+
+@media (max-width: 1180px) {
+  #side { background: #1e2634fa; box-shadow: -20px 0 50px #0a101c99; }
+}

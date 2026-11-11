@@ -805,6 +805,8 @@ window.trainer = { get session() { return sess; }, settings, act, nextHand };
 // http://localhost:5173/?demo=7 skips the set-up screen and jumps to a mid-session decision
 // with coach feedback showing (used for screenshots). The number picks the session.
 function demo(seed) {
+  // Always the standard casino table, whatever is saved in Settings.
+  Object.assign(settings, DEFAULTS, { home: settings.home });
   sess = new Session({ ...sessionOpts(), seed });
   sess.startPlayable();
   for (let k = 0; k < 4000; k++) {

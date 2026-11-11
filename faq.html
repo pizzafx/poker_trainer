@@ -52,7 +52,7 @@
     <a href="#opponents">Who am I playing against?</a>
     <a href="#source">Where do their tendencies come from?</a>
     <a href="#trust">How much should I trust it?</a>
-    <a href="#bots">Why won't it tell me to bluff more?</a>
+    <a href="#bots">Is it saying never bluff-raise?</a>
     <a href="#change">My game plays differently. Can I change it?</a>
     <a href="#drill">What is drill mode?</a>
     <a href="#home">What is home game mode?</a>
@@ -160,15 +160,21 @@
   <div class="box red"><strong>Trust least:</strong> any advice to bluff, and any advice in very deep-stacked or very large pots. These depend most on the assumed numbers.</div>
   <p>One number to keep in mind: a player who blindly took the coach's top-rated option on every hand would win several times what a strong live player really makes. That gap is the measure of how much easier these opponents are than the real thing. Use the trainer to build habits, not to estimate your hourly rate.</p>
 
-  <h3 id="bots">Why won't it tell me to bluff more? It says "fine" when a raise scored higher.</h3>
-  <p>Deliberately. A simulation finds every weakness in simulated opponents, including ones real people do not have. Left alone, it would teach you to bluff-raise turns and shove one pair for twice the pot, because the bots fold or call a little too predictably. Those plays lose money against people. So the coach has guardrails:</p>
+  <h3 id="bots">Is it saying I should never bluff-raise?</h3>
+  <p>No. Bluff-raising is sometimes right at these stakes: against a regular who bets the flop with everything and gives up when raised, or with a big draw that can also get there. It is just right far less often than in theory, because most of the pool does not bet without a hand and does not fold one once they have it.</p>
+  <p>What the trainer does is one-sided on purpose:</p>
   <ul>
-    <li>Declining to raise as a bluff is never a mistake.</li>
-    <li>With less than two pair, you are compared with the best bet up to the size of the pot, not with an overbet.</li>
-    <li>Passing on a river bluff with a weak hand is only flagged when the gap is very large.</li>
-    <li><strong>The stress test:</strong> every flag is re-run with the opponents made a little looser and a little tighter than assumed. If the flag disappears either way, it is dropped.</li>
+    <li><strong>If you bluff-raise,</strong> it is judged like any other play. Against the right opponent it gets a green tick. Into a calling station it gets flagged, with the cost.</li>
+    <li><strong>If you do not bluff-raise,</strong> you are never marked down for it, even when the simulation rated the raise higher. The coach will tell you it rated higher and leave your play green.</li>
   </ul>
-  <p>When a guardrail applies, the coach says so: your play is marked fine, with a note that the higher-scoring option only works on these bots.</p>
+  <p>The reason for the lopsidedness: how often live players fold to a raise is the least reliable number in the whole model. Nobody has measured it, and simulated opponents fold a little too predictably, so a simulation left alone finds bluff-raises everywhere. Telling you "you should have raised with nothing" on the strength of that number would build an expensive habit on a guess. Not bluff-raising in a spot where it was right costs you a little now and then; bluff-raising people who do not fold costs you stacks.</p>
+  <p>The same caution is applied in three other places:</p>
+  <ul>
+    <li><strong>Overbets with one pair.</strong> With less than two pair you are compared with the best bet up to the size of the pot, so you are not marked down for not shoving.</li>
+    <li><strong>Thin river bluffs.</strong> Checking back a weak hand on the river is only flagged when betting was better by a very wide margin.</li>
+    <li><strong>The stress test.</strong> Every flag is re-run with the opponents made a little looser and a little tighter than assumed. If the flag disappears either way, it is dropped.</li>
+  </ul>
+  <p>So read a green tick with a note like "a raise scored higher against these bots" as: fine play, and here is something to think about, not something to copy at the casino tomorrow.</p>
 
   <h3 id="change">My game plays differently. Can I change it?</h3>
   <p>Yes. The <strong>Players</strong> button opens sliders for each type: how many hands they play and raise, how often they bluff, the weakest hand they call a river bet with, the hand they never fold, how often they chase draws, and how common the type is. If the stations in your room fold more than these do, move the slider. Changes are saved in your browser.</p>

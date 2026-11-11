@@ -139,9 +139,11 @@ start getting called lighter.
   every player. Hover over a seat to see it.
 - **Skip junk hands.** The bottom 15% of starting hands are folded for you, so you spend
   your time on decisions that matter.
-- **VPIP at a glance.** Once you have watched a player for a few hands, a ring around their
-  avatar fills to how often they put money in, with the number beneath: blue for tight, green
-  for average, amber for loose, red for playing almost everything.
+- **VPIP at a glance.** Once you have watched a player for eight hands, a ring around their
+  avatar fills to how often they put money in, and a pill under their name plate shows the
+  number: blue for tight, green for average, amber for loose, red for playing almost
+  everything. Hover over the pill for the count behind it ("put money in voluntarily in 18 of
+  the 41 hands you have watched") and what it means.
 - **Player notes.** Hover over a seat for what you have seen that player do (how loose,
   how aggressive, the last hand they showed) and the coach's read in words. Click for the
   full card: every showdown and how they played it, plus a spoiler button for their true

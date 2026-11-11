@@ -103,7 +103,7 @@ buttons step back through the hand so you can watch a range narrow.
 | Tight-passive nit | Waits for big hands. When the money goes in, he has it. |
 | Straightforward recreational | Bets when he hits, gives up when he misses. |
 | Calling station | Sees lots of flops and hates folding a pair or a draw. |
-| Gambler | Any two cards, calls far too much, fires the odd wild bluff. |
+| Gambler | Plays most hands, calls far too much, fires the odd wild bluff. |
 | Maniac | Raises and barrels constantly. Big bets mean much less from him. |
 | Solver-style player | Small bets, balanced bluffs, by the chart whoever he faces. |
 | Solid regular | Tight-aggressive grinder who isolates limpers. |
@@ -219,6 +219,11 @@ scripts/       checks and diagnostics
 reports/       the research report behind the opponent model
 research_notes/ raw notes from each research thread
 ```
+
+## Licence
+
+The code is MIT licensed: see [`LICENSE`](LICENSE). The research report and notes in
+`reports/` and `research_notes/` are included for reference and are not covered by it.
 
 ## Ideas for later
 

@@ -72,10 +72,13 @@ export function candidateActions(s, heroAction) {
     if (to >= 0.8 * top) to = top;
     clean.add(to);
   }
-  // When stacks are so short that every pot-based size is all-in, still offer a smaller bet.
+  // When stacks are so short that every pot-based size is all-in, size against what is left
+  // to bet instead: a third and two-thirds of it, and all of it.
   if (L.canRaise && clean.size === 1 && clean.has(top)) {
-    const half = roundChips(top * 0.5);
-    if (half >= L.minTo && half < 0.8 * top) clean.add(half);
+    for (const f of [1 / 3, 2 / 3]) {
+      const to = roundChips(top * f);
+      if (to >= L.minTo && to < 0.8 * top) clean.add(to);
+    }
   }
   for (const to of [...clean].sort((a, b) => a - b)) out.push({ type: 'raise', to });
   for (const a of out) a.label = label(a, s, L);

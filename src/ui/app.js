@@ -289,8 +289,17 @@ function presets(L, s) {
     for (const m of [2.5, 3]) out.push([`${m}x`, m * s.currentBet]);
     out.push(['Pot', s.currentBet + pot + L.callAmt]);
   }
-  out.push(['All-in', L.maxTo]);
-  return out.map(([l, v]) => [l, Math.max(L.minTo, Math.min(L.maxTo, Math.round(v)))]);
+  // Betting more than the biggest remaining opponent can call is the same as putting them
+  // all-in, so sizes above that are dropped and the last button covers them.
+  let cover = 0;
+  for (let i = 0; i < s.n; i++) if (i !== s.toAct && !s.folded[i]) cover = Math.max(cover, s.bet[i] + s.stacks[i]);
+  const top = Math.max(L.minTo, Math.min(L.maxTo, cover));
+  const kept = out.filter(([, v]) => Math.round(v) < 0.8 * top);
+  if (!kept.length && s.currentBet === 0) {
+    kept.push(['⅓ of stacks', top / 3], ['⅔ of stacks', (2 * top) / 3]);
+  }
+  kept.push([top >= L.maxTo ? 'All-in' : 'Put them all-in', top]);
+  return kept.map(([l, v]) => [l, Math.max(L.minTo, Math.min(L.maxTo, Math.round(v)))]);
 }
 
 function renderActions() {

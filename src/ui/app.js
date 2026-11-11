@@ -188,7 +188,7 @@ function renderTable() {
       if (top.p >= 0.45) {
         const lvl = top.p >= 0.75 ? 3 : top.p >= 0.6 ? 2 : 1;
         const word = shortType(top.id);
-        const label = lvl === 3 ? word : lvl === 2 ? `Likely ${word.toLowerCase()}` : `${word}?`;
+        const label = lvl === 3 ? word : lvl === 2 ? `Likely ${word === 'ABC' ? word : word.toLowerCase()}` : `${word}?`;
         read = `<div class="read ${lvl >= 2 ? 'firm' : ''}"><i class="conf c${lvl}"></i>${esc(label)}</div>`;
       } else read = `<div class="read">–</div>`;
     }

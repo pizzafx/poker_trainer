@@ -965,3 +965,22 @@ body:has(.drill-chip) #sim-wrap { display: none; }
   .rc { font-size: 8px; }
   .kv { grid-template-columns: repeat(2, 1fr); }
 }
+
+
+/* "Disagree?" on a flagged verdict, and its report form */
+.fb .disagree { margin-top: 8px; padding: 4px 10px; font-size: 12.5px; color: #c5ccd8; background: none; border: 1px solid #55647d; border-radius: 999px; }
+.fb .disagree:hover { color: var(--text); border-color: #8ea0c0; }
+#modal-box .d-label { display: block; color: var(--muted); margin: 12px 0 6px; }
+#modal-box .d-label small { color: var(--muted); opacity: 0.8; }
+#d-why { width: 100%; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid #55647d; background: #161d29; color: var(--text); resize: vertical; }
+.d-preview { margin-top: 12px; }
+.d-preview summary { cursor: pointer; color: var(--muted); }
+#d-text { max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-word; font: 11.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; background: #0d1117; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; color: #c5ccd8; }
+#d-status { margin-right: auto; align-self: center; }
+@media (max-width: 600px) {
+  #modal-box .form-row { flex-direction: column; align-items: stretch; gap: 6px; }
+  #modal-box .form-row label { width: auto; }
+  #modal-box .modal-actions { flex-wrap: wrap; }
+  #d-status { flex: 1 1 100%; }
+}
+.d-preview .hint { text-align: left; }

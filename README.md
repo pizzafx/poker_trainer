@@ -125,6 +125,10 @@ start getting called lighter.
 - **Leak review.** Mistakes are grouped into types (paying off, bluffing callers, missed
   value, sizing, preflop too loose or too passive, and more), ranked by cost, and tracked
   across sessions in your browser.
+- **Disagree?** Think the coach got a flagged play wrong? The button on the verdict makes a
+  report of the hand (cards, action, the coach's reads, every option's numbers, and once the
+  hand is over what everyone held) with what you would have done and why. Copy it into a
+  message or save it as a file. Nothing is sent from the page.
 - **Drill mode.** Pick a leak and the trainer deals only that kind of spot, one after
   another, playing the earlier streets for you. One decision, one verdict, next spot.
 - **Home game mode.** Pick it under Settings → Mode. Set whole-dollar blinds and a buy-in,

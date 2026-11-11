@@ -10,6 +10,7 @@ import { CATEGORIES } from '../trainer/explain.js';
 import { DRILLS } from '../trainer/drills.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
+import { disputeReport, disputeText, disputeFileName } from '../trainer/dispute.js';
 
 const $ = (id) => document.getElementById(id);
 const HERO = 0;
@@ -417,8 +418,73 @@ function fbCard(d, showWhere = true) {
     <details><summary>Show the numbers</summary>
       <table class="ev">${rows}</table>
       <div class="hint">Average result of each option from this point, over ${v.samples} simulated run-outs against hands that fit how these opponents have played. These are estimates: options marked ≈ are within the margin of error of the best one.</div>
-    </details></div>`;
+    </details>${v.grade !== 'good' && sess && sess.decisions.includes(d) ? `<button class="disagree" data-id="${d.id}" title="Think the coach got this wrong? Make a report of the hand to send us.">Disagree?</button>` : ''}</div>`;
 }
+
+// "Disagree?" on a flagged verdict: the player says what they would have done and why, and gets
+// a report of the hand to copy or save and send us. Nothing leaves the browser from here.
+function disputeModal(d) {
+  const v = d.verdict;
+  const others = v.options.filter((_, i) => i !== v.mine).map((o) => o.label);
+  openModal(`<h1>Disagree with the coach?</h1>
+    <p class="sub">Tell us what you would have done. This makes a report of the hand that you can copy into a message or save as a file and send to us. Nothing is sent from this page.</p>
+    <div class="fb ${v.grade}"><div class="where">Hand ${d.hand} · ${d.streetName} · ${d.position} ${cardsInline(d.hole)}${d.board.length ? ' on ' + cardsInline(d.board) : ''}</div><div class="head">${esc(d.headline)}</div></div>
+    <div class="form-row"><label for="d-pref">What would you do?</label><select id="d-pref">${others.map((l) => `<option>${esc(l)}</option>`).join('')}<option value="">Something else (say below)</option></select></div>
+    <label class="d-label" for="d-why">Why? <small>(optional, but it helps most)</small></label>
+    <textarea id="d-why" rows="3" maxlength="1500" placeholder="For example: this player never folds a pair, so the bluff cannot work."></textarea>
+    <details class="d-preview"><summary>What the report contains</summary>
+      <p class="hint">Your cards, the board, every action so far, stacks, the coach's read of each opponent and every option with its numbers. ${d.truth ? 'The hand is over, so it also has what each opponent really held.' : 'The hand is still going, so opponents\' cards are left out.'} No personal information.</p>
+      <pre id="d-text"></pre></details>
+    <div class="modal-actions"><span id="d-status" class="hint" role="status" aria-live="polite"></span><button id="d-close">Close</button><button id="d-save">Save as file</button><button class="primary" id="d-copy">Copy report</button></div>`);
+  const build = () => disputeReport(d, { preferred: $('d-pref').value, why: $('d-why').value.trim() });
+  const show = () => ($('d-text').textContent = disputeText(build()));
+  const status = (msg) => ($('d-status').textContent = msg);
+  $('d-pref').onchange = show;
+  $('d-why').oninput = show;
+  show();
+  $('d-close').onclick = closeModal;
+  $('d-copy').onclick = async () => {
+    const text = disputeText(build());
+    try {
+      await navigator.clipboard.writeText(text);
+      status('Copied. Paste it into a message to us.');
+    } catch {
+      // Clipboard blocked (older browser or no permission): select the text for a manual copy.
+      const pre = $('d-text');
+      pre.closest('details').open = true;
+      const range = document.createRange();
+      range.selectNodeContents(pre);
+      const sel = getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      let copied = false;
+      try {
+        copied = document.execCommand('copy');
+      } catch {
+        /* not supported */
+      }
+      status(copied ? 'Copied. Paste it into a message to us.' : 'Could not copy automatically. The report is selected: copy it with Ctrl+C or Cmd+C.');
+    }
+  };
+  $('d-save').onclick = () => {
+    const report = build();
+    const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = disputeFileName(report);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    status(`Saved ${a.download}. Attach it to a message to us.`);
+  };
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('button.disagree');
+  if (!b || !sess) return;
+  const d = sess.decisions.find((x) => x.id === +b.dataset.id);
+  if (d) disputeModal(d);
+});
 
 function renderFeedback() {
   const h = sess.hand;

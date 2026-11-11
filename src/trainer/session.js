@@ -10,6 +10,7 @@ import { PROFILES, TYPE_IDS, tilted, HERO_PROFILE } from '../bots/profiles.js';
 import { makePlayer, tiltChance, rebuyChance, buyIn, TABLES } from './players.js';
 import { HandBelief, newRead, posterior } from './belief.js';
 import { judgeDecision, rangePicture } from './judge.js';
+import { snapshotDecision, handTruth } from './dispute.js';
 import { explain } from './explain.js';
 
 export const GAMES = {
@@ -298,6 +299,7 @@ export class Session {
     const live = [];
     for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) live.push(i);
     const record = {
+      id: this.decisions.length + 1,
       hand: this.handNo,
       street: s.street,
       streetName: STREET_NAMES[s.street],
@@ -315,6 +317,8 @@ export class Session {
       tier: feats ? feats.tier : null,
       drawEquity: feats ? feats.drawEquity : 0,
       ctx,
+      // The table as the trainee saw it, for a "Disagree?" report.
+      snapshot: snapshotDecision(this, s, judgeOpts),
     };
     Object.assign(record, explain(record));
     h.decisions.push(record);
@@ -335,6 +339,11 @@ export class Session {
     const s = h.state;
     h.over = true;
     const r = s.result;
+    // Now that the hand is over, reports on its decisions may show what everyone really held.
+    if (h.decisions.length) {
+      const truth = handTruth(this, s);
+      for (const d of h.decisions) d.truth = truth;
+    }
     const bb = this.game.bb;
     // Getting caught bluffing at showdown is remembered; otherwise the table slowly forgets.
     this.heat *= 0.92;

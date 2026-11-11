@@ -9,6 +9,9 @@ against a calling station, and a play a solver hates gets a green tick if it pri
 
 ![The trainer: table, coach verdict and reasoning](docs/table.jpg)
 
+New here? The app has an **FAQ** (button in the header, or [`faq.html`](faq.html)) written
+for poker players: how decisions are graded, what the colours mean, and how far to trust it.
+
 ## Why not just study GTO?
 
 Solvers assume opponents who bluff the right amount, fold the right amount and punish every

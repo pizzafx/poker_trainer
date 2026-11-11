@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAQ · Live Low-Stakes Trainer</title>
+<link rel="stylesheet" href="src/ui/table.css">
+<style>
+  body.faq { display: block; overflow: auto; height: auto; min-height: 100%; background-attachment: fixed; }
+  .faq-wrap { max-width: 780px; margin: 0 auto; padding: 28px 22px 80px; font-size: 16px; line-height: 1.6; }
+  .faq-wrap h1 { font-size: 30px; margin: 0 0 6px; }
+  .faq-wrap .lede { color: var(--muted); font-size: 18px; margin: 0 0 22px; }
+  .faq-wrap h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--accent); margin: 38px 0 8px; }
+  .faq-wrap h3 { font-size: 19px; margin: 26px 0 6px; scroll-margin-top: 16px; }
+  .faq-wrap p, .faq-wrap li { color: #d7dce5; }
+  .faq-wrap p { margin: 8px 0; }
+  .faq-wrap ul, .faq-wrap ol { margin: 8px 0; padding-left: 22px; }
+  .faq-wrap li { margin: 4px 0; }
+  .faq-wrap a { color: #8fc7ff; }
+  .faq-wrap strong { color: var(--text); }
+  .toc { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; columns: 2; column-gap: 28px; font-size: 14.5px; }
+  .toc a { display: block; padding: 2px 0; text-decoration: none; break-inside: avoid; }
+  .toc a:hover { text-decoration: underline; }
+  .box { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 10px; padding: 12px 16px; margin: 14px 0; }
+  .box.red { border-left-color: var(--bad); }
+  .box.green { border-left-color: var(--good); }
+  .faq-wrap table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 15px; }
+  .faq-wrap th, .faq-wrap td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .faq-wrap th { color: var(--muted); font-weight: 600; }
+  .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  .back { display: inline-block; margin-bottom: 18px; text-decoration: none; }
+  @media (max-width: 640px) { .toc { columns: 1; } }
+</style>
+</head>
+<body class="faq">
+<div class="faq-wrap">
+  <a class="back" href="index.html">← Back to the table</a>
+  <h1>Questions poker players ask</h1>
+  <p class="lede">What this trainer is for, how it grades your decisions, and how far to trust it.</p>
+
+  <div class="toc">
+    <a href="#what">What is this?</a>
+    <a href="#gto">Why not just study GTO?</a>
+    <a href="#judge">How does it decide a play is a mistake?</a>
+    <a href="#colours">What do green, yellow and red mean?</a>
+    <a href="#cost">What does "costs about $40" mean?</a>
+    <a href="#won">I won the pot. Why was it a blunder?</a>
+    <a href="#ranges">How does it know what they have?</a>
+    <a href="#reads">How do reads work?</a>
+    <a href="#theory">What is "why theory disagrees"?</a>
+    <a href="#approx">What does ≈ mean?</a>
+    <a href="#opponents">Who am I playing against?</a>
+    <a href="#source">Where do their tendencies come from?</a>
+    <a href="#trust">How much should I trust it?</a>
+    <a href="#bots">Why won't it tell me to bluff more?</a>
+    <a href="#change">My game plays differently. Can I change it?</a>
+    <a href="#drill">What is drill mode?</a>
+    <a href="#home">What is home game mode?</a>
+    <a href="#skip">Why were hands skipped?</a>
+    <a href="#other">Tournaments? Online? Other games?</a>
+    <a href="#data">Where does my data go?</a>
+  </div>
+
+  <h2>The idea</h2>
+
+  <h3 id="what">What is this?</h3>
+  <p>A practice table for live $2/$3 and $3/$5 no-limit hold'em. You sit with seven opponents who play like the people in a card room: the retiree who only raises aces, the guy who calls every flop, the kid in the hoodie, the loud one on his third beer. You make every decision yourself, and after each one a coach tells you whether it made or lost money against <strong>these particular players</strong>.</p>
+  <p>It is for players who know the rules and the basics and want to win more at low-stakes live games. It is not a solver and does not try to be.</p>
+
+  <h3 id="gto">Why not just study GTO?</h3>
+  <p>Game-theory-optimal play is the strategy that cannot be beaten by a perfect opponent. It is the right thing to study if your opponents are good. At $2/$3 they mostly are not, and the way they are bad is predictable:</p>
+  <ul>
+    <li>They limp and call far too many hands before the flop.</li>
+    <li>They call too much after the flop with any pair or any draw.</li>
+    <li>They rarely bluff the river and almost never raise it without a big hand.</li>
+    <li>They bet big when they are strong and small when they are not.</li>
+  </ul>
+  <p>Against players like that, the solver's play is often not the money play. A solver calls a river raise with top pair top kicker some of the time so it cannot be bluffed. A retiree who has check-called twice and now raises the river is not bluffing, so that call just burns money. A solver bluffs rivers at a balanced frequency. A calling station does not fold, so the bluff burns money too.</p>
+  <div class="box">The trainer flags the play that loses money against the people at the table, even when a solver would approve of it. And it gives a green tick to plays a solver hates when they print.</div>
+
+  <h2>How decisions are graded</h2>
+
+  <h3 id="judge">How does it decide a play is a mistake?</h3>
+  <p>It does not look anything up. Every time you act it runs an experiment:</p>
+  <ol>
+    <li><strong>Who are they?</strong> For each opponent still in the hand it uses the current read: what an attentive player could conclude from their look, their betting and their showdowns so far.</li>
+    <li><strong>What can they hold?</strong> It works out which hands fit the way that kind of player has played this hand. A nit who limped, called a raise and check-raised the turn has a very different range from a maniac who did the same.</li>
+    <li><strong>Play it out.</strong> It deals the opponents hands from those ranges and plays the rest of the hand to the end for each of your options: fold, call, and several bet or raise sizes. It does this 3,000 times before and on the flop, 1,500 times on the turn and about 800 times on the river, using the same cards for every option so the comparison is fair.</li>
+    <li><strong>Compare.</strong> The average result of each option is its value. If the option you chose is clearly worse than the best one, it is flagged.</li>
+  </ol>
+  <p>Your own later decisions in those play-outs are made by a solid, exploit-aware stand-in. So "call" is valued as "call now and then play the rest of the hand sensibly".</p>
+
+  <h3 id="colours">What do green, yellow and red mean?</h3>
+  <table>
+    <tr><th></th><th>Meaning</th><th>When</th></tr>
+    <tr><td><span class="dot" style="background:var(--good)"></span>Green</td><td>Fine</td><td>Your play was the best option, or too close to the best to tell apart.</td></tr>
+    <tr><td><span class="dot" style="background:var(--warn)"></span>Yellow</td><td>Mistake</td><td>It gives up at least 1.5 big blinds and at least 6% of the pot compared with the best option.</td></tr>
+    <tr><td><span class="dot" style="background:var(--bad)"></span>Red</td><td>Blunder</td><td>It gives up at least 4 big blinds and at least 14% of the pot.</td></tr>
+  </table>
+  <p>On top of that, the gap has to be well clear of the simulation's margin of error, and it has to survive a stress test (see <a href="#bots">below</a>). Choosing a slightly different bet size needs a bigger gap before it is flagged. Folding before the flop is never graded worse than a mistake.</p>
+  <p>The table keeps dealing while you are green. A yellow or red play stops it so you can read why.</p>
+
+  <h3 id="cost">What does "costs about $40" mean?</h3>
+  <p>It is the difference in <strong>average</strong> result between what you did and the best option, over thousands of play-outs. It is not what you won or lost on this hand. If calling loses $40 on average and folding loses nothing, the call "costs about $40" whether or not you happened to hit your card this time.</p>
+  <p>"Mistakes cost" in the header adds those up for the session. It is the most honest number on the screen: it is how much your decisions gave away, with the luck taken out.</p>
+
+  <h3 id="won">I won the pot. Why was it a blunder?</h3>
+  <p>Because the grade is about the decision, not the outcome. Calling a nit's river raise with one pair is a losing play even on the night he turns over a missed draw. The reverse is true as well: you will see a green tick on hands where you got stacked, because getting the money in was right and the cards fell badly. This is the hardest habit to build at a real table, and it is the main thing the trainer is for.</p>
+
+  <h3 id="ranges">How does it know what they have?</h3>
+  <p>It does not peek. It never uses the opponent's actual cards. It starts with every hand they could hold and, at each action they take, asks "how likely is this kind of player to do that with each hand?" Hands that fit stay; hands that do not fit fade out. By the river a tight player who has raised twice has a narrow range of strong hands, and a station who has only called has a wide range of pairs and busted draws.</p>
+  <p>When a play is flagged, the coach shows you that range in words: roughly what share is two pair or better, one pair, draws and nothing, and how much of it your hand beats compared with the price you were being offered.</p>
+
+  <h3 id="reads">How do reads work?</h3>
+  <p>Every opponent has a hidden style. What you see is what you would see live:</p>
+  <ul>
+    <li><strong>A look.</strong> Ball cap and coffee, hoodie and headphones, team jersey with one eye on the TV. Looks are linked to styles only loosely. The old man is usually tight; sometimes he is the biggest gambler at the table.</li>
+    <li><strong>Their betting.</strong> Every limp, raise, call and fold shifts the read.</li>
+    <li><strong>Showdowns.</strong> A shown hand tells you the most: what they called three streets with, what they raised with.</li>
+  </ul>
+  <p>The line under each seat ("Station 72%") is the coach's current read, with a bar for how sure it is. A dash means no read yet. You are graded against that read, not against the hidden truth, so early in a session the coach judges your play against the mix of players a stranger could be. Click a seat to see what you have observed, the hands they have shown, and a spoiler button for their real style.</p>
+  <p>Reads never reach certainty. Even after a long session the coach tops out below 90%.</p>
+
+  <h3 id="theory">What is "why theory disagrees"?</h3>
+  <p>When a play is flagged, the gold paragraph explains why a theory-trained player might have made it and why it fails here. For example: a solver calls with a hand that strong so it cannot be bluffed, and that protection is worth nothing against someone who does not bluff in that spot. It only appears where theory really would take the other side.</p>
+
+  <h3 id="approx">What does ≈ mean in "Show the numbers"?</h3>
+  <p>The values are estimates from a simulation, not exact answers. An option marked ≈ is within the margin of error of the best one: on another run it could come out on top. Treat those as equal. Clear-cut decisions come out the same every time; close ones can swap places, which is why close ones are never flagged.</p>
+
+  <h2>The opponents</h2>
+
+  <h3 id="opponents">Who am I playing against?</h3>
+  <table>
+    <tr><th>Type</th><th>How they play</th></tr>
+    <tr><td>Tight-passive nit</td><td>Waits for big hands, limps a lot, rarely raises. When the money goes in, he has it.</td></tr>
+    <tr><td>Straightforward recreational</td><td>Bets when he hits, gives up when he misses, limps along.</td></tr>
+    <tr><td>Calling station</td><td>Sees lots of flops and hates folding a pair or a draw. Raises only with a big hand.</td></tr>
+    <tr><td>Gambler</td><td>Any two cards, calls far too much, fires the odd wild bluff.</td></tr>
+    <tr><td>Maniac</td><td>Raises and barrels constantly. His big bets mean much less.</td></tr>
+    <tr><td>Solver-style player</td><td>Small bets, balanced bluffs, by the chart whoever he is up against.</td></tr>
+    <tr><td>Solid regular</td><td>Tight-aggressive grinder who isolates limpers and respects passive players' raises.</td></tr>
+    <tr><td>Tricky regular</td><td>Plays many hands in position and applies pressure, with better timing than the maniac.</td></tr>
+    <tr><td>Total beginner</td><td>Home games only. Plays most hands, min-bets, and gets scared off by big bets.</td></tr>
+  </table>
+  <p>No two players of a type are identical: each is a little looser or tighter, more or less sticky than the template. They buy in for different amounts, some sit short, they leave and get replaced, and they go on tilt after losing a big pot (sometimes visibly). The table also notices you. Raise and bluff a lot and you start getting called lighter for a while; get caught bluffing at showdown and it sticks.</p>
+
+  <h3 id="source">Where do their tendencies come from?</h3>
+  <p>From research into how these games are played, and an honest gap in that research.</p>
+  <ul>
+    <li><strong>Before the flop there is real data.</strong> The one tracked sample of low-stakes live play found about 35% of hands played, 6% raised, four players seeing the average flop, and limpers calling a raise a little over half the time. The opponents here reproduce those numbers.</li>
+    <li><strong>After the flop there is none.</strong> Nobody has published how often live low-stakes players fold to a bet of each size, or how often their river raises are bluffs. What exists is strong agreement among coaches about the direction: they call too much, bluff rivers too little, and their raises are real. The opponents follow that direction; the exact numbers are assumptions.</li>
+  </ul>
+  <p>The full report, with every source and a list of what could not be found, is in the project's <code>reports</code> folder.</p>
+
+  <h2>Trust</h2>
+
+  <h3 id="trust">How much should I trust it?</h3>
+  <div class="box green"><strong>Trust most:</strong> fold one pair to a passive player's raise. Value-bet more often and bigger against players who call. Stop bluffing people who do not fold. Raise big over limpers. Stop calling raises with hands that are dominated. These rest on the strongest evidence and on what coaches agree about.</div>
+  <div class="box"><strong>Trust the direction, not the dollars:</strong> the size of each "costs about $X". The opponents are easier to beat than real people, so the figures run high.</div>
+  <div class="box red"><strong>Trust least:</strong> any advice to bluff, and any advice in very deep-stacked or very large pots. These depend most on the assumed numbers.</div>
+  <p>One number to keep in mind: a player who blindly took the coach's top-rated option on every hand would win several times what a strong live player really makes. That gap is the measure of how much easier these opponents are than the real thing. Use the trainer to build habits, not to estimate your hourly rate.</p>
+
+  <h3 id="bots">Why won't it tell me to bluff more? It says "fine" when a raise scored higher.</h3>
+  <p>Deliberately. A simulation finds every weakness in simulated opponents, including ones real people do not have. Left alone, it would teach you to bluff-raise turns and shove one pair for twice the pot, because the bots fold or call a little too predictably. Those plays lose money against people. So the coach has guardrails:</p>
+  <ul>
+    <li>Declining to raise as a bluff is never a mistake.</li>
+    <li>With less than two pair, you are compared with the best bet up to the size of the pot, not with an overbet.</li>
+    <li>Passing on a river bluff with a weak hand is only flagged when the gap is very large.</li>
+    <li><strong>The stress test:</strong> every flag is re-run with the opponents made a little looser and a little tighter than assumed. If the flag disappears either way, it is dropped.</li>
+  </ul>
+  <p>When a guardrail applies, the coach says so: your play is marked fine, with a note that the higher-scoring option only works on these bots.</p>
+
+  <h3 id="change">My game plays differently. Can I change it?</h3>
+  <p>Yes. The <strong>Players</strong> button opens sliders for each type: how many hands they play and raise, how often they bluff, the weakest hand they call a river bet with, the hand they never fold, how often they chase draws, and how common the type is. If the stations in your room fold more than these do, move the slider. Changes are saved in your browser.</p>
+  <p>In <strong>Settings</strong> you can also pick the table: typical, aggressive, conservative, or loose and passive. It is the same cast in a different mix.</p>
+
+  <h2>Modes and settings</h2>
+
+  <h3 id="drill">What is drill mode?</h3>
+  <p>Every flagged play is filed under a leak: paying off, folding too much, bluffing callers, missed value, sizing, chasing draws, and four preflop leaks. <strong>Leak review</strong> ranks them by what they have cost you across all your sessions. Press <strong>Drill this</strong> on one and the trainer deals only that kind of spot, playing the earlier streets for you and stopping at the decision. One decision, one verdict, next spot. If your leak has only shown up on the turn, it deals turn spots.</p>
+
+  <h3 id="home">What is home game mode?</h3>
+  <p>Your own stakes and your own cast. Set the blinds and buy-in, then choose how many of each type sit down: three maniacs, two nits and a total beginner, say. There is no rake, everyone rebuys, and nobody leaves. You know who is coming, but you still have to work out which seat is which.</p>
+
+  <h3 id="skip">Why were hands skipped?</h3>
+  <p>By default the bottom 15% of starting hands (eight-three offsuit and friends) are folded for you, so your time goes on decisions that matter. Those hands still count: you pay your blinds, the button moves, and you keep learning about the table from the hands you sit out. You can turn this off in Settings.</p>
+
+  <h3 id="other">Does it cover tournaments, online play or other games?</h3>
+  <p>No. It is built for live, full-ring, low-stakes cash games: deep-ish stacks, raked pots, lots of limping, opponents you can see. Tournament stack sizes and payout pressure change the right play, and online pools are tighter and more aggressive. The default rake and buy-ins follow Talking Stick Resort's listed $2/$3 and $3/$5 games; other rake structures are in Settings.</p>
+
+  <h3 id="data">Where does my data go?</h3>
+  <p>Nowhere. Everything runs on your own computer in your browser. Your settings, your tracked leaks and any changes you make to the players are stored in that browser only. Clearing the browser's site data resets them.</p>
+
+  <p style="margin-top:36px"><a href="index.html">← Back to the table</a></p>
+</div>
+</body>
+</html>

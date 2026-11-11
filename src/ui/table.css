@@ -557,3 +557,7 @@ button.toast { width: 100%; text-align: left; font: inherit; color: inherit; }
 .tune input[type=range] { width: 100%; margin: 6px 0 2px; accent-color: var(--accent); }
 .tune-hint { color: var(--muted); font-size: 12.5px; }
 .tune-def { white-space: nowrap; }
+
+/* header link styled like the header buttons */
+.top-actions a { font-size: 13px; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; text-decoration: none; }
+.top-actions a:hover { border-color: #5b6880; filter: brightness(1.12); }

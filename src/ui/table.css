@@ -774,3 +774,11 @@ body:has(.drill-chip) #sim-wrap { display: none; }
   @keyframes simglow { 50% { box-shadow: 0 0 0 4px #ffd16633, 0 0 18px #ffd166aa; } }
   #btn-sim.fresh { animation: simglow 1.8s ease-in-out infinite; }
 }
+
+/* coach strip: label on its own line above the verdict, so the text never gets squeezed */
+.toast { display: grid; grid-template-columns: auto 1fr auto; column-gap: 12px; row-gap: 3px; align-items: center; }
+.toast .t-icon { grid-column: 1; grid-row: 1 / span 2; }
+.toast .t-tag { grid-column: 2; grid-row: 1; justify-self: start; }
+.toast .t-main { grid-column: 2; grid-row: 2; }
+.toast .t-more { grid-column: 3; grid-row: 1 / span 2; }
+.toast.quiet .t-main { grid-row: 1; }

@@ -103,6 +103,9 @@ let sess = null;
 let timer = null;
 let pastLog = []; // log lines from earlier hands
 let raiseTo = 0;
+// The decision raiseTo belongs to; a new decision (or a new session or drill) starts from the default size.
+let raiseHand = null;
+let raiseStep = -1;
 let shownBoard = 0; // board cards already on screen (new ones animate in)
 let shownPot = -1;
 
@@ -327,7 +330,11 @@ function renderActions() {
   if (st === 'hero') {
     const L = sess.heroOptions();
     const s = h.state;
-    if (!(raiseTo >= L.minTo && raiseTo <= L.maxTo)) raiseTo = defaultRaise(L, s);
+    if (raiseHand !== h || raiseStep !== s.history.length || !(raiseTo >= L.minTo && raiseTo <= L.maxTo)) {
+      raiseTo = defaultRaise(L, s);
+      raiseHand = h;
+      raiseStep = s.history.length;
+    }
     const verb = s.currentBet === 0 ? 'Bet' : 'Raise to';
     const pre = L.canRaise ? presets(L, s).map(([l, v]) => `<button data-to="${v}" title="$${v}">${l}</button>`).join('') : '';
     const need = L.callAmt ? Math.round((100 * L.callAmt) / (L.pot + L.callAmt)) : 0;
@@ -727,7 +734,7 @@ function settingsModal(first) {
   const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
   openModal(`
     <h1>${first ? 'Live Low-Stakes Trainer' : 'Settings'}</h1>
-    <p class="sub">${first ? 'An eight-handed casino cash game against the players you actually meet at $2/$3 and $3/$5. Every decision is scored by how much money it makes against these opponents. Plays that a solver would approve still get flagged when they lose money here.' : 'Game changes start a new session.'}</p>
+    <p class="sub">${first ? 'An eight-handed casino cash game against the players you actually meet at $1/$3 to $3/$5. Every decision is scored by how much money it makes against these opponents. Plays that a solver would approve still get flagged when they lose money here.' : 'Game changes start a new session.'}</p>
     <h3>Game</h3>
     <div class="form-row"><label>Mode</label><select id="s-mode">${opt('casino', 'Casino table', settings.mode)}${opt('home', 'Home game: you pick the stakes and the players', settings.mode)}</select></div>
     <div id="home-fields">

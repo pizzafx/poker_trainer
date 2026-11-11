@@ -13,8 +13,13 @@ import { judgeDecision, rangePicture } from './judge.js';
 import { explain } from './explain.js';
 
 export const GAMES = {
-  // Buy-in ranges as listed for Talking Stick Resort (PokerAtlas).
+  // $2/$3 and $3/$5: buy-in ranges as listed for Talking Stick Resort (PokerAtlas).
+  // $1/$3 and $2/$5: common US card-room ranges ($100-$300 at $1/$3; $200-$1,000 at $2/$5),
+  // not taken from one room. Rooms vary: some cap $1/$3 at $500 or $2/$5 at $500.
+  // The opponents play in big blinds, so the same player pool sits at every stake.
+  '1/3': { sb: 1, bb: 3, minBuy: 100, maxBuy: 300 },
   '2/3': { sb: 2, bb: 3, minBuy: 100, maxBuy: 500 },
+  '2/5': { sb: 2, bb: 5, minBuy: 200, maxBuy: 1000 },
   '3/5': { sb: 3, bb: 5, minBuy: 300, maxBuy: 1500 },
 };
 

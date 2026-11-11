@@ -10,7 +10,7 @@ against a calling station, and a play a solver hates gets a green tick if it pri
 
 There are two ways to play:
 
-- **Casino table.** An eight-handed live $2/$3 or $3/$5 game with the mix of regulars,
+- **Casino table.** An eight-handed live $1/$3, $2/$3, $2/$5 or $3/$5 game with the mix of regulars,
   retirees and gamblers you find in a card room, real rake, and players who come and go.
 - **Home game.** Your own blinds and buy-in, and you choose who sits down: three maniacs, two
   nits and a total beginner, say. No rake, everyone rebuys, and nobody leaves.
@@ -136,7 +136,7 @@ start getting called lighter.
   browser; no file editing needed.
 - **Table types.** Typical, aggressive, conservative, or loose-passive: the same player
   types in a different mix.
-- **Game settings.** $2/$3 or $3/$5, buy-in, and rake (Talking Stick Resort's listed
+- **Game settings.** $1/$3, $2/$3, $2/$5 or $3/$5, buy-in, and rake (Talking Stick Resort's listed
   structure by default, plus a capped percentage, a flat drop, or none).
 - **Quick sim.** Plays 40 hands in an instant so you start with something observed about
   every player. Hover over a seat to see it.
@@ -216,7 +216,7 @@ research_notes/ raw notes from each research thread
 
 ## Ideas for later
 
-- a separate player pool and opening sizes for $3/$5
+- separate player pools and opening sizes by stake (today the same players sit at every stake)
 - raise size as a tell (the small "click-back" raise from a passive player)
 - step-through replay of flagged hands
 - type in a real hand from last night and get the coach's view

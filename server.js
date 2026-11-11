@@ -1,4 +1,5 @@
 // Tiny static file server for the trainer. Run: npm start, then open http://localhost:5173
+// (the landing page; the table itself is play.html)
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';

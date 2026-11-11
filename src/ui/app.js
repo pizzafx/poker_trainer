@@ -823,7 +823,7 @@ $('modal').addEventListener('click', (e) => {
 function settingsModal(first) {
   const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
   openModal(`
-    <h1>${first ? 'Live Low-Stakes Trainer' : 'Settings'}</h1>
+    <h1>${first ? 'Game Theory Optional' : 'Settings'}</h1>
     <p class="sub">${first ? 'An eight-handed casino cash game against the players you actually meet at $1/$3 to $3/$5. Every decision is scored by how much money it makes against these opponents. Plays that a solver would approve still get flagged when they lose money here.' : 'Game changes start a new session.'}</p>
     <h3>Game</h3>
     <div class="form-row"><label>Mode</label><select id="s-mode">${opt('casino', 'Casino table', settings.mode)}${opt('home', 'Home game: you pick the stakes and the players', settings.mode)}</select></div>
@@ -1090,7 +1090,7 @@ $('btn-settings').onclick = () => settingsModal(false);
 // Handle for debugging from the browser console.
 window.trainer = { get session() { return sess; }, settings, act, nextHand };
 
-// http://localhost:5173/?demo=7 skips the set-up screen and jumps to a mid-session decision
+// http://localhost:5173/play.html?demo=7 skips the set-up screen and jumps to a mid-session decision
 // with coach feedback showing (used for screenshots). The number picks the session.
 function demo(seed) {
   // Always the standard casino table, whatever is saved in Settings.

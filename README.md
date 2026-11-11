@@ -1,7 +1,9 @@
-# Live Low-Stakes Trainer
+# Game Theory Optional
 
-A poker trainer for the games you actually sit in: the low-stakes game at your local casino
-and the home game with your friends.
+*GTO usually stands for game theory optimal. At your table, it's optional.*
+
+Game Theory Optional is a free poker trainer for the games you actually sit in: the
+low-stakes game at your local casino and the home game with your friends.
 
 You play no-limit hold'em in your browser against the kinds of players who really show up.
 Every decision is scored by **how much money it makes against those players**, not by what
@@ -43,7 +45,8 @@ cd poker_trainer
 ./start.sh
 ```
 
-Then open http://localhost:5173.
+Then open http://localhost:5173 and press **Play now** (or go straight to
+http://localhost:5173/play.html).
 
 `start.sh` (macOS and Linux) uses the Node.js on your machine if it is version 18 or newer.
 If not, it downloads an official Node.js build from nodejs.org into the project folder

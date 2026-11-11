@@ -992,3 +992,7 @@ body:has(.drill-chip) #sim-wrap { display: none; }
 .d-issue .hint { text-align: left; font-size: 12.5px; }
 .d-issue .hint b { color: var(--warn); font-weight: 600; }
 @media (max-width: 600px) { .d-issue { flex-direction: column; align-items: stretch; } .d-issue a.button { text-align: center; } }
+
+/* the header brand links back to the landing page */
+a.brand { color: inherit; text-decoration: none; }
+a.brand:hover { color: var(--accent); }

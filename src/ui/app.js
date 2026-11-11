@@ -837,7 +837,10 @@ $('side-close').onclick = () => document.body.classList.add('side-closed');
 $('tab-coach').onclick = () => showTab('coach');
 $('tab-log').onclick = () => showTab('log');
 if (window.innerWidth < 1180) document.body.classList.add('side-closed');
-$('btn-sim').onclick = () => quickSim();
+$('btn-sim').onclick = () => {
+  $('btn-sim').classList.remove('fresh'); // stop drawing attention once it has been used
+  quickSim();
+};
 $('btn-players').onclick = () => playersModal();
 $('btn-review').onclick = () => sess && reviewModal();
 $('btn-settings').onclick = () => settingsModal(false);

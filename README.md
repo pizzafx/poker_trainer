@@ -1,11 +1,19 @@
 # Live Low-Stakes Trainer
 
-A poker trainer for the games you actually sit in: live $2/$3 and $3/$5 no-limit hold'em.
+A poker trainer for the games you actually sit in: the low-stakes game at your local casino
+and the home game with your friends.
 
-You play an eight-handed table in your browser against the players you meet in a card room.
+You play no-limit hold'em in your browser against the kinds of players who really show up.
 Every decision is scored by **how much money it makes against those players**, not by what
 a solver would do. A play that is perfect in theory still gets flagged if it loses money
 against a calling station, and a play a solver hates gets a green tick if it prints.
+
+There are two ways to play:
+
+- **Casino table.** An eight-handed live $2/$3 or $3/$5 game with the mix of regulars,
+  retirees and gamblers you find in a card room, real rake, and players who come and go.
+- **Home game.** Your own blinds and buy-in, and you choose who sits down: three maniacs, two
+  nits and a total beginner, say. No rake, everyone rebuys, and nobody leaves.
 
 ![The trainer: table, coach verdict and reasoning](docs/table.png)
 
@@ -15,7 +23,7 @@ for poker players: how decisions are graded, what the colours mean, and how far 
 ## Why not just study GTO?
 
 Solvers assume opponents who bluff the right amount, fold the right amount and punish every
-mistake. Low-stakes live players do none of that. They limp, call too much, rarely bluff
+mistake. Low-stakes casino players and home-game regulars do none of that. They limp, call too much, rarely bluff
 rivers, and almost never raise without a real hand. The profitable adjustments are large and
 often the opposite of theory:
 
@@ -116,9 +124,10 @@ start getting called lighter.
   across sessions in your browser.
 - **Drill mode.** Pick a leak and the trainer deals only that kind of spot, one after
   another, playing the earlier streets for you. One decision, one verdict, next spot.
-- **Home game mode.** Set your own blinds and buy-in and choose exactly who sits down:
-  three maniacs, two nits and a total beginner, say. No rake, everyone rebuys, and you
-  know who is coming but not which seat is which.
+- **Home game mode.** Pick it under Settings → Mode. Set whole-dollar blinds and a buy-in,
+  then say how many of each player type to seat (one to eight opponents). You know who is
+  coming but not which seat is which. Includes a "total beginner" type that only appears
+  in home games.
 - **Players screen.** Sliders for how each opponent type plays: hands played and raised,
   bluffing, what they call with, what they never fold, how common they are. Saved in your
   browser; no file editing needed.

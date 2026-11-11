@@ -854,3 +854,10 @@ body:has(.drill-chip) #sim-wrap { display: none; }
 .seat:has(.vpip:hover) .tip { display: none; }
 .seat .tip.below { top: calc(100% + 0.6cqw); }
 .seat.folded .vpip { opacity: 0.75; }
+
+
+/* your hand in plain English, above the bet slider */
+.myhand { display: flex; justify-content: flex-end; align-items: baseline; gap: 9px; padding: 0 2px; min-height: 24px; }
+.myhand span { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.myhand b { font-size: 17px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #0008; }
+#actions { min-height: 148px; }

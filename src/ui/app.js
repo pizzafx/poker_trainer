@@ -2,6 +2,8 @@ import { Session, GAMES, RAKES } from '../trainer/session.js';
 import { RANKS } from '../engine/cards.js';
 import { potSize, positionName, STREET } from '../engine/game.js';
 import { classIndex } from '../engine/hands.js';
+import { evaluate } from '../engine/evaluator.js';
+import { handFeatures } from '../engine/features.js';
 import { PROFILES, TYPE_IDS, baseDef, currentDef, applyOverrides } from '../bots/profiles.js';
 import { CONTROLS } from '../trainer/tuning.js';
 import { CATEGORIES } from '../trainer/explain.js';
@@ -278,6 +280,47 @@ function shortType(id) {
   return { nit: 'Nit', abc: 'ABC', station: 'Station', whale: 'Gambler', maniac: 'Maniac', gto: 'Solver', tag: 'Solid reg', lag: 'Tricky reg', beginner: 'Beginner' }[id];
 }
 
+// Your hand in plain English: "Pair of Sevens", "Flush, Ace high", plus any draw.
+const RANK_ONE = ['Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Jack', 'Queen', 'King', 'Ace'];
+const RANK_MANY = ['Twos', 'Threes', 'Fours', 'Fives', 'Sixes', 'Sevens', 'Eights', 'Nines', 'Tens', 'Jacks', 'Queens', 'Kings', 'Aces'];
+function handName(hole, board) {
+  let hi = hole[0] >> 2;
+  let lo = hole[1] >> 2;
+  if (hi < lo) [hi, lo] = [lo, hi];
+  if (!board.length) {
+    if (hi === lo) return `Pocket ${RANK_MANY[hi]}`;
+    return `${RANK_ONE[hi]}-${RANK_ONE[lo]} ${(hole[0] & 3) === (hole[1] & 3) ? 'suited' : 'offsuit'}`;
+  }
+  const sc = evaluate([...hole, ...board]);
+  const cat = sc >> 20;
+  const a = (sc >> 16) & 15;
+  const b = (sc >> 12) & 15;
+  let name;
+  if (cat === 0) name = `${RANK_ONE[a]} high`;
+  else if (cat === 1) name = `Pair of ${RANK_MANY[a]}`;
+  else if (cat === 2) name = `Two Pair, ${RANK_MANY[a]} and ${RANK_MANY[b]}`;
+  else if (cat === 3) name = `Three of a Kind, ${RANK_MANY[a]}`;
+  else if (cat === 4) name = `Straight, ${RANK_ONE[a]} high`;
+  else if (cat === 5) name = `Flush, ${RANK_ONE[a]} high`;
+  else if (cat === 6) name = `Full House, ${RANK_MANY[a]} full of ${RANK_MANY[b]}`;
+  else if (cat === 7) name = `Four of a Kind, ${RANK_MANY[a]}`;
+  else name = a === 12 ? 'Royal Flush' : `Straight Flush, ${RANK_ONE[a]} high`;
+  if (board.length < 5 && cat < 4) {
+    const f = handFeatures(hole, board);
+    const draws = [];
+    if (f.flushDraw) draws.push(f.flushDraw === 2 ? 'nut flush draw' : 'flush draw');
+    if (f.straightDraw === 2) draws.push('open-ended straight draw');
+    else if (f.straightDraw === 1) draws.push('gutshot');
+    if (draws.length) name += ` + ${draws.join(' + ')}`;
+  }
+  return name;
+}
+function myHand() {
+  const s = sess.hand.state;
+  if (s.folded[HERO]) return '';
+  return `<div class="myhand"><span>Your hand</span><b>${esc(handName(s.hole[HERO], s.board))}</b></div>`;
+}
+
 function presets(L, s) {
   const out = [];
   const pot = L.pot;
@@ -320,7 +363,7 @@ function renderActions() {
     const pre = L.canRaise ? presets(L, s).map(([l, v]) => `<button data-to="${v}" title="$${v}">${l}</button>`).join('') : '';
     const need = L.callAmt ? Math.round((100 * L.callAmt) / (L.pot + L.callAmt)) : 0;
     const sizeNote = (to) => (s.currentBet > 0 ? `${(to / s.currentBet).toFixed(1)}× the bet` : `${Math.round((100 * to) / Math.max(1, L.pot))}% of the pot`);
-    el.innerHTML = `
+    el.innerHTML = `${myHand()}
       ${L.canRaise ? `<div class="act-row size presets">${pre}
         <span class="dollar">$</span><input type="number" id="a-num" aria-label="Raise amount" min="${L.minTo}" max="${L.maxTo}" value="${raiseTo}">
         <input type="range" id="a-range" aria-label="Raise amount" min="${L.minTo}" max="${L.maxTo}" value="${raiseTo}"></div>` : '<div class="act-row size empty"></div>'}
@@ -352,7 +395,7 @@ function renderActions() {
       setTo(raiseTo);
     }
   } else if (st === 'bot') {
-    el.innerHTML = `<div class="hint" style="padding:18px 0">${sess.heroInHand() ? 'Waiting for the other players…' : 'You folded. Playing the hand out…'}</div>`;
+    el.innerHTML = `${myHand()}<div class="hint" style="padding:18px 0">${sess.heroInHand() ? 'Waiting for the other players…' : 'You folded. Playing the hand out…'}</div>`;
   } else {
     const net = h.summary.net;
     const msg = net > 0 ? `You won ${money(net)}.` : net < 0 ? `You lost ${money(-net)}.` : 'No change to your stack.';

@@ -7,7 +7,7 @@ Every decision is scored by **how much money it makes against those players**, n
 a solver would do. A play that is perfect in theory still gets flagged if it loses money
 against a calling station, and a play a solver hates gets a green tick if it prints.
 
-![The trainer: table, coach verdict and reasoning](docs/table.jpg)
+![The trainer: table, coach verdict and reasoning](docs/table.png)
 
 New here? The app has an **FAQ** (button in the header, or [`faq.html`](faq.html)) written
 for poker players: how decisions are graded, what the colours mean, and how far to trust it.

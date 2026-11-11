@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Low-Stakes Trainer</title>
+<link rel="stylesheet" href="src/ui/table.css">
+</head>
+<body>
+<header id="top">
+  <div class="brand"><span class="spade">♠</span> Live Low-Stakes Trainer</div>
+  <div id="stats"></div>
+  <div class="top-actions">
+    <button id="btn-side">Coach &amp; log</button>
+    <button id="btn-review">Leak review</button>
+    <button id="btn-settings">Settings</button>
+  </div>
+</header>
+<main>
+  <section id="stage">
+    <div id="table">
+      <div id="felt">
+        <div id="pot"></div>
+        <div id="board"></div>
+      </div>
+      <div id="seats"></div>
+    </div>
+    <div id="news"></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <div id="actions"></div>
+  </section>
+  <aside id="side">
+    <div class="tabs">
+      <button id="tab-coach" class="on">Coach</button>
+      <button id="tab-log">Hand log</button>
+      <button id="side-close" title="Hide" aria-label="Hide panel">✕</button>
+    </div>
+    <div id="feedback"></div>
+    <div id="log" class="hidden"></div>
+  </aside>
+</main>
+<div id="modal" class="hidden"><div id="modal-box"></div></div>
+<script type="module" src="src/ui/app.js"></script>
+</body>
+</html>

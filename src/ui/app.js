@@ -1,6 +1,7 @@
 import { Session, GAMES, RAKES } from '../trainer/session.js';
 import { RANKS } from '../engine/cards.js';
 import { potSize, positionName, STREET } from '../engine/game.js';
+import { classIndex } from '../engine/hands.js';
 import { PROFILES, TYPE_IDS, baseDef, currentDef, applyOverrides } from '../bots/profiles.js';
 import { CONTROLS } from '../trainer/tuning.js';
 import { CATEGORIES } from '../trainer/explain.js';
@@ -12,7 +13,7 @@ const HERO = 0;
 const SUIT_SYM = ['♣', '♦', '♥', '♠'];
 const SUIT_CLS = ['c', 'd', 'h', 's'];
 
-const DEFAULTS = { v: 2, game: '2/3', maxBuy: 500, rake: 'tsr', table: 'typical', skipJunk: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450 };
+const DEFAULTS = { v: 2, game: '2/3', maxBuy: 500, rake: 'tsr', table: 'typical', skipJunk: true, rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450 };
 let settings = { ...DEFAULTS };
 try {
   const saved = JSON.parse(localStorage.getItem('trainer-settings') || '{}');
@@ -416,12 +417,124 @@ function openSide(tab) {
   document.body.classList.remove('side-closed');
   if (tab) showTab(tab);
 }
+let currentTab = 'coach';
 function showTab(tab) {
-  $('tab-coach').classList.toggle('on', tab === 'coach');
-  $('tab-log').classList.toggle('on', tab === 'log');
-  $('feedback').classList.toggle('hidden', tab !== 'coach');
-  $('log').classList.toggle('hidden', tab !== 'log');
+  currentTab = tab;
+  for (const [name, pane] of [['coach', 'feedback'], ['range', 'ranges'], ['log', 'log']]) {
+    $('tab-' + name).classList.toggle('on', tab === name);
+    $(pane).classList.toggle('hidden', tab !== name);
+  }
   if (tab === 'log') $('log').scrollTop = $('log').scrollHeight;
+  if (tab === 'range') renderRanges();
+}
+
+// ---- range grid: what the coach thinks an opponent can hold, on the 13x13 hand chart ----
+const GRID_RANKS = 'AKQJT98765432';
+const GRID = []; // [row][col] -> { name, k (class index) }
+for (let i = 0; i < 13; i++) {
+  GRID.push([]);
+  for (let j = 0; j < 13; j++) {
+    const name = i === j ? GRID_RANKS[i] + GRID_RANKS[j] : i < j ? GRID_RANKS[i] + GRID_RANKS[j] + 's' : GRID_RANKS[j] + GRID_RANKS[i] + 'o';
+    GRID[i].push({ name, k: classIndex(name) });
+  }
+}
+const KINDS = [
+  ['Two pair or better', '255,133,133'],
+  ['Top pair or overpair', '255,182,72'],
+  ['Weaker pair', '233,214,107'],
+  ['Draw', '125,180,242'],
+  ['Nothing', '154,165,184'],
+];
+const STREET_TABS = ['Preflop', 'Flop', 'Turn', 'River'];
+let rangeSeat = -1;
+let rangeStreet = 'now';
+let rangeHand = -1;
+let rangeMode = 'kind'; // colour by what they hold ('kind') or by whether you beat it ('vs')
+
+function renderRanges() {
+  const el = $('ranges');
+  if (currentTab !== 'range' || !sess || !sess.hand) return;
+  const h = sess.hand;
+  const s = h.state;
+  if (rangeHand !== h.no) {
+    rangeHand = h.no;
+    rangeStreet = 'now';
+    rangeSeat = -1;
+  }
+  if (!settings.rangesLive && !h.over) {
+    el.innerHTML = '<div class="empty">Ranges are hidden until the hand is over (you turned this on in Settings). Make your read first, then check it here.</div>';
+    return;
+  }
+  const live = [];
+  for (let i = 1; i < s.n; i++) if (!s.folded[i]) live.push(i);
+  if (!live.length) for (let i = 1; i < s.n; i++) live.push(i);
+  if (!live.includes(rangeSeat)) {
+    // Default to whoever bet or raised last, else the first player still in.
+    rangeSeat = live[0];
+    for (let k = s.history.length - 1; k >= 0; k--) {
+      const e = s.history[k];
+      if ((e.type === 'bet' || e.type === 'raise') && live.includes(e.seat)) {
+        rangeSeat = e.seat;
+        break;
+      }
+    }
+  }
+  if (rangeStreet !== 'now' && !h.rangeSnaps[rangeStreet]) rangeStreet = 'now';
+  const g = sess.rangeGrid(rangeSeat, rangeStreet);
+  const who = live.map((i) => `<button class="chip ${i === rangeSeat ? 'on' : ''}" data-seat="${i}">${esc(sess.seats[i].nick)}</button>`).join('');
+  const steps = STREET_TABS.map((label, st) => `<button class="chip ${rangeStreet === st ? 'on' : ''}" data-street="${st}" ${h.rangeSnaps[st] ? '' : 'disabled'}>${label}</button>`).join('') +
+    `<button class="chip ${rangeStreet === 'now' ? 'on' : ''}" data-street="now">${h.over ? 'End' : 'Now'}</button>`;
+  if (!g) {
+    el.innerHTML = `<div class="chips">${who}</div><div class="chips">${steps}</div><div class="empty">Nothing to show yet.</div>`;
+  } else {
+    const post = g.street > 0;
+    let cells = '';
+    for (let i = 0; i < 13; i++) {
+      for (let j = 0; j < 13; j++) {
+        const c = g.cells[GRID[i][j].k];
+        const on = c.fill > 0.015;
+        const vs = rangeMode === 'vs' && c.ahead !== null;
+        // Ahead-or-behind colouring runs red (they beat you) through amber to green (you beat them).
+        const rgb = vs ? (c.ahead >= 0.66 ? '79,224,160' : c.ahead <= 0.34 ? '255,133,133' : '255,209,102') : post && c.kind >= 0 ? KINDS[c.kind][1] : '255,209,102';
+        const alpha = on ? 0.14 + 0.86 * c.fill : 0;
+const tip = on ? `${GRID[i][j].name}: ${Math.round(c.fill * 100)}% of the way to their likeliest hand${post && c.kind >= 0 ? ', mostly ' + KINDS[c.kind][0].toLowerCase() : ''}${c.ahead !== null ? `; you beat ${Math.round(c.ahead * 100)}% of these` : ''}` : `${GRID[i][j].name}: not in range`;
+        cells += `<div class="rc ${on ? (c.fill > 0.55 ? 'hi' : 'mid') : 'off'}" style="${on ? `background:rgba(${rgb},${alpha.toFixed(2)})` : ''}" title="${tip}">${GRID[i][j].name}</div>`;
+      }
+    }
+    const read = sess.readOf(rangeSeat).ranked[0];
+    const sure = read.p >= 0.75 ? 'almost certainly' : read.p >= 0.6 ? 'probably' : read.p >= 0.45 ? 'might be' : null;
+    const basis = sure ? `Based on a read that ${esc(sess.seats[rangeSeat].nick)} is ${sure} a ${esc(read.name.toLowerCase())}.` : `No firm read on ${esc(sess.seats[rangeSeat].nick)} yet, so this blends what every type of player would hold: expect it to be wide.`;
+    const mix = g.mix ? `<div class="mixbar">${g.mix.map((m, b) => (m > 0.005 ? `<i style="width:${(m * 100).toFixed(1)}%;background:rgb(${KINDS[b][1]})" title="${KINDS[b][0]} ${Math.round(m * 100)}%"></i>` : '')).join('')}</div>
+      <div class="legend">${g.mix.map((m, b) => `<span><i style="background:rgb(${KINDS[b][1]})"></i>${KINDS[b][0]} <b>${Math.round(m * 100)}%</b></span>`).join('')}</div>` : '<div class="legend"><span><i style="background:rgb(255,209,102)"></i>Brighter = more of that hand still in their range</span></div>';
+    // Headline: where you stand against this range, and how that has moved street by street.
+    let beats = '';
+    if (g.beats !== null) {
+      const b = g.beats;
+      const word = b >= 0.8 ? 'You are ahead of almost all of it' : b >= 0.6 ? 'You are ahead of most of it' : b > 0.4 ? 'It is close to a coin flip' : b > 0.2 ? 'You are behind most of it' : 'You are behind almost all of it';
+      const trend = [1, 2, 3]
+        .filter((st) => h.rangeSnaps[st] && h.rangeSnaps[st][rangeSeat] && h.rangeSnaps[st][rangeSeat].beats !== null)
+        .map((st) => `${STREET_TABS[st]} ${Math.round(h.rangeSnaps[st][rangeSeat].beats * 100)}%`);
+      if (!h.over && rangeStreet === 'now') trend.push(`Now ${Math.round(b * 100)}%`);
+      beats = `<div class="standing ${b >= 0.6 ? 'up' : b > 0.4 ? 'even' : 'down'}">
+        <div class="st-num">${Math.round(b * 100)}%</div>
+        <div><b>${word}.</b><br>Your hand beats ${Math.round(b * 100)}% of the hands ${esc(sess.seats[rangeSeat].nick)} can have${trend.length > 1 ? `. Street by street: ${trend.join(' → ')}` : ''}.</div>
+      </div>`;
+    }
+    const modes = post ? `<div class="chips"><button class="chip ${rangeMode === 'kind' ? 'on' : ''}" data-mode="kind">Colour: what they have</button><button class="chip ${rangeMode === 'vs' ? 'on' : ''}" data-mode="vs">Colour: ahead or behind you</button></div>` : '';
+    const vsLegend = '<div class="legend"><span><i style="background:rgb(79,224,160)"></i>You beat it</span><span><i style="background:rgb(255,209,102)"></i>Mixed</span><span><i style="background:rgb(255,133,133)"></i>It beats you</span><span>Brighter = more likely</span></div>';
+    const label = rangeStreet === 'now' ? (h.over ? 'at the end of the hand' : 'right now') : `after the ${STREET_TABS[rangeStreet].toLowerCase()} betting`;
+    el.innerHTML = `
+      <div class="chips">${who}</div>
+      <div class="chips">${steps}</div>
+      <p class="range-title">What ${esc(sess.seats[rangeSeat].nick)} can hold ${label}</p>
+      ${beats}${modes}
+      <div class="rgrid">${cells}</div>
+      ${rangeMode === 'vs' && post ? vsLegend : mix}
+      <p class="hint" style="text-align:left">${basis} Suited hands are above the diagonal, offsuit below, pairs on it. This is the coach's estimate from how they have played, not their actual cards.</p>`;
+  }
+  el.querySelectorAll('[data-seat]').forEach((b) => (b.onclick = () => { rangeSeat = +b.dataset.seat; renderRanges(); }));
+  el.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => { rangeMode = b.dataset.mode; renderRanges(); }));
+  el.querySelectorAll('[data-street]').forEach((b) => (b.onclick = () => { rangeStreet = b.dataset.street === 'now' ? 'now' : +b.dataset.street; renderRanges(); }));
 }
 
 function renderLog() {
@@ -437,6 +550,7 @@ function render() {
   renderActions();
   renderFeedback();
   renderToast();
+  renderRanges();
   renderLog();
 }
 
@@ -606,6 +720,7 @@ function settingsModal(first) {
     <h3>Training</h3>
     <div class="form-row"><label>Feedback</label><select id="s-fb">${opt('now', 'Right after each decision', settings.feedback)}${opt('after', 'When the hand is over', settings.feedback)}</select></div>
     <div class="form-row"><label>Skip junk hands (bottom 15%)</label><input id="s-skip" type="checkbox" ${settings.skipJunk ? 'checked' : ''}></div>
+    <div class="form-row"><label>Show ranges during the hand</label><input id="s-ranges" type="checkbox" ${settings.rangesLive ? 'checked' : ''}></div>
     <div class="form-row"><label>Show coach's reads on seats</label><input id="s-reads" type="checkbox" ${settings.reads ? 'checked' : ''}></div>
     <div class="form-row"><label>Opponent speed</label><select id="s-speed">${opt('800', 'Slow', String(settings.speed))}${opt('450', 'Normal', String(settings.speed))}${opt('150', 'Fast', String(settings.speed))}</select></div>
     ${first ? '<p class="sub">Click any seat to see what you have observed about that player. Keys: F fold, C check/call, R bet/raise, Space next hand.</p>' : ''}
@@ -616,6 +731,7 @@ function settingsModal(first) {
   const read = () => {
     settings.feedback = $('s-fb').value;
     settings.reads = $('s-reads').checked;
+    settings.rangesLive = $('s-ranges').checked;
     settings.skipJunk = $('s-skip').checked;
     if (sess) sess.skipBelow = settings.skipJunk ? 0.15 : 0;
     settings.speed = +$('s-speed').value;
@@ -836,6 +952,7 @@ $('btn-side').onclick = () => document.body.classList.toggle('side-closed');
 $('side-close').onclick = () => document.body.classList.add('side-closed');
 $('tab-coach').onclick = () => showTab('coach');
 $('tab-log').onclick = () => showTab('log');
+$('tab-range').onclick = () => showTab('range');
 if (window.innerWidth < 1180) document.body.classList.add('side-closed');
 $('btn-sim').onclick = () => {
   $('btn-sim').classList.remove('fresh'); // stop drawing attention once it has been used

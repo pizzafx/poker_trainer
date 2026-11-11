@@ -99,6 +99,10 @@ start getting called lighter.
 
 - **Coach strip** under the table with the verdict on your last play, and a side panel with
   the full reasoning and the numbers behind it.
+- **Range view.** The Ranges tab draws an opponent's likely hands on the 13x13 hand chart and
+  updates as the hand goes on, so you can watch a range narrow street by street. It tells you
+  how much of that range your hand beats, and can colour each hand by what it is on this
+  board or by whether you are ahead of it.
 - **Leak review.** Mistakes are grouped into types (paying off, bluffing callers, missed
   value, sizing, preflop too loose or too passive, and more), ranked by cost, and tracked
   across sessions in your browser.

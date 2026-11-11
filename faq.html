@@ -46,6 +46,7 @@
     <a href="#cost">What does "costs about $40" mean?</a>
     <a href="#won">I won the pot. Why was it a blunder?</a>
     <a href="#ranges">How does it know what they have?</a>
+    <a href="#rangeview">Can I see the range?</a>
     <a href="#reads">How do reads work?</a>
     <a href="#theory">What is "why theory disagrees"?</a>
     <a href="#approx">What does ≈ mean?</a>
@@ -112,6 +113,11 @@
   <h3 id="ranges">How does it know what they have?</h3>
   <p>It does not peek. It never uses the opponent's actual cards. It starts with every hand they could hold and, at each action they take, asks "how likely is this kind of player to do that with each hand?" Hands that fit stay; hands that do not fit fade out. By the river a tight player who has raised twice has a narrow range of strong hands, and a station who has only called has a wide range of pairs and busted draws.</p>
   <p>When a play is flagged, the coach shows you that range in words: roughly what share is two pair or better, one pair, draws and nothing, and how much of it your hand beats compared with the price you were being offered.</p>
+
+  <h3 id="rangeview">Can I see the range it is using?</h3>
+  <p>Yes. The <strong>Ranges</strong> tab in the side panel draws an opponent's likely hands on the standard 13 by 13 chart: pairs on the diagonal, suited hands above, offsuit below. Brighter means more likely. It updates with every action, and the street buttons let you step back and watch the range narrow from preflop to the river.</p>
+  <p>The number at the top is the one to learn from: how much of that range your hand beats right now, and how that has moved street by street. Seeing "you are behind almost all of it" against a nit who just raised, or "you are ahead of most of it" against a maniac who bets everything, is the habit this trainer is trying to build. You can colour the chart by what each hand has become on this board, or by whether you are ahead of it.</p>
+  <p>It is the coach's estimate, built from how the player has acted and what kind of player they seem to be. It is not their actual cards. Early in a session, before there is a read, it blends what every type of player would hold, so it starts wide. If you would rather test yourself first, Settings can hide it until the hand is over.</p>
 
   <h3 id="reads">How do reads work?</h3>
   <p>Every opponent has a hidden style. What you see is what you would see live:</p>

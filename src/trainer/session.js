@@ -168,6 +168,7 @@ export class Session {
       decisions: [],
       over: false,
       did: this.seats.map(() => ({ vpip: false, pfr: false })),
+      rangeSnaps: {}, // street -> { seat: range grid } as each street's betting ended
       boardSeen: 0,
       summary: null,
     };
@@ -228,6 +229,8 @@ export class Session {
       } else {
         h.log.push({ kind: 'board', text: `${label}: ${fresh.map(cardStr).join(' ')}  (pot $${potSize(s)})` });
       }
+      // Keep each opponent's range as it stood when this street's betting ended.
+      h.rangeSnaps[h.boardSeen === 0 ? 0 : h.boardSeen - 2] = this.captureRanges();
       h.boardSeen = s.board.length;
       h.belief.setBoard(s.board);
     }
@@ -368,6 +371,11 @@ export class Session {
         }
       }
     }
+    {
+      const n = s.board.length;
+      const last = n === 0 ? 0 : n - 2;
+      if (!h.rangeSnaps[last]) h.rangeSnaps[last] = this.captureRanges();
+    }
     h.summary = { net: r.net[HERO], showdown: r.showdown };
     this.results.push(r.net[HERO]);
   }
@@ -478,6 +486,34 @@ export class Session {
       const v2 = judgeDecision(s, HERO, this.hand.belief, action, { ...judgeOpts, samples: Math.round(judgeOpts.samples / 2), shift });
       if (v2.options[v.best].ev - v2.options[v.mine].ev < small * 0.5) return pass('fragile');
     }
+  }
+
+  // ---- ranges ---------------------------------------------------------------------
+
+  // The coach's estimate of every opponent's range right now, on the hand grid.
+  captureRanges() {
+    const h = this.hand;
+    const s = h.state;
+    const heroScore = s.board.length >= 3 && h.belief.board.length === s.board.length ? handFeatures(s.hole[HERO], s.board).score : null;
+    const out = {};
+    for (let i = 0; i < s.n; i++) {
+      if (i === HERO) continue;
+      out[i] = h.belief.grid(i, h.belief.board.length >= 3 ? handFeatures(s.hole[HERO], h.belief.board).score : heroScore);
+    }
+    return out;
+  }
+
+  // Range grid for one opponent: `street` 0-3 for how it stood at the end of that street,
+  // or 'now' for the current moment.
+  rangeGrid(seat, street = 'now') {
+    const h = this.hand;
+    if (street !== 'now') return h.rangeSnaps[street] ? h.rangeSnaps[street][seat] : null;
+    if (h.over) {
+      const keys = Object.keys(h.rangeSnaps).map(Number).sort((a, b) => b - a);
+      return keys.length ? h.rangeSnaps[keys[0]][seat] : null;
+    }
+    const bd = h.belief.board;
+    return h.belief.grid(seat, bd.length >= 3 ? handFeatures(h.state.hole[HERO], bd).score : null);
   }
 
   // ---- skipping junk hands ------------------------------------------------------

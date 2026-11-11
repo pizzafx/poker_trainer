@@ -7,7 +7,7 @@
 // that hand. The total weight left tells us how well the type explains the action.
 
 import { COMBOS, comboClass, comboIndex, CLASS_COUNT } from '../engine/hands.js';
-import { handFeatures, boardTexture } from '../engine/features.js';
+import { handFeatures, boardTexture, TIER } from '../engine/features.js';
 import { STREET } from '../engine/game.js';
 import { preflopPolicy, postflopPolicy, actionLikelihood } from '../bots/policy.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
@@ -177,6 +177,65 @@ export class HandBelief {
         else lo = mid + 1;
       }
       return { type: t, combo: lo };
+    };
+  }
+
+  // The range rolled up onto the 13x13 starting-hand grid: for each of the 169 hand classes,
+  // how much of it is still in the range (0..1, relative to the fullest class), its share of
+  // the whole range, and what those hands mostly are on this board. `heroScore` (optional)
+  // adds the share of the range the trainee's hand currently beats.
+  grid(seat, heroScore = null) {
+    const w = this.range(seat);
+    const n = this.board.length;
+    const street = n === 0 ? 0 : n === 3 ? 1 : n === 4 ? 2 : 3;
+    const feats = n === 0 ? null : this.features(street);
+    const sum = new Float64Array(CLASS_COUNT);
+    const size = new Float64Array(CLASS_COUNT);
+    const bucket = Array.from({ length: CLASS_COUNT }, () => [0, 0, 0, 0, 0]); // strong, good pair, weak pair, draw, nothing
+    const totals = [0, 0, 0, 0, 0];
+    const won = new Float64Array(CLASS_COUNT); // weight of each class the trainee's hand beats
+    let beat = 0;
+    let all = 0;
+    for (let c = 0; c < 1326; c++) {
+      const k = comboClass[c];
+      size[k]++;
+      const x = w[c];
+      if (x <= 0) continue;
+      sum[k] += x;
+      all += x;
+      if (feats && feats[c]) {
+        const f = feats[c];
+        const b = f.tier >= TIER.TWO_PAIR ? 0 : f.tier >= TIER.TOP_PAIR_WEAK ? 1 : f.drawEquity >= 0.14 && n < 5 ? 3 : f.tier >= TIER.WEAK_PAIR ? 2 : 4;
+        bucket[k][b] += x;
+        totals[b] += x;
+        if (heroScore !== null) {
+          const part = heroScore > f.score ? x : heroScore === f.score ? x / 2 : 0;
+          beat += part;
+          won[k] += part;
+        }
+      }
+    }
+    let max = 0;
+    for (let k = 0; k < CLASS_COUNT; k++) max = Math.max(max, sum[k] / size[k]);
+    const cells = [];
+    for (let k = 0; k < CLASS_COUNT; k++) {
+      let top = -1;
+      if (feats && sum[k] > 0) {
+        top = 0;
+        for (let b = 1; b < 5; b++) if (bucket[k][b] > bucket[k][top]) top = b;
+      }
+      cells.push({
+        fill: max > 0 ? sum[k] / size[k] / max : 0,
+        share: all > 0 ? sum[k] / all : 0,
+        kind: top,
+        ahead: heroScore !== null && feats && sum[k] > 0 ? won[k] / sum[k] : null, // share of this class you beat
+      });
+    }
+    return {
+      street,
+      cells,
+      mix: feats && all > 0 ? totals.map((t) => t / all) : null,
+      beats: heroScore !== null && feats && all > 0 ? beat / all : null,
     };
   }
 

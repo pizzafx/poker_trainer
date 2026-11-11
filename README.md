@@ -77,6 +77,14 @@ you can read why.
 
 *Hover over a player for what you have picked up; click for every hand they have shown.*
 
+## See the range
+
+![The Ranges tab: an opponent's likely hands on the 13x13 chart, and how much of it you beat](docs/ranges.png)
+
+The **Ranges** tab shows what the coach thinks an opponent can hold, on the standard hand
+chart, and how much of it your hand beats. It updates with every action, and the street
+buttons step back through the hand so you can watch a range narrow.
+
 ## The opponents
 
 | Type | In one line |

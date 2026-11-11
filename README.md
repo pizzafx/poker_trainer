@@ -85,7 +85,7 @@ you can read why.
   <img src="docs/player.png" alt="A player's card: every showdown, how they played it, and the coach's read" width="40%">
 </p>
 
-*Each seat shows how often that player puts money in. Hover over a player for what you have
+*Each seat shows the player's VPIP: how often they voluntarily put money in the pot. Hover over a player for what you have
 picked up; click for every hand they have shown.*
 
 ## See the range

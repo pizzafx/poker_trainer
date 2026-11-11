@@ -547,3 +547,13 @@ button.toast { width: 100%; text-align: left; font: inherit; color: inherit; }
 .home-grid input { width: 64px; flex: none; }
 .form-row small { color: var(--muted); }
 .form-row > span { color: var(--muted); }
+
+/* Players screen */
+.tune { padding: 9px 12px; margin: 6px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.tune.changed { border-color: var(--accent); }
+.tune-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.tune-top label { font-weight: 600; }
+.tune-val { color: var(--accent); font-variant-numeric: tabular-nums; text-align: right; }
+.tune input[type=range] { width: 100%; margin: 6px 0 2px; accent-color: var(--accent); }
+.tune-hint { color: var(--muted); font-size: 12.5px; }
+.tune-def { white-space: nowrap; }

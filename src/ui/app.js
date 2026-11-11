@@ -1,7 +1,8 @@
 import { Session, GAMES, RAKES } from '../trainer/session.js';
 import { RANKS } from '../engine/cards.js';
 import { potSize, positionName, STREET } from '../engine/game.js';
-import { PROFILES } from '../bots/profiles.js';
+import { PROFILES, TYPE_IDS, baseDef, currentDef, applyOverrides } from '../bots/profiles.js';
+import { CONTROLS } from '../trainer/tuning.js';
 import { CATEGORIES } from '../trainer/explain.js';
 import { DRILLS } from '../trainer/drills.js';
 import { TABLES } from '../trainer/players.js';
@@ -26,6 +27,26 @@ function saveSettings() {
     /* ignore */
   }
 }
+
+// Player-type changes made on the Players screen: { type: { controlKey: value } }.
+let tuning = {};
+try {
+  tuning = JSON.parse(localStorage.getItem('trainer-tuning') || '{}');
+} catch {
+  /* storage unavailable */
+}
+// Turns the saved control values into parameter overrides and puts them in force.
+function applyTuning() {
+  const all = {};
+  for (const [type, vals] of Object.entries(tuning)) {
+    if (!TYPE_IDS.includes(type)) continue;
+    const base = baseDef(type);
+    all[type] = {};
+    for (const c of CONTROLS) if (vals[c.key] !== undefined) Object.assign(all[type], c.set(base, vals[c.key]));
+  }
+  applyOverrides(all);
+}
+applyTuning();
 
 // Leaks tracked across sessions: { category: { count, loss, streets: { street: count } } }
 let leaks = {};
@@ -641,6 +662,77 @@ function playerModal(seat) {
   };
 }
 
+function playersModal(type = 'station') {
+  const draft = JSON.parse(JSON.stringify(tuning)); // edited copy; saved only on "Save"
+  const draw = (t) => {
+    const base = baseDef(t);
+    const vals = draft[t] || {};
+    const changed = Object.keys(vals).length;
+    const rows = CONTROLS.map((c) => {
+      const def = c.get(base);
+      const v = vals[c.key] !== undefined ? vals[c.key] : def;
+      const min = Math.min(c.min, def);
+      const max = Math.max(c.max, def);
+      return `${c.group ? `<h3>${c.group}</h3>` : ''}
+        <div class="tune ${vals[c.key] !== undefined ? 'changed' : ''}" data-key="${c.key}">
+          <div class="tune-top"><label>${c.label}</label><b class="tune-val">${esc(c.fmt(v))}</b></div>
+          <input type="range" min="${min}" max="${max}" step="${c.step}" value="${v}" aria-label="${c.label}">
+          <div class="tune-hint">${esc(c.hint)} <span class="tune-def">Shipped: ${esc(c.fmt(def))}.</span></div>
+        </div>`;
+    }).join('');
+    openModal(`
+      <h1>Players</h1>
+      <p class="sub">Change how each type of opponent plays. These are the assumptions every verdict rests on, so if a type does not match the players in your game, fix it here. Changes are saved in this browser and take effect in a new session.</p>
+      <div class="form-row"><label>Player type</label><select id="t-type">${TYPE_IDS.map((id) => `<option value="${id}" ${id === t ? 'selected' : ''}>${esc(PROFILES[id].name)}${draft[id] && Object.keys(draft[id]).length ? ' (changed)' : ''}</option>`).join('')}</select></div>
+      <p class="sub">${esc(PROFILES[t].blurb)}</p>
+      ${rows}
+      <div class="modal-actions">
+        <button id="t-reset" ${changed ? '' : 'disabled'}>Reset this type</button>
+        <button id="t-reset-all" ${Object.values(draft).some((x) => Object.keys(x).length) ? '' : 'disabled'}>Reset all types</button>
+        <span style="flex:1"></span>
+        <button id="t-cancel">Cancel</button>
+        <button class="primary" id="t-save">Save and start new session</button>
+      </div>`);
+    $('t-type').onchange = (e) => draw(e.target.value);
+    $('modal-box').querySelectorAll('.tune').forEach((row) => {
+      const c = CONTROLS.find((x) => x.key === row.dataset.key);
+      row.querySelector('input').oninput = (e) => {
+        const v = +e.target.value;
+        const def = c.get(base);
+        draft[t] = draft[t] || {};
+        if (Math.abs(v - def) < c.step / 2) delete draft[t][c.key];
+        else draft[t][c.key] = v;
+        row.classList.toggle('changed', draft[t][c.key] !== undefined);
+        row.querySelector('.tune-val').textContent = c.fmt(v);
+        $('t-reset').disabled = !Object.keys(draft[t]).length;
+        $('t-reset-all').disabled = !Object.values(draft).some((x) => Object.keys(x).length);
+      };
+    });
+    $('t-reset').onclick = () => {
+      delete draft[t];
+      draw(t);
+    };
+    $('t-reset-all').onclick = () => {
+      for (const k of Object.keys(draft)) delete draft[k];
+      draw(t);
+    };
+    $('t-cancel').onclick = closeModal;
+    $('t-save').onclick = () => {
+      tuning = draft;
+      for (const k of Object.keys(tuning)) if (!Object.keys(tuning[k]).length) delete tuning[k];
+      try {
+        localStorage.setItem('trainer-tuning', JSON.stringify(tuning));
+      } catch {
+        /* ignore */
+      }
+      applyTuning();
+      closeModal();
+      newSession();
+    };
+  };
+  draw(type);
+}
+
 function reviewModal() {
   const rev = sess.review();
   const sessionLeaks = rev.list.length
@@ -703,10 +795,37 @@ $('side-close').onclick = () => document.body.classList.add('side-closed');
 $('tab-coach').onclick = () => showTab('coach');
 $('tab-log').onclick = () => showTab('log');
 if (window.innerWidth < 1180) document.body.classList.add('side-closed');
+$('btn-players').onclick = () => playersModal();
 $('btn-review').onclick = () => sess && reviewModal();
 $('btn-settings').onclick = () => settingsModal(false);
 
 // Handle for debugging from the browser console.
 window.trainer = { get session() { return sess; }, settings, act, nextHand };
 
-settingsModal(true);
+// http://localhost:5173/?demo=7 skips the set-up screen and jumps to a mid-session decision
+// with coach feedback showing (used for screenshots). The number picks the session.
+function demo(seed) {
+  sess = new Session({ ...sessionOpts(), seed });
+  sess.startPlayable();
+  for (let k = 0; k < 4000; k++) {
+    const st = sess.status();
+    if (st === 'bot') sess.stepBot();
+    else if (st === 'over') sess.startPlayable();
+    else {
+      const s = sess.hand.state;
+      const L = sess.heroOptions();
+      let live = 0;
+      for (let i = 1; i < s.n; i++) if (!s.folded[i]) live++;
+      const flagged = sess.hand.decisions.some((d) => d.verdict.grade !== 'good' && d.street > 0 && d.reasons.length >= 2);
+      if (sess.handNo > 20 && s.board.length >= 4 && flagged && L.callAmt > 0 && L.canRaise && live >= 2) break;
+      sess.heroAct({ type: L.canCheck ? 'check' : 'call' });
+    }
+  }
+  pastLog = [];
+  document.body.classList.remove('side-closed');
+  render();
+}
+
+const demoSeed = new URLSearchParams(location.search).get('demo');
+if (demoSeed !== null) demo(+demoSeed || 7);
+else settingsModal(true);

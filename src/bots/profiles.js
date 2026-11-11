@@ -521,13 +521,34 @@ function finish(id, def) {
 
 export const PROFILES = {};
 for (const id of TYPE_IDS) PROFILES[id] = finish(id, DEFS[id]);
+
+// Changes made from the Players screen: { type: { parameter: value } } on top of the
+// shipped numbers above.
+const OVERRIDES = {};
+
+// The shipped numbers for a type, and the numbers currently in force.
+export function baseDef(type) {
+  return { ...BASE, ...DEFS[type] };
+}
+export function currentDef(type) {
+  return { ...BASE, ...DEFS[type], ...(OVERRIDES[type] || {}) };
+}
+
+// Replaces all overrides and rebuilds every type. Players already seated keep the numbers
+// they were dealt in with, so start a new session afterwards.
+export function applyOverrides(all) {
+  for (const id of TYPE_IDS) {
+    OVERRIDES[id] = (all && all[id]) || {};
+    PROFILES[id] = finish(id, { ...DEFS[id], ...OVERRIDES[id] });
+  }
+}
 export const HERO_PROFILE = finish('hero', HERO_DEF);
 
 // Each real player is their own version of a type: a bit looser or tighter, more or less
 // aggressive, more or less sticky. The trainee's reads and the judge only ever know the
 // type, never these personal numbers.
 export function personalise(type, rng) {
-  const D = DEFS[type];
+  const D = { ...DEFS[type], ...(OVERRIDES[type] || {}) };
   const B = { ...BASE, ...D };
   const j = (spread) => 1 + (rng() * 2 - 1) * spread;
   const sh = (spread) => (rng() * 2 - 1) * spread;

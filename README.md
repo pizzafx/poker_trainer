@@ -29,10 +29,16 @@ it cost.
 ```bash
 git clone git@github.com:pizzafx/poker_trainer.git
 cd poker_trainer
-npm start
+./start.sh
 ```
 
-Open http://localhost:5173. Needs Node 18 or later. There are no dependencies and no build step.
+Then open http://localhost:5173.
+
+`start.sh` (macOS and Linux) uses the Node.js on your machine if it is version 18 or newer.
+If not, it downloads an official Node.js build from nodejs.org into the project folder
+(`./.node`, about 45 MB, checksum-verified) and uses that. Nothing is installed system-wide.
+On Windows, install Node.js 18 or newer from https://nodejs.org and run `npm start`. There
+are no other dependencies and no build step.
 
 | Key | Action |
 |---|---|
@@ -90,6 +96,9 @@ start getting called lighter.
 - **Home game mode.** Set your own blinds and buy-in and choose exactly who sits down:
   three maniacs, two nits and a total beginner, say. No rake, everyone rebuys, and you
   know who is coming but not which seat is which.
+- **Players screen.** Sliders for how each opponent type plays: hands played and raised,
+  bluffing, what they call with, what they never fold, how common they are. Saved in your
+  browser; no file editing needed.
 - **Table types.** Typical, aggressive, conservative, or loose-passive: the same player
   types in a different mix.
 - **Game settings.** $2/$3 or $3/$5, buy-in, and rake (Talking Stick Resort's listed
@@ -137,8 +146,11 @@ node scripts/exploit.js         # where that player's profit comes from
 node scripts/noise.js 3000      # how repeatable the judge's numbers are
 ```
 
-If you disagree with how a type plays, change its numbers in `src/bots/profiles.js` (each
-one is commented), rerun `calibrate.js` and `spots.js`, and reload the page.
+If you disagree with how a type plays, change it on the **Players** screen in the app.
+The sliders cover the settings that matter most. Every number, including ones the screen
+does not expose, is in `src/bots/profiles.js` with a comment; after editing that file, rerun
+`calibrate.js` and `spots.js` to see the effect. (Changes made on the Players screen live in
+your browser, so the command-line scripts do not see them.)
 
 ## Project layout
 

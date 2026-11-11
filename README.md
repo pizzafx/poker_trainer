@@ -110,9 +110,10 @@ start getting called lighter.
   every player. Hover over a seat to see it.
 - **Skip junk hands.** The bottom 15% of starting hands are folded for you, so you spend
   your time on decisions that matter.
-- **Player notes.** How often each opponent has entered pots and raised, the hands they
-  have shown down and how they played them, and the coach's current read, with a spoiler
-  button for their true style.
+- **Player notes.** Hover over a seat for what you have seen that player do (how loose,
+  how aggressive, the last hand they showed) and the coach's read in words. Click for the
+  full card: every showdown and how they played it, plus a spoiler button for their true
+  style.
 
 ## How far to trust it
 
@@ -128,10 +129,13 @@ Read this before taking the advice to a real table.
   top-rated option wins roughly five to ten times what a strong live player makes. Trust the direction
   of the advice (value-bet more, pay off less, isolate limpers) more than the dollar
   figures.
-- **Guardrails limit what gets flagged.** The trainer will not flag you for declining a
-  bluff-raise, for not overbetting with one pair, or for passing on a thin river bluff, and
-  it drops any flag that does not survive the opponents being a little looser or tighter
-  than assumed. Those plays can score well against bots and lose money against people.
+- **Guardrails limit what gets flagged.** You are never marked down for declining a
+  bluff-raise or a re-raise bluff, for not betting more than the pot, or for betting 60% of
+  the pot when a bigger bet scored higher. A bluff you pass up is only flagged against
+  players who can fold, and only by a wide margin. Preflop folds are only flagged with a
+  hand in the top third. And every flag is dropped if it does not survive the opponents
+  being a little looser or tighter than assumed. Those plays can score well against bots
+  and lose money against people.
 - **The numbers are estimates.** Options marked ≈ in the numbers table are too close to
   call.
 

@@ -87,6 +87,9 @@ start getting called lighter.
   across sessions in your browser.
 - **Drill mode.** Pick a leak and the trainer deals only that kind of spot, one after
   another, playing the earlier streets for you. One decision, one verdict, next spot.
+- **Home game mode.** Set your own blinds and buy-in and choose exactly who sits down:
+  three maniacs, two nits and a total beginner, say. No rake, everyone rebuys, and you
+  know who is coming but not which seat is which.
 - **Table types.** Typical, aggressive, conservative, or loose-passive: the same player
   types in a different mix.
 - **Game settings.** $2/$3 or $3/$5, buy-in, and rake (Talking Stick Resort's listed

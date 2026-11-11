@@ -5,20 +5,20 @@
 
 import { PROFILES, TYPE_IDS, personalise } from '../bots/profiles.js';
 
-// Order of the numbers: nit, abc, station, whale, maniac, gto, tag, lag (= TYPE_IDS order).
+// Order of the numbers: nit, abc, station, whale, maniac, gto, tag, lag, beginner (= TYPE_IDS order).
 const LOOKS = [
-  { id: 'cap', icon: '🧢', nick: 'Ball Cap', text: 'Retiree in a ball cap, coffee, neat stacks, knows every dealer by name', w: [40, 12, 8, 3, 1, 0, 6, 1] },
-  { id: 'golf', icon: '⛳', nick: 'Golf Shirt', text: 'Older guy in a golf shirt, in town for the week, chatty', w: [12, 18, 14, 10, 2, 0, 1, 0] },
-  { id: 'hoodie', icon: '🎧', nick: 'Hoodie', text: 'Twenties, hoodie and headphones, backpack under the chair', w: [1, 3, 3, 1, 8, 50, 30, 35] },
-  { id: 'loud', icon: '🍺', nick: 'Loud Guy', text: 'Young, loud, on his third beer, bought in with crumpled bills', w: [0, 4, 8, 20, 40, 2, 1, 3] },
-  { id: 'party', icon: '🎉', nick: 'Party Crew', text: 'Came with friends, laughing, not watching the action closely', w: [0, 8, 12, 25, 20, 0, 0, 0] },
-  { id: 'button', icon: '👔', nick: 'Button-Down', text: 'Middle-aged, button-down shirt, quiet, glancing at the game on TV', w: [10, 20, 15, 8, 3, 2, 8, 3] },
-  { id: 'shades', icon: '🕶️', nick: 'Shades', text: 'Thirties, sunglasses, riffles chips nonstop, says nothing', w: [5, 3, 2, 0, 4, 25, 35, 35] },
-  { id: 'cardigan', icon: '🧶', nick: 'Cardigan', text: 'Sixties, cardigan, friendly, chats with the dealer between hands', w: [15, 12, 12, 4, 1, 0, 2, 1] },
-  { id: 'jersey', icon: '🏈', nick: 'Jersey', text: 'Team jersey, eyes mostly on the TVs, plays between sips', w: [2, 15, 20, 12, 8, 0, 1, 1] },
-  { id: 'newbie', icon: '🙋', nick: 'New Guy', text: 'Looks new: asks the dealer about the blinds, guards his cards with both hands', w: [8, 15, 12, 5, 1, 1, 0, 0] },
-  { id: 'watch', icon: '⌚', nick: 'Big Watch', text: 'Flashy watch, thick roll of hundreds, asking about a bigger game', w: [0, 2, 5, 20, 20, 2, 3, 10] },
-  { id: 'plain', icon: '📱', nick: 'Jeans', text: 'Nothing stands out: jeans, phone on the rail', w: [7, 10, 9, 7, 5, 5, 12, 10] },
+  { id: 'cap', icon: '🧢', nick: 'Ball Cap', text: 'Retiree in a ball cap, coffee, neat stacks, knows every dealer by name', w: [40, 12, 8, 3, 1, 0, 6, 1, 0] },
+  { id: 'golf', icon: '⛳', nick: 'Golf Shirt', text: 'Older guy in a golf shirt, in town for the week, chatty', w: [12, 18, 14, 10, 2, 0, 1, 0, 8] },
+  { id: 'hoodie', icon: '🎧', nick: 'Hoodie', text: 'Twenties, hoodie and headphones, backpack under the chair', w: [1, 3, 3, 1, 8, 50, 30, 35, 1] },
+  { id: 'loud', icon: '🍺', nick: 'Loud Guy', text: 'Young, loud, on his third beer, bought in with crumpled bills', w: [0, 4, 8, 20, 40, 2, 1, 3, 6] },
+  { id: 'party', icon: '🎉', nick: 'Party Crew', text: 'Came with friends, laughing, not watching the action closely', w: [0, 8, 12, 25, 20, 0, 0, 0, 15] },
+  { id: 'button', icon: '👔', nick: 'Button-Down', text: 'Middle-aged, button-down shirt, quiet, glancing at the game on TV', w: [10, 20, 15, 8, 3, 2, 8, 3, 6] },
+  { id: 'shades', icon: '🕶️', nick: 'Shades', text: 'Thirties, sunglasses, riffles chips nonstop, says nothing', w: [5, 3, 2, 0, 4, 25, 35, 35, 0] },
+  { id: 'cardigan', icon: '🧶', nick: 'Cardigan', text: 'Sixties, cardigan, friendly, chats with the dealer between hands', w: [15, 12, 12, 4, 1, 0, 2, 1, 6] },
+  { id: 'jersey', icon: '🏈', nick: 'Jersey', text: 'Team jersey, eyes mostly on the TVs, plays between sips', w: [2, 15, 20, 12, 8, 0, 1, 1, 8] },
+  { id: 'newbie', icon: '🙋', nick: 'New Guy', text: 'Looks new: asks the dealer about the blinds, guards his cards with both hands', w: [8, 15, 12, 5, 1, 1, 0, 0, 60] },
+  { id: 'watch', icon: '⌚', nick: 'Big Watch', text: 'Flashy watch, thick roll of hundreds, asking about a bigger game', w: [0, 2, 5, 20, 20, 2, 3, 10, 2] },
+  { id: 'plain', icon: '📱', nick: 'Jeans', text: 'Nothing stands out: jeans, phone on the rail', w: [7, 10, 9, 7, 5, 5, 12, 10, 6] },
 ];
 
 // Normalise so each column is P(look | type).
@@ -37,20 +37,21 @@ const BUYIN = {
   gto: [1, 1],
   tag: [1, 1],
   lag: [1, 1],
+  beginner: [0.5, 1],
 };
 
 // Chance of going on tilt after losing a big pot, and of rebuying after busting.
-const TILT = { nit: 0.05, abc: 0.2, station: 0.3, whale: 0.45, maniac: 0.5, gto: 0.15, tag: 0.08, lag: 0.15 };
-const REBUY = { nit: 0.5, abc: 0.6, station: 0.7, whale: 0.9, maniac: 0.85, gto: 0.9, tag: 0.9, lag: 0.9 };
+const TILT = { nit: 0.05, abc: 0.2, station: 0.3, whale: 0.45, maniac: 0.5, gto: 0.15, tag: 0.08, lag: 0.15, beginner: 0.2 };
+const REBUY = { nit: 0.5, abc: 0.6, station: 0.7, whale: 0.9, maniac: 0.85, gto: 0.9, tag: 0.9, lag: 0.9, beginner: 0.8 };
 
 // Table types: the same player types, in a different mix. Numbers multiply each type's
 // usual share of the pool (order: nit, abc, station, whale, maniac, gto, tag, lag), so even
 // the extreme tables are made of players you really meet, just more of one kind.
 export const TABLES = {
-  typical: { label: 'Typical mix', mix: [1, 1, 1, 1, 1, 1, 1, 1] },
-  aggressive: { label: 'Aggressive: more maniacs, gamblers and tricky regulars', mix: [0.4, 0.6, 0.8, 1.8, 2.5, 1.5, 1.2, 2.5] },
-  tight: { label: 'Conservative: more nits and careful players', mix: [2.5, 1.4, 0.6, 0.3, 0.2, 1, 1.4, 0.6] },
-  loose: { label: 'Loose and passive: a limp-fest of callers', mix: [0.6, 1, 1.6, 1.8, 0.6, 0.5, 0.6, 0.5] },
+  typical: { label: 'Typical mix', mix: [1, 1, 1, 1, 1, 1, 1, 1, 1] },
+  aggressive: { label: 'Aggressive: more maniacs, gamblers and tricky regulars', mix: [0.4, 0.6, 0.8, 1.8, 2.5, 1.5, 1.2, 2.5, 1] },
+  tight: { label: 'Conservative: more nits and careful players', mix: [2.5, 1.4, 0.6, 0.3, 0.2, 1, 1.4, 0.6, 1] },
+  loose: { label: 'Loose and passive: a limp-fest of callers', mix: [0.6, 1, 1.6, 1.8, 0.6, 0.5, 0.6, 0.5, 1] },
 };
 
 function sharesFor(mix) {
@@ -78,14 +79,19 @@ export function buyIn(type, minBuy, maxBuy, rng) {
 
 let nextId = 1;
 
-export function makePlayer(rng, takenNicks, minBuy, maxBuy, mix) {
-  const shares = sharesFor(mix);
+// `fixed` (home games): { type, shares } seats a chosen type; `shares` is the make-up of the
+// table, which is what you know going in (who is which, you have to work out).
+export function makePlayer(rng, takenNicks, minBuy, maxBuy, mix, fixed) {
+  const shares = fixed ? fixed.shares : sharesFor(mix);
   let r = rng();
   let type = TYPE_IDS[0];
-  for (const id of TYPE_IDS) {
-    if ((r -= shares[TYPE_IDS.indexOf(id)]) < 0) {
-      type = id;
-      break;
+  if (fixed) type = fixed.type;
+  else {
+    for (const id of TYPE_IDS) {
+      if ((r -= shares[TYPE_IDS.indexOf(id)]) < 0) {
+        type = id;
+        break;
+      }
     }
   }
   const t = TYPE_IDS.indexOf(type);

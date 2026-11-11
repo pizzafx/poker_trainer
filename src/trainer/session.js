@@ -31,12 +31,22 @@ const HERO = 0;
 
 export class Session {
   constructor(opts = {}) {
-    const g = GAMES[opts.game || '2/3'];
+    // Home game: custom stakes ({ sb, bb, minBuy, maxBuy }), a chosen line-up of player
+    // types, and no rake.
+    const g = opts.custom || GAMES[opts.game || '2/3'];
     this.game = { ...g, maxBuy: opts.maxBuy || g.maxBuy };
-    this.rake = RAKES[opts.rake || 'tsr'];
+    this.rake = RAKES[opts.custom ? 'none' : opts.rake || 'tsr'];
     this.rng = makeRng(opts.seed || (Date.now() & 0x7fffffff));
     this.samples = opts.samples || 500;
-    this.n = opts.seats || 8;
+    this.lineup = opts.lineup && opts.lineup.length ? opts.lineup.slice() : null;
+    if (this.lineup) {
+      for (let i = this.lineup.length - 1; i > 0; i--) {
+        const j = Math.floor(this.rng() * (i + 1));
+        [this.lineup[i], this.lineup[j]] = [this.lineup[j], this.lineup[i]];
+      }
+      this.shares = TYPE_IDS.map((id) => this.lineup.filter((t) => t === id).length / this.lineup.length);
+    }
+    this.n = this.lineup ? this.lineup.length + 1 : opts.seats || 8;
     this.mix = (TABLES[opts.table] || TABLES.typical).mix;
     this.heat = 0; // how much the table has noticed the trainee raising and bluffing (0..1)
     this.skipBelow = opts.skipBelow || 0; // skip hands where the trainee's cards are in this bottom share
@@ -46,7 +56,7 @@ export class Session {
       if (i === HERO) {
         this.seats.push({ hero: true, nick: 'You', stack: opts.heroBuy || this.game.maxBuy });
       } else {
-        this.seats.push(this.arrive(nicks));
+        this.seats.push(this.arrive(nicks, this.lineup ? this.lineup[i - 1] : null));
       }
     }
     this.heroBuy = opts.heroBuy || this.game.maxBuy;
@@ -59,8 +69,9 @@ export class Session {
     this.results = []; // per-hand hero net
   }
 
-  arrive(nicks) {
-    const p = makePlayer(this.rng, nicks, this.game.minBuy, this.game.maxBuy, this.mix);
+  arrive(nicks, type) {
+    const fixed = type ? { type, shares: this.shares } : null;
+    const p = makePlayer(this.rng, nicks, this.game.minBuy, this.game.maxBuy, this.mix, fixed);
     nicks.add(p.nick);
     p.read = newRead(p.prior);
     return p;
@@ -103,13 +114,13 @@ export class Session {
       }
       let leaves = false;
       if (p.stack < 2 * bb) {
-        if (this.rng() < rebuyChance(p.type)) {
+        if (this.lineup || this.rng() < rebuyChance(p.type)) {
           p.stack += buyIn(p.type, minBuy, maxBuy, this.rng);
           news.push(`${p.nick} rebuys.`);
         } else leaves = true;
-      } else if (p.stack > 2.5 * maxBuy && this.rng() < 0.12) {
+      } else if (!this.lineup && p.stack > 2.5 * maxBuy && this.rng() < 0.12) {
         leaves = true; // racks up a big win and goes home
-      } else if (p.notes.hands > 25 && this.rng() < 0.012) {
+      } else if (!this.lineup && p.notes.hands > 25 && this.rng() < 0.012) {
         leaves = true;
       }
       if (leaves) {

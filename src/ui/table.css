@@ -540,3 +540,10 @@ button.toast { width: 100%; text-align: left; font: inherit; color: inherit; }
 #news { min-height: 36px; }
 
 .approx { color: var(--accent); font-weight: 700; margin-left: 4px; }
+
+/* home game set-up */
+.home-grid { flex: 1; display: grid; grid-template-columns: 1fr 64px 1fr 64px; gap: 6px 10px; align-items: center; }
+.home-grid label { width: auto; color: var(--text); }
+.home-grid input { width: 64px; flex: none; }
+.form-row small { color: var(--muted); }
+.form-row > span { color: var(--muted); }

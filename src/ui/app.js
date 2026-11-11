@@ -11,7 +11,7 @@ const HERO = 0;
 const SUIT_SYM = ['♣', '♦', '♥', '♠'];
 const SUIT_CLS = ['c', 'd', 'h', 's'];
 
-const DEFAULTS = { v: 2, game: '2/3', maxBuy: 500, rake: 'tsr', table: 'typical', skipJunk: true, feedback: 'now', reads: true, speed: 450 };
+const DEFAULTS = { v: 2, game: '2/3', maxBuy: 500, rake: 'tsr', table: 'typical', skipJunk: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450 };
 let settings = { ...DEFAULTS };
 try {
   const saved = JSON.parse(localStorage.getItem('trainer-settings') || '{}');
@@ -47,6 +47,30 @@ function noteLeak(d) {
   }
 }
 const leakName = (cat) => (CATEGORIES[cat] || cat).split(':')[0];
+
+// Player types you can seat in a home game, in the order shown in Settings.
+const HOME_TYPES = [
+  ['beginner', 'Total beginner'],
+  ['station', 'Calling station'],
+  ['whale', 'Gambler'],
+  ['abc', 'Straightforward'],
+  ['nit', 'Nit (very tight)'],
+  ['maniac', 'Maniac (wild, aggressive)'],
+  ['lag', 'Tricky aggressive'],
+  ['tag', 'Solid player'],
+  ['gto', 'Solver-style'],
+];
+
+function sessionOpts() {
+  const base = { skipBelow: settings.skipJunk ? 0.15 : 0, samples: 600 };
+  if (settings.mode === 'home') {
+    const h = settings.home;
+    const lineup = [];
+    for (const [t] of HOME_TYPES) for (let i = 0; i < (h.counts[t] || 0); i++) lineup.push(t);
+    return { ...base, custom: { sb: h.sb, bb: h.bb, minBuy: Math.max(h.bb * 10, Math.round(h.buy / 2)), maxBuy: h.buy }, heroBuy: h.buy, lineup };
+  }
+  return { ...base, game: settings.game, maxBuy: settings.maxBuy, heroBuy: settings.maxBuy, rake: settings.rake, table: settings.table };
+}
 
 let drill = null; // { cat, tried, clean, cost } while drilling one leak
 let mainSess = null; // the regular session, parked during a drill
@@ -85,7 +109,7 @@ function renderStats() {
   const net = sess.heroNet();
   const rev = sess.review();
   $('stats').innerHTML = `
-    <span>$${g.sb}/$${g.bb} · hand<b>${sess.handNo}</b></span>
+    <span>$${g.sb}/$${g.bb}${sess.lineup ? ' home game' : ''} · hand<b>${sess.handNo}</b></span>
     <span>Session<b class="${net >= 0 ? 'pos' : 'neg'}">${signed(net)}</b></span>
     <span>Mistakes cost<b class="${rev.lost > 0 ? 'neg' : ''}">${money(rev.lost)}</b></span>
     <span>Flagged<b>${rev.flagged}</b> of ${rev.judged}</span>`;
@@ -193,7 +217,7 @@ function renderTable() {
 }
 
 function shortType(id) {
-  return { nit: 'Nit', abc: 'ABC', station: 'Station', whale: 'Gambler', maniac: 'Maniac', gto: 'Solver', tag: 'Solid reg', lag: 'Tricky reg' }[id];
+  return { nit: 'Nit', abc: 'ABC', station: 'Station', whale: 'Gambler', maniac: 'Maniac', gto: 'Solver', tag: 'Solid reg', lag: 'Tricky reg', beginner: 'Beginner' }[id];
 }
 
 function presets(L, s) {
@@ -430,7 +454,7 @@ function startDrill(cat) {
   closeModal();
   if (!drill) mainSess = sess;
   drill = { cat, tried: 0, clean: 0, cost: 0 };
-  sess = new Session({ game: settings.game, maxBuy: settings.maxBuy, heroBuy: settings.maxBuy, rake: settings.rake, table: settings.table, skipBelow: settings.skipJunk ? 0.15 : 0, samples: 600 });
+  sess = new Session(sessionOpts());
   sess.warmUp(40); // give the table some history so there are reads to work with
   nextSpot();
 }
@@ -458,7 +482,7 @@ function newSession() {
   clearTimeout(timer);
   drill = null;
   mainSess = null;
-  sess = new Session({ game: settings.game, maxBuy: settings.maxBuy, heroBuy: settings.maxBuy, rake: settings.rake, table: settings.table, skipBelow: settings.skipJunk ? 0.15 : 0, samples: 600 });
+  sess = new Session(sessionOpts());
   pastLog = [];
   sess.startPlayable();
   advance();
@@ -501,10 +525,21 @@ function settingsModal(first) {
     <h1>${first ? 'Live Low-Stakes Trainer' : 'Settings'}</h1>
     <p class="sub">${first ? 'An eight-handed casino cash game against the players you actually meet at $2/$3 and $3/$5. Every decision is scored by how much money it makes against these opponents. Plays that a solver would approve still get flagged when they lose money here.' : 'Game changes start a new session.'}</p>
     <h3>Game</h3>
+    <div class="form-row"><label>Mode</label><select id="s-mode">${opt('casino', 'Casino table', settings.mode)}${opt('home', 'Home game: you pick the stakes and the players', settings.mode)}</select></div>
+    <div id="home-fields">
+      <div class="form-row"><label>Blinds ($)</label><input id="h-sb" type="number" min="1" step="1" value="${settings.home.sb}"><span>/</span><input id="h-bb" type="number" min="1" step="1" value="${settings.home.bb}"></div>
+      <div class="form-row"><label>Buy-in ($)</label><input id="h-buy" type="number" min="20" step="10" value="${settings.home.buy}"></div>
+      <div class="form-row" style="align-items:flex-start"><label>Players<br><small id="h-total"></small></label>
+        <div class="home-grid">${HOME_TYPES.map(([t, label]) => `<label>${label}</label><input class="h-count" data-type="${t}" type="number" min="0" max="8" step="1" value="${settings.home.counts[t] || 0}">`).join('')}</div>
+      </div>
+      <p class="sub">No rake. Everyone rebuys and nobody leaves. You know who is coming, but not which seat is which.</p>
+    </div>
+    <div id="casino-fields">
     <div class="form-row"><label>Stakes</label><select id="s-game">${Object.keys(GAMES).map((g) => opt(g, '$' + g.replace('/', '/$'), settings.game)).join('')}</select></div>
     <div class="form-row"><label>Maximum buy-in ($)</label><input id="s-buy" type="number" min="60" step="20" value="${settings.maxBuy}"></div>
     <div class="form-row"><label>Rake</label><select id="s-rake">${Object.entries(RAKES).map(([k, r]) => opt(k, r.label, settings.rake)).join('')}</select></div>
     <div class="form-row"><label>Table</label><select id="s-table">${Object.entries(TABLES).map(([k, t]) => opt(k, t.label, settings.table)).join('')}</select></div>
+    </div>
     <h3>Training</h3>
     <div class="form-row"><label>Feedback</label><select id="s-fb">${opt('now', 'Right after each decision', settings.feedback)}${opt('after', 'When the hand is over', settings.feedback)}</select></div>
     <div class="form-row"><label>Skip junk hands (bottom 15%)</label><input id="s-skip" type="checkbox" ${settings.skipJunk ? 'checked' : ''}></div>
@@ -522,10 +557,35 @@ function settingsModal(first) {
     if (sess) sess.skipBelow = settings.skipJunk ? 0.15 : 0;
     settings.speed = +$('s-speed').value;
   };
+  const homeTotal = () => [...document.querySelectorAll('.h-count')].reduce((a, el) => a + Math.max(0, Math.floor(+el.value || 0)), 0);
+  const syncMode = () => {
+    const home = $('s-mode').value === 'home';
+    $('home-fields').classList.toggle('hidden', !home);
+    $('casino-fields').classList.toggle('hidden', home);
+    const n = homeTotal();
+    $('h-total').textContent = `${n} opponent${n === 1 ? '' : 's'} (1 to 8)`;
+    $('h-total').style.color = n >= 1 && n <= 8 ? '' : 'var(--bad)';
+  };
+  $('s-mode').onchange = syncMode;
+  document.querySelectorAll('.h-count').forEach((el) => (el.oninput = syncMode));
+  syncMode();
   $('s-game').onchange = () => {
     $('s-buy').value = GAMES[$('s-game').value].maxBuy;
   };
   $('s-start').onclick = () => {
+    if ($('s-mode').value === 'home') {
+      const n = homeTotal();
+      if (n < 1 || n > 8) return; // the count line is already showing red
+      const sb = Math.max(1, Math.floor(+$('h-sb').value || 1));
+      const bb = Math.max(sb, Math.floor(+$('h-bb').value || 2));
+      const counts = {};
+      document.querySelectorAll('.h-count').forEach((el) => {
+        const k = Math.max(0, Math.floor(+el.value || 0));
+        if (k) counts[el.dataset.type] = k;
+      });
+      settings.home = { sb, bb, buy: Math.max(bb * 20, Math.floor(+$('h-buy').value || bb * 100)), counts };
+    }
+    settings.mode = $('s-mode').value;
     read();
     settings.game = $('s-game').value;
     settings.maxBuy = Math.max(GAMES[settings.game].bb * 20, +$('s-buy').value || GAMES[settings.game].maxBuy);

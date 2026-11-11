@@ -78,12 +78,15 @@ Hands deal on automatically while your play is green. Anything flagged stops the
 you can read why.
 
 <p>
-  <img src="docs/hover.png" alt="Hovering over a player shows what you have seen them do" width="38%">
+  <img src="docs/vpip.png" alt="The VPIP ring and pill on a seat, with its hover box" width="22%">
   &nbsp;
-  <img src="docs/player.png" alt="A player's card: every showdown, how they played it, and the coach's read" width="50%">
+  <img src="docs/hover.png" alt="Hovering over a player shows what you have seen them do" width="30%">
+  &nbsp;
+  <img src="docs/player.png" alt="A player's card: every showdown, how they played it, and the coach's read" width="40%">
 </p>
 
-*Hover over a player for what you have picked up; click for every hand they have shown.*
+*Each seat shows how often that player puts money in. Hover over a player for what you have
+picked up; click for every hand they have shown.*
 
 ## See the range
 

@@ -287,16 +287,13 @@ function handName(hole, board) {
   let hi = hole[0] >> 2;
   let lo = hole[1] >> 2;
   if (hi < lo) [hi, lo] = [lo, hi];
-  if (!board.length) {
-    if (hi === lo) return `Pocket ${RANK_MANY[hi]}`;
-    return `${RANK_ONE[hi]}-${RANK_ONE[lo]} ${(hole[0] & 3) === (hole[1] & 3) ? 'suited' : 'offsuit'}`;
-  }
+  if (!board.length) return ''; // nothing to name until there is a flop
   const sc = evaluate([...hole, ...board]);
   const cat = sc >> 20;
   const a = (sc >> 16) & 15;
   const b = (sc >> 12) & 15;
   let name;
-  if (cat === 0) name = `${RANK_ONE[a]} high`;
+  if (cat === 0) name = `${RANK_ONE[hi]} high`; // your own highest card, not the board's
   else if (cat === 1) name = `Pair of ${RANK_MANY[a]}`;
   else if (cat === 2) name = `Two Pair, ${RANK_MANY[a]} and ${RANK_MANY[b]}`;
   else if (cat === 3) name = `Three of a Kind, ${RANK_MANY[a]}`;
@@ -318,7 +315,8 @@ function handName(hole, board) {
 function myHand() {
   const s = sess.hand.state;
   if (s.folded[HERO]) return '';
-  return `<div class="myhand"><span>Your hand</span><b>${esc(handName(s.hole[HERO], s.board))}</b></div>`;
+  const name = handName(s.hole[HERO], s.board);
+  return `<div class="myhand">${name ? `<span>Your hand</span><b>${esc(name)}</b>` : ''}</div>`;
 }
 
 function presets(L, s) {

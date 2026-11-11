@@ -142,8 +142,8 @@ start getting called lighter.
   every player. Hover over a seat to see it.
 - **Skip junk hands.** The bottom 15% of starting hands are folded for you, so you spend
   your time on decisions that matter.
-- **Your hand in words.** Above the bet slider the trainer names what you hold right now,
-  such as "Pair of Sevens" or "Two Pair, Kings and Sevens", including any draw.
+- **Your hand in words.** From the flop on, the trainer names what you hold above the bet
+  slider: "Pair of Sevens", "Two Pair, Kings and Sevens", "Queen high", plus any draw.
 - **VPIP at a glance.** Once you have watched a player for eight hands, a ring around their
   avatar fills to how often they put money in, and a pill under their name plate shows the
   number: blue for tight, green for average, amber for loose, red for playing almost

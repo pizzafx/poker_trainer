@@ -10,7 +10,7 @@ import { CATEGORIES } from '../trainer/explain.js';
 import { DRILLS } from '../trainer/drills.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
-import { disputeReport, disputeText, disputeFileName } from '../trainer/dispute.js';
+import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '../trainer/dispute.js';
 
 const $ = (id) => document.getElementById(id);
 const HERO = 0;
@@ -435,9 +435,15 @@ function disputeModal(d) {
     <details class="d-preview"><summary>What the report contains</summary>
       <p class="hint">Your cards, the board, every action so far, stacks, the coach's read of each opponent and every option with its numbers. ${d.truth ? 'The hand is over, so it also has what each opponent really held.' : 'The hand is still going, so opponents\' cards are left out.'} No personal information.</p>
       <pre id="d-text"></pre></details>
-    <div class="modal-actions"><span id="d-status" class="hint" role="status" aria-live="polite"></span><button id="d-close">Close</button><button id="d-save">Save as file</button><button class="primary" id="d-copy">Copy report</button></div>`);
+    <div class="modal-actions"><span id="d-status" class="hint" role="status" aria-live="polite"></span><button id="d-close">Close</button><button id="d-save">Save as file</button><button class="primary" id="d-copy">Copy report</button></div>
+    <div class="d-issue"><a id="d-issue" class="button" href="#" target="_blank" rel="noopener">Open a GitHub issue</a>
+      <span class="hint">Opens a new issue on our GitHub page, filled in with this report. <b>The hand will be public</b> on the repository, and you need a GitHub account to post it.</span></div>`);
   const build = () => disputeReport(d, { preferred: $('d-pref').value, why: $('d-why').value.trim() });
-  const show = () => ($('d-text').textContent = disputeText(build()));
+  const show = () => {
+    const report = build();
+    $('d-text').textContent = disputeText(report);
+    $('d-issue').href = disputeIssueUrl(report);
+  };
   const status = (msg) => ($('d-status').textContent = msg);
   $('d-pref').onchange = show;
   $('d-why').oninput = show;

@@ -103,7 +103,7 @@ export function disputeReport(record, player = {}) {
 
 // The same report as plain text, for pasting into a message. The JSON goes underneath so we
 // can load it back exactly.
-export function disputeText(report) {
+export function disputeText(report, summaryOnly = false) {
   const d = report.decision;
   const v = report.verdict;
   const t = report.table;
@@ -125,8 +125,9 @@ export function disputeText(report) {
   }
   L.push(`Verdict: ${v.grade} - ${v.headline}`);
   for (const o of v.options) L.push(`  ${o.best ? '*' : ' '} ${o.label}: ${o.ev >= 0 ? '+' : '-'}$${Math.abs(Math.round(o.ev))}${o.took ? '  <- you' : ''}${o.close && !o.best ? '  (too close to call)' : ''}`);
-  L.push(`  over ${v.samples} run-outs; cost $${v.loss} +/- $${Math.round(2 * v.se)}`);
+  L.push(`  over ${v.samples} run-outs; cost $${v.loss} +/- $${Math.round(2 * v.se)}${t ? `; judge seed ${t.judge.seed}` : ''}`);
   if (report.truth) L.push(`After the hand: ${report.truth.players.filter((p) => p.cards).map((p) => `${p.name} was ${p.type}${p.tilt ? ' (tilted)' : ''} with ${p.cards}`).join('; ')}.`);
+  if (summaryOnly) return L.join('\n');
   L.push('');
   L.push('--- data ---');
   L.push(JSON.stringify(report));
@@ -135,4 +136,32 @@ export function disputeText(report) {
 
 export function disputeFileName(report) {
   return `trainer-dispute-hand${report.decision.hand}-${report.decision.street}.json`;
+}
+
+// Where "Open a GitHub issue" goes. The issue is public on the repository.
+export const ISSUE_REPO = 'https://github.com/pizzafx/poker_trainer';
+// GitHub refuses prefilled issue links much past 8,000 characters.
+export const MAX_ISSUE_URL = 7800;
+
+// A link to a new GitHub issue prefilled with the report. The readable summary always goes in;
+// the full JSON goes in too when it fits, otherwise the body asks for the saved file.
+export function disputeIssueUrl(report, repo = ISSUE_REPO) {
+  const d = report.decision;
+  const h = report.verdict.headline;
+  const title = `Dispute: hand ${d.hand} ${d.street}: ${h.length > 70 ? h.slice(0, 67) + '...' : h}`;
+  const url = (body) => `${repo}/issues/new?${new URLSearchParams({ title, body })}`;
+  const summary = disputeText(report, true);
+  const fence = '```';
+  const full = url(`${summary}\n\n<details><summary>Report data</summary>\n\n${fence}json\n${JSON.stringify(report)}\n${fence}\n</details>\n`);
+  if (full.length <= MAX_ISSUE_URL) return full;
+  const short = url(`${summary}\n\n_The full report is too long for a link. In the trainer, use Save as file and drag the file into this issue._\n`);
+  if (short.length <= MAX_ISSUE_URL) return short;
+  // A very long note from the player: trim the summary so the link still opens.
+  let cut = summary.length;
+  let u;
+  do {
+    cut = Math.floor(cut * 0.8);
+    u = url(`${summary.slice(0, cut)}...\n\n_Trimmed to fit a link. In the trainer, use Save as file and drag the file into this issue._\n`);
+  } while (u.length > MAX_ISSUE_URL && cut > 200);
+  return u;
 }

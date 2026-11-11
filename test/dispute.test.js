@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Session } from '../src/trainer/session.js';
-import { disputeReport, disputeText, REPORT_VERSION } from '../src/trainer/dispute.js';
+import { disputeReport, disputeText, disputeIssueUrl, REPORT_VERSION, MAX_ISSUE_URL, ISSUE_REPO } from '../src/trainer/dispute.js';
 
 // Plays hands calling everything (a loose player gets flagged fast) until a decision is flagged.
 function firstFlagged() {
@@ -69,4 +69,39 @@ test('dispute report: captures the spot, hides cards until the hand is over, rou
   assert.match(text, /I would: Fold/);
   const json = text.slice(text.indexOf('--- data ---') + '--- data ---'.length).trim();
   assert.deepEqual(JSON.parse(json), during);
+});
+
+test('dispute issue link: prefilled, always short enough for GitHub, summary always included', () => {
+  const sess = new Session({ seed: 3, samples: 30 });
+  for (let h = 0; h < 60; h++) {
+    sess.startHand();
+    let guard = 0;
+    while (sess.status() !== 'over' && guard++ < 400) {
+      if (sess.status() === 'bot') {
+        sess.stepBot();
+        continue;
+      }
+      const L = sess.heroOptions();
+      sess.heroAct({ type: L.canCheck ? 'check' : 'call' });
+    }
+  }
+  const flagged = sess.decisions.filter((d) => d.verdict.grade !== 'good');
+  assert.ok(flagged.length >= 10);
+  for (const d of flagged) {
+    for (const why of ['', 'Too tight.', 'x'.repeat(1500)]) {
+      const report = disputeReport(d, { preferred: 'Fold', why });
+      const url = disputeIssueUrl(report);
+      assert.ok(url.startsWith(`${ISSUE_REPO}/issues/new?`));
+      assert.ok(url.length <= MAX_ISSUE_URL, `link is ${url.length} characters`);
+      const q = new URL(url).searchParams;
+      assert.match(q.get('title'), new RegExp(`^Dispute: hand ${d.hand} `));
+      const body = q.get('body');
+      assert.match(body, /^Trainer dispute/);
+      assert.ok(body.includes(report.decision.hole), 'cards in the body');
+      if (body.includes('```json')) {
+        const json = body.slice(body.indexOf('```json') + 7, body.lastIndexOf('```')).trim();
+        assert.deepEqual(JSON.parse(json), report);
+      } else assert.match(body, /Save as file/);
+    }
+  }
 });

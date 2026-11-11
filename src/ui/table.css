@@ -984,3 +984,11 @@ body:has(.drill-chip) #sim-wrap { display: none; }
   #d-status { flex: 1 1 100%; }
 }
 .d-preview .hint { text-align: left; }
+
+/* "Open a GitHub issue" under the dispute form, with the note that it is public */
+.d-issue { display: flex; align-items: center; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.d-issue a.button { flex: none; padding: 7px 13px; border-radius: 10px; border: 1px solid #55647d; background: var(--panel-2); color: var(--text); text-decoration: none; }
+.d-issue a.button:hover { border-color: #8ea0c0; }
+.d-issue .hint { text-align: left; font-size: 12.5px; }
+.d-issue .hint b { color: var(--warn); font-weight: 600; }
+@media (max-width: 600px) { .d-issue { flex-direction: column; align-items: stretch; } .d-issue a.button { text-align: center; } }

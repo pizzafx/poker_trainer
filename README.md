@@ -128,7 +128,8 @@ start getting called lighter.
 - **Disagree?** Think the coach got a flagged play wrong? The button on the verdict makes a
   report of the hand (cards, action, the coach's reads, every option's numbers, and once the
   hand is over what everyone held) with what you would have done and why. Copy it into a
-  message or save it as a file. Nothing is sent from the page.
+  message, save it as a file, or open a prefilled GitHub issue (public, and needs a GitHub
+  account). Nothing is sent from the page itself.
 - **Drill mode.** Pick a leak and the trainer deals only that kind of spot, one after
   another, playing the earlier streets for you. One decision, one verdict, next spot.
 - **Home game mode.** Pick it under Settings → Mode. Set whole-dollar blinds and a buy-in,

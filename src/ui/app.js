@@ -187,8 +187,10 @@ function renderTable() {
       const pc = Math.round(top.p * 100);
       if (top.p >= 0.45) {
         const lvl = top.p >= 0.75 ? 3 : top.p >= 0.6 ? 2 : 1;
-        read = `<div class="read ${lvl >= 2 ? 'firm' : ''}" title="${esc(top.name)}, ${pc}% sure"><i class="conf c${lvl}"></i>${esc(shortType(top.id))} ${pc}%</div>`;
-      } else read = `<div class="read" title="No read yet">–</div>`;
+        const word = shortType(top.id);
+        const label = lvl === 3 ? word : lvl === 2 ? `Likely ${word.toLowerCase()}` : `${word}?`;
+        read = `<div class="read ${lvl >= 2 ? 'firm' : ''}"><i class="conf c${lvl}"></i>${esc(label)}</div>`;
+      } else read = `<div class="read">–</div>`;
     }
     const stack = over ? s.stacks[i] : s.stacks[i];
     const isBtn = pos === 'BTN' || pos === 'BTN/SB';
@@ -197,7 +199,7 @@ function renderTable() {
       <div class="cards">${cards}</div>
       <div class="avatar" style="--h:${(i * 43) % 360}">${i === HERO ? '' : p.icon}${badge}${p.steaming ? '<span class="steam-dot" title="On tilt">🔥</span>' : ''}</div>
       <div class="plate"><div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>
-      <div class="stack">${money(stack)}</div>${read}</div></div>`;
+      <div class="stack">${money(stack)}</div>${read}</div>${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
     if (isBtn) {
       const dx = 50 + 34 * Math.cos(ang + 0.2);
       const dy = 49 + 26.5 * Math.sin(ang + 0.2);
@@ -235,6 +237,34 @@ function renderTable() {
     shownPot = potNow;
   }
   $('news').textContent = drill ? (sess.hand.over ? '' : `Drill: ${DRILLS[drill.cat].what}. ${heroStory()}`) : sess.news.join('  ');
+}
+
+// The coach's current read, in words, for the hover box.
+function readLine(seat) {
+  const top = sess.readOf(seat).ranked[0];
+  if (top.p < 0.45) return "Coach's read: none yet";
+  const sure = top.p >= 0.75 ? 'almost certainly' : top.p >= 0.6 ? 'probably' : 'might be';
+  return `Coach's read: ${sure} a ${top.name.toLowerCase()}`;
+}
+
+// A few words on what you have seen this player do, for the hover box.
+function tendencies(p) {
+  const n = p.notes;
+  if (n.hands < 8) return [`Watched ${n.hands} hand${n.hands === 1 ? '' : 's'}: too few to say much.`];
+  const played = n.vpip / n.hands;
+  const raised = n.pfr / n.hands;
+  const loose = played < 0.16 ? 'Tight' : played < 0.3 ? 'Average looseness' : played < 0.5 ? 'Loose' : 'Plays almost everything';
+  const ratio = n.vpip ? n.pfr / n.vpip : 0;
+  const style = ratio < 0.2 ? 'mostly limps and calls' : ratio < 0.5 ? 'raises now and then' : 'usually comes in raising';
+  const lines = [
+    `Watched ${n.hands} hands`,
+    `${loose}: plays ${Math.round(played * 100)}%, raises ${Math.round(raised * 100)}%`,
+    `Before the flop ${style}`,
+  ];
+  const sd = n.showdowns[0];
+  if (sd) lines.push(`Last shown: ${sd.cards.map((c) => RANKS[c >> 2] + SUIT_SYM[c & 3]).join(' ')} (${sd.won ? 'won' : 'lost'})`);
+  if (p.steaming) lines.push('Steaming after a big loss');
+  return lines;
 }
 
 function shortType(id) {
@@ -275,14 +305,14 @@ function renderActions() {
     const need = L.callAmt ? Math.round((100 * L.callAmt) / (L.pot + L.callAmt)) : 0;
     const sizeNote = (to) => (s.currentBet > 0 ? `${(to / s.currentBet).toFixed(1)}× the bet` : `${Math.round((100 * to) / Math.max(1, L.pot))}% of the pot`);
     el.innerHTML = `
+      ${L.canRaise ? `<div class="act-row size presets">${pre}
+        <span class="dollar">$</span><input type="number" id="a-num" aria-label="Raise amount" min="${L.minTo}" max="${L.maxTo}" value="${raiseTo}">
+        <input type="range" id="a-range" aria-label="Raise amount" min="${L.minTo}" max="${L.maxTo}" value="${raiseTo}"></div>` : '<div class="act-row size empty"></div>'}
       <div class="act-row main">
         <button id="a-fold" ${L.canFold ? '' : 'disabled'}><span>Fold<kbd>F</kbd></span><small>${L.canFold ? '&nbsp;' : 'checking is free'}</small></button>
-        <button id="a-call"><span>${L.canCheck ? 'Check' : 'Call ' + money(L.callAmt)}<kbd>C</kbd></span><small>${L.canCheck ? `pot ${money(L.pot)}` : `to win ${money(L.pot)} · need ${need}% to break even`}</small></button>
+        <button id="a-call"><span>${L.canCheck ? 'Check' : 'Call ' + money(L.callAmt)}<kbd>C</kbd></span><small>${L.canCheck ? `pot ${money(L.pot)}` : `to win ${money(L.pot)} · need ${need}%`}</small></button>
         ${L.canRaise ? `<button id="a-raise"><span>${verb} <span id="a-amt">$${raiseTo}</span><kbd>R</kbd></span><small id="a-sub">${sizeNote(raiseTo)}</small></button>` : ''}
       </div>
-      ${L.canRaise ? `<div class="act-row size presets">${pre}
-        <input type="range" id="a-range" aria-label="Raise amount" min="${L.minTo}" max="${L.maxTo}" value="${raiseTo}">
-        <span class="dollar">$</span><input type="number" id="a-num" aria-label="Raise amount" min="${L.minTo}" max="${L.maxTo}" value="${raiseTo}"></div>` : ''}
       `;
     const setTo = (v) => {
       raiseTo = Math.max(L.minTo, Math.min(L.maxTo, Math.round(+v || L.minTo)));
@@ -466,6 +496,18 @@ function nextHand() {
   if (drill) return nextSpot();
   pastLog = [...pastLog, ...sess.hand.log].slice(-120);
   sess.startPlayable();
+  raiseTo = 0;
+  advance();
+}
+
+// Fast-forwards the table: plays hands in an instant (yours are played for you and do not
+// count toward your results) so you sit down with something observed about everyone.
+function quickSim(hands = 40) {
+  if (!sess || drill) return;
+  clearTimeout(timer);
+  sess.quickSim(hands);
+  pastLog = [];
+  shownBoard = 0;
   raiseTo = 0;
   advance();
 }
@@ -795,6 +837,7 @@ $('side-close').onclick = () => document.body.classList.add('side-closed');
 $('tab-coach').onclick = () => showTab('coach');
 $('tab-log').onclick = () => showTab('log');
 if (window.innerWidth < 1180) document.body.classList.add('side-closed');
+$('btn-sim').onclick = () => quickSim();
 $('btn-players').onclick = () => playersModal();
 $('btn-review').onclick = () => sess && reviewModal();
 $('btn-settings').onclick = () => settingsModal(false);

@@ -48,7 +48,7 @@ function categorise(d) {
   if (facing) {
     if (m === 'call' && b === 'fold') return weak && d.drawEquity >= 0.14 ? 'chase' : 'paidOff';
     if (m === 'fold') return b === 'raise' && weak ? 'missedBluff' : 'overFold';
-    if (m === 'raise') return weak ? 'badBluff' : 'overplay';
+    if (m === 'raise') return weak ? 'badBluff' : d.tier >= TIER.TWO_PAIR ? 'other' : 'overplay';
     if (m === 'call' && b === 'raise') return 'missedValue';
     return 'other';
   }
@@ -113,7 +113,7 @@ const THEORY = {
   sizeBig:
     'Why theory disagrees: big sizes are for polarised ranges against opponents who must call some of the time. Here the big size folds out the worse hands you wanted to keep in.',
   preLoose:
-    'Why theory disagrees: charts built for raked online six-max or tournament play defend and open wider than this. Nine-handed, raked, and headed for a multiway pot, this hand does not earn its way in.',
+    'Why theory disagrees: charts built for raked online six-max or tournament play defend and open wider than this. At a full table, raked, and headed for a multiway pot, this hand does not earn its way in.',
   preTight:
     'Why theory disagrees: a tight chart folds this, but the callers at this table play so badly after the flop that the hand shows a profit here.',
   prePassive:
@@ -127,8 +127,11 @@ const THEORY = {
 
 function goodHeadline(v, mine, best) {
   if (v.note === 'bluffRaise') return `${mine.label}: fine. (The simulation likes a bluff-raise here, but that only works on these bots; it is not a habit to build.)`;
-  if (v.note === 'overbet') return `${mine.label}: fine. (A huge bet scores higher here only because these opponents call any size with one pair.)`;
-  if (v.note === 'riverBluff') return `${mine.label}: fine. (A river bluff scores slightly higher against these bots; not enough to rely on at a real table.)`;
+  if (v.note === 'overbet') return `${mine.label}: fine. (A bet bigger than the pot scores higher against these bots; a pot-sized bet or smaller is all you are held to.)`;
+  if (v.note === 'preBluff') return `${mine.label}: fine. (A re-raise bluff scores higher against these bots; it is not a habit to build.)`;
+  if (v.note === 'preFold') return `${mine.label}: fine.`;
+  if (v.note === 'sizeOk') return `${mine.label}: fine. (A bigger bet scores a little higher, but this is a real value size.)`;
+  if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A bluff scores higher against these bots; not enough to rely on at a real table.)`;
   if (v.note === 'fragile') return `${mine.label}: fine. (${best.label} scores higher, but not once the opponents are a little looser or tighter than assumed.)`;
   if (v.mine !== v.best) return `${mine.label}: fine. (${best.label} rates about the same.)`;
   const rivals = v.options.filter((o, i) => i !== v.best && o.close);
@@ -157,7 +160,7 @@ export function explain(d) {
   if (r1) reasons.push(r1);
   const r2 = rangeLine(d);
   if (r2) reasons.push(r2);
-  if (d.street !== STREET.PRE && d.opponents >= 3) {
+  if (d.street !== STREET.PRE && d.opponents >= 3 && d.tier <= TIER.OVERPAIR_TPTK) {
     reasons.push(`There are ${d.opponents} opponents still in. With that many players someone usually has a real hand, so bluffs work less and one pair is worth less.`);
   }
   if (d.street === STREET.PRE) {
@@ -169,5 +172,7 @@ export function explain(d) {
   // The "theory would call" note only applies when the hand is strong enough that theory would.
   let theory = THEORY[category];
   if (category === 'paidOff' && (d.tier === null || d.tier < TIER.TOP_PAIR_GOOD)) theory = null;
+  // "A routine fold against a balanced range" is only true of one-pair hands.
+  if (category === 'overFold' && d.tier !== null && d.tier > TIER.OVERPAIR_TPTK) theory = null;
   return { category, headline, reasons, theory };
 }

@@ -106,6 +106,8 @@ start getting called lighter.
   types in a different mix.
 - **Game settings.** $2/$3 or $3/$5, buy-in, and rake (Talking Stick Resort's listed
   structure by default, plus a capped percentage, a flat drop, or none).
+- **Quick sim.** Plays 40 hands in an instant so you start with something observed about
+  every player. Hover over a seat to see it.
 - **Skip junk hands.** The bottom 15% of starting hands are folded for you, so you spend
   your time on decisions that matter.
 - **Player notes.** How often each opponent has entered pots and raised, the hands they
@@ -118,11 +120,12 @@ Read this before taking the advice to a real table.
 
 - **Only preflop tendencies are measured.** The one tracked sample of these games found
   about 35% of hands played, 6% raised preflop, four players to the flop, and limpers
-  calling a raise 56% of the time. The opponents match those numbers. Nothing after the
+  calling a raise 56% of the time. The opponents match the raising and limp-calling numbers
+  and run a little tighter overall (about 32% played, three to three and a half per flop). Nothing after the
   flop has been measured at these stakes, so every postflop number in
   `src/bots/profiles.js` is an assumption in the direction coaches agree on.
 - **The opponents are easier to beat than real players.** A player who blindly follows the
-  top-rated option wins several times what a strong live player makes. Trust the direction
+  top-rated option wins roughly five to ten times what a strong live player makes. Trust the direction
   of the advice (value-bet more, pay off less, isolate limpers) more than the dollar
   figures.
 - **Guardrails limit what gets flagged.** The trainer will not flag you for declining a
@@ -147,6 +150,7 @@ node scripts/audit.js 11 150    # hand histories behind the costliest verdicts
 node scripts/selfplay.js        # win rate of a player who blindly follows the judge
 node scripts/exploit.js         # where that player's profit comes from
 node scripts/noise.js 3000      # how repeatable the judge's numbers are
+node scripts/flagrate.js        # how often a sensible player gets flagged, and for what
 ```
 
 If you disagree with how a type plays, change it on the **Players** screen in the app.

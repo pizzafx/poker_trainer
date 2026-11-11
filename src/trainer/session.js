@@ -396,62 +396,87 @@ export class Session {
     return { ranked, notes: p.notes, look: p.look, steaming: p.steaming };
   }
 
-  // Guardrails on a verdict, so the trainer does not teach habits that only work on bots.
+  // Guardrails on a verdict, so the trainer does not teach habits that only work on bots
+  // and does not flag plays a competent player would defend.
   temper(v, s, ctx, action, judgeOpts) {
     if (v.grade === 'good' || v.mine < 0) return;
     const pre = s.street === STREET.PRE;
     const hf = pre ? null : handFeatures(s.hole[HERO], s.board);
     const weak = hf && hf.tier <= TIER.MIDDLE_PAIR;
     const bb = s.bbAmt;
-    const small = Math.max(1.5 * bb, 0.06 * v.pot);
-    const big = Math.max(4 * bb, 0.14 * v.pot);
-    const kind = (o) => o.type;
-    let mine = v.options[v.mine];
-    let best = v.options[v.best];
-
-    // 1. Declining to bluff-raise is never a mistake.
-    if (!pre && ctx.toCall > 0 && kind(best) === 'raise' && kind(mine) !== 'raise' && weak) {
-      v.grade = 'good';
-      v.note = 'bluffRaise';
-      return;
-    }
-    // 2. With less than two pair, do not hold the trainee to an overbet: compare with the
-    //    best option that is at most a pot-sized bet or raise.
-    if (!pre && kind(best) === 'raise' && hf.tier < TIER.TWO_PAIR && best.to - s.currentBet > v.pot * 1.05) {
+    const small = Math.max(3 * bb, 0.1 * v.pot);
+    const big = Math.max(8 * bb, 0.2 * v.pot);
+    const mine = v.options[v.mine];
+    const isRaise = (o) => o.type === 'raise';
+    const best = () => v.options[v.best];
+    // Re-grade against the best option among those `allow` accepts (your own play always counts).
+    const regrade = (allow, note) => {
       let alt = -1;
       v.options.forEach((o, i) => {
-        if (o.type === 'raise' && o.to - s.currentBet > v.pot * 1.05) return;
-        if (alt < 0 || o.ev > v.options[alt].ev) alt = i;
+        if ((i === v.mine || allow(o)) && (alt < 0 || o.ev > v.options[alt].ev)) alt = i;
       });
       v.best = alt;
-      best = v.options[alt];
-      v.loss = best.ev - mine.ev;
-      v.sameKind = kind(best) === kind(mine);
+      v.loss = v.options[alt].ev - mine.ev;
+      v.sameKind = v.options[alt].type === mine.type;
       const k = v.sameKind ? 1.6 : 1;
       v.grade = alt === v.mine || v.loss < small * k ? 'good' : v.loss >= big * k ? 'blunder' : 'mistake';
-      if (v.grade === 'good') {
-        v.note = 'overbet';
-        return;
+      if (v.grade === 'good') v.note = note;
+      return v.grade === 'good';
+    };
+    const pass = (note) => {
+      v.grade = 'good';
+      v.note = note;
+    };
+    // Is a live opponent read as someone who does not fold?
+    const stickyRead = () => {
+      for (let i = 0; i < s.n; i++) {
+        if (i === HERO || s.folded[i]) continue;
+        const top = this.readOf(i).ranked[0];
+        if (top.p >= 0.5 && ['station', 'whale', 'maniac', 'beginner'].includes(top.id)) return true;
+      }
+      return false;
+    };
+
+    if (pre) {
+      const cls = classOf(s.hole[HERO][0], s.hole[HERO][1]);
+      const playable = HERO_PROFILE.playPct[cls]; // 1 = best hand to play
+      const premium = HERO_PROFILE.raisePct[cls]; // 1 = best hand to raise
+      // A re-raise with a hand outside the top few percent is a bluff: compare with the best
+      // option that is not a raise.
+      if (ctx.raises >= 1 && isRaise(best()) && premium < 0.94 && regrade((o) => !isRaise(o), 'preBluff')) return;
+      // Folds: only flagged with a hand in the top 35%, and never worse than a mistake.
+      if (mine.type === 'fold') {
+        if (playable < 0.65) return pass('preFold');
+        if (v.grade === 'blunder') v.grade = 'mistake';
+      }
+      // Re-raising queens or better or ace-king is never a blunder, except into a nit.
+      if (isRaise(mine) && premium >= 0.96 && v.grade === 'blunder') {
+        const agg = ctx.aggressor >= 0 && ctx.aggressor !== HERO ? this.readOf(ctx.aggressor).ranked[0] : null;
+        if (!(agg && agg.id === 'nit' && agg.p >= 0.5)) v.grade = 'mistake';
+      }
+    } else {
+      // 1. Declining to bluff-raise is never a mistake: compare with the best non-raise.
+      if (ctx.toCall > 0 && isRaise(best()) && !isRaise(mine) && weak && regrade((o) => !isRaise(o), 'bluffRaise')) return;
+      // 2. Nobody is held to an overbet: compare with the best option up to a pot-sized bet.
+      const over = (o) => isRaise(o) && o.to - s.currentBet > v.pot * 1.05;
+      if (over(best()) && regrade((o) => !over(o), 'overbet')) return;
+      // Sizing: a bet of 60% of the pot or more is never "too small", and sizing is never red.
+      if (isRaise(mine) && isRaise(best())) {
+        if (best().to > mine.to && mine.to - s.currentBet >= 0.6 * v.pot) return pass('sizeOk');
+        if (v.grade === 'blunder') v.grade = 'mistake';
+      }
+      // 3. Passing up a bluff: not flagged against players read as unable to fold, and it
+      //    needs a wide margin (wider on the river) against everyone else. Never red.
+      if (ctx.toCall === 0 && isRaise(best()) && mine.type === 'check' && weak) {
+        const margin = (s.street === STREET.RIVER ? 3 : 2) * small;
+        if (v.loss < margin || stickyRead()) return pass('passedBluff');
+        v.grade = 'mistake';
       }
     }
-    // 3. A river bluff has to clear a double margin before passing it up counts.
-    if (!pre && s.street === STREET.RIVER && ctx.toCall === 0 && kind(best) === 'raise' && kind(mine) === 'check' && weak) {
-      v.grade = v.loss >= 2 * big ? 'mistake' : 'good';
-      if (v.grade === 'good') {
-        v.note = 'riverBluff';
-        return;
-      }
-    }
-    // 4. Preflop folds rest on assumptions about later streets: never worse than a mistake.
-    if (pre && kind(mine) === 'fold' && v.grade === 'blunder') v.grade = 'mistake';
-    // 5. The flag must survive opponents being a little looser and a little tighter than assumed.
+    // The flag must survive opponents being a little looser and a little tighter than assumed.
     for (const shift of [-0.05, 0.05]) {
       const v2 = judgeDecision(s, HERO, this.hand.belief, action, { ...judgeOpts, samples: Math.round(judgeOpts.samples / 2), shift });
-      if (v2.options[v.best].ev - v2.options[v.mine].ev < small * 0.5) {
-        v.grade = 'good';
-        v.note = 'fragile';
-        return;
-      }
+      if (v2.options[v.best].ev - v2.options[v.mine].ev < small * 0.5) return pass('fragile');
     }
   }
 
@@ -554,6 +579,19 @@ export class Session {
       this.startHand();
       this.finishAuto();
     }
+  }
+
+  // Fast-forward: play `hands` hands unattended to build up observations of the table, then
+  // deal a fresh hand. The trainee's results in those hands are not counted.
+  quickSim(hands) {
+    const net = this.heroNet();
+    if (this.hand && !this.hand.over) this.foldOut();
+    this.warmUp(hands);
+    const me = this.seats[HERO];
+    me.stack = this.heroBuy;
+    this.invested = me.stack - net;
+    this.startPlayable();
+    this.news.unshift(`Fast-forwarded ${hands} hands. Hover over a player to see what you picked up.`);
   }
 
   // Deals hands until the trainee faces a decision that `match` accepts. Returns false if

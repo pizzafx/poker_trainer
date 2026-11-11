@@ -24,7 +24,8 @@ function roundChips(x) {
 export function buildContext(s, seat = s.toAct) {
   const L = legal(s);
   const n = s.n;
-  const pot = potSize(s);
+  // The part of a bet this player cannot cover is never theirs to win, so leave it out of the pot.
+  const pot = potSize(s) - Math.max(0, s.currentBet - s.bet[seat] - L.callAmt);
   const ctx = {
     seat,
     street: s.street,
@@ -262,19 +263,33 @@ export function preflopPolicy(ctx, P, cls) {
 // Postflop.
 
 function betSizes(ctx, weights) {
-  const acc = new Map();
-  let total = 0;
-  for (let i = 0; i < BET_FRACS.length; i++) {
-    const w = weights[i];
-    if (w <= 0) continue;
-    let to = roundChips(BET_FRACS[i] * ctx.pot);
-    if (to >= 0.7 * ctx.maxTo) to = ctx.maxTo;
-    to = clamp(to, ctx.minTo, ctx.maxTo);
-    acc.set(to, (acc.get(to) || 0) + w);
-    total += w;
+  // The dollar amount for each bet fraction depends only on the situation, so work it out
+  // once per decision (this runs for every possible hand when ranges are updated).
+  let tos = ctx.betTos;
+  if (!tos) {
+    tos = ctx.betTos = BET_FRACS.map((f) => {
+      let to = roundChips(f * ctx.pot);
+      if (to >= 0.7 * ctx.maxTo) to = ctx.maxTo;
+      return clamp(to, ctx.minTo, ctx.maxTo);
+    });
   }
   const out = [];
-  for (const [to, w] of acc) out.push({ to, p: w / total });
+  let total = 0;
+  for (let i = 0; i < tos.length; i++) {
+    const w = weights[i];
+    if (w <= 0) continue;
+    total += w;
+    let hit = false;
+    for (let k = 0; k < out.length; k++) {
+      if (out[k].to === tos[i]) {
+        out[k].p += w;
+        hit = true;
+        break;
+      }
+    }
+    if (!hit) out.push({ to: tos[i], p: w });
+  }
+  for (let k = 0; k < out.length; k++) out[k].p /= total;
   return out;
 }
 
@@ -354,7 +369,13 @@ export function postflopPolicy(ctx, P, f) {
     (ctx.heat || 0) * (facingRaise ? 0.2 : 0.1);
   // Size and raises scare off weak hands, but each type has a hand it will not fold:
   // "I have top pair, I call" against a bet, a notch stronger against a raise.
-  callThr = Math.min(callThr, P.neverFold + respect + (facingRaise ? 0.1 : 0) + (ctx.raises >= 3 ? 0.08 : 0));
+  // That floor holds for bets up to about the size of the pot; beyond that it rises with
+  // every doubling, a lot for careful players and a little for callers.
+  const betFrac = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall);
+  callThr = Math.min(
+    callThr,
+    P.neverFold + respect + (facingRaise ? 0.1 : 0) + (ctx.raises >= 3 ? 0.08 : 0) + (ctx.shift || 0) + P.overFold * Math.max(0, Math.log2(betFrac)),
+  );
   const raiseThr = P.raiseValue[st] + (facingRaise ? 0.07 : 0) + Math.max(0, respect) * 0.5;
 
   let pRaiseV = soft(S, raiseThr, 0.03);

@@ -55,10 +55,15 @@ export function candidateActions(s, heroAction) {
   if (heroAction && (heroAction.type === 'raise' || heroAction.type === 'bet') && L.canRaise) {
     tos.add(Math.max(L.minTo, Math.min(L.maxTo, Math.round(heroAction.to))));
   }
+  // Betting more than the biggest remaining opponent can call is the same play as putting
+  // them all-in, so sizes above that collapse into one option.
+  let cover = 0;
+  for (let i = 0; i < s.n; i++) if (i !== s.toAct && !s.folded[i]) cover = Math.max(cover, s.bet[i] + s.stacks[i]);
+  const top = Math.max(L.minTo, Math.min(L.maxTo, cover));
   const clean = new Set();
   for (let to of tos) {
-    to = Math.max(L.minTo, Math.min(L.maxTo, to));
-    if (to >= 0.8 * L.maxTo) to = L.maxTo;
+    to = Math.max(L.minTo, Math.min(top, to));
+    if (to >= 0.8 * top) to = top;
     clean.add(to);
   }
   for (const to of [...clean].sort((a, b) => a - b)) out.push({ type: 'raise', to });
@@ -242,8 +247,8 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   const sig = loss > 2.2 * se;
   let grade = 'good';
   if (mine >= 0 && mine !== best && sig) {
-    const big = Math.max(4 * bb, 0.14 * pot) * (sameKind ? 1.6 : 1);
-    const small = Math.max(1.5 * bb, 0.06 * pot) * (sameKind ? 1.6 : 1);
+    const big = Math.max(8 * bb, 0.2 * pot) * (sameKind ? 1.6 : 1);
+    const small = Math.max(3 * bb, 0.1 * pot) * (sameKind ? 1.6 : 1);
     if (loss >= big) grade = 'blunder';
     else if (loss >= small) grade = 'mistake';
   }

@@ -861,3 +861,107 @@ body:has(.drill-chip) #sim-wrap { display: none; }
 .myhand span { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .myhand b { font-size: 17px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #0008; }
 #actions { min-height: 148px; }
+
+
+/* ================= narrow windows (900px and narrower) =================
+   The page scrolls instead of fitting the window, and the coach panel sits below the action
+   bar in the page flow, so it never covers the table. Phones get more below. */
+@media (max-width: 900px) {
+  html, body { height: auto; }
+  body { overflow-x: hidden; overflow-y: auto; min-height: 100%; }
+  main { display: block; }
+  /* header: stats on one line, buttons in a row that scrolls sideways if it must */
+  #top { flex-wrap: wrap; gap: 6px; padding: 6px 10px; position: sticky; top: 0; z-index: 15; background: #0b0e13; }
+  .brand { display: none; }
+  #stats { flex: 1 1 100%; flex-wrap: nowrap; overflow: hidden; gap: 5px; }
+  #stats span { padding: 2px 8px; font-size: 12px; }
+  #stats span:nth-child(n+3) { display: none; }
+  #stats .drill-chip { display: inline-block; }
+  .top-actions { flex: 1 1 100%; overflow-x: auto; gap: 5px; scrollbar-width: none; }
+  .top-actions::-webkit-scrollbar { display: none; }
+  .top-actions button, .top-actions a { flex: none; padding: 6px 10px; font-size: 13px; white-space: nowrap; }
+
+  #stage { overflow: visible; padding: 4px 8px 10px; }
+  #sim-wrap { position: static; align-self: flex-start; margin: 2px 0 4px; }
+  #btn-sim { padding: 5px 11px; font-size: 13px; }
+  #sim-tip { width: min(290px, calc(100vw - 32px)); z-index: 30; }
+
+  /* under the table: coach strip, then the action dock, full width */
+  #bottom { flex-direction: column; align-items: stretch; gap: 6px; width: 100%; }
+  #bottom-left { flex: none; }
+  #news { min-height: 0; font-size: 12px; }
+  #actions { width: 100%; flex: none; min-height: 0; }
+  .act-row.size { flex-wrap: wrap; row-gap: 6px; }
+  .act-row input[type=range] { flex: 1 1 140px; min-width: 120px; }
+  .act-row.over { flex-wrap: wrap; justify-content: stretch; }
+  .act-row.over button { flex: 1 1 auto; }
+  .act-row.over .hint { flex: 1 1 100%; }
+
+  /* the coach panel: below everything, in the page flow */
+  #side { position: static; width: 100%; max-height: none; border-left: 0; border-top: 1px solid var(--line); box-shadow: none; scroll-margin-top: 80px; }
+  #feedback, #log, #ranges { overflow: visible; flex: none; }
+  .tabs { position: sticky; top: 75px; z-index: 5; background: #1e2634; }
+
+  /* dialogs fill the screen */
+  #modal-box { width: calc(100vw - 16px); max-width: none; max-height: calc(100vh - 16px); overflow-y: auto; padding: 14px; }
+}
+
+/* ================= phones (600px and narrower) =================
+   The table is a tall oval (the seat geometry is PHONE_GEOM in app.js) and seats are sized
+   in px so names stay readable. */
+@media (max-width: 600px) {
+  /* the table: tall oval */
+  #table { width: 100%; min-width: 0; max-width: 460px; aspect-ratio: 0.8; margin-top: 14px; }
+  #felt { left: 15%; right: 15%; top: 13%; bottom: 15%; border-width: 6px; gap: 6px; }
+  #pot { font-size: 15px; padding: 2px 10px; }
+  /* five board cards fit between the two side seats */
+  #board { --cw: 8.8cqw; gap: 0.6cqw; min-height: calc(8.8cqw * 1.4); }
+  /* Quick sim sits in the empty top-left corner of the tall table instead of on its own row */
+  #sim-wrap { position: absolute; left: 8px; top: 6px; margin: 0; }
+  .seat { width: 25cqw; max-width: 112px; }
+  .seat.hero { width: 34cqw; max-width: 150px; margin-top: 0; }
+  .avatar { width: 34px; height: 34px; font-size: 18px; border-width: 2px; }
+  .avatar .badge.pos { left: -14px; top: -2px; font-size: 9.5px; padding: 0 4px; }
+  .avatar.has-vpip::before { inset: -4px; -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px + 1px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px + 1px)); }
+  .steam-dot { font-size: 12px; left: -6px; bottom: -3px; }
+  .plate { margin-top: -8px; border-radius: 7px; padding: 9px 3px 3px; }
+  .seat:not(.hero) .plate { padding-top: 9px; }
+  .seat .nick { font-size: 11px; }
+  .seat .stack { font-size: 12.5px; }
+  .seat .read { font-size: 10px; }
+  .conf { width: 9px; height: 3px; margin-right: 3px; }
+  .badge { font-size: 9px; padding: 0 4px; margin-left: 3px; }
+  .vpip { margin-top: 2px; padding: 0 5px; gap: 2px; font-size: 8px; }
+  .vpip b { font-size: 10px; }
+  .seat:not(.hero):not(.shown) .cards { --cw: 15px; margin-left: 9px; top: -4px; }
+  .seat .cards .card + .card { margin-left: -6px; }
+  .seat.shown .cards { --cw: 22px; margin-left: -2px; top: -10px; }
+  .seat.shown .cards .card + .card { margin-left: 1px; }
+  .seat.hero .cards { --cw: 15cqw; }
+  .seat.hero .cards .card + .card { margin-left: -2cqw; }
+  .seat.hero .plate { min-width: 0; width: 100%; padding: 2px 6px 3px; gap: 5px; margin-top: 3px; }
+  .chipbet { font-size: 11.5px; padding: 1px 6px 1px 4px; gap: 3px; }
+  .chipbet.plain { font-size: 11px; padding-left: 6px; }
+  .chipbet::before { width: 8px; height: 8px; box-shadow: inset 0 0 0 1px #ffffffb0; }
+  .dealer { width: 14px; height: 14px; font-size: 8.5px; }
+  /* the hover box is for mice; a tap opens the player's card instead */
+  .seat:hover .tip { display: none; }
+  .seat .tip, .vpip-tip { max-width: calc(100vw - 32px); }
+
+  .toast { column-gap: 8px; padding: 7px 10px; }
+  .toast .t-main { font-size: 13.5px; }
+  .myhand { justify-content: flex-start; min-height: 20px; }
+  .myhand b { font-size: 15.5px; }
+  .act-row.size button { padding: 5px 8px; min-height: 36px; font-size: 13px; flex: 1 0 auto; }
+  .act-row input[type=number] { width: 76px; height: 36px; }
+  .act-row.main { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; }
+  .act-row.main button { height: auto; min-height: 62px; font-size: 15.5px; padding: 6px 4px; }
+  .act-row.main button > span { white-space: nowrap; overflow: visible; }
+  .act-row.main button small { font-size: 11px; line-height: 1.2; white-space: normal; overflow: visible; }
+  .act-row.main #a-raise { letter-spacing: -0.2px; }
+  /* the raise button carries the amount, so it gets the widest column */
+  .act-row.main:has(#a-raise) { grid-template-columns: 0.8fr 1fr 1.2fr; }
+  .act-row.main kbd { display: none; }
+  .rc { font-size: 8px; }
+  .kv { grid-template-columns: repeat(2, 1fr); }
+}

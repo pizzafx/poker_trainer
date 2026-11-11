@@ -165,16 +165,30 @@ function lastStreetAction(s, seat) {
   return null;
 }
 
+// Seat, dealer-button and bet-marker ellipses, in % of the table box: [x radius, y radius].
+// Bet markers take [x radius, y radius below the middle, y radius above it]: a seat's plate
+// hangs below its centre, so markers of the upper seats sit further in. On a tall phone table
+// the side seats are level with the board, so their markers go up (chipLift) and out towards
+// the seat (chipOut), clear of the board and of the diagonal seats' markers; the top seat's
+// marker sits higher (chipTop) so the markers above the board do not form one crowded row.
+const WIDE_GEOM = { cy: 49, seat: [44, 38], dealer: [34, 26.5], chip: [27, 20, 20], chipLift: 0, chipOut: 0, chipTop: 0 };
+const PHONE_GEOM = { cy: 50, seat: [37.5, 41], dealer: [25, 31], chip: [23, 24.5, 18], chipLift: 14.5, chipOut: 13, chipTop: 6 };
+const PHONE = matchMedia('(max-width: 600px)');
+// At 900px and narrower the coach panel sits below the table in the page (table.css).
+const NARROW = matchMedia('(max-width: 900px)');
+
 function renderTable() {
   const h = sess.hand;
   const s = h.state;
   const n = s.n;
   const over = h.over;
   let seatsHtml = '';
+  // Phones get a tall oval table (see the phone block at the end of table.css).
+  const G = PHONE.matches ? PHONE_GEOM : WIDE_GEOM;
   for (let i = 0; i < n; i++) {
     const ang = ((90 + (i * 360) / n) * Math.PI) / 180;
-    const x = 50 + 44 * Math.cos(ang);
-    const y = 49 + 38 * Math.sin(ang);
+    const x = 50 + G.seat[0] * Math.cos(ang);
+    const y = G.cy + G.seat[1] * Math.sin(ang);
     const p = sess.seats[i];
     const pos = positionName(s, i);
     const cls = ['seat'];
@@ -214,13 +228,15 @@ function renderTable() {
       <div class="plate"><div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>
       <div class="stack">${money(stack)}</div>${read}</div>${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP ${vp.pct}%</b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vp.pct < 18 ? 'Tight: mostly strong hands.' : vp.pct < 32 ? 'About average.' : vp.pct < 50 ? 'Loose: plays a lot of weak hands.' : 'Plays almost anything.'}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
     if (isBtn) {
-      const dx = 50 + 34 * Math.cos(ang + 0.2);
-      const dy = 49 + 26.5 * Math.sin(ang + 0.2);
+      const dx = 50 + G.dealer[0] * Math.cos(ang + 0.2);
+      const dy = G.cy + G.dealer[1] * Math.sin(ang + 0.2);
       seatsHtml += `<div class="dealer" style="left:${dx}%;top:${dy}%">D</div>`;
     }
     // Chips / last action, drawn between the seat and the middle.
-    const bx = 50 + 27 * Math.cos(ang);
-    const by = 49 + 20 * Math.sin(ang);
+    const level = Math.cos(ang) ** 8; // 1 for a seat level with the middle, near 0 elsewhere
+    const bx = 50 + (G.chip[0] + G.chipOut * level) * Math.cos(ang);
+    const up = Math.sin(ang) < 0;
+    const by = G.cy + (up ? G.chip[2] + G.chipTop * Math.sin(ang) ** 4 : G.chip[1]) * Math.sin(ang) - G.chipLift * level;
     let chip = '';
     if (over) {
       if (s.result.won[i] > 0) chip = `<span class="what">wins</span>${money(s.result.won[i])}`;
@@ -450,6 +466,8 @@ function renderToast() {
 function openSide(tab) {
   document.body.classList.remove('side-closed');
   if (tab) showTab(tab);
+  // In a narrow window the panel sits below the table rather than over it, so bring it into view.
+  if (NARROW.matches) $('side').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 let currentTab = 'coach';
 function showTab(tab) {
@@ -982,7 +1000,8 @@ $('seats').addEventListener('keydown', (e) => {
     playerModal(+el.dataset.seat);
   }
 });
-$('btn-side').onclick = () => document.body.classList.toggle('side-closed');
+$('btn-side').onclick = () => (document.body.classList.contains('side-closed') ? openSide() : document.body.classList.add('side-closed'));
+PHONE.addEventListener('change', () => sess && render());
 $('side-close').onclick = () => document.body.classList.add('side-closed');
 $('tab-coach').onclick = () => showTab('coach');
 $('tab-log').onclick = () => showTab('log');

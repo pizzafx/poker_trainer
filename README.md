@@ -140,6 +140,8 @@ start getting called lighter.
   structure by default, plus a capped percentage, a flat drop, or none).
 - **Quick sim.** Plays 40 hands in an instant so you start with something observed about
   every player. Hover over a seat to see it.
+- **Works on a phone.** Below 600px wide the table turns into a tall oval and the coach
+  panel moves below the action buttons, so nothing covers the table.
 - **Skip junk hands.** The bottom 15% of starting hands are folded for you, so you spend
   your time on decisions that matter.
 - **Your hand in words.** From the flop on, the trainer names what you hold above the bet

@@ -1851,3 +1851,6 @@ body.reviewing { overflow: hidden; }
 }
 /* While a dialog is open nothing from the table may draw over it */
 body:has(#modal:not(.hidden)) .seat .tip, body:has(#modal:not(.hidden)) .vpip-tip { display: none; }
+
+/* hover boxes: centred, plus a nudge (set in app.js) that keeps them inside the window */
+.seat .tip, .vpip-tip { transform: translateX(calc(-50% + var(--dx, 0px))); }

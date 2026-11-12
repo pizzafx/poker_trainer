@@ -1403,6 +1403,26 @@ $('seats').addEventListener('click', (e) => {
   const seat = +el.dataset.seat;
   if (seat !== HERO) playerModal(seat);
 });
+// Hover boxes are centred on their seat or pill; near the window's edge, slide them back inside.
+function keepInWindow(box) {
+  if (!box) return;
+  box.style.setProperty('--dx', '0px');
+  if (getComputedStyle(box).display === 'none') return;
+  const b = box.getBoundingClientRect();
+  const pad = 8;
+  const dx = b.left < pad ? pad - b.left : b.right > innerWidth - pad ? innerWidth - pad - b.right : 0;
+  box.style.setProperty('--dx', `${Math.round(dx)}px`);
+}
+$('seats').addEventListener('mouseover', (e) => {
+  const seat = e.target.closest('.seat');
+  if (!seat) return;
+  keepInWindow(seat.querySelector('.tip'));
+  keepInWindow(seat.querySelector('.vpip-tip'));
+});
+$('seats').addEventListener('focusin', (e) => {
+  const seat = e.target.closest('.seat');
+  if (seat) keepInWindow(seat.querySelector('.tip'));
+});
 $('seats').addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
   const el = e.target.closest('.seat');

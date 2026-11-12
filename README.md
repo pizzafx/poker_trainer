@@ -7,6 +7,10 @@
 
 *GTO usually stands for game theory optimal. At your table, it's optional.*
 
+### ▶ Play it now: [pizzafx.github.io/poker_trainer](https://pizzafx.github.io/poker_trainer/)
+
+Free, in your browser, nothing to install.
+
 Game Theory Optional is a free poker trainer for the games you actually sit in: the
 low-stakes game at your local casino and the home game with your friends.
 
@@ -22,7 +26,7 @@ There are two ways to play:
 - **Home game.** Your own blinds and buy-in, and you choose who sits down: three maniacs, two
   nits and a total beginner, say. No rake, everyone rebuys, and nobody leaves.
 
-![The table on the turn: your two cards, the board, two opponents still in, the coach's verdict on your last play and your options](docs/table.webp)
+[![The table on the turn: your two cards, the board, two opponents still in, the coach's verdict on your last play and your options](docs/table.webp)](https://pizzafx.github.io/poker_trainer/)
 
 New here? The app has an **FAQ** (button in the header, or [`faq.html`](faq.html)) written
 for poker players: how decisions are graded, what the colours mean, and how far to trust it.
@@ -43,6 +47,10 @@ This trainer drills those adjustments by letting you make the decision and then 
 it cost.
 
 ## Quick start
+
+**Play in your browser: [pizzafx.github.io/poker_trainer](https://pizzafx.github.io/poker_trainer/)** (nothing to install).
+
+Or run it on your own machine:
 
 ```bash
 git clone git@github.com:pizzafx/poker_trainer.git

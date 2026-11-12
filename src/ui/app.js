@@ -452,6 +452,7 @@ function renderActions() {
   }
 }
 
+const tipLine = (d, cls = 'tip-line') => (d.tip ? `<p class="${cls}"><b class="tip-label">Tip:</b> ${esc(d.tip)}</p>` : '');
 function fbCard(d, showWhere = true) {
   const v = d.verdict;
   const where = showWhere
@@ -462,6 +463,7 @@ function fbCard(d, showWhere = true) {
     .join('');
   return `<div class="fb ${v.grade}">${where}
     <div class="head">${esc(d.headline)}</div>
+    ${tipLine(d)}
     ${d.reasons.map((r) => `<p>${esc(r)}</p>`).join('')}
     ${d.theory ? `<p class="theory">${esc(d.theory)}</p>` : ''}
     <details><summary>Show the numbers</summary>
@@ -602,7 +604,7 @@ function renderToast() {
   const icon = { good: '✓', mistake: '!', blunder: '✕' }[show.verdict.grade];
   el.innerHTML = `<button type="button" class="toast ${show.verdict.grade}${pending ? ' prev' : ''}" id="toast-open">
     <span class="t-icon">${icon}</span><span class="t-tag">${tagText}</span>
-    <span class="t-main">${esc(show.headline)}</span><span class="t-more">${show.verdict.grade === 'good' ? 'Details' : 'Why?'} ›</span></button>`;
+    <span class="t-main">${esc(show.headline)}</span>${show.tip ? `<span class="t-tip"><b class="tip-label">Tip:</b> ${esc(show.tip)}</span>` : ''}<span class="t-more">${show.verdict.grade === 'good' ? 'Details' : 'Why?'} ›</span></button>`;
   $('toast-open').onclick = () => (REVIEW_V2 && h.over && !drill ? openReview() : openSide('coach'));
 }
 
@@ -849,7 +851,7 @@ function openReview() {
     const v = d.verdict;
     const mine = v.options[v.mine];
     const head = `<span class="label">${STREET_LABEL[d.street] || d.streetName}</span><span class="vmark ${d.verdict.grade}">${MARK[v.grade]}</span><span class="what">${esc(mine ? mine.label : '')}</span><span class="grade ${v.grade}">${GRADE_WORD[v.grade]}</span>`;
-    if (v.grade === 'good') return `<div class="rv-step">${head}</div>`;
+    if (v.grade === 'good') return `<div class="rv-step">${head}</div>${tipLine(d, 'tip-line rv-tip')}`;
     const evs = v.options.map((o) => o.ev);
     const lo = Math.min(...evs, 0);
     const hi = Math.max(...evs, 0);

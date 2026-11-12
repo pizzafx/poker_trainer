@@ -5,7 +5,7 @@ import { newHand, applyAction, legal, potSize, positionName, STREET, STREET_NAME
 import { handFeatures, boardTexture, describeHand, TIER } from '../engine/features.js';
 import { classOf, classNames } from '../engine/hands.js';
 import { CATEGORY_NAMES, categoryOf } from '../engine/evaluator.js';
-import { buildContext, preflopPolicy, postflopPolicy, sampleAction } from '../bots/policy.js';
+import { buildContext, preflopPolicy, postflopPolicy, sampleAction, POS } from '../bots/policy.js';
 import { PROFILES, TYPE_IDS, tilted, HERO_PROFILE } from '../bots/profiles.js';
 import { makePlayer, tiltChance, rebuyChance, buyIn, TABLES } from './players.js';
 import { HandBelief, newRead, posterior } from './belief.js';
@@ -42,6 +42,29 @@ export const RAKES = {
 export const APP_GAME = { game: '1/3', rake: 'pct', heroBuy: 300 };
 
 const HERO = 0;
+
+// A soft tip, not a flag: you limped first in (nobody limped or raised before you, and you are not
+// in a blind), the play was graded fine, and the best raise does at least a big blind better, holding
+// at least half a big blind when the opponents are a little looser and a little tighter
+// (`rejudge(shift)` re-runs the judge). Returns { to, gain, text } or null. Never changes the grade.
+export function limpTipFor(v, ctx, bb, rejudge) {
+  if (v.grade !== 'good' || v.mine < 0 || ctx.street !== STREET.PRE) return null;
+  const mine = v.options[v.mine];
+  if (mine.type !== 'call' || ctx.raises !== 0 || ctx.limpers !== 0) return null;
+  if (ctx.pos !== POS.EP && ctx.pos !== POS.MP && ctx.pos !== POS.LP) return null;
+  let br = -1;
+  v.options.forEach((o, i) => {
+    if (o.type === 'raise' && (br < 0 || o.ev > v.options[br].ev)) br = i;
+  });
+  if (br < 0 || v.options[br].ev - mine.ev < bb) return null;
+  for (const shift of [-0.05, 0.05]) {
+    const v2 = rejudge(shift);
+    if (v2.options[br].ev - v2.options[v.mine].ev < 0.5 * bb) return null;
+  }
+  const to = v.options[br].to;
+  const gain = Math.round(v.options[br].ev) - Math.round(mine.ev); // as the numbers table rounds them
+  return { to, gain, text: `a raise to $${to} does about $${gain} better here. Fewer players see the flop, and you keep the lead.` };
+}
 
 export class Session {
   constructor(opts = {}) {
@@ -296,6 +319,8 @@ export class Session {
     };
     const verdict = judgeDecision(s, HERO, h.belief, action, judgeOpts);
     this.temper(verdict, s, ctx, action, judgeOpts);
+    const tip = limpTipFor(verdict, ctx, s.bbAmt, (shift) => judgeDecision(s, HERO, h.belief, action, { ...judgeOpts, samples: Math.round(judgeOpts.samples / 2), shift }));
+    if (tip) verdict.tip = tip;
     // The opponent whose range matters most: whoever bet, else the last aggressor, else anyone left.
     let villain = -1;
     if (ctx.toCall > 0 && ctx.aggressor >= 0 && ctx.aggressor !== HERO && !s.folded[ctx.aggressor]) villain = ctx.aggressor;

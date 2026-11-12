@@ -125,6 +125,7 @@ const THEORY = {
 };
 
 function goodHeadline(v, mine, best) {
+  if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
   if (v.note === 'bluffRaise') return `${mine.label}: fine. (The simulation likes a bluff-raise here, but that only works on these bots; it is not a habit to build.)`;
   if (v.note === 'overbet') return `${mine.label}: fine. (A bet bigger than the pot scores higher against these bots; a pot-sized bet or smaller is all you are held to.)`;
   if (v.note === 'preBluff') return `${mine.label}: fine. (A re-raise bluff scores higher against these bots; it is not a habit to build.)`;
@@ -158,6 +159,7 @@ export function explain(d) {
       reasons: [],
       theory: null,
       cost: 0,
+      tip: v.tip ? v.tip.text : null, // "Tip: ..." under a fine verdict
     };
   }
   const category = categorise(d);

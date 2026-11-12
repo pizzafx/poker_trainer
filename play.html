@@ -14,9 +14,9 @@
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-<link rel="preload" href="assets/fonts/space-grotesk-var.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/ui/fonts.css">
-<link rel="stylesheet" href="src/ui/table.css">
+<link rel="preload" href="assets/fonts/space-grotesk-var.woff2?v=86547af457" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="src/ui/fonts.css?v=5248ca3c98">
+<link rel="stylesheet" href="src/ui/table.css?v=2089c62377">
 </head>
 <body>
 <!-- Drawn avatars, one symbol per look (assets/avatars/sprite.svg, inlined so <use href="#av-id"> works). -->
@@ -88,6 +88,31 @@
 </main>
 <div id="review" class="hidden" role="dialog" aria-label="Hand review"></div>
 <div id="modal" class="hidden"><div id="modal-box" role="dialog" aria-modal="true" tabindex="-1"></div></div>
-<script type="module" src="src/ui/app.js"></script>
+<script type="importmap">
+{
+ "imports": {
+  "./src/bots/policy.js": "./src/bots/policy.js?v=05b91557bb",
+  "./src/bots/profiles.js": "./src/bots/profiles.js?v=6af7251776",
+  "./src/data/preflop.js": "./src/data/preflop.js?v=9a6872fc8f",
+  "./src/engine/cards.js": "./src/engine/cards.js?v=c682fd982e",
+  "./src/engine/evaluator.js": "./src/engine/evaluator.js?v=86610f512a",
+  "./src/engine/features.js": "./src/engine/features.js?v=a45a3db795",
+  "./src/engine/game.js": "./src/engine/game.js?v=8980847767",
+  "./src/engine/hands.js": "./src/engine/hands.js?v=dc6326610a",
+  "./src/trainer/belief.js": "./src/trainer/belief.js?v=5f134308ff",
+  "./src/trainer/dispute.js": "./src/trainer/dispute.js?v=21ddd4b02f",
+  "./src/trainer/drills.js": "./src/trainer/drills.js?v=7b08b0b52c",
+  "./src/trainer/equity.js": "./src/trainer/equity.js?v=84121ab0b7",
+  "./src/trainer/explain.js": "./src/trainer/explain.js?v=039a5fc126",
+  "./src/trainer/judge.js": "./src/trainer/judge.js?v=fda722b2a8",
+  "./src/trainer/players.js": "./src/trainer/players.js?v=2931eb63b5",
+  "./src/trainer/ranges.js": "./src/trainer/ranges.js?v=ce3ea210a3",
+  "./src/trainer/session.js": "./src/trainer/session.js?v=326d54f3c5",
+  "./src/trainer/tuning.js": "./src/trainer/tuning.js?v=ac5d58551d",
+  "./src/ui/presets.js": "./src/ui/presets.js?v=0b43b245e0"
+ }
+}
+</script>
+<script type="module" src="src/ui/app.js?v=dccce33a96"></script>
 </body>
 </html>

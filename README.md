@@ -236,6 +236,9 @@ node scripts/noise.js 3000      # how repeatable the judge's numbers are
 node scripts/flagrate.js        # how often a sensible player gets flagged, and for what
 ```
 
+Before committing a change to the site, run `node scripts/stamp.js`: it versions every asset URL
+so browsers fetch a new version as a whole (the tests fail if you forget).
+
 They play the game the app deals a new player ($1/$3, the typical casino rake, a $300 buy-in).
 Add `--legacy` to any of them for the configuration used before November 2026 ($2/$3, with
 the stepped rake for sessions and a 10% rake capped at $5 for set-piece hands), to reproduce

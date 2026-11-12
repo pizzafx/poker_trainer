@@ -155,6 +155,7 @@ function renderStats() {
   if (drill) {
     $('stats').innerHTML = `
       <span class="drill-chip">Drill<b>${esc(leakName(drill.cat))}</b></span>
+      <button type="button" class="drill-exit" id="drill-exit">Exit drill</button>
       <span>Good plays<b class="${drill.clean === drill.tried ? 'pos' : ''}">${drill.clean}</b> of ${drill.tried}</span>
       <span>Mistakes cost<b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b></span>`;
     return;
@@ -1022,6 +1023,8 @@ function newSession() {
   advance();
 }
 
+let focusByKey = false; // was focus last moved with Tab (true) or with the pointer (false)?
+document.addEventListener('pointerdown', () => (focusByKey = false), true);
 document.addEventListener('keydown', (e) => {
   if (!$('modal').classList.contains('hidden')) {
     if (e.key === 'Escape') closeModal();
@@ -1031,7 +1034,13 @@ document.addEventListener('keydown', (e) => {
     closeReview();
     return;
   }
-  if (e.target.tagName === 'INPUT') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  // A focused button, link or seat (other than the action buttons) keeps its own keys: Enter and
+  // Space always, and the letter shortcuts too when it was reached with Tab. A button that merely
+  // kept focus after a mouse click does not block the letters.
+  if (e.key === 'Tab') focusByKey = true;
+  const control = e.target.closest?.('button, a[href], [role="button"], [role="separator"], summary, [tabindex]:not([tabindex="-1"])');
+  if (control && !control.closest('#actions') && (e.key === 'Enter' || e.key === ' ' || focusByKey)) return;
   const k = e.key.toLowerCase();
   if (k === 'f') $('a-fold')?.click();
   else if (k === 'c') $('a-call')?.click();
@@ -1473,6 +1482,10 @@ $('seats').addEventListener('keydown', (e) => {
     playerModal(+el.dataset.seat);
   }
 });
+// The drill's way out sits in the header, so it is there whether or not the last play was flagged.
+$('stats').addEventListener('click', (e) => {
+  if (e.target.closest('#drill-exit') && drill) exitDrill();
+});
 $('btn-side').onclick = () => (document.body.classList.contains('side-closed') ? openSide() : document.body.classList.add('side-closed'));
 PHONE.addEventListener('change', () => sess && render());
 // The header menu: on a phone a sheet behind "Menu" that closes after any choice or a tap
@@ -1627,6 +1640,13 @@ function demo(seed) {
 }
 
 const demoSeed = new URLSearchParams(location.search).get('demo');
+// The session lives only in this page: once you have played, ask before a reload or leaving throws it away.
+addEventListener('beforeunload', (e) => {
+  const s = mainSess || sess;
+  if (demoSeed !== null || !s || !s.decisions.length) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 if (demoSeed !== null) demo(+demoSeed || 7);
 else {
   // No setup screen: deal straight in on the saved settings, or the defaults on a first visit

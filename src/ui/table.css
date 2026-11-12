@@ -1273,9 +1273,9 @@ body:has(.drill-chip) #sim-wrap { display: none; }
   .act-row.main button { height: auto; min-height: 62px; font-size: 15.5px; padding: 6px 4px; }
   .act-row.main button > span { white-space: nowrap; overflow: visible; }
   .act-row.main button small { font-size: 11px; line-height: 1.2; white-space: normal; overflow: visible; }
-  .act-row.main #a-raise { letter-spacing: -0.2px; }
+  .act-row.main button { letter-spacing: -0.2px; }
   /* the raise button carries the amount, so it gets the widest column */
-  .act-row.main:has(#a-raise) { grid-template-columns: 0.8fr 1fr 1.2fr; }
+  .act-row.main:has(#a-raise) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .act-row.main kbd { display: none; }
   .rc { font-size: 8px; }
   .kv { grid-template-columns: repeat(2, 1fr); }
@@ -1504,9 +1504,10 @@ button.primary:hover:not(:disabled) { background: var(--c-c3ee84); border-color:
 /* decision buttons: neutral, stepping up in weight, never the signal colour */
 .act-row.main button > span { font-family: var(--display); font-weight: 700; letter-spacing: -0.01em; }
 .act-row.main button small { font-family: var(--mono); font-weight: 500; font-size: 10.5px; color: var(--c-f3f0e8a8); opacity: 1; }
-#a-fold { background: var(--panel-2); border-color: var(--line-2); color: var(--chalk); text-shadow: none; }
-#a-call { background: var(--call); border-color: var(--call-line); color: var(--chalk); text-shadow: none; }
-#a-raise { background: linear-gradient(var(--felt-hi), var(--felt)); border-color: var(--raise-line); color: var(--chalk); text-shadow: none; }
+/* The three decisions look identical: the same fill, border, shadow and text colour, told apart by
+   label and position only, so the interface never hints at the answer. Lime stays on "your turn". */
+#a-fold, #a-call, #a-raise { background: var(--call); border-color: var(--call-line); color: var(--chalk); text-shadow: none; }
+#a-fold:focus-visible, #a-call:focus-visible, #a-raise:focus-visible { outline: 2px solid var(--chalk); outline-offset: 2px; }
 #a-fold kbd, #a-call kbd, #a-raise kbd { border-color: var(--c-ffffff38); color: inherit; }
 
 /* bet sizes: the selected one in the signal style; the amount box on the rail */

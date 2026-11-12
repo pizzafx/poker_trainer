@@ -1911,3 +1911,10 @@ body:has(#modal:not(.hidden)) .seat .tip, body:has(#modal:not(.hidden)) .vpip-ti
   #stage { min-height: 0; }
   #table { min-height: 250px; margin-top: 14px; }
 }
+/* settings: what is wrong with a number, next to it, instead of a silent change */
+.form-err { color: var(--bad); font-size: 13px; line-height: 1.4; margin: 6px 0 0; }
+.form-err:empty { display: none; }
+#modal-box input[aria-invalid="true"] { border-color: var(--bad); }
+/* Players: a slider moved because a linked one passed it */
+.tune-linked { color: var(--warn); font-size: 12px; margin-top: 4px; }
+#modal-box:focus { outline: none; }

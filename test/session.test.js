@@ -108,3 +108,21 @@ test('session: money adds up and the table memory stays in range', () => {
   const ids = sess.decisions.map((d) => d.id);
   assert.equal(new Set(ids).size, ids.length, 'decision ids are unique');
 });
+
+test('cost shown: whole dollars, equal to the gap between the rounded values, and totals add up', () => {
+  let sum = 0;
+  for (const { d } of out) {
+    const v = d.verdict;
+    if (v.grade === 'good') {
+      assert.equal(d.cost, 0);
+      continue;
+    }
+    assert.ok(Number.isInteger(d.cost), `cost ${d.cost} is whole dollars`);
+    assert.equal(d.cost, Math.round(v.options[v.best].ev) - Math.round(v.options[v.mine].ev));
+    assert.ok(d.headline.includes(`costs about $${d.cost} compared`), d.headline);
+    sum += d.cost;
+  }
+  const rev = sess.review();
+  assert.equal(rev.lost, sum);
+  for (const c of rev.list) assert.equal(c.loss, c.examples.reduce((a, x) => a + x.cost, 0));
+});

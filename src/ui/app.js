@@ -87,7 +87,7 @@ function noteLeak(d) {
   if (!d || d.verdict.grade === 'good' || !d.category) return;
   const e = (leaks[d.category] ||= { count: 0, loss: 0, streets: {} });
   e.count++;
-  e.loss += d.verdict.loss;
+  e.loss += d.cost;
   e.streets[d.street] = (e.streets[d.street] || 0) + 1;
   try {
     localStorage.setItem('trainer-leaks', JSON.stringify(leaks));
@@ -827,13 +827,13 @@ function openReview() {
   const s = h.state;
   const ds = h.decisions;
   const flagged = ds.filter((d) => d.verdict.grade !== 'good');
-  const cost = flagged.reduce((a, d) => a + d.verdict.loss, 0);
+  const cost = flagged.reduce((a, d) => a + d.cost, 0);
   const net = h.summary.net;
   const result = net > 0 ? `You won ${money(net)}.` : net < 0 ? `You lost ${money(-net)}.` : 'You broke even.';
   const costLine = !flagged.length
     ? ds.length ? '<span class="ok">Every decision was fine.</span>' : ''
     : flagged.length === 1
-      ? `<span class="neg">One ${actionNoun(flagged[0].verdict.options[flagged[0].verdict.mine])} cost you about ${money(flagged[0].verdict.loss)}.</span>`
+      ? `<span class="neg">One ${actionNoun(flagged[0].verdict.options[flagged[0].verdict.mine])} cost you about ${money(flagged[0].cost)}.</span>`
       : `<span class="neg">${flagged.length} plays cost you about ${money(cost)}.</span>`;
   const shown = [];
   if (s.result && s.result.showdown) for (let i = 1; i < s.n; i++) if (!s.folded[i]) shown.push(i);
@@ -952,7 +952,7 @@ function act(action) {
   if (drill) {
     drill.tried++;
     if (d.verdict.grade === 'good') drill.clean++;
-    else drill.cost += d.verdict.loss;
+    else drill.cost += d.cost;
     sess.finishAuto(); // the rest of the hand plays itself; on to the next spot
     render();
     scheduleAuto();
@@ -1055,12 +1055,40 @@ document.addEventListener('keydown', (e) => {
 
 // ---------------------------------------------------------------- modals
 
+// The dialog: named by its heading, focus moves into it, Tab stays inside it, and closing it
+// gives focus back to whatever opened it.
+let modalOpener = null;
 function openModal(html) {
-  $('modal-box').innerHTML = html;
+  const box = $('modal-box');
+  const fresh = $('modal').classList.contains('hidden');
+  if (fresh) modalOpener = document.activeElement;
+  box.innerHTML = html;
+  const h = box.querySelector('h1, h2');
+  if (h) {
+    h.id = 'modal-title';
+    box.setAttribute('aria-labelledby', 'modal-title');
+  } else box.removeAttribute('aria-labelledby');
   $('modal').classList.remove('hidden');
+  if (fresh || !box.contains(document.activeElement)) box.focus({ preventScroll: true });
 }
+$('modal-box').addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab') return;
+  const items = [...$('modal-box').querySelectorAll('button, a[href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')].filter((el) => !el.disabled && el.offsetParent !== null);
+  if (!items.length) return;
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (e.shiftKey && (document.activeElement === first || document.activeElement === $('modal-box'))) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+});
 function closeModal() {
   $('modal').classList.add('hidden');
+  if (modalOpener && modalOpener.isConnected && modalOpener !== document.body) modalOpener.focus({ preventScroll: true });
+  modalOpener = null;
 }
 $('modal').addEventListener('click', (e) => {
   if (e.target === $('modal') && sess) closeModal();
@@ -1077,16 +1105,18 @@ function settingsModal() {
       <div class="field"><span>Stakes</span>${seg('s-game', Object.keys(GAMES).map((g) => [g, '$' + g.replace('/', '/$')]), settings.game)}</div>
     </div>
     <div id="home-fields">
-      <div class="form-row"><label>Blinds ($)</label><input id="h-sb" type="number" inputmode="numeric" min="1" step="1" value="${settings.home.sb}"><span>/</span><input id="h-bb" type="number" inputmode="numeric" min="1" step="1" value="${settings.home.bb}"></div>
-      <div class="form-row"><label>Buy-in ($)</label><input id="h-buy" type="number" inputmode="numeric" min="20" step="10" value="${settings.home.buy}"></div>
+      <div class="form-row"><label for="h-sb">Blinds ($)</label><input id="h-sb" type="number" inputmode="numeric" min="1" step="1" aria-label="Small blind in dollars" value="${settings.home.sb}"><span>/</span><input id="h-bb" type="number" inputmode="numeric" min="1" step="1" aria-label="Big blind in dollars" value="${settings.home.bb}"></div>
+      <div class="form-row"><label for="h-buy">Buy-in ($)</label><input id="h-buy" type="number" inputmode="numeric" min="20" step="10" value="${settings.home.buy}"></div>
       <div class="form-row" style="align-items:flex-start"><label>Players<br><small id="h-total"></small></label>
-        <div class="home-grid">${HOME_TYPES.map(([t, label]) => `<label>${label}</label><input class="h-count" data-type="${t}" type="number" inputmode="numeric" min="0" max="8" step="1" value="${settings.home.counts[t] || 0}">`).join('')}</div>
+        <div class="home-grid">${HOME_TYPES.map(([t, label]) => `<label for="h-n-${t}">${label}</label><input class="h-count" id="h-n-${t}" data-type="${t}" type="number" inputmode="numeric" min="0" max="8" step="1" value="${settings.home.counts[t] || 0}">`).join('')}</div>
       </div>
+      <p class="form-err" id="h-err" role="alert"></p>
       <p class="sub">No rake. Everyone rebuys and nobody leaves. You know who is coming, but not which seat is which.</p>
     </div>
     <details class="more-options"><summary>More options</summary>
       <div id="casino-more">
         <label class="field"><span>Buy-in ($)</span><input id="s-buy" class="input" type="number" inputmode="numeric" min="60" step="20" value="${settings.maxBuy}"></label>
+        <p class="form-err" id="s-err" role="alert"></p>
         <label class="field"><span>House cut</span><select id="s-rake" class="input">${Object.entries(RAKES).map(([k, r]) => opt(k, r.label, settings.rake)).join('')}</select></label>
         <label class="field"><span>Who's at the table</span><select id="s-table" class="input">${Object.entries(TABLES).map(([k, t]) => opt(k, t.label, settings.table)).join('')}</select></label>
       </div>
@@ -1128,6 +1158,37 @@ function settingsModal() {
     settings.speed = +$('s-speed').value;
   };
   const homeTotal = () => [...document.querySelectorAll('.h-count')].reduce((a, el) => a + Math.max(0, Math.floor(+el.value || 0)), 0);
+  // What is wrong with the numbers typed in, as [field, message] pairs; nothing is corrected silently.
+  const whole = (el) => el.value.trim() !== '' && Number.isInteger(+el.value);
+  const problems = () => {
+    const out = [];
+    if ($('s-mode').value === 'home') {
+      const sb = +$('h-sb').value;
+      const bb = +$('h-bb').value;
+      if (!whole($('h-sb')) || sb < 1) out.push(['h-sb', 'The small blind must be a whole number of dollars, at least $1.']);
+      if (!whole($('h-bb')) || bb < 1) out.push(['h-bb', 'The big blind must be a whole number of dollars, at least $1.']);
+      else if (whole($('h-sb')) && bb < sb) out.push(['h-bb', `The big blind ($${bb}) cannot be smaller than the small blind ($${sb}).`]);
+      const minBuy = 20 * (whole($('h-bb')) && bb >= 1 ? bb : 1);
+      if (!whole($('h-buy')) || +$('h-buy').value < minBuy) out.push(['h-buy', `The buy-in must be at least $${minBuy} (20 big blinds).`]);
+      document.querySelectorAll('.h-count').forEach((el) => {
+        if (el.value.trim() !== '' && (!Number.isInteger(+el.value) || +el.value < 0)) out.push([el.id, 'Player counts must be whole numbers, 0 or more.']);
+      });
+      const n = homeTotal();
+      if (n < 1 || n > 8) out.push(['h-n-' + HOME_TYPES[0][0], `Seat 1 to 8 opponents; you have ${n}.`]);
+    } else {
+      const minBuy = GAMES[$('s-game').value].bb * 20;
+      if (!whole($('s-buy')) || +$('s-buy').value < minBuy) out.push(['s-buy', `The buy-in must be at least $${minBuy} (20 big blinds).`]);
+    }
+    return out;
+  };
+  const showProblems = (list) => {
+    document.querySelectorAll('#modal-box input[aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
+    for (const [id] of list) $(id)?.setAttribute('aria-invalid', 'true');
+    const text = list.map(([, m]) => m).filter((m, i, a) => a.indexOf(m) === i).join(' ');
+    $('h-err').textContent = $('s-mode').value === 'home' ? text : '';
+    $('s-err').textContent = $('s-mode').value === 'home' ? '' : text;
+    if (list.length && $('s-mode').value !== 'home') document.querySelector('#modal-box .more-options').open = true;
+  };
   const syncMode = () => {
     const home = $('s-mode').value === 'home';
     $('home-fields').classList.toggle('hidden', !home);
@@ -1139,27 +1200,36 @@ function settingsModal() {
   };
   $('s-mode').onchange = syncMode;
   document.querySelectorAll('.h-count').forEach((el) => (el.oninput = syncMode));
+  // Once a problem is showing, it updates as the numbers are fixed.
+  document.querySelectorAll('#home-fields input, #s-buy').forEach((el) => el.addEventListener('input', () => {
+    if ($('h-err').textContent || $('s-err').textContent) showProblems(problems());
+  }));
   syncMode();
   $('s-game').onchange = () => {
     $('s-buy').value = defaultBuy($('s-game').value);
   };
   $('s-start').onclick = () => {
+    const bad = problems();
+    showProblems(bad);
+    if (bad.length) {
+      $(bad[0][0])?.focus();
+      return;
+    }
     if ($('s-mode').value === 'home') {
-      const n = homeTotal();
-      if (n < 1 || n > 8) return; // the count line is already showing red
-      const sb = Math.max(1, Math.floor(+$('h-sb').value || 1));
-      const bb = Math.max(sb, Math.floor(+$('h-bb').value || 2));
+      const sb = +$('h-sb').value;
+      const bb = +$('h-bb').value;
       const counts = {};
       document.querySelectorAll('.h-count').forEach((el) => {
         const k = Math.max(0, Math.floor(+el.value || 0));
         if (k) counts[el.dataset.type] = k;
       });
-      settings.home = { sb, bb, buy: Math.max(bb * 20, Math.floor(+$('h-buy').value || bb * 100)), counts };
+      settings.home = { sb, bb, buy: +$('h-buy').value, counts };
     }
     settings.mode = $('s-mode').value;
     read();
     settings.game = $('s-game').value;
-    settings.maxBuy = Math.max(GAMES[settings.game].bb * 20, +$('s-buy').value || GAMES[settings.game].maxBuy);
+    // (checked above for a casino session; in a home game an unusable casino buy-in is left as it was)
+    if (Number.isInteger(+$('s-buy').value) && +$('s-buy').value >= GAMES[settings.game].bb * 20) settings.maxBuy = +$('s-buy').value;
     settings.rake = $('s-rake').value;
     settings.table = $('s-table').value;
     saveSettings();
@@ -1369,22 +1439,47 @@ function playersModal(type = 'station') {
       const chip = $('modal-box').querySelector(`.type-chips .chip[data-type="${t}"]`);
       if (chip) chip.classList.toggle('changed', changedType(t));
     };
+    // Sliders that must stay in order: a type cannot raise more hands than it plays.
+    const ORDER = [['raised', 'played']]; // [smaller, larger]
+    const rowsBy = {};
     $('modal-box').querySelectorAll('.tune').forEach((row) => {
       const c = CONTROLS.find((x) => x.key === row.dataset.key);
       const def = c.get(base);
       const input = row.querySelector('input');
-      const set = (v) => {
+      const set = (v, moved) => {
         draft[t] = draft[t] || {};
         if (Math.abs(v - def) < c.step / 2) delete draft[t][c.key];
         else draft[t][c.key] = v;
+        input.value = v;
         row.classList.toggle('changed', draft[t][c.key] !== undefined);
         row.querySelector('.tune-val').textContent = c.fmt(v);
+        let note = row.querySelector('.tune-linked');
+        if (moved) {
+          if (!note) {
+            note = document.createElement('div');
+            note.className = 'tune-linked';
+            note.setAttribute('role', 'status');
+            row.append(note);
+          }
+          note.textContent = moved;
+        } else if (note) note.remove();
         refresh();
       };
-      input.oninput = (e) => set(+e.target.value);
+      rowsBy[c.key] = { c, set, input };
+      input.oninput = (e) => {
+        const v = +e.target.value;
+        set(v);
+        for (const [lo, hi] of ORDER) {
+          const other = c.key === lo ? rowsBy[hi] : c.key === hi ? rowsBy[lo] : null;
+          if (!other) continue;
+          const ov = +other.input.value;
+          const fix = c.key === lo ? (ov < v ? v : null) : ov > v ? v : null;
+          if (fix !== null) other.set(fix, `Moved to ${other.c.fmt(fix)} with ${c.label.toLowerCase()}: a player cannot raise more hands than they play.`);
+        }
+      };
       row.querySelector('.tune-reset').onclick = () => {
         input.value = def;
-        set(def);
+        input.oninput({ target: input });
       };
     });
     $('t-reset-all').onclick = () => {

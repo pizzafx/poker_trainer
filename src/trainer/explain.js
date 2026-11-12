@@ -23,7 +23,6 @@ export const CATEGORIES = {
 };
 
 const pct = (x) => `${Math.round(100 * x)}%`;
-const money = (x) => `$${Math.abs(x) >= 10 ? Math.round(Math.abs(x)) : Math.abs(x).toFixed(1)}`;
 
 function kind(a) {
   return a.type === 'raise' ? 'raise' : a.type;
@@ -139,9 +138,17 @@ function goodHeadline(v, mine, best) {
   return `${mine.label}: good. (${rivals.length === 1 ? rivals[0].label + ' is' : 'Other options are'} too close to call.)`;
 }
 
+// What a flagged play cost, as shown: the gap between the two options' values in whole dollars,
+// each rounded the way the numbers table and the bars show them, so the three always agree and
+// totals add up to the sum of what each verdict said.
+export function shownCost(v) {
+  if (v.grade === 'good' || v.mine < 0) return 0;
+  return Math.max(0, Math.round(v.options[v.best].ev) - Math.round(v.options[v.mine].ev));
+}
+
 export function explain(d) {
   const v = d.verdict;
-  if (v.mine < 0) return { category: 'other', headline: '', reasons: [], theory: null };
+  if (v.mine < 0) return { category: 'other', headline: '', reasons: [], theory: null, cost: 0 };
   const mine = v.options[v.mine];
   const best = v.options[v.best];
   if (v.grade === 'good') {
@@ -150,11 +157,13 @@ export function explain(d) {
       headline: goodHeadline(v, mine, best),
       reasons: [],
       theory: null,
+      cost: 0,
     };
   }
   const category = categorise(d);
+  const cost = shownCost(v);
   const word = v.grade === 'blunder' ? 'Blunder' : 'Mistake';
-  const headline = `${word}: ${mine.label.toLowerCase()} costs about ${money(v.loss)} compared with ${best.label.toLowerCase()}.`;
+  const headline = `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${best.label.toLowerCase()}.`;
   const reasons = [];
   const r1 = readLine(d);
   if (r1) reasons.push(r1);
@@ -174,5 +183,5 @@ export function explain(d) {
   if (category === 'paidOff' && (d.tier === null || d.tier < TIER.TOP_PAIR_GOOD)) theory = null;
   // "A routine fold against a balanced range" is only true of one-pair hands.
   if (category === 'overFold' && d.tier !== null && d.tier > TIER.OVERPAIR_TPTK) theory = null;
-  return { category, headline, reasons, theory };
+  return { category, headline, reasons, theory, cost };
 }

@@ -712,10 +712,10 @@ export class Session {
       judged++;
       if (d.verdict.grade === 'good') continue;
       flagged++;
-      lost += d.verdict.loss;
+      lost += d.cost;
       const c = cats.get(d.category) || { category: d.category, count: 0, loss: 0, examples: [] };
       c.count++;
-      c.loss += d.verdict.loss;
+      c.loss += d.cost;
       c.examples.push(d);
       cats.set(d.category, c);
     }

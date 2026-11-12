@@ -88,7 +88,7 @@ export function disputeReport(record, player = {}) {
       category: record.category || null,
       took: v.mine >= 0 ? v.options[v.mine].label : null,
       best: v.options[v.best].label,
-      loss: Math.round(v.loss),
+      loss: v.mine >= 0 ? Math.max(0, Math.round(v.options[v.best].ev) - Math.round(v.options[v.mine].ev)) : 0, // as the coach showed it
       se: Math.round(v.se * 10) / 10,
       samples: v.samples,
       options: v.options.map((o, i) => ({ label: o.label, ev: Math.round(o.ev * 10) / 10, close: !!o.close, best: i === v.best, took: i === v.mine })),

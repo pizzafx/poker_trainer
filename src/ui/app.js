@@ -1052,55 +1052,62 @@ function playerModal(seat) {
 }
 
 function playersModal(type = 'station') {
-  const draft = JSON.parse(JSON.stringify(tuning)); // edited copy; saved only on "Save"
+  const draft = JSON.parse(JSON.stringify(tuning)); // edited copy; saved only on "Done"
+  const changedType = (id) => draft[id] && Object.keys(draft[id]).length > 0;
   const draw = (t) => {
     const base = baseDef(t);
     const vals = draft[t] || {};
-    const changed = Object.keys(vals).length;
     const rows = CONTROLS.map((c) => {
       const def = c.get(base);
       const v = vals[c.key] !== undefined ? vals[c.key] : def;
       const min = Math.min(c.min, def);
       const max = Math.max(c.max, def);
-      return `${c.group ? `<h3>${c.group}</h3>` : ''}
-        <div class="tune ${vals[c.key] !== undefined ? 'changed' : ''}" data-key="${c.key}">
+      const isChanged = vals[c.key] !== undefined;
+      return `${c.group ? `<h3 class="label tune-group">${c.group}</h3>` : ''}
+        <div class="tune ${isChanged ? 'changed' : ''}" data-key="${c.key}">
           <div class="tune-top"><label>${c.label}</label><b class="tune-val">${esc(c.fmt(v))}</b></div>
           <input type="range" min="${min}" max="${max}" step="${c.step}" value="${v}" aria-label="${c.label}">
-          <div class="tune-hint">${esc(c.hint)} <span class="tune-def">Shipped: ${esc(c.fmt(def))}.</span></div>
+          <div class="tune-hint"><span class="tune-help">${esc(c.hint)}</span><span class="tune-was">was ${esc(c.fmt(def))} <button type="button" class="tune-reset">Reset</button></span></div>
         </div>`;
     }).join('');
     openModal(`
       <h1>Players</h1>
-      <p class="sub">Change how each type of opponent plays. These are the assumptions every verdict rests on, so if a type does not match the players in your game, fix it here. Changes are saved in this browser and take effect in a new session.</p>
-      <div class="form-row"><label>Player type</label><select id="t-type">${TYPE_IDS.map((id) => `<option value="${id}" ${id === t ? 'selected' : ''}>${esc(PROFILES[id].name)}${draft[id] && Object.keys(draft[id]).length ? ' (changed)' : ''}</option>`).join('')}</select></div>
-      <p class="sub">${esc(PROFILES[t].blurb)}</p>
+      <p class="sub">How each type of opponent plays. Every verdict rests on these, so if a type does not match your game, change it. Saved in this browser.</p>
+      <div class="type-chips" role="tablist">${TYPE_IDS.map((id) => `<button type="button" class="chip${id === t ? ' on' : ''}${changedType(id) ? ' changed' : ''}" role="tab" aria-selected="${id === t}" data-type="${id}">${esc(PROFILES[id].name)}</button>`).join('')}</div>
+      <p class="sub type-blurb">${esc(PROFILES[t].blurb)}</p>
       ${rows}
-      <div class="modal-actions">
-        <button id="t-reset" ${changed ? '' : 'disabled'}>Reset this type</button>
-        <button id="t-reset-all" ${Object.values(draft).some((x) => Object.keys(x).length) ? '' : 'disabled'}>Reset all types</button>
-        <span style="flex:1"></span>
-        <button id="t-cancel">Cancel</button>
-        <button class="primary" id="t-save">Save and start new session</button>
+      <div class="modal-actions players-foot">
+        <button id="t-reset-all" class="quiet" ${Object.values(draft).some((x) => Object.keys(x).length) ? '' : 'disabled'}>Reset all to shipped</button>
+        <span class="players-note">Changes start a new session.</span>
+        <button id="t-cancel" class="quiet">Cancel</button>
+        <button class="primary" id="t-save">Done</button>
       </div>`);
-    $('t-type').onchange = (e) => draw(e.target.value);
+    $('modal-box').querySelectorAll('.type-chips .chip').forEach((b) => (b.onclick = () => draw(b.dataset.type)));
+    const on = $('modal-box').querySelector('.type-chips .chip.on');
+    if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' });
+    const refresh = () => {
+      $('t-reset-all').disabled = !Object.values(draft).some((x) => Object.keys(x).length);
+      const chip = $('modal-box').querySelector(`.type-chips .chip[data-type="${t}"]`);
+      if (chip) chip.classList.toggle('changed', changedType(t));
+    };
     $('modal-box').querySelectorAll('.tune').forEach((row) => {
       const c = CONTROLS.find((x) => x.key === row.dataset.key);
-      row.querySelector('input').oninput = (e) => {
-        const v = +e.target.value;
-        const def = c.get(base);
+      const def = c.get(base);
+      const input = row.querySelector('input');
+      const set = (v) => {
         draft[t] = draft[t] || {};
         if (Math.abs(v - def) < c.step / 2) delete draft[t][c.key];
         else draft[t][c.key] = v;
         row.classList.toggle('changed', draft[t][c.key] !== undefined);
         row.querySelector('.tune-val').textContent = c.fmt(v);
-        $('t-reset').disabled = !Object.keys(draft[t]).length;
-        $('t-reset-all').disabled = !Object.values(draft).some((x) => Object.keys(x).length);
+        refresh();
+      };
+      input.oninput = (e) => set(+e.target.value);
+      row.querySelector('.tune-reset').onclick = () => {
+        input.value = def;
+        set(def);
       };
     });
-    $('t-reset').onclick = () => {
-      delete draft[t];
-      draw(t);
-    };
     $('t-reset-all').onclick = () => {
       for (const k of Object.keys(draft)) delete draft[k];
       draw(t);

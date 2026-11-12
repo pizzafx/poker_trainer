@@ -1855,3 +1855,10 @@ body:has(#modal:not(.hidden)) .seat .tip, body:has(#modal:not(.hidden)) .vpip-ti
 
 /* hover boxes: centred, plus a nudge (set in app.js) that keeps them inside the window */
 .seat .tip, .vpip-tip { transform: translateX(calc(-50% + var(--dx, 0px))); }
+
+/* Ranges headline: the weighting note under it, and the ahead-or-behind scale in the legend */
+#ranges .standing .st-weight { display: block; margin-top: 4px; color: var(--slate-dim); font-size: 12px; }
+#ranges .vs-legend { align-items: center; }
+#ranges .vs-legend .lg-grad { display: inline-block; width: 72px; height: 10px; border-radius: 3px; }
+#ranges .chips.modes { align-items: center; }
+#ranges .chips.modes .label { color: var(--slate); font-size: 11px; margin-right: 2px; }

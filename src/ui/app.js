@@ -12,6 +12,7 @@ import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
 import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '../trainer/dispute.js';
 import { RANGE_GROUPS, presetRanges, presetRaised, shareOf } from '../trainer/ranges.js';
+import { equityVsRange } from '../trainer/equity.js';
 
 const $ = (id) => document.getElementById(id);
 const HERO = 0;
@@ -640,7 +641,17 @@ const STREET_TABS = ['Preflop', 'Flop', 'Turn', 'River'];
 let rangeSeat = -1;
 let rangeStreet = 'now';
 let rangeHand = -1;
-let rangeMode = 'kind'; // colour by what they hold ('kind') or by whether you beat it ('vs')
+let rangeMode = 'vs'; // colour by whether you beat it ('vs', the default) or by what they hold ('kind'); kept for the session
+const eqCache = new Map(); // preflop equity against a range, per hand / seat / point in the hand
+
+// Ahead-or-behind colour on one scale: red (it beats you) through amber to lime (you beat it).
+const VS_RED = [240, 104, 95];
+const VS_AMBER = [242, 176, 74];
+const VS_LIME = [180, 228, 110];
+function vsRgb(a) {
+  const [x, y, t] = a < 0.5 ? [VS_RED, VS_AMBER, a / 0.5] : [VS_AMBER, VS_LIME, (a - 0.5) / 0.5];
+  return x.map((v, i) => Math.round(v + (y[i] - v) * t)).join(',');
+}
 
 function renderRanges() {
   const el = $('ranges');
@@ -651,6 +662,7 @@ function renderRanges() {
     rangeHand = h.no;
     rangeStreet = 'now';
     rangeSeat = -1;
+    eqCache.clear();
   }
   if (!settings.rangesLive && !h.over) {
     el.innerHTML = '<div class="empty">Ranges are hidden until the hand is over (you turned this on in Settings). Make your read first, then check it here.</div>';
@@ -660,15 +672,18 @@ function renderRanges() {
   for (let i = 1; i < s.n; i++) if (!s.folded[i]) live.push(i);
   if (!live.length) for (let i = 1; i < s.n; i++) live.push(i);
   if (!live.includes(rangeSeat)) {
-    // Default to whoever bet or raised last, else the first player still in.
-    rangeSeat = live[0];
-    for (let k = s.history.length - 1; k >= 0; k--) {
-      const e = s.history[k];
-      if ((e.type === 'bet' || e.type === 'raise') && live.includes(e.seat)) {
-        rangeSeat = e.seat;
-        break;
+    // Default to whoever bet or raised last, else whoever last made a choice (so there is a
+    // range to show), else the first player still in.
+    const lastBy = (types) => {
+      for (let k = s.history.length - 1; k >= 0; k--) {
+        const e = s.history[k];
+        if (types.includes(e.type) && live.includes(e.seat)) return e.seat;
       }
-    }
+      return -1;
+    };
+    const aggressor = lastBy(['bet', 'raise']);
+    const actor = lastBy(['call', 'check']);
+    rangeSeat = aggressor >= 0 ? aggressor : actor >= 0 ? actor : live[0];
   }
   if (rangeStreet !== 'now' && !h.rangeSnaps[rangeStreet]) rangeStreet = 'now';
   const g = sess.rangeGrid(rangeSeat, rangeStreet);
@@ -685,25 +700,38 @@ function renderRanges() {
     // instead. Display only: the range itself is unchanged.
     const upTo = rangeStreet === 'now' ? 99 : rangeStreet;
     const acted = s.history.some((e) => e.seat === rangeSeat && e.street <= upTo && !['sb', 'bb', 'straddle'].includes(e.type));
+    // Before the flop there is no board to compare hands on, so the measure is equity: how often
+    // your two cards win against this range if all five board cards are dealt. Computed once per
+    // range (cached), weighted by how likely each hand is.
+    let eq = null;
+    if (!post && acted) {
+      const key = `${rangeSeat}|${rangeStreet === 'now' ? 'now' + s.history.length : rangeStreet}`;
+      if (!eqCache.has(key)) eqCache.set(key, equityVsRange(s.hole[HERO], g.cells.map((c) => c.share), 64, 1000 + h.no));
+      eq = eqCache.get(key);
+    }
+    const vsOf = (k) => (post ? g.cells[k].ahead : eq && !Number.isNaN(eq.cls[k]) ? eq.cls[k] : null);
+    const canVs = post ? g.beats !== null : !!eq;
+    const showVs = rangeMode === 'vs' && canVs;
     let cells = '';
     for (let i = 0; i < 13; i++) {
       for (let j = 0; j < 13; j++) {
         const c = g.cells[GRID[i][j].k];
         const on = c.fill > 0.015;
-        const vs = rangeMode === 'vs' && c.ahead !== null;
+        const a = vsOf(GRID[i][j].k);
+        const vs = showVs && a !== null;
         // Three tiers by how much of the hand is still in range (brand S2); in the ahead-or-behind
-        // view, lime (you beat it), amber (mixed), red (it beats you), brighter = more likely.
+        // view one continuous scale, red (it beats you) to lime (you beat it), brighter = more likely.
         const tier = c.fill >= 0.45 ? 'in' : c.fill >= 0.12 ? 'some' : on ? 'trace' : 'off';
-        const vsRgb = c.ahead >= 0.66 ? '180,228,110' : c.ahead <= 0.34 ? '240,104,95' : '242,176,74';
         const likely = c.fill >= 0.99 ? 'as likely as any hand in their range' : `about ${Math.max(1, Math.round(c.fill * 100))}% as likely as their likeliest hand`;
-        const tip = on ? `${GRID[i][j].name}: ${likely}${post && c.kind >= 0 ? ', mostly ' + KINDS[c.kind][0].toLowerCase() : ''}${c.ahead !== null ? `; you beat ${Math.round(c.ahead * 100)}% of these` : ''}` : `${GRID[i][j].name}: not in range`;
+        const vsTip = a === null ? '' : post ? `; you beat ${Math.round(a * 100)}% of these` : `; you win about ${Math.round(a * 100)}% against these`;
+        const tip = on ? `${GRID[i][j].name}: ${likely}${post && c.kind >= 0 ? ', mostly ' + KINDS[c.kind][0].toLowerCase() : ''}${vsTip}` : `${GRID[i][j].name}: not in range`;
         const me = GRID[i][j].k === mine ? ' me' : '';
         if (!acted) {
           cells += `<div class="rc off${me}" title="${GRID[i][j].name}: possible, like every hand, until they act">${GRID[i][j].name}</div>`;
           continue;
         }
         cells += vs && on
-          ? `<div class="rc vs${me}" style="background:rgba(${vsRgb},${(0.25 + 0.75 * c.fill).toFixed(2)})" title="${tip}">${GRID[i][j].name}</div>`
+          ? `<div class="rc vs${me}" style="background:rgba(${vsRgb(a)},${(0.25 + 0.75 * c.fill).toFixed(2)})" title="${tip}">${GRID[i][j].name}</div>`
           : `<div class="rc ${tier}${me}" title="${tip}">${GRID[i][j].name}</div>`;
       }
     }
@@ -715,6 +743,8 @@ function renderRanges() {
       <div class="legend">${g.mix.map((m, b) => `<span><i style="background:rgb(${KINDS[b][1]})"></i>${KINDS[b][0]} <b>${Math.round(m * 100)}%</b></span>`).join('')}</div>${tierLegend}` : tierLegend;
     // Headline: where you stand against this range, and how that has moved street by street.
     let beats = '';
+    const weighting = '<span class="st-weight">Hands they would only sometimes play count for less.</span>';
+    const nick = esc(sess.seats[rangeSeat].nick);
     if (g.beats !== null) {
       const b = g.beats;
       const word = b >= 0.8 ? 'You are ahead of almost all of it' : b >= 0.6 ? 'You are ahead of most of it' : b > 0.4 ? 'It is close to a coin flip' : b > 0.2 ? 'You are behind most of it' : 'You are behind almost all of it';
@@ -724,19 +754,28 @@ function renderRanges() {
       if (!h.over && rangeStreet === 'now') trend.push(`Now ${Math.round(b * 100)}%`);
       beats = `<div class="standing ${b >= 0.6 ? 'up' : b > 0.4 ? 'even' : 'down'}">
         <div class="st-num">${Math.round(b * 100)}%</div>
-        <div><b>${word}.</b><br>Your hand beats ${Math.round(b * 100)}% of the hands ${esc(sess.seats[rangeSeat].nick)} can have${trend.length > 1 ? `. Street by street: ${trend.join(' → ')}` : ''}.</div>
+        <div><b>${word}.</b><br>Your hand beats ${Math.round(b * 100)}% of the hands ${nick} can have${trend.length > 1 ? `. Street by street: ${trend.join(' → ')}` : ''}.${weighting}</div>
+      </div>`;
+    } else if (eq && !Number.isNaN(eq.equity)) {
+      const e = eq.equity;
+      const word = e >= 0.65 ? 'You are a big favourite' : e >= 0.55 ? 'You are ahead' : e > 0.45 ? 'It is close to a coin flip' : e > 0.35 ? 'You are behind' : 'You are well behind';
+      beats = `<div class="standing ${e >= 0.55 ? 'up' : e > 0.45 ? 'even' : 'down'}">
+        <div class="st-num">${Math.round(e * 100)}%</div>
+        <div><b>${word}.</b><br>Against this range your hand wins about ${Math.round(e * 100)}% (equity: how often it wins if all five board cards are dealt).${weighting}</div>
       </div>`;
     }
-    const modes = post ? `<div class="chips"><button class="chip ${rangeMode === 'kind' ? 'on' : ''}" data-mode="kind">Colour: what they have</button><button class="chip ${rangeMode === 'vs' ? 'on' : ''}" data-mode="vs">Colour: ahead or behind you</button></div>` : '';
-    const vsLegend = '<div class="legend"><span><i style="background:rgb(180,228,110)"></i>You beat it</span><span><i style="background:rgb(242,176,74)"></i>Mixed</span><span><i style="background:rgb(240,104,95)"></i>It beats you</span><span>Brighter = more likely</span></div>';
+    const modes = canVs ? `<div class="chips modes"><span class="label">Colour</span><button class="chip ${showVs ? 'on' : ''}" data-mode="vs">Ahead or behind you</button><button class="chip ${showVs ? '' : 'on'}" data-mode="kind">What they have</button></div>` : '';
+    const grad = `background:linear-gradient(90deg, rgb(${vsRgb(0)}), rgb(${vsRgb(0.5)}), rgb(${vsRgb(1)}))`;
+    const vsLegend = `<div class="legend vs-legend"><span>${post ? 'It beats you' : 'You win less'}</span><i class="lg-grad" style="${grad}"></i><span>${post ? 'You beat it' : 'You win more'}</span><span>Brighter = more likely</span><span><i class="lg-me"></i>Your hand</span></div>`;
     const label = rangeStreet === 'now' ? (h.over ? 'at the end of the hand' : 'right now') : `after the ${STREET_TABS[rangeStreet].toLowerCase()} betting`;
     el.innerHTML = `
       <div class="chips">${who}</div>
+      ${acted ? beats : ''}
       <div class="chips">${steps}</div>
       <p class="range-title">What ${esc(sess.seats[rangeSeat].nick)} can hold ${label}</p>
-      ${acted ? `${beats}${modes}` : `<div class="unacted-note"><b>${esc(sess.seats[rangeSeat].nick)} hasn't acted yet${s.history.some((e) => e.seat === rangeSeat) ? ' (only the forced blind so far)' : ''}.</b> Any two cards are still possible, so there is no range to show. It fills in as soon as they ${s.history.some((e) => e.seat === rangeSeat) ? 'make a choice' : 'act'}.</div>`}
+      ${acted ? modes : `<div class="unacted-note"><b>${esc(sess.seats[rangeSeat].nick)} hasn't acted yet${s.history.some((e) => e.seat === rangeSeat) ? ' (only the forced blind so far)' : ''}.</b> Any two cards are still possible, so there is no range to show. It fills in as soon as they ${s.history.some((e) => e.seat === rangeSeat) ? 'make a choice' : 'act'}.</div>`}
       <div class="rgrid${acted ? '' : ' unacted'}">${cells}</div>
-      ${acted ? (rangeMode === 'vs' && post ? vsLegend : mix) : ''}
+      ${acted ? (showVs ? vsLegend : mix) : ''}
       <p class="hint" style="text-align:left">${basis} Suited hands are above the diagonal, offsuit below, pairs on it. This is the coach's estimate from how they have played, not their actual cards.</p>`;
   }
   el.querySelectorAll('[data-seat]').forEach((b) => (b.onclick = () => { rangeSeat = +b.dataset.seat; renderRanges(); }));

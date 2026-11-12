@@ -191,7 +191,7 @@ export class Session {
     const h = this.hand;
     h.log.push({ kind: 'head', text: `Hand ${this.handNo}` });
     for (const e of state.history) {
-      h.log.push({ kind: 'post', seat: e.seat, text: `${this.name(e.seat)} posts ${e.type === 'straddle' ? 'a straddle' : e.type === 'sb' ? 'the small blind' : 'the big blind'} $${e.amount}` });
+      h.log.push({ kind: 'post', seat: e.seat, text: `${this.name(e.seat)} ${this.verb(e.seat, 'post')} ${e.type === 'straddle' ? 'a straddle' : e.type === 'sb' ? 'the small blind' : 'the big blind'} $${e.amount}` });
     }
     if (state.done) this.finishHand();
     return h;
@@ -199,6 +199,10 @@ export class Session {
 
   name(seat) {
     return this.seats[seat].nick;
+  }
+  // A verb for the log with the player as subject: "Ball Cap calls", but "You call".
+  verb(seat, word) {
+    return seat === HERO ? word : word + 's';
   }
 
   pos(seat) {
@@ -221,11 +225,11 @@ export class Session {
     const last = s.history[s.history.length - 1];
     const who = `${this.name(seat)} (${positionName(before, seat)})`;
     let text;
-    if (last.type === 'fold') text = `${who} folds`;
-    else if (last.type === 'check') text = `${who} checks`;
-    else if (last.type === 'call') text = `${who} calls $${last.amount}${last.amount < ctx.toCall || s.allIn[seat] ? ' (all-in)' : ''}`;
-    else if (last.type === 'bet') text = `${who} bets $${last.to}${last.allIn ? ' (all-in)' : ''}`;
-    else text = `${who} raises to $${last.to}${last.allIn ? ' (all-in)' : ''}`;
+    if (last.type === 'fold') text = `${who} ${this.verb(seat, 'fold')}`;
+    else if (last.type === 'check') text = `${who} ${this.verb(seat, 'check')}`;
+    else if (last.type === 'call') text = `${who} ${this.verb(seat, 'call')} $${last.amount}${last.amount < ctx.toCall || s.allIn[seat] ? ' (all-in)' : ''}`;
+    else if (last.type === 'bet') text = `${who} ${this.verb(seat, 'bet')} $${last.to}${last.allIn ? ' (all-in)' : ''}`;
+    else text = `${who} ${this.verb(seat, 'raise')} to $${last.to}${last.allIn ? ' (all-in)' : ''}`;
     h.log.push({ kind: 'act', seat, type: last.type, text });
     if (before.street === STREET.PRE) {
       if (last.type === 'call' || last.type === 'raise') h.did[seat].vpip = true;
@@ -366,7 +370,7 @@ export class Session {
       for (let i = 0; i < s.n; i++) {
         if (s.folded[i]) continue;
         const cat = CATEGORY_NAMES[categoryOf(r.scores[i])];
-        h.log.push({ kind: 'show', seat: i, text: `${this.name(i)} shows ${holeOrder(s.hole[i]).map(cardStr).join(' ')} (${cat})` });
+        h.log.push({ kind: 'show', seat: i, text: `${this.name(i)} ${this.verb(i, 'show')} ${holeOrder(s.hole[i]).map(cardStr).join(' ')} (${cat})` });
         if (i !== HERO) {
           h.belief.reveal(i, s.hole[i]);
           const p = this.seats[i];
@@ -376,7 +380,7 @@ export class Session {
       }
     }
     for (let i = 0; i < s.n; i++) {
-      if (r.won[i] > 0) h.log.push({ kind: 'win', seat: i, text: `${this.name(i)} wins $${r.won[i]}` });
+      if (r.won[i] > 0) h.log.push({ kind: 'win', seat: i, text: `${this.name(i)} ${this.verb(i, 'win')} $${r.won[i]}` });
     }
     if (r.rake > 0) h.log.push({ kind: 'note', text: `Rake $${r.rake}` });
     for (let i = 0; i < s.n; i++) {

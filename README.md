@@ -22,7 +22,7 @@ There are two ways to play:
 - **Home game.** Your own blinds and buy-in, and you choose who sits down: three maniacs, two
   nits and a total beginner, say. No rake, everyone rebuys, and nobody leaves.
 
-![The trainer: table, coach verdict and reasoning](docs/table.png)
+![The table on the turn: your two cards, the board, two opponents still in, the coach's verdict on your last play and your options](docs/table.webp)
 
 New here? The app has an **FAQ** (button in the header, or [`faq.html`](faq.html)) written
 for poker players: how decisions are graded, what the colours mean, and how far to trust it.
@@ -82,27 +82,34 @@ Click any opponent to see what you have observed about them.
    flagged as a mistake (yellow) or blunder (red), with the cost in dollars, what the
    opponent's range looks like, and why theory disagrees.
 
-Hands deal on automatically while your play is green. Anything flagged stops the table so
-you can read why.
+Hands deal on automatically while your play is green. Anything flagged stops the table and
+opens the coach's review of the hand, with the flagged play open: what it cost, what the
+opponent's range looks like, and what each option was worth.
+
+![The hand review: the result and what the mistake cost, the run-out, each decision with the flagged check opened and every option's value, and the opponent's card](docs/review.webp)
 
 <p>
-  <img src="docs/vpip.png" alt="The VPIP ring and pill on a seat, with its hover box" width="22%">
+  <img src="docs/player.webp" alt="A player's card: the coach's read, how often they put money in and what that means, and every showdown with how they played it" width="58%">
   &nbsp;
-  <img src="docs/hover.png" alt="Hovering over a player shows what you have seen them do" width="30%">
-  &nbsp;
-  <img src="docs/player.png" alt="A player's card: every showdown, how they played it, and the coach's read" width="40%">
+  <img src="docs/phone.webp" alt="The table on a phone at your turn: a tall oval, the coach's verdict, and the action buttons at the bottom" width="32%">
 </p>
 
-*Each seat shows the player's VPIP: how often they voluntarily put money in the pot. Hover over a player for what you have
-picked up; click for every hand they have shown.*
+*Click or tap a player for their card: the coach's read, how often they put money in, and
+every hand they have shown. On a phone the table turns into a tall oval with the buttons
+under your thumb.*
 
 ## See the range
 
-![The Ranges tab: an opponent's likely hands on the 13x13 chart, and how much of it you beat](docs/ranges.png)
+<img src="docs/ranges.webp" alt="The Ranges tab on the turn: the share of the opponent's range your hand beats, how it moved from the flop, and their likely hands on the 13x13 chart coloured from red (it beats you) to lime (you beat it)" width="380">
 
-The **Ranges** tab shows what the coach thinks an opponent can hold, on the standard hand
-chart, and how much of it your hand beats. It updates with every action, and the street
-buttons step back through the hand so you can watch a range narrow.
+The **Ranges** tab answers "how am I doing against this player?" at a glance. The headline
+is the share of their likely hands your hand beats after the flop (with how it has moved
+street by street), and before the flop your equity: how often your two cards win against
+that range if all five board cards are dealt. Hands they would only sometimes play count for
+less. The chart colours each hand from red (it beats you) through amber to lime (you beat
+it), brighter for the hands they are more likely to have; or switch to what each hand is on
+this board. It updates with every action, and the street buttons step back through the hand
+so you can watch a range narrow.
 
 ## The opponents
 
@@ -127,9 +134,13 @@ start getting called lighter.
 - **Coach strip** under the table with the verdict on your last play, and a side panel with
   the full reasoning and the numbers behind it.
 - **Range view.** The Ranges tab draws an opponent's likely hands on the 13x13 hand chart and
-  updates as the hand goes on, so you can watch a range narrow street by street. It tells you
-  how much of that range your hand beats, and can colour each hand by what it is on this
-  board or by whether you are ahead of it.
+  updates as the hand goes on, so you can watch a range narrow street by street. It leads
+  with how you stand against that range (your equity before the flop, the share you beat
+  after it) and colours each hand by whether you are ahead of it, or by what it is on this
+  board.
+- **Hand review.** After a flagged hand the coach's review opens: the result and what the
+  mistakes cost, the run-out, every decision with the flagged ones open, and the opponent's
+  card. Space deals the next hand.
 - **Leak review.** Mistakes are grouped into types (paying off, bluffing callers, missed
   value, sizing, preflop too loose or too passive, and more), ranked by cost, and tracked
   across sessions in your browser.
@@ -154,20 +165,23 @@ start getting called lighter.
   needed to start: the table deals you in on sensible defaults.
 - **Quick sim.** Plays 40 hands in an instant so you start with something observed about
   every player. Hover over a seat to see it.
-- **Works on a phone.** Below 600px wide the table turns into a tall oval and the coach
-  panel moves below the action buttons, so nothing covers the table.
-- **Skip junk hands.** The bottom 15% of starting hands are folded for you, so you spend
-  your time on decisions that matter.
+- **Works on a phone.** Below 600px wide the table turns into a tall oval, the action
+  buttons sit at the bottom of the screen, and the coach panel opens below the table, so
+  nothing covers it. A tap on a player opens their card.
+- **Your own ranges.** With "Only deal me hands I'd play" on (Settings), hands outside your
+  starting-hand ranges are folded for you, so you spend your time on decisions that matter.
+  There is a range per seat for when you are first in and one for facing a raise: start from
+  tight, standard or loose, or paint your own on the hand chart.
 - **Your hand in words.** From the flop on, the trainer names what you hold above the bet
   slider: "Pair of Sevens", "Two Pair, Kings and Sevens", "Queen high", plus any draw.
 - **VPIP at a glance.** Once you have watched a player for eight hands, a ring around their
   avatar fills to how often they put money in, and a pill under their name plate shows the
-  number: blue for tight, green for average, amber for loose, red for playing almost
-  everything. Hover over the pill for the count behind it ("put money in voluntarily in 18 of
-  the 41 hands you have watched") and what it means.
+  number: grey for tight, white for average, amber for loose, red for playing almost
+  everything. The count behind it ("18 of 41 hands") and what it means are in the hover box
+  on the pill, and on the player's card.
 - **Player notes.** Hover over a seat for what you have seen that player do (how loose,
-  how aggressive, the last hand they showed) and the coach's read in words. Click for the
-  full card: every showdown and how they played it, plus a spoiler button for their true
+  how aggressive, the last hand they showed) and the coach's read in words. Click or tap for
+  the full card: every showdown and how they played it, plus a spoiler button for their true
   style.
 
 ## How far to trust it

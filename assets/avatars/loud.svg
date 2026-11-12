@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Loud Guy">
+<title>Loud Guy</title>
+<defs><clipPath id="c"><circle cx="24" cy="24" r="23"/></clipPath></defs>
+<circle cx="24" cy="24" r="24" fill="hsl(12 30% 44%)"/>
+<circle cx="24" cy="24" r="23" fill="hsl(12 26% 24%)"/>
+<g clip-path="url(#c)"><path d="M3 50c0-11 9-17 21-17s21 6 21 17z" fill="#c8443f"/><rect x="20" y="26" width="8" height="9" rx="3" fill="#e3ad80" opacity=".82"/><circle cx="24" cy="20" r="9.500" fill="#e3ad80"/><circle cx="20.600" cy="20" r="1.100" fill="#2a1d14"/><circle cx="27.400" cy="20" r="1.100" fill="#2a1d14"/><path d="M13.800 18.500c-.6-8 4.400-12 10.200-12s10.800 4 10.200 12c-2.400-4-5.600-5.500-10.200-5.500s-7.800 1.500-10.200 5.500z" fill="#5a3418"/><ellipse cx="24" cy="25.200" rx="3.200" ry="2.400" fill="#5b1f1f"/><rect x="35" y="29" width="9" height="13" rx="1.600" fill="#f2b04a"/><rect x="34.400" y="27" width="10.200" height="4.400" rx="2.200" fill="#f3f0e8"/></g>
+</svg>

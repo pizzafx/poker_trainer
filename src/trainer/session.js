@@ -134,9 +134,8 @@ export class Session {
         leaves = true;
       }
       if (leaves) {
-        const nicks = this.nickSet();
-        nicks.delete(p.nick);
-        const q = this.arrive(nicks);
+        // The newcomer takes a look nobody at the table has, including the player leaving.
+        const q = this.arrive(this.nickSet());
         this.seats[i] = q;
         news.push(`${p.nick} leaves. New player in seat ${i + 1}: ${q.look.toLowerCase()} ("${q.nick}").`);
       } else if (p.tiltHands > 0 && --p.tiltHands === 0) {

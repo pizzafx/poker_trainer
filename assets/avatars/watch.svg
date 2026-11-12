@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Big Watch">
+<title>Big Watch</title>
+<defs><clipPath id="c"><circle cx="24" cy="24" r="23"/></clipPath></defs>
+<circle cx="24" cy="24" r="24" fill="hsl(24 30% 44%)"/>
+<circle cx="24" cy="24" r="23" fill="hsl(24 26% 24%)"/>
+<g clip-path="url(#c)"><path d="M3 50c0-11 9-17 21-17s21 6 21 17z" fill="#23262d"/><rect x="20" y="26" width="8" height="9" rx="3" fill="#c98d62" opacity=".82"/><circle cx="24" cy="20" r="9.500" fill="#c98d62"/><circle cx="20.600" cy="20" r="1.100" fill="#2a1d14"/><circle cx="27.400" cy="20" r="1.100" fill="#2a1d14"/><path d="M14.400 18.400a9.600 9.600 0 0 1 19.200 0c-1.600-4.400-17.600-4.400-19.200 0z" fill="#1c1a18"/><path d="M20.800 24.400q3.600 2.200 6.800-.8" stroke="#5a3324" stroke-width="1.500" fill="none" stroke-linecap="round"/><path d="M18.600 33l5.400 9.500 5.400-9.500z" fill="#f3f0e8"/><rect x="3.500" y="29" width="8" height="19" rx="4" fill="#c98d62"/><rect x="2.600" y="36" width="9.800" height="5.400" rx="1.600" fill="#f2b04a"/><circle cx="7.500" cy="38.700" r="1.700" fill="#fff6d8"/></g>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Shades">
+<title>Shades</title>
+<defs><clipPath id="c"><circle cx="24" cy="24" r="23"/></clipPath></defs>
+<circle cx="24" cy="24" r="24" fill="hsl(40 30% 44%)"/>
+<circle cx="24" cy="24" r="23" fill="hsl(40 26% 24%)"/>
+<g clip-path="url(#c)"><path d="M3 50c0-11 9-17 21-17s21 6 21 17z" fill="#1b1d22"/><rect x="20" y="26" width="8" height="9" rx="3" fill="#b97f55" opacity=".82"/><circle cx="24" cy="20" r="9.500" fill="#b97f55"/><path d="M14.400 18.500a9.600 9.600 0 0 1 19.200 0c-2.600-3.600-16.600-3.600-19.200 0z" fill="#15161a"/><rect x="14.800" y="17.600" width="8.200" height="5.400" rx="2.200" fill="#0a0b0e"/><rect x="25" y="17.600" width="8.200" height="5.400" rx="2.200" fill="#0a0b0e"/><path d="M22.800 19.400h2.400" stroke="#0a0b0e" stroke-width="1.400"/><path d="M21 25.600h6" stroke="#5a3324" stroke-width="1.500" stroke-linecap="round"/></g>
+</svg>

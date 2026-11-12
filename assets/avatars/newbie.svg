@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="New Guy">
+<title>New Guy</title>
+<defs><clipPath id="c"><circle cx="24" cy="24" r="23"/></clipPath></defs>
+<circle cx="24" cy="24" r="24" fill="hsl(48 30% 44%)"/>
+<circle cx="24" cy="24" r="23" fill="hsl(48 26% 24%)"/>
+<g clip-path="url(#c)"><path d="M3 50c0-11 9-17 21-17s21 6 21 17z" fill="#e2b84f"/><rect x="20" y="26" width="8" height="9" rx="3" fill="#f4d3b8" opacity=".82"/><circle cx="24" cy="20" r="9.500" fill="#f4d3b8"/><path d="M14.400 19c-.4-7.400 4-11.600 9.800-11.600 5.600 0 9.600 3.600 9.400 10.200-2.400-3-5.400-4.200-9.200-4.200-4.200 0-7.600 1.600-10 5.600z" fill="#a8743f"/><circle cx="20.500" cy="19.800" r="2.300" fill="#fff"/><circle cx="27.500" cy="19.800" r="2.300" fill="#fff"/><circle cx="20.500" cy="20" r="1" fill="#2a1d14"/><circle cx="27.500" cy="20" r="1" fill="#2a1d14"/><path d="M21.600 26q2.400-1.600 4.800 0" stroke="#7a3b2a" stroke-width="1.500" fill="none" stroke-linecap="round"/><rect x="27" y="37.500" width="11" height="7" rx="1.300" fill="#f3f0e8"/><path d="M27 38.800a1.300 1.300 0 0 1 1.300-1.300h8.400a1.300 1.300 0 0 1 1.300 1.300v1.400H27z" fill="#f0685f"/></g>
+</svg>

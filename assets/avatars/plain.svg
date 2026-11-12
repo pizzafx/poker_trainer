@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Jeans">
+<title>Jeans</title>
+<defs><clipPath id="c"><circle cx="24" cy="24" r="23"/></clipPath></defs>
+<circle cx="24" cy="24" r="24" fill="hsl(185 30% 44%)"/>
+<circle cx="24" cy="24" r="23" fill="hsl(185 26% 24%)"/>
+<g clip-path="url(#c)"><path d="M3 50c0-11 9-17 21-17s21 6 21 17z" fill="#7b8a92"/><rect x="20" y="26" width="8" height="9" rx="3" fill="#e3ad80" opacity=".82"/><circle cx="24" cy="20" r="9.500" fill="#e3ad80"/><circle cx="20.600" cy="20" r="1.100" fill="#2a1d14"/><circle cx="27.400" cy="20" r="1.100" fill="#2a1d14"/><path d="M14.500 18.600a9.500 9.500 0 0 1 19 0c-2.800-3.200-16.200-3.200-19 0z" fill="#6b4a2f"/><path d="M21.500 25h5" stroke="#7a3b2a" stroke-width="1.500" stroke-linecap="round"/><rect x="33" y="32" width="8.500" height="14" rx="1.900" fill="#14161f"/><rect x="34.300" y="33.600" width="5.900" height="9.600" rx=".8" fill="#9ad7ff"/></g>
+</svg>

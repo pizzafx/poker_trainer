@@ -1,44 +1,66 @@
 :root {
-  --bg: #0c0f14;
-  --panel: #171c25;
-  --panel-2: #1f2631;
-  --line: #2b3442;
-  --text: #eef1f6;
-  --muted: #8c97a8;
-  --accent: #f0c15a;
-  --good: #46c98b;
-  --warn: #f0a640;
-  --bad: #f06363;
-  --stack: #86d3ff;
+  --bg: #0d1513;
+  --panel: #141f1c;
+  --panel-2: #1a2824;
+  --line: #283a34;
+  --text: #dbe2dd;
+  --muted: #93a69f;
+  --accent: #b4e46e;
+  --good: #b4e46e;
+  --warn: #f2b04a;
+  --bad: #f0685f;
+  --stack: #f3f0e8;
+  /* brand palette (marketing ENG_HANDOFF 2.2) */
+  --night: #0d1513;
+  --panel-3: #22332e;
+  --line-2: #3b5249;
+  --rail: #090f0d;
+  --felt: #1f5c4a;
+  --felt-hi: #2b7762;
+  --felt-deep: #143c31;
+  --felt-edge: #0c2a22;
+  --signal: #b4e46e;
+  --signal-ink: #13210a;
+  --signal-wash: #b4e46e1f;
+  --chalk: #f3f0e8;
+  --slate: #93a69f;
+  --slate-dim: #64776f;
+  --warn-wash: #f2b04a1c;
+  --bad-wash: #f0685f1c;
+  --call: #2c443c;
+  --call-line: #4a665c;
+  --raise-line: #4f9a83;
+  --display: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* Every other colour in this file, as a token holding its original value (brand overhaul 2.1).
-     Part 2.2 points these at the new palette; nothing outside :root names a colour directly. */
-  --c-1a2330: #1a2330;
-  --c-0e1218: #0e1218;
-  --c-090b0f: #090b0f;
-  --c-5b6880: #5b6880;
-  --c-f6cd6f: #f6cd6f;
-  --c-e0a83a: #e0a83a;
-  --c-20170a: #20170a;
+  /* Every other colour in this file, as a token pointed at the new palette by role
+     (brand overhaul 2.2; card faces and pure white/black overlays keep their values); nothing outside :root names a colour directly. */
+  --c-1a2330: #15251f;
+  --c-0e1218: #0d1513;
+  --c-090b0f: #090f0d;
+  --c-5b6880: #557068;
+  --c-f6cd6f: #c3ee84;
+  --c-e0a83a: #a6d65f;
+  --c-20170a: #13210a;
   --c-0003: #0003;
   --c-ffffff38: #ffffff38;
   --c-ffffff10: #ffffff10;
-  --c-0b0e13cc: #0b0e13cc;
+  --c-0b0e13cc: #050a08cc;
   --c-ffffff0a: #ffffff0a;
   --c-ffffff12: #ffffff12;
-  --c-10141bcc: #10141bcc;
-  --c-2b8a72: #2b8a72;
-  --c-1b6a58: #1b6a58;
-  --c-114a40: #114a40;
-  --c-0b322c: #0b322c;
-  --c-151920: #151920;
-  --c-3d4656: #3d4656;
-  --c-0a0c10: #0a0c10;
+  --c-10141bcc: #141f1ccc;
+  --c-2b8a72: #2b8169;
+  --c-1b6a58: #205f4d;
+  --c-114a40: #164135;
+  --c-0b322c: #0e2b23;
+  --c-151920: #141c19;
+  --c-3d4656: #394b46;
+  --c-0a0c10: #050a08;
   --c-000c: #000c;
   --c-ffffff14: #ffffff14;
   --c-0009: #0009;
   --c-00000066: #00000066;
-  --c-f0c15a40: #f0c15a40;
+  --c-f0c15a40: #b4e46e40;
   --c-fff: #fff;
   --c-000a: #000a;
   --c-ffffff2e: #ffffff2e;
@@ -55,55 +77,55 @@
   --c-218a4b: #218a4b;
   --c-186d3a: #186d3a;
   --c-0006: #0006;
-  --c-39465c: #39465c;
-  --c-1f2836: #1f2836;
+  --c-39465c: #365048;
+  --c-1f2836: #1f2e29;
   --c-ffffff30: #ffffff30;
-  --c-4b5565: #4b5565;
-  --c-1e242e: #1e242e;
-  --c-505a6b: #505a6b;
+  --c-4b5565: #465953;
+  --c-1e242e: #1c2825;
+  --c-505a6b: #4a5e58;
   --c-000b: #000b;
-  --c-222935: #222935;
-  --c-161b23: #161b23;
-  --c-364152: #364152;
-  --c-3a4353: #3a4353;
-  --c-cdd5e3: #cdd5e3;
-  --c-f0c15aaa: #f0c15aaa;
-  --c-46c98baa: #46c98baa;
-  --c-5d6a82: #5d6a82;
-  --c-2a3342: #2a3342;
-  --c-1a202a: #1a202a;
-  --c-f0c15a88: #f0c15a88;
+  --c-222935: #202e2a;
+  --c-161b23: #151e1c;
+  --c-364152: #334741;
+  --c-3a4353: #364843;
+  --c-cdd5e3: #cbd8d3;
+  --c-f0c15aaa: #b4e46eaa;
+  --c-46c98baa: #b4e46eaa;
+  --c-5d6a82: #57726a;
+  --c-2a3342: #283934;
+  --c-1a202a: #192421;
+  --c-f0c15a88: #b4e46e88;
   --c-000000a6: #000000a6;
   --c-ffffff22: #ffffff22;
-  --c-ff9a9a: #ff9a9a;
-  --c-c73a3a: #c73a3a;
+  --c-ff9a9a: #f7a7a2;
+  --c-c73a3a: #c7433a;
   --c-ffffffb0: #ffffffb0;
   --c-0008: #0008;
-  --c-a8f5cc: #a8f5cc;
-  --c-2f9e68: #2f9e68;
-  --c-c3cad6: #c3cad6;
-  --c-fff6c4: #fff6c4;
-  --c-e7b548: #e7b548;
-  --c-3a2a05: #3a2a05;
-  --c-2a2216: #2a2216;
-  --c-2c191b: #2c191b;
-  --c-5b2a2e: #5b2a2e;
-  --c-44191d: #44191d;
-  --c-7b3a40: #7b3a40;
-  --c-2a4a66: #2a4a66;
-  --c-1c354c: #1c354c;
-  --c-3c6587: #3c6587;
-  --c-0d1117: #0d1117;
-  --c-d5dae3: #d5dae3;
-  --c-dcc98f: #dcc98f;
-  --c-c2c9d5: #c2c9d5;
-  --c-10141bf5: #10141bf5;
-  --c-8fc7ff: #8fc7ff;
+  --c-a8f5cc: #c3ee84;
+  --c-2f9e68: #8fbf4f;
+  --c-c3cad6: #c1ccc7;
+  --c-fff6c4: #e5f4cf;
+  --c-e7b548: #b4e46e;
+  --c-3a2a05: #23340b;
+  --c-2a2216: #2a2a17;
+  --c-2c191b: #2c1a19;
+  --c-5b2a2e: #5b2d2a;
+  --c-44191d: #441c19;
+  --c-7b3a40: #7b3e3a;
+  --c-2a4a66: #344e46;
+  --c-1c354c: #253833;
+  --c-3c6587: #46695f;
+  --c-0d1117: #090f0d;
+  --c-d5dae3: #d1dad6;
+  --c-dcc98f: #bbd695;
+  --c-c2c9d5: #c0cbc6;
+  --c-10141bf5: #141f1cf5;
+  --c-8fc7ff: #dbe2dd;
   --c-0005: #0005;
-  --c-23796c: #23796c;
-  --c-175c54: #175c54;
-  --c-0e3f3b: #0e3f3b;
-  --c-092826: #092826;
+  --c-23796c: #256f5a;
+  --c-175c54: #1b5242;
+  --c-0e3f3b: #12372c;
+  --c-092826: #0c231c;
   --c-00000080: #00000080;
   --c-ffffff4a: #ffffff4a;
   --c-626a79: #626a79;
@@ -112,36 +134,36 @@
   --c-56d488: #56d488;
   --c-27a05a: #27a05a;
   --c-1c7f45: #1c7f45;
-  --c-6a57b8: #6a57b8;
-  --c-372b73: #372b73;
-  --c-2a1e04: #2a1e04;
-  --c-aab3c2: #aab3c2;
-  --c-9fe3c0: #9fe3c0;
-  --c-cfd6e2: #cfd6e2;
-  --c-1a1f28: #1a1f28;
-  --c-12161d: #12161d;
-  --c-232a35: #232a35;
-  --c-8791a2: #8791a2;
-  --c-7f8da0: #7f8da0;
-  --c-778296: #778296;
-  --c-2e3541: #2e3541;
-  --c-252c37: #252c37;
-  --c-06130c: #06130c;
-  --c-c5ccd8: #c5ccd8;
+  --c-6a57b8: #396a5c;
+  --c-372b73: #213e36;
+  --c-2a1e04: #13210a;
+  --c-aab3c2: #93a69f;
+  --c-9fe3c0: #b4e46e;
+  --c-cfd6e2: #ccd8d3;
+  --c-1a1f28: #192320;
+  --c-12161d: #141f1c;
+  --c-232a35: #283a34;
+  --c-8791a2: #899791;
+  --c-7f8da0: #83948d;
+  --c-778296: #6d867e;
+  --c-2e3541: #2b3935;
+  --c-252c37: #23302c;
+  --c-06130c: #050a08;
+  --c-c5ccd8: #93a69f;
   --c-ffffff1a: #ffffff1a;
-  --c-2c333f: #2c333f;
-  --c-1f252e: #1f252e;
-  --c-465064: #465064;
-  --c-27507a: #27507a;
-  --c-1b3a5a: #1b3a5a;
-  --c-4a7eb0: #4a7eb0;
-  --c-3a2f14: #3a2f14;
-  --c-2a220f: #2a220f;
-  --c-f0c15a14: #f0c15a14;
-  --c-f0c15acc: #f0c15acc;
-  --c-f0c15a55: #f0c15a55;
-  --c-8b74e6: #8b74e6;
-  --c-4a37a0: #4a37a0;
+  --c-2c333f: #1a2824;
+  --c-1f252e: #1d2825;
+  --c-465064: #425751;
+  --c-27507a: #3a574e;
+  --c-1b3a5a: #2a3f39;
+  --c-4a7eb0: #5a877a;
+  --c-3a2f14: #2a3717;
+  --c-2a220f: #1e2811;
+  --c-f0c15a14: #b4e46e14;
+  --c-f0c15acc: #b4e46ecc;
+  --c-f0c15a55: #b4e46e55;
+  --c-8b74e6: #498775;
+  --c-4a37a0: #2d5449;
   --c-ffffff26: #ffffff26;
   --c-2b2c30: #2b2c30;
   --c-17181b: #17181b;
@@ -151,146 +173,155 @@
   --c-1c54ad: #1c54ad;
   --c-2fa653: #2fa653;
   --c-1b7a38: #1b7a38;
-  --c-171d29: #171d29;
-  --c-252e3e: #252e3e;
-  --c-303b4e: #303b4e;
-  --c-46546b: #46546b;
-  --c-f5f7fb: #f5f7fb;
-  --c-b1bccd: #b1bccd;
-  --c-ffd166: #ffd166;
-  --c-4fe0a0: #4fe0a0;
-  --c-ffb648: #ffb648;
-  --c-ff8585: #ff8585;
-  --c-9ddcff: #9ddcff;
-  --c-36455f: #36455f;
-  --c-1c2331: #1c2331;
-  --c-151b26: #151b26;
-  --c-8fa0bd: #8fa0bd;
-  --c-243044: #243044;
-  --c-1e2635: #1e2635;
+  --c-171d29: #17231f;
+  --c-252e3e: #243530;
+  --c-303b4e: #2e443d;
+  --c-46546b: #425d55;
+  --c-f5f7fb: #f5f4ef;
+  --c-b1bccd: #b2c1bb;
+  --c-ffd166: #b4e46e;
+  --c-4fe0a0: #b4e46e;
+  --c-ffb648: #f2b04a;
+  --c-ff8585: #f0685f;
+  --c-9ddcff: #f3f0e8;
+  --c-36455f: #365048;
+  --c-1c2331: #1c2a25;
+  --c-151b26: #15201d;
+  --c-8fa0bd: #95ada3;
+  --c-243044: #253833;
+  --c-1e2635: #1e2d28;
   --c-ffffff1f: #ffffff1f;
-  --c-34405a: #34405a;
-  --c-55647d: #55647d;
-  --c-48bba8: #48bba8;
-  --c-33a08f: #33a08f;
-  --c-237a6d: #237a6d;
-  --c-1a6058: #1a6058;
-  --c-313b4d: #313b4d;
-  --c-7385a3: #7385a3;
-  --c-1b2230: #1b2230;
-  --c-0a101c99: #0a101c99;
+  --c-34405a: #1a2824;
+  --c-55647d: #3b5249;
+  --c-48bba8: #43b393;
+  --c-33a08f: #32967a;
+  --c-237a6d: #25705b;
+  --c-1a6058: #1d5747;
+  --c-313b4d: #2f433d;
+  --c-7385a3: #689285;
+  --c-1b2230: #1b2824;
+  --c-0a101c99: #0e151299;
   --c-ffffff33: #ffffff33;
-  --c-0b3a3466: #0b3a3466;
-  --c-06100ec7: #06100ec7;
-  --c-ffd16699: #ffd16699;
-  --c-0a111cd1: #0a111cd1;
+  --c-0b3a3466: #10312866;
+  --c-06100ec7: #050a08c7;
+  --c-ffd16699: #b4e46e99;
+  --c-0a111cd1: #0e1512d1;
   --c-ffffff40: #ffffff40;
-  --c-d3dae5: #d3dae5;
-  --c-04100d6b: #04100d6b;
-  --c-f1faf7: #f1faf7;
-  --c-141b27: #141b27;
-  --c-5a6880: #5a6880;
-  --c-e8edf5: #e8edf5;
-  --c-55627a: #55627a;
-  --c-2b0a0c: #2b0a0c;
-  --c-435069: #435069;
-  --c-313c52: #313c52;
-  --c-7d90b0: #7d90b0;
-  --c-0a101c8c: #0a101c8c;
-  --c-dde3ed: #dde3ed;
-  --c-c5cedc: #c5cedc;
-  --c-a8efcc: #a8efcc;
-  --c-4a5978: #4a5978;
-  --c-374460: #374460;
-  --c-8ea0c0: #8ea0c0;
-  --c-5f6d88: #5f6d88;
-  --c-eef2f8: #eef2f8;
-  --c-54482a: #54482a;
-  --c-3a3421: #3a3421;
-  --c-27503f: #27503f;
-  --c-1f3d33: #1f3d33;
-  --c-212939: #212939;
-  --c-35405a: #35405a;
-  --c-9aa5b8: #9aa5b8;
-  --c-96a3b7: #96a3b7;
-  --c-919db1: #919db1;
-  --c-44506a: #44506a;
-  --c-2d3647: #2d3647;
-  --c-2f6b55: #2f6b55;
-  --c-4a3a1a: #4a3a1a;
-  --c-7a5f24: #7a5f24;
-  --c-52262b: #52262b;
-  --c-8a3a41: #8a3a41;
-  --c-cdd5e1: #cdd5e1;
-  --c-c4cddb: #c4cddb;
-  --c-d8dee8: #d8dee8;
-  --c-48536a: #48536a;
-  --c-8a98b0: #8a98b0;
-  --c-2c70c4: #2c70c4;
-  --c-2257a2: #2257a2;
-  --c-7db4f2: #7db4f2;
-  --c-5e4a18: #5e4a18;
-  --c-463611: #463611;
-  --c-ffe08a: #ffe08a;
-  --c-ffd1661a: #ffd1661a;
-  --c-161d29: #161d29;
-  --c-1e2634: #1e2634;
-  --c-ffb64814: #ffb64814;
-  --c-ffb64800: #ffb64800;
-  --c-ff858517: #ff858517;
-  --c-ff858500: #ff858500;
-  --c-e2e7ef: #e2e7ef;
-  --c-ecd9a0: #ecd9a0;
-  --c-d5dbe5: #d5dbe5;
-  --c-0a0f1aa6: #0a0f1aa6;
-  --c-5a6a85: #5a6a85;
-  --c-05080e99: #05080e99;
-  --c-7083a3: #7083a3;
-  --c-36425a: #36425a;
-  --c-1e2634fa: #1e2634fa;
-  --c-4a566e: #4a566e;
-  --c-333d50: #333d50;
-  --c-6b7a96: #6b7a96;
-  --c-6a5520: #6a5520;
-  --c-4a3a14: #4a3a14;
-  --c-0c1118: #0c1118;
+  --c-d3dae5: #d0dbd6;
+  --c-04100d6b: #050a086b;
+  --c-f1faf7: #f6f9f2;
+  --c-141b27: #15201d;
+  --c-5a6880: #547068;
+  --c-e8edf5: #f3f0ea;
+  --c-55627a: #506a62;
+  --c-2b0a0c: #2b0c0a;
+  --c-435069: #405b53;
+  --c-313c52: #2f4740;
+  --c-7d90b0: #859f94;
+  --c-0a101c8c: #0e15128c;
+  --c-dde3ed: #dae3df;
+  --c-c5cedc: #c4d1cb;
+  --c-a8efcc: #c3ee84;
+  --c-4a5978: #47685e;
+  --c-374460: #365249;
+  --c-8ea0c0: #95afa4;
+  --c-5f6d88: #59776e;
+  --c-eef2f8: #f5f4ef;
+  --c-54482a: #2d443d;
+  --c-3a3421: #21312c;
+  --c-27503f: #3e4c2b;
+  --c-1f3d33: #1f3a22;
+  --c-212939: #1a2824;
+  --c-35405a: #283a34;
+  --c-9aa5b8: #93a69f;
+  --c-96a3b7: #99aaa3;
+  --c-919db1: #94a59e;
+  --c-44506a: #415c54;
+  --c-2d3647: #2b3e38;
+  --c-2f6b55: #3f6a2a;
+  --c-4a3a1a: #35461e;
+  --c-7a5f24: #55742a;
+  --c-52262b: #522926;
+  --c-8a3a41: #8a3f3a;
+  --c-cdd5e1: #cbd6d2;
+  --c-c4cddb: #c3d0ca;
+  --c-d8dee8: #d4deda;
+  --c-48536a: #445c55;
+  --c-8a98b0: #8ea29a;
+  --c-2c70c4: #568275;
+  --c-2257a2: #476a5f;
+  --c-7db4f2: #dbe2dd;
+  --c-5e4a18: #40591d;
+  --c-463611: #2f4215;
+  --c-ffe08a: #c3ee84;
+  --c-ffd1661a: #b4e46e1a;
+  --c-161d29: #090f0d;
+  --c-1e2634: #1e2c28;
+  --c-ffb64814: #f2b04a14;
+  --c-ffb64800: #f2b04a00;
+  --c-ff858517: #f0685f17;
+  --c-ff858500: #f0685f00;
+  --c-e2e7ef: #eeebe3;
+  --c-ecd9a0: #cbe6a6;
+  --c-d5dbe5: #d2dbd7;
+  --c-0a0f1aa6: #0d1311a6;
+  --c-5a6a85: #3b5249;
+  --c-05080e99: #050a0899;
+  --c-7083a3: #669184;
+  --c-36425a: #344e46;
+  --c-1e2634fa: #1e2c28fa;
+  --c-4a566e: #466058;
+  --c-333d50: #31453f;
+  --c-6b7a96: #64837a;
+  --c-6a5520: #4a6426;
+  --c-4a3a14: #334618;
+  --c-0c1118: #0d1311;
   --c-ffffff4d: #ffffff4d;
   --c-00000033: #00000033;
-  --c-0a101ccc: #0a101ccc;
-  --c-0a101c66: #0a101c66;
+  --c-0a101ccc: #0e1512cc;
+  --c-0a101c66: #0e151266;
   --c-0007: #0007;
-  --c-c8474d: #c8474d;
-  --c-96262d: #96262d;
-  --c-e4767b: #e4767b;
-  --c-3a86e0: #3a86e0;
-  --c-2259a8: #2259a8;
-  --c-84b9f5: #84b9f5;
-  --c-b98420: #b98420;
-  --c-2a1c04: #2a1c04;
+  --c-c8474d: #c85047;
+  --c-96262d: #962d26;
+  --c-e4767b: #e47d76;
+  --c-3a86e0: #78998c;
+  --c-2259a8: #496d62;
+  --c-84b9f5: #adc1b9;
+  --c-b98420: #77ae2b;
+  --c-2a1c04: #13210a;
   --c-ffffff55: #ffffff55;
-  --c-101722f2: #101722f2;
-  --c-05080ecc: #05080ecc;
-  --c-0a101c80: #0a101c80;
-  --c-ffe9a8: #ffe9a8;
-  --c-101722f5: #101722f5;
-  --c-ffd16633: #ffd16633;
-  --c-ffd166aa: #ffd166aa;
-  --c-141a24: #141a24;
+  --c-101722f2: #121b18f2;
+  --c-05080ecc: #050a08cc;
+  --c-0a101c80: #0e151280;
+  --c-ffe9a8: #d2f3a2;
+  --c-101722f5: #121b18f5;
+  --c-ffd16633: #b4e46e33;
+  --c-ffd166aa: #b4e46eaa;
+  --c-141a24: #141e1b;
   --c-ffffff1c: #ffffff1c;
   --c-000: #000;
-  --c-0d131dee: #0d131dee;
-  --c-0b0e13: #0b0e13;
-  --c-0b0e13f2: #0b0e13f2;
-  --c-64776f: #64776f;
-  --c-12302a: #12302a;
-  --c-1f5a4c: #1f5a4c;
-  --c-2b7762: #2b7762;
-  --c-f3f0e8: #f3f0e8;
-  --c-090f0d: #090f0d;
-  --c-13210a: #13210a;
-  --c-22332e: #22332e;
-  --c-b4e46e1f: #b4e46e1f;
-  --c-0c0f14: #0c0f14;
+  --c-0d131dee: #0f1714ee;
+  --c-0b0e13: #050a08;
+  --c-0b0e13f2: #050a08f2;
+  --c-64776f: #5c6965;
+  --c-12302a: #112e26;
+  --c-1f5a4c: #1d5646;
+  --c-2b7762: #29715d;
+  --c-f3f0e8: #f2efe9;
+  --c-090f0d: #050a08;
+  --c-13210a: #0f1715;
+  --c-22332e: #202c29;
+  --c-b4e46e1f: #97b1a61f;
+  --c-0c0f14: #0d1513;
+  /* colours used by the part-2 blocks */
+  --c-15251f: #15251f;
+  --c-33564b: #33564b;
+  --c-1a2f29: #1a2f29;
+  --c-b4e46e24: #b4e46e24;
+  --c-c3ee84: #c3ee84;
+  --c-f3f0e8a8: #f3f0e8a8;
+  --c-2a1a02: #2a1a02;
+  --c-2a0806: #2a0806;
 }
 * { box-sizing: border-box; }
 .hidden { display: none !important; }
@@ -1392,7 +1423,7 @@ input.toggle:checked::after { left: 21px; background: var(--accent); }
   #sim-wrap { display: none; }
   /* 360px rather than the handoff's 380: with a news line showing, 380 pushed the buttons off a
      375x667 screen. Seats were checked for collisions at 360. */
-  #table { flex: 1 1 auto; width: 100%; max-width: 460px; height: auto; min-height: 360px; aspect-ratio: auto; margin-top: 6px; }
+  #table { flex: 1 1 auto; width: 100%; max-width: 460px; height: auto; min-height: 360px; aspect-ratio: auto; margin-top: 20px; }
   #bottom { flex: none; gap: 6px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
   #news:empty { display: none; }
   /* table news gets one line here; the full text is in the hand log */
@@ -1434,3 +1465,111 @@ input.toggle:checked::after { left: 21px; background: var(--accent); }
   #modal-box .seg { display: flex; }
   #modal-box .seg button { flex: 1 1 auto; padding: 0 10px; }
 }
+
+
+/* ================= brand overhaul, part 2: the table in the new look =================
+   Colours come from the brand palette tokens in :root. These rules give the pieces their
+   brand roles (ENG_HANDOFF 2.2 to 2.5); later rules win over the older blocks above. */
+
+body { background: radial-gradient(1200px 700px at 38% 30%, var(--c-15251f) 0%, transparent 60%), var(--night); }
+:focus-visible { outline-color: var(--signal); }
+
+/* the felt and its rail */
+#felt { background: radial-gradient(ellipse at 50% 42%, var(--felt-hi) 0%, var(--felt) 40%, var(--felt-deep) 78%, var(--felt-edge) 100%); border-color: var(--rail);
+  box-shadow: 0 0 0 1px var(--line-2), 0 24px 50px var(--c-0009), inset 0 0 0 1px var(--c-ffffff12), inset 0 0 60px var(--c-0007); }
+#felt::after { border-color: var(--c-ffffff12); }
+
+/* card backs: deep felt instead of violet (faces unchanged) */
+.card.back { background: repeating-linear-gradient(45deg, var(--c-ffffff12) 0 2px, transparent 2px 6px), linear-gradient(155deg, var(--c-33564b), var(--c-1a2f29)); box-shadow: 0 2px 5px var(--c-0009), inset 0 0 0 1px var(--c-ffffff30); }
+
+/* type: figures in the monospace, headings and the decision labels in the display face */
+#pot, .seat .stack, .chipbet, .badge.pos, .act-row.size button, .act-row input[type=number], #stats b, .vpip, .myhand b, .seat .made, .fb table.ev td:last-child, .kv b { font-family: var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+#pot { color: var(--chalk); background: var(--c-00000066); border-color: var(--c-ffffff1f); }
+#pot small { color: var(--slate); letter-spacing: 0.12em; }
+.seat .stack { color: var(--chalk); }
+#modal-box h1, .p-head h1 { font-family: var(--display); font-weight: 700; color: var(--chalk); letter-spacing: -0.02em; }
+.dealer { background: var(--chalk); color: var(--night); }
+.badge.pos.btn { background: var(--chalk); color: var(--night); border-color: var(--chalk); }
+
+/* the one primary button style */
+button.primary { background: var(--signal); color: var(--signal-ink); border-color: var(--signal); box-shadow: 0 8px 24px var(--c-b4e46e24); }
+button.primary:hover:not(:disabled) { background: var(--c-c3ee84); border-color: var(--c-c3ee84); filter: none; }
+
+/* decision buttons: neutral, stepping up in weight, never the signal colour */
+.act-row.main button > span { font-family: var(--display); font-weight: 700; letter-spacing: -0.01em; }
+.act-row.main button small { font-family: var(--mono); font-weight: 500; font-size: 10.5px; color: var(--c-f3f0e8a8); opacity: 1; }
+#a-fold { background: var(--panel-2); border-color: var(--line-2); color: var(--chalk); text-shadow: none; }
+#a-call { background: var(--call); border-color: var(--call-line); color: var(--chalk); text-shadow: none; }
+#a-raise { background: linear-gradient(var(--felt-hi), var(--felt)); border-color: var(--raise-line); color: var(--chalk); text-shadow: none; }
+#a-fold kbd, #a-call kbd, #a-raise kbd { border-color: var(--c-ffffff38); color: inherit; }
+
+/* bet sizes: the selected one in the signal style; the amount box on the rail */
+.act-row.size button { background: var(--panel-2); border-color: var(--line); color: var(--text); box-shadow: none; }
+.presets button.on { color: var(--signal); border-color: var(--signal); background: var(--signal-wash); }
+.act-row input[type=number] { background: var(--rail); border-color: var(--signal); color: var(--chalk); }
+.act-row input[type=range] { accent-color: var(--signal); }
+
+/* your turn: hero plate, the dock rule (every width), the acting opponent's avatar */
+.seat.hero.acting .plate { background: var(--panel); border: 1.5px solid var(--signal); box-shadow: 0 0 0 4px var(--signal-wash), 0 8px 18px var(--c-0008); animation: none; }
+.seat.hero .plate { background: var(--panel); border-color: var(--line-2); }
+.seat.acting:not(.hero) .avatar { border-color: var(--signal); box-shadow: 0 0 0 4px var(--signal-wash); animation: none; }
+.seat.acting .plate { border-color: var(--line-2); }
+.seat.winner .plate { border-color: var(--signal); }
+#actions.turn { position: relative; border-top: 2px solid var(--signal); padding-top: 9px; }
+#actions.turn::before { content: "YOUR TURN"; position: absolute; left: 50%; top: -9px; transform: translateX(-50%); padding: 0 8px; background: var(--night);
+  font: 500 10px/16px var(--mono); letter-spacing: 0.14em; color: var(--signal); }
+
+/* seats: plates on the panel colour, names in text, reads quieter */
+.plate { background: var(--panel); border-color: var(--line-2); box-shadow: 0 6px 14px var(--c-0007); }
+.seat .nick { color: var(--text); }
+.seat .read { color: var(--slate); }
+.seat .read.firm { color: var(--signal); }
+.chipbet { background: var(--c-000000a6); border-color: var(--c-ffffff1f); color: var(--chalk); }
+.chipbet .what { color: var(--slate); }
+
+/* coach strip: the verdict colours only */
+.toast { background: var(--panel); border-color: var(--line); box-shadow: inset 3px 0 0 var(--signal); color: var(--chalk); }
+.toast.mistake { box-shadow: inset 3px 0 0 var(--warn); background: linear-gradient(90deg, var(--warn-wash), transparent 60%), var(--panel); }
+.toast.blunder { box-shadow: inset 3px 0 0 var(--bad); background: linear-gradient(90deg, var(--bad-wash), transparent 60%), var(--panel); }
+.toast .t-icon { background: var(--signal); color: var(--signal-ink); }
+.toast.mistake .t-icon { background: var(--warn); color: var(--c-2a1a02); }
+.toast.blunder .t-icon { background: var(--bad); color: var(--c-2a0806); }
+.toast .t-tag { font-family: var(--mono); font-weight: 500; letter-spacing: 0.12em; color: var(--slate); border-color: var(--line); }
+.toast .t-more { color: var(--slate); }
+.toast.hint { box-shadow: inset 3px 0 0 var(--felt-hi); }
+.toast.hint .t-main { text-align: left; }
+.toast.hint .t-more { color: var(--signal); }
+
+/* header pills and buttons */
+#stats span { background: var(--panel-2); border-color: var(--line); color: var(--slate); }
+#stats b { color: var(--chalk); }
+#stats b.pos { color: var(--signal); }
+#stats b.neg { color: var(--bad); }
+.top-actions button, .top-actions a { background: var(--panel-2); border-color: var(--line-2); color: var(--chalk); }
+#top details.menu > summary { background: var(--panel-2); border-color: var(--line-2); color: var(--chalk); }
+
+/* drawn avatars (2.6): disc and ring from the look's hue, the art clipped to the circle */
+.avatar, .big-avatar { background: hsl(var(--h, 160) 26% 24%); border-color: hsl(var(--h, 160) 30% 44%); font-size: 0; }
+.avatar .av-art, .big-avatar .av-art { display: block; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; }
+.big-avatar { border-width: 2px; border-style: solid; overflow: hidden; padding: 0; }
+.avatar .badge.pos { font-size: clamp(9.5px, 0.9cqw, 12px); }
+.steam-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 0 2px var(--night); font-size: 0; left: auto; right: -1px; bottom: auto; top: 1px; }
+.seat .tip .tilt { font: 500 10.5px/1.4 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--bad); }
+.seat.steaming .avatar { border-color: var(--bad); }
+@media (max-width: 600px) { .avatar .badge.pos { font-size: 9.5px; } }
+
+/* wide header (2.8): tile and name; pills; quiet text buttons; Quick sim in the row, not on the table */
+@media (min-width: 601px) {
+  #top #btn-sim-menu { display: inline-flex; }
+  #top #btn-sim-menu small { display: none; }
+  #sim-wrap { display: none; }
+  .top-actions button, .top-actions a { background: none; border-color: transparent; color: var(--slate); font-weight: 600; }
+  .top-actions button:hover:not(:disabled), .top-actions a:hover { color: var(--chalk); background: var(--panel-2); border-color: var(--line); filter: none; }
+}
+@media (min-width: 901px) {
+  #top .brand { display: inline-flex; align-items: center; gap: 10px; font: 700 15px/1 var(--display); letter-spacing: -0.01em; color: var(--chalk); }
+  #top .brand .tile { display: block; width: 28px; height: 28px; border-radius: 8px; }
+  #top .brand .spade { display: none; }
+}
+
+#stats .lbl { font-style: normal; margin-right: 3px; }

@@ -6,19 +6,21 @@
 import { PROFILES, TYPE_IDS, personalise } from '../bots/profiles.js';
 
 // Order of the numbers: nit, abc, station, whale, maniac, gto, tag, lag, beginner (= TYPE_IDS order).
-const LOOKS = [
-  { id: 'cap', icon: '🧢', nick: 'Ball Cap', text: 'Retiree in a ball cap, coffee, neat stacks, knows every dealer by name', w: [40, 12, 8, 3, 1, 0, 6, 1, 0] },
-  { id: 'golf', icon: '⛳', nick: 'Golf Shirt', text: 'Older guy in a golf shirt, in town for the week, chatty', w: [12, 18, 14, 10, 2, 0, 1, 0, 8] },
-  { id: 'hoodie', icon: '🎧', nick: 'Hoodie', text: 'Twenties, hoodie and headphones, backpack under the chair', w: [1, 3, 3, 1, 8, 50, 30, 35, 1] },
-  { id: 'loud', icon: '🍺', nick: 'Loud Guy', text: 'Young, loud, on his third beer, bought in with crumpled bills', w: [0, 4, 8, 20, 40, 2, 1, 3, 6] },
-  { id: 'party', icon: '🎉', nick: 'Party Crew', text: 'Came with friends, laughing, not watching the action closely', w: [0, 8, 12, 25, 20, 0, 0, 0, 15] },
-  { id: 'button', icon: '👔', nick: 'Button-Down', text: 'Middle-aged, button-down shirt, quiet, glancing at the game on TV', w: [10, 20, 15, 8, 3, 2, 8, 3, 6] },
-  { id: 'shades', icon: '🕶️', nick: 'Shades', text: 'Thirties, sunglasses, riffles chips nonstop, says nothing', w: [5, 3, 2, 0, 4, 25, 35, 35, 0] },
-  { id: 'cardigan', icon: '🧶', nick: 'Cardigan', text: 'Sixties, cardigan, friendly, chats with the dealer between hands', w: [15, 12, 12, 4, 1, 0, 2, 1, 6] },
-  { id: 'jersey', icon: '🏈', nick: 'Jersey', text: 'Team jersey, eyes mostly on the TVs, plays between sips', w: [2, 15, 20, 12, 8, 0, 1, 1, 8] },
-  { id: 'newbie', icon: '🙋', nick: 'New Guy', text: 'Looks new: asks the dealer about the blinds, guards his cards with both hands', w: [8, 15, 12, 5, 1, 1, 0, 0, 60] },
-  { id: 'watch', icon: '⌚', nick: 'Big Watch', text: 'Flashy watch, thick roll of hundreds, asking about a bigger game', w: [0, 2, 5, 20, 20, 2, 3, 10, 2] },
-  { id: 'plain', icon: '📱', nick: 'Jeans', text: 'Nothing stands out: jeans, phone on the rail', w: [7, 10, 9, 7, 5, 5, 12, 10, 6] },
+// `id` names the drawn avatar (assets/avatars/sprite.svg, symbol "av-<id>"); `hue` colours its
+// disc and ring, so a character is the same colour wherever they sit.
+export const LOOKS = [
+  { id: 'cap', hue: 205, nick: 'Ball Cap', text: 'Retiree in a ball cap, coffee, neat stacks, knows every dealer by name', w: [40, 12, 8, 3, 1, 0, 6, 1, 0] },
+  { id: 'golf', hue: 150, nick: 'Golf Shirt', text: 'Older guy in a golf shirt, in town for the week, chatty', w: [12, 18, 14, 10, 2, 0, 1, 0, 8] },
+  { id: 'hoodie', hue: 255, nick: 'Hoodie', text: 'Twenties, hoodie and headphones, backpack under the chair', w: [1, 3, 3, 1, 8, 50, 30, 35, 1] },
+  { id: 'loud', hue: 12, nick: 'Loud Guy', text: 'Young, loud, on his third beer, bought in with crumpled bills', w: [0, 4, 8, 20, 40, 2, 1, 3, 6] },
+  { id: 'party', hue: 290, nick: 'Party Crew', text: 'Came with friends, laughing, not watching the action closely', w: [0, 8, 12, 25, 20, 0, 0, 0, 15] },
+  { id: 'button', hue: 215, nick: 'Button-Down', text: 'Middle-aged, button-down shirt, quiet, glancing at the game on TV', w: [10, 20, 15, 8, 3, 2, 8, 3, 6] },
+  { id: 'shades', hue: 40, nick: 'Shades', text: 'Thirties, sunglasses, riffles chips nonstop, says nothing', w: [5, 3, 2, 0, 4, 25, 35, 35, 0] },
+  { id: 'cardigan', hue: 335, nick: 'Cardigan', text: 'Sixties, cardigan, friendly, chats with the dealer between hands', w: [15, 12, 12, 4, 1, 0, 2, 1, 6] },
+  { id: 'jersey', hue: 228, nick: 'Jersey', text: 'Team jersey, eyes mostly on the TVs, plays between sips', w: [2, 15, 20, 12, 8, 0, 1, 1, 8] },
+  { id: 'newbie', hue: 48, nick: 'New Guy', text: 'Looks new: asks the dealer about the blinds, guards his cards with both hands', w: [8, 15, 12, 5, 1, 1, 0, 0, 60] },
+  { id: 'watch', hue: 24, nick: 'Big Watch', text: 'Flashy watch, thick roll of hundreds, asking about a bigger game', w: [0, 2, 5, 20, 20, 2, 3, 10, 2] },
+  { id: 'plain', hue: 185, nick: 'Jeans', text: 'Nothing stands out: jeans, phone on the rail', w: [7, 10, 9, 7, 5, 5, 12, 10, 6] },
 ];
 
 // Normalise so each column is P(look | type).
@@ -95,10 +97,18 @@ export function makePlayer(rng, takenNicks, minBuy, maxBuy, mix, fixed) {
     }
   }
   const t = TYPE_IDS.indexOf(type);
-  let q = rng();
-  let look = LOOKS[LOOKS.length - 1];
-  for (const L of LOOKS) {
-    if ((q -= L.p[t]) < 0) {
+  // A look is never repeated at one table: draw from the looks nobody seated has, using this
+  // type's weights over what is left. If the type has no weight left on any free look (a home
+  // game full of one rare type), any free look will do: a look is only a hint. With twelve looks
+  // and at most eight opponents there is always one free; only if seats ever outnumber looks
+  // does a look repeat, with a number on the name as before.
+  const free = LOOKS.filter((L) => !takenNicks.has(L.nick));
+  const pool = free.length ? free : LOOKS;
+  const total = pool.reduce((a, L) => a + L.p[t], 0);
+  let q = rng() * (total > 0 ? total : pool.length);
+  let look = pool[pool.length - 1];
+  for (const L of pool) {
+    if ((q -= total > 0 ? L.p[t] : 1) < 0) {
       look = L;
       break;
     }
@@ -116,7 +126,8 @@ export function makePlayer(rng, takenNicks, minBuy, maxBuy, mix, fixed) {
     profile: personalise(type, rng), // this player's own version of the type
     nick,
     look: look.text,
-    icon: look.icon,
+    lookId: look.id,
+    hue: look.hue,
     prior: prior.map((v) => v / sum),
     stack: buyIn(type, minBuy, maxBuy, rng),
     tilt: 0,

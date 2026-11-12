@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Cardigan">
+<title>Cardigan</title>
+<defs><clipPath id="c"><circle cx="24" cy="24" r="23"/></clipPath></defs>
+<circle cx="24" cy="24" r="24" fill="hsl(335 30% 44%)"/>
+<circle cx="24" cy="24" r="23" fill="hsl(335 26% 24%)"/>
+<g clip-path="url(#c)"><path d="M3 50c0-11 9-17 21-17s21 6 21 17z" fill="#a5586a"/><rect x="20" y="26" width="8" height="9" rx="3" fill="#f2cdb0" opacity=".82"/><circle cx="24" cy="20" r="9.500" fill="#f2cdb0"/><circle cx="20.600" cy="20" r="1.100" fill="#2a1d14"/><circle cx="27.400" cy="20" r="1.100" fill="#2a1d14"/><circle cx="17" cy="12.500" r="4.200" fill="#d9dcdf"/><circle cx="24" cy="10.400" r="4.800" fill="#d9dcdf"/><circle cx="31" cy="12.500" r="4.200" fill="#d9dcdf"/><circle cx="14.800" cy="17.600" r="3" fill="#d9dcdf"/><circle cx="33.200" cy="17.600" r="3" fill="#d9dcdf"/><circle cx="20.600" cy="20" r="3.200" fill="none" stroke="#3a2a22" stroke-width="1.100"/><circle cx="27.400" cy="20" r="3.200" fill="none" stroke="#3a2a22" stroke-width="1.100"/><path d="M23.800 20h.4" stroke="#3a2a22" stroke-width="1.100"/><path d="M20.600 25q3.400 2.200 6.800 0" stroke="#7a3b2a" stroke-width="1.500" fill="none" stroke-linecap="round"/><path d="M18 33.500l6 12 6-12" fill="none" stroke="#f3f0e8" stroke-width="2.400"/><circle cx="24" cy="47" r="1.200" fill="#f3f0e8"/></g>
+</svg>

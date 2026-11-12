@@ -189,6 +189,9 @@ const PHONE = matchMedia('(max-width: 600px)');
 // At 900px and narrower the coach panel sits below the table in the page (table.css).
 const NARROW = matchMedia('(max-width: 900px)');
 
+// A player's drawn avatar: the look's symbol from the sprite inlined in play.html.
+const avatarArt = (p) => `<svg class="av-art" viewBox="0 0 48 48" aria-hidden="true"><use href="#av-${p.lookId}"/></svg>`;
+
 function renderTable() {
   const h = sess.hand;
   const s = h.state;
@@ -233,13 +236,14 @@ function renderTable() {
     let vp = null;
     if (i !== HERO && p.notes.hands >= 8) {
       const pct = Math.round((100 * p.notes.vpip) / p.notes.hands);
-      vp = { pct, color: pct < 18 ? '#7db4f2' : pct < 32 ? '#4fe0a0' : pct < 50 ? '#ffd166' : '#ff8585' };
+      // Tight to loose: slate, chalk, amber, red (the brand keeps lime for your turn and "fine").
+      vp = { pct, color: pct < 18 ? 'var(--slate)' : pct < 32 ? 'var(--text)' : pct < 50 ? 'var(--warn)' : 'var(--bad)' };
     }
     seatsHtml += `<div class="${cls.join(' ')}" style="left:${x}%;top:${y}%" data-seat="${i}"${i === HERO ? '' : ' role="button" tabindex="0"'}>
       <div class="cards">${cards}</div>
-      <div class="avatar${vp ? ' has-vpip' : ''}" style="--h:${(i * 43) % 360}${vp ? `;--v:${vp.pct};--vc:${vp.color}` : ''}">${i === HERO ? '' : p.icon}${badge}${p.steaming ? '<span class="steam-dot" title="On tilt">🔥</span>' : ''}</div>
+      <div class="avatar${vp ? ' has-vpip' : ''}" style="--h:${p.hue ?? 160}${vp ? `;--v:${vp.pct};--vc:${vp.color}` : ''}">${i === HERO ? '' : avatarArt(p)}${badge}${p.steaming ? '<span class="steam-dot" title="On tilt"></span>' : ''}</div>
       <div class="plate"><div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>
-      <div class="stack">${money(stack)}</div>${read}</div>${i === HERO ? madeHand() : ''}${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP ${vp.pct}%</b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vp.pct < 18 ? 'Tight: mostly strong hands.' : vp.pct < 32 ? 'About average.' : vp.pct < 50 ? 'Loose: plays a lot of weak hands.' : 'Plays almost anything.'}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
+      <div class="stack">${money(stack)}</div>${read}</div>${i === HERO ? madeHand() : ''}${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP ${vp.pct}%</b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vp.pct < 18 ? 'Tight: mostly strong hands.' : vp.pct < 32 ? 'About average.' : vp.pct < 50 ? 'Loose: plays a lot of weak hands.' : 'Plays almost anything.'}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${p.steaming ? '<div class="tilt">Tilt</div>' : ''}${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
     if (isBtn) {
       const dx = 50 + G.dealer[0] * Math.cos(ang + 0.2);
       const dy = G.cy + G.dealer[1] * Math.sin(ang + 0.2);
@@ -996,7 +1000,7 @@ function playerModal(seat) {
         .join('')
     : '<div class="empty">No showdowns seen yet.</div>';
   openModal(`
-    <div class="p-head"><div class="big-avatar">${p.icon}</div><div><h1>${esc(p.nick)} ${p.steaming ? '<span class="badge steam">on tilt</span>' : ''}</h1>
+    <div class="p-head"><div class="big-avatar" style="--h:${p.hue ?? 160}">${avatarArt(p)}</div><div><h1>${esc(p.nick)} ${p.steaming ? '<span class="badge steam">on tilt</span>' : ''}</h1>
     <p class="sub" style="margin:0">${esc(p.look)}. Stack ${money(p.stack)}.</p></div></div>
     <h3>What you have seen</h3>
     <div class="kv">

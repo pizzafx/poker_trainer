@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Ball Cap">
+<title>Ball Cap</title>
+<defs><clipPath id="c"><circle cx="24" cy="24" r="23"/></clipPath></defs>
+<circle cx="24" cy="24" r="24" fill="hsl(205 30% 44%)"/>
+<circle cx="24" cy="24" r="23" fill="hsl(205 26% 24%)"/>
+<g clip-path="url(#c)"><path d="M3 50c0-11 9-17 21-17s21 6 21 17z" fill="#c9b98f"/><rect x="20" y="26" width="8" height="9" rx="3" fill="#f0c8a4" opacity=".82"/><circle cx="24" cy="20" r="9.500" fill="#f0c8a4"/><circle cx="20.600" cy="20" r="1.100" fill="#2a1d14"/><circle cx="27.400" cy="20" r="1.100" fill="#2a1d14"/><path d="M14.300 17.500a9.700 9.700 0 0 1 19.400 0z" fill="#e3e7ea"/><path d="M29 15.200h10.500a1.600 1.600 0 0 1 0 3.200H14.300v-3.200z" fill="#aab4bc"/><path d="M19.600 24.600q4.400 2.600 8.800 0" stroke="#f3f0e8" stroke-width="2.200" fill="none" stroke-linecap="round"/><path d="M19 33l5 5 5-5 2.200 1.600L24 41l-7.200-6.400z" fill="#f3f0e8"/></g>
+</svg>

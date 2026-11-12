@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Golf Shirt">
+<title>Golf Shirt</title>
+<defs><clipPath id="c"><circle cx="24" cy="24" r="23"/></clipPath></defs>
+<circle cx="24" cy="24" r="24" fill="hsl(150 30% 44%)"/>
+<circle cx="24" cy="24" r="23" fill="hsl(150 26% 24%)"/>
+<g clip-path="url(#c)"><path d="M3 50c0-11 9-17 21-17s21 6 21 17z" fill="#e58fa3"/><rect x="20" y="26" width="8" height="9" rx="3" fill="#eebf98" opacity=".82"/><circle cx="24" cy="20" r="9.500" fill="#eebf98"/><circle cx="20.600" cy="20" r="1.100" fill="#2a1d14"/><circle cx="27.400" cy="20" r="1.100" fill="#2a1d14"/><path d="M14.400 17a9.600 9.600 0 0 1 19.200 0z" fill="#9aa3a8"/><path d="M14.400 14.600h19.200v3H14.400z" fill="#f3f0e8"/><path d="M8.600 17.600h20v2.800H10a1.400 1.400 0 0 1-1.400-2.800z" fill="#f3f0e8"/><path d="M20.500 24.400q3.500 2.400 7 0" stroke="#7a3b2a" stroke-width="1.600" fill="none" stroke-linecap="round"/><path d="M19 33l5 5 5-5 2.200 1.600L24 41l-7.200-6.400z" fill="#f3f0e8"/></g>
+</svg>

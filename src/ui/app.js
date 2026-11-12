@@ -582,7 +582,7 @@ function renderToast() {
   el.innerHTML = `<button type="button" class="toast ${show.verdict.grade}${pending ? ' prev' : ''}" id="toast-open">
     <span class="t-icon">${icon}</span><span class="t-tag">${tagText}</span>
     <span class="t-main">${esc(show.headline)}</span><span class="t-more">${show.verdict.grade === 'good' ? 'Details' : 'Why?'} ›</span></button>`;
-  $('toast-open').onclick = () => openSide('coach');
+  $('toast-open').onclick = () => (REVIEW_V2 && h.over && !drill ? openReview() : openSide('coach'));
 }
 
 function openSide(tab) {
@@ -734,6 +734,111 @@ function render() {
   renderLog();
 }
 
+
+// ---------------------------------------------------------------- hand review (brand S1)
+// The coach's review of a finished hand as its own screen: result and cost first, the run-out,
+// every decision as a row (flagged ones open in place with the coach's own words and numbers),
+// the opponent's card, and Next hand under the thumb. Every figure and sentence comes from the
+// decision records; nothing is written here. Preview only, until the owner approves:
+// play.html?review=new turns it on.
+const REVIEW_V2 = new URLSearchParams(location.search).get('review') === 'new';
+const GRADE_WORD = { good: 'fine', mistake: 'mistake', blunder: 'blunder' };
+const MARK = { good: '✓', mistake: '!', blunder: '✕' };
+const STREET_LABEL = ['Preflop', 'Flop', 'Turn', 'River'];
+
+function actionNoun(o) {
+  if (!o) return 'play';
+  if (o.type === 'raise') return /^bet/i.test(o.label) ? 'bet' : /^all-in/i.test(o.label) ? 'all-in' : 'raise';
+  return o.type;
+}
+
+function openReview() {
+  const h = sess.hand;
+  if (!h || !h.over || drill) return;
+  const s = h.state;
+  const ds = h.decisions;
+  const flagged = ds.filter((d) => d.verdict.grade !== 'good');
+  const cost = flagged.reduce((a, d) => a + d.verdict.loss, 0);
+  const net = h.summary.net;
+  const result = net > 0 ? `You won ${money(net)}.` : net < 0 ? `You lost ${money(-net)}.` : 'You broke even.';
+  const costLine = !flagged.length
+    ? ds.length ? '<span class="ok">Every decision was fine.</span>' : ''
+    : flagged.length === 1
+      ? `<span class="neg">One ${actionNoun(flagged[0].verdict.options[flagged[0].verdict.mine])} cost you about ${money(flagged[0].verdict.loss)}.</span>`
+      : `<span class="neg">${flagged.length} plays cost you about ${money(cost)}.</span>`;
+  const shown = [];
+  if (s.result && s.result.showdown) for (let i = 1; i < s.n; i++) if (!s.folded[i]) shown.push(i);
+  const wins = h.log.filter((e) => e.kind === 'win').map((e) => e.text);
+  const runout = `<div class="rv-runout">
+    <div><span class="label">Your hand</span>${cardsInline(s.hole[HERO])}</div>
+    ${s.board.length ? `<div><span class="label">Board</span>${cardsInline(s.board)}</div>` : ''}
+    ${shown.map((i) => `<div><span class="label">${esc(sess.seats[i].nick)} showed</span>${cardsInline(s.hole[i])}</div>`).join('')}
+    ${wins.length ? `<p class="rv-vs">${esc(wins.join('. '))}.</p>` : ''}
+  </div>`;
+  const firstFlag = ds.find((d) => d.verdict.grade !== 'good');
+  const rows = ds.map((d) => {
+    const v = d.verdict;
+    const mine = v.options[v.mine];
+    const head = `<span class="label">${STREET_LABEL[d.street] || d.streetName}</span><span class="vmark ${d.verdict.grade}">${MARK[v.grade]}</span><span class="what">${esc(mine ? mine.label : '')}</span><span class="grade ${v.grade}">${GRADE_WORD[v.grade]}</span>`;
+    if (v.grade === 'good') return `<div class="rv-step">${head}</div>`;
+    const evs = v.options.map((o) => o.ev);
+    const lo = Math.min(...evs, 0);
+    const hi = Math.max(...evs, 0);
+    const width = (ev) => Math.max(4, Math.round(((ev - lo) / Math.max(1e-9, hi - lo)) * 100));
+    const bars = v.options.map((o, i) => `<div class="bar ${i === v.best ? 'best' : ''} ${i === v.mine ? 'yours' : ''}"><span>${esc(o.label)}</span><span class="track"><i style="--w:${width(o.ev)}%"></i></span><span class="mono">${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</span></div>`).join('');
+    const eq = d.villain && d.villain.picture && d.villain.picture.equity !== null && d.villain.picture.equity !== undefined ? d.villain.picture.equity : null;
+    const duo = eq !== null && d.toCall > 0 ? `<div class="duo"><div class="stat"><span class="label">You beat</span><b>${Math.round(eq * 100)}%</b></div><div class="stat"><span class="label">You needed</span><b>${Math.round(d.odds * 100)}%</b></div></div>` : '';
+    return `<details class="rv-flag ${v.grade}" ${d === firstFlag ? 'open' : ''}><summary class="rv-step">${head}</summary>
+      <div class="rv-body">
+        <h2>${esc(d.headline)}</h2>
+        ${d.reasons.map((r) => `<p class="why">${esc(r)}</p>`).join('')}
+        <p class="label">What each option is worth, on average</p>
+        <div class="bars">${bars}</div>
+        ${duo}
+        ${d.theory ? `<details class="rv-theory"><summary>Why theory disagrees ›</summary><p>${esc(d.theory)}</p></details>` : ''}
+        <div class="rv-acts">
+          ${d.villain ? `<button type="button" class="btn small" data-range="${d.villain.seat}">See ${esc(d.villain.nick)}'s range</button>` : ''}
+          ${d.category && DRILLS[d.category] ? `<button type="button" class="btn small" data-drill="${d.category}">Drill this leak</button>` : ''}
+          <button type="button" class="btn small quiet" data-dispute="${d.id}">Disagree?</button>
+        </div>
+      </div></details>`;
+  }).join('');
+  const vSeat = (firstFlag && firstFlag.villain && firstFlag.villain.seat) || shown[0] || null;
+  let card = '';
+  if (vSeat !== null && vSeat !== undefined) {
+    const p = sess.seats[vSeat];
+    const r = sess.readOf(vSeat);
+    const top = r.ranked[0];
+    const lvl = top.p >= 0.75 ? 3 : top.p >= 0.6 ? 2 : top.p >= 0.45 ? 1 : 0;
+    const word = shortType(top.id);
+    const guess = lvl === 3 ? word : lvl === 2 ? `Likely ${word === 'ABC' ? word : word.toLowerCase()}` : lvl === 1 ? `${word}?` : 'Too early to say';
+    card = `<article class="pc" style="--h:${p.hue ?? 160}"><div class="pc-head"><div class="big-avatar" style="--h:${p.hue ?? 160}">${avatarArt(p)}</div><div><div class="pc-name">${esc(p.nick)}</div><div class="pc-sub"><span class="label">${r.notes.hands} hands watched</span></div></div></div>
+      <p class="pc-look">${esc(p.look)}.</p>
+      <div class="pc-read"><span class="label">Coach's read</span><div class="pc-guess">${esc(guess)}<span class="conf">${[1, 2, 3].map((k) => `<i class="${k <= lvl ? 'on' : ''}"></i>`).join('')}</span></div>
+      <p>${r.notes.hands ? `Puts money in ${Math.round((100 * r.notes.vpip) / r.notes.hands)}% of hands, raises ${Math.round((100 * r.notes.pfr) / r.notes.hands)}% before the flop.` : ''}</p></div></article>`;
+  }
+  const el = $('review');
+  el.innerHTML = `<div class="rv-wrap">
+    <div class="rv-head"><p class="label signal">Hand ${h.no || sess.handNo} · the coach's review</p><h1>${result} ${costLine}</h1></div>
+    ${runout}
+    <div class="rv-cols"><div class="rv-steps">${rows || '<p class="sub">You made no decisions this hand.</p>'}</div>
+      <aside>${card}<div class="rv-tiles"><div class="stat"><span class="label">This hand</span><b class="${net > 0 ? 'pos' : net < 0 ? 'neg' : ''}">${signed(net)}</b></div><div class="stat"><span class="label">Mistakes cost</span><b>${money(cost)}</b></div></div></aside></div>
+  </div>
+  <div class="rv-bar"><div><p>The table stops on a flagged play so you can read why.</p><button type="button" id="rv-leaks">Leak review</button><button type="button" class="primary" id="rv-next">${drill ? 'Next spot' : 'Next hand'}<kbd>Space</kbd></button></div></div>`;
+  el.classList.remove('hidden');
+  el.scrollTop = 0;
+  document.body.classList.add('reviewing');
+  $('rv-next').onclick = () => nextHand();
+  $('rv-leaks').onclick = () => reviewModal();
+  el.querySelectorAll('[data-range]').forEach((b) => (b.onclick = () => { closeReview(); rangeSeat = +b.dataset.range; openSide('range'); }));
+  el.querySelectorAll('[data-drill]').forEach((b) => (b.onclick = () => { closeReview(); startDrill(b.dataset.drill); }));
+  el.querySelectorAll('[data-dispute]').forEach((b) => (b.onclick = () => { const d = sess.decisions.find((x) => x.id === +b.dataset.dispute); if (d) disputeModal(d); }));
+}
+function closeReview() {
+  $('review').classList.add('hidden');
+  document.body.classList.remove('reviewing');
+}
+
 // ---------------------------------------------------------------- flow
 
 function advance() {
@@ -751,6 +856,7 @@ function advance() {
     }, settings.speed);
   } else if (sess.status() === 'over') {
     scheduleAuto();
+    if (REVIEW_V2 && !drill && sess.hand.decisions.some((d) => d.verdict.grade !== 'good')) openReview();
   }
 }
 
@@ -788,6 +894,7 @@ function act(action) {
 
 function nextHand() {
   if (sess.status() !== 'over') return;
+  closeReview();
   if (drill) return nextSpot();
   tapHintPending = false; // shown once, at the end of the first hand
   pastLog = [...pastLog, ...sess.hand.log].slice(-120);
@@ -850,6 +957,10 @@ function newSession() {
 document.addEventListener('keydown', (e) => {
   if (!$('modal').classList.contains('hidden')) {
     if (e.key === 'Escape') closeModal();
+    return;
+  }
+  if (e.key === 'Escape' && !$('review').classList.contains('hidden')) {
+    closeReview();
     return;
   }
   if (e.target.tagName === 'INPUT') return;

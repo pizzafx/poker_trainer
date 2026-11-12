@@ -64,6 +64,9 @@ export class Session {
     // Or the trainee's own ranges, { early, middle, cutoff, button, sb, bb }: lists of hand classes.
     // A hand outside the range for the seat is folded for them. Takes the place of skipBelow.
     this.heroRanges = opts.heroRanges || null;
+    // Your ranges for when someone has already raised before the action reaches you (same shape).
+    // Without them the first-in ranges apply whatever happens before you.
+    this.heroRangesRaised = opts.heroRangesRaised || null;
     this.seats = [];
     const nicks = new Set();
     for (let i = 0; i < this.n; i++) {
@@ -543,11 +546,27 @@ export class Session {
     const s = this.hand.state;
     const h = s.hole[HERO];
     const k = classOf(h[0], h[1]);
-    if (this.heroRanges) {
-      const range = this.heroRanges[groupOf(positionName(s, HERO))] || [];
-      return !range.includes(classNames[k]);
-    }
+    if (this.heroRanges) return !this.inRange(this.heroRanges);
     return HERO_PROFILE.playPct[k] < this.skipBelow;
+  }
+  // Is the trainee's hand in the given ranges ({ early: [...], ... }) for their seat?
+  inRange(ranges) {
+    const s = this.hand.state;
+    const h = s.hole[HERO];
+    return (ranges[groupOf(positionName(s, HERO))] || []).includes(classNames[classOf(h[0], h[1])]);
+  }
+  // With your own ranges: should this hand be folded for you? The first-in range applies when
+  // nobody has raised before you, the facing-a-raise range when someone has. When the two agree
+  // the answer is known at the deal; otherwise the players before you act first (at once, not
+  // one by one on screen) and the range that fits what they did decides.
+  outOfRange() {
+    const first = this.inRange(this.heroRanges);
+    const raised = this.heroRangesRaised ? this.inRange(this.heroRangesRaised) : first;
+    if (first === raised) return !first;
+    let guard = 0;
+    while (this.status() === 'bot' && guard++ < 50) this.stepBot();
+    if (this.status() !== 'hero') return false; // the hand ended before you (a walk): nothing to skip
+    return this.hand.state.raises > 0 ? !raised : !first;
   }
 
   // Plays the hand out with the trainee checking when free and folding otherwise.
@@ -573,7 +592,7 @@ export class Session {
     const news = [];
     let skipped = 0;
     this.startHand();
-    while ((this.heroRanges || this.skipBelow > 0) && !this.hand.over && this.isJunk() && skipped < 60) {
+    while ((this.heroRanges || this.skipBelow > 0) && !this.hand.over && (this.heroRanges ? this.outOfRange() : this.isJunk()) && skipped < 60) {
       news.push(...this.news);
       this.foldOut();
       skipped++;

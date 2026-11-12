@@ -65,3 +65,66 @@ export function shareOf(names) {
   }
   return combos / 1326;
 }
+
+// ---- facing a raise ----
+// A second range per seat group, used when someone has already raised before the action reaches
+// you. Much tighter than first in: pairs, strong aces and broadway, suited connectors in late
+// position and the big blind. Written in the usual notation and expanded below; each preset
+// contains the one before it.
+export const PRESETS_RAISED = {
+  tight: {
+    early: 'TT+ AQs+ AKo',
+    middle: '99+ AJs+ KQs AQo+',
+    cutoff: '88+ AJs+ KQs AQo+',
+    button: '66+ ATs+ KJs+ QJs JTs AJo+ KQo',
+    sb: '99+ AJs+ KQs AQo+',
+    bb: '55+ A9s+ KTs+ QTs+ JTs T9s AJo+ KQo',
+  },
+  standard: {
+    early: '99+ AJs+ KQs AQo+',
+    middle: '88+ ATs+ KJs+ QJs AQo+',
+    cutoff: '77+ ATs+ KTs+ QTs+ JTs AJo+ KQo',
+    button: '22+ A9s+ A5s-A4s KTs+ QTs+ JTs T9s 98s 87s 76s ATo+ KQo',
+    sb: '88+ ATs+ KJs+ QJs AQo+',
+    bb: '22+ A2s+ K9s+ Q9s+ J9s+ T9s 98s 87s 76s 65s ATo+ KJo+ QJo',
+  },
+  loose: {
+    early: '88+ ATs+ KJs+ QJs AJo+ KQo',
+    middle: '77+ A9s+ KTs+ QTs+ JTs AJo+ KQo',
+    cutoff: '55+ A8s+ A5s-A4s K9s+ Q9s+ J9s+ T9s 98s ATo+ KJo+',
+    button: '22+ A2s+ K9s+ Q9s+ J9s+ T8s+ 97s+ 86s+ 75s+ 65s 54s A9o+ KTo+ QTo+ JTo',
+    sb: '77+ A9s+ KTs+ QTs+ JTs AJo+ KQo',
+    bb: '22+ A2s+ K7s+ Q8s+ J8s+ T8s+ 97s+ 86s+ 75s+ 64s+ 54s A8o+ KTo+ QTo+ JTo',
+  },
+};
+
+const RANK_ORDER = '23456789TJQKA';
+const name2 = (hi, lo, kind) => (hi === lo ? hi + lo : hi + lo + kind);
+// "88+" pairs from 88 up; "ATs+" A with T up to K, suited; "A5s-A4s" a run; "T9s" one hand.
+export function expandRange(text) {
+  const out = new Set();
+  for (const tok of text.split(/\s+/).filter(Boolean)) {
+    const run = tok.match(/^([2-9TJQKA])([2-9TJQKA])([so])-([2-9TJQKA])([2-9TJQKA])\3$/);
+    if (run) {
+      const [a, b] = [RANK_ORDER.indexOf(run[2]), RANK_ORDER.indexOf(run[5])].sort((x, y) => x - y);
+      for (let i = a; i <= b; i++) out.add(name2(run[1], RANK_ORDER[i], run[3]));
+      continue;
+    }
+    const m = tok.match(/^([2-9TJQKA])([2-9TJQKA])([so]?)(\+?)$/);
+    if (!m) throw new Error(`bad range token ${tok}`);
+    const [, hi, lo, kind, plus] = m;
+    const h = RANK_ORDER.indexOf(hi);
+    const l = RANK_ORDER.indexOf(lo);
+    if (h === l) {
+      for (let i = h; i < (plus ? 13 : h + 1); i++) out.add(RANK_ORDER[i] + RANK_ORDER[i]);
+    } else {
+      for (let i = l; i < (plus ? h : l + 1); i++) out.add(name2(hi, RANK_ORDER[i], kind));
+    }
+  }
+  return [...out];
+}
+
+export function presetRaised(name = 'standard') {
+  const p = PRESETS_RAISED[name];
+  return Object.fromEntries(RANGE_GROUPS.map(([g]) => [g, expandRange(p[g])]));
+}

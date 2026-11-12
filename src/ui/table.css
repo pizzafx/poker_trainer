@@ -1826,3 +1826,5 @@ body.reviewing { overflow: hidden; }
   #modal-box .rg-cell { font-size: 7px; }
 }
 #modal-box .rg-grid { max-width: 420px; margin: 0 auto; }
+#modal-box .rg-mode { margin: 4px 0 2px; }
+#modal-box .rg-mode-note { text-align: left; margin: 4px 0 0; font-size: 12.5px; }

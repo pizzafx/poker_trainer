@@ -61,3 +61,52 @@ test('ranges: drills ignore the range filter', () => {
   const found = sess.dealUntil((sp) => sp.street === 0 && sp.pct < 0.3, 200);
   assert.ok(found, 'a weak preflop spot is dealt in a drill');
 });
+
+import { expandRange, presetRaised, PRESETS_RAISED } from '../src/trainer/ranges.js';
+
+test('ranges: range notation expands as poker players write it', () => {
+  assert.deepEqual(expandRange('QQ+').sort(), ['AA', 'KK', 'QQ']);
+  assert.deepEqual(expandRange('ATs+').sort(), ['AJs', 'AKs', 'AQs', 'ATs']);
+  assert.deepEqual(expandRange('A5s-A3s').sort(), ['A3s', 'A4s', 'A5s']);
+  assert.deepEqual(expandRange('KQo T9s 22'), ['KQo', 'T9s', '22']);
+  assert.throws(() => expandRange('AXs'));
+});
+
+test('ranges: facing-a-raise presets are much tighter, nest, and keep junk out', () => {
+  const first = presetRanges('standard');
+  for (const [g] of RANGE_GROUPS) {
+    const t = presetRaised('tight')[g];
+    const s = presetRaised('standard')[g];
+    const l = presetRaised('loose')[g];
+    for (const n of t) assert.ok(s.includes(n), `${g}: tight ${n} not in standard`);
+    for (const n of s) assert.ok(l.includes(n), `${g}: standard ${n} not in loose`);
+    assert.ok(shareOf(s) < shareOf(first[g]) * 0.65, `${g}: facing a raise ${shareOf(s)} vs first in ${shareOf(first[g])}`);
+    for (const n of ['T3o', 'K9o', 'J5o', '72s']) assert.ok(!s.includes(n), `${g}: ${n}`);
+    assert.ok(Object.keys(PRESETS_RAISED.standard).includes(g));
+  }
+  assert.ok(presetRaised('standard').button.includes('87s'), 'suited connectors on the button');
+});
+
+test('ranges: facing a raise at your first decision, only hands in that range reach you', () => {
+  const all = presetRanges('loose');
+  for (const g of Object.keys(all)) all[g] = expandRange('22+ A2s+ K2s+ Q2s+ J2s+ T2s+ 92s+ 82s+ 72s+ 62s+ 52s+ 42s+ 32s A2o+ K2o+ Q2o+ J2o+ T2o+ 92o+ 82o+ 72o+ 62o+ 52o+ 42o+ 32o');
+  const premium = expandRange('TT+ AKs AKo');
+  const tight = Object.fromEntries(Object.keys(all).map((g) => [g, premium]));
+  const sess = new Session({ seed: 21, samples: 20, heroRanges: all, heroRangesRaised: tight });
+  let raised = 0;
+  let unraised = 0;
+  for (let i = 0; i < 150; i++) {
+    sess.startPlayable();
+    while (sess.status() === 'bot') sess.stepBot();
+    if (sess.status() !== 'hero') continue;
+    const s = sess.hand.state;
+    if (s.street === 0 && s.raises > 0) {
+      raised++;
+      assert.ok(premium.includes(classNames[classOf(s.hole[0][0], s.hole[0][1])]));
+    } else unraised++;
+    sess.foldOut();
+  }
+  assert.ok(raised >= 1, `${raised} raised spots`);
+  assert.ok(unraised > 20, `${unraised} first-in spots`);
+  assert.equal(sess.decisions.length, 0);
+});

@@ -11,7 +11,7 @@ import { DRILLS } from '../trainer/drills.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
 import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '../trainer/dispute.js';
-import { RANGE_GROUPS, presetRanges, shareOf } from '../trainer/ranges.js';
+import { RANGE_GROUPS, presetRanges, presetRaised, shareOf } from '../trainer/ranges.js';
 
 const $ = (id) => document.getElementById(id);
 const HERO = 0;
@@ -20,7 +20,7 @@ const SUIT_CLS = ['c', 'd', 'h', 's'];
 
 // What a new player starts on: $1/$3 with a 100-big-blind buy-in and a typical capped rake.
 // Players who already have saved settings keep theirs.
-const DEFAULTS = { v: 3, game: '1/3', maxBuy: 300, rake: 'pct', table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450 };
+const DEFAULTS = { v: 3, game: '1/3', maxBuy: 300, rake: 'pct', table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450 };
 let settings = { ...DEFAULTS };
 let firstVisit = true; // nothing saved yet: deal straight in and show the one-time hint
 try {
@@ -110,7 +110,7 @@ const HOME_TYPES = [
 ];
 
 function sessionOpts() {
-  const base = { heroRanges: settings.onlyRange ? settings.ranges : null, samples: 600 };
+  const base = { heroRanges: settings.onlyRange ? settings.ranges : null, heroRangesRaised: settings.onlyRange ? settings.rangesRaised : null, samples: 600 };
   if (settings.mode === 'home') {
     const h = settings.home;
     const lineup = [];
@@ -563,7 +563,7 @@ function renderToast() {
   const el = $('toast');
   const d = h.decisions[h.decisions.length - 1];
   if (hintOn) {
-    el.innerHTML = `<div class="toast hint"><img class="tile" src="assets/logo/tile.svg" alt="" width="22" height="22">
+    el.innerHTML = `<div class="toast hint"><svg class="tile" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#1f5c4a"/><rect x=".5" y=".5" width="31" height="31" rx="7.5" fill="none" stroke="#f3f0e8" stroke-opacity=".22"/><g fill="none" stroke="#f3f0e8" stroke-width="2.1"><path d="M9.51 13.56A3.8 3.8 0 1 0 10.4 16H7.3"/><path d="M12.4 12.2h7.2M16 12.2v8.65"/><circle cx="25.4" cy="16" r="3.8"/></g><path d="M3 18.2C10 13.8 19 19.6 29 14.4" fill="none" stroke="#b4e46e" stroke-width="2.1" stroke-linecap="round"/></svg>
       <span class="t-main">Play it the way you would live. The coach speaks up when a play costs you money.</span>
       <button type="button" class="t-more" id="hint-ok">Got it</button></div>`;
     $('hint-ok').onclick = () => {
@@ -1056,7 +1056,10 @@ function settingsModal() {
     settings.reads = $('s-reads').checked;
     settings.rangesLive = $('s-ranges').checked;
     settings.onlyRange = $('s-only').checked;
-    if (sess) sess.heroRanges = settings.onlyRange ? settings.ranges : null;
+    if (sess) {
+      sess.heroRanges = settings.onlyRange ? settings.ranges : null;
+      sess.heroRangesRaised = settings.onlyRange ? settings.rangesRaised : null;
+    }
     settings.speed = +$('s-speed').value;
   };
   const homeTotal = () => [...document.querySelectorAll('.h-count')].reduce((a, el) => a + Math.max(0, Math.floor(+el.value || 0)), 0);
@@ -1114,15 +1117,20 @@ function settingsModal() {
 // Your own starting-hand ranges, one per seat group: tap or drag across the chart to add or
 // remove hands. Hands outside the range for your seat are folded for you (checked when free).
 function rangesModal(back = closeModal) {
-  const draft = JSON.parse(JSON.stringify(settings.ranges));
+  // Two ranges per seat group: first in (folded or limped to you) and facing a raise.
+  const draft = { first: JSON.parse(JSON.stringify(settings.ranges)), raised: JSON.parse(JSON.stringify(settings.rangesRaised)) };
   let group = 'early';
+  let mode = 'first';
   const draw = () => {
-    const sel = new Set(draft[group]);
+    const cur = draft[mode];
+    const sel = new Set(cur[group]);
     const cells = GRID.map((row) => row.map(({ name }) => `<button type="button" class="rg-cell${sel.has(name) ? ' on' : ''}" data-name="${name}" aria-pressed="${sel.has(name)}">${name}</button>`).join('')).join('');
     openModal(`
       <h1>Your ranges</h1>
       <p class="sub">Hands outside your range for the seat are folded for you, and the next hand is dealt.</p>
       <div class="type-chips rg-groups" role="tablist">${RANGE_GROUPS.map(([g, label, seats]) => `<button type="button" class="chip${g === group ? ' on' : ''}" role="tab" aria-selected="${g === group}" data-group="${g}" title="${seats}">${label}</button>`).join('')}</div>
+      <div class="seg rg-mode" role="radiogroup" aria-label="When"><button type="button" role="radio" data-mode="first" aria-checked="${mode === 'first'}" class="${mode === 'first' ? 'on' : ''}">First in</button><button type="button" role="radio" data-mode="raised" aria-checked="${mode === 'raised'}" class="${mode === 'raised' ? 'on' : ''}">Facing a raise</button></div>
+      <p class="hint rg-mode-note">${mode === 'first' ? 'When it is folded or limped to you.' : 'When someone has already raised before it gets to you.'}</p>
       <div class="rg-bar"><span class="rg-share" id="rg-share"></span>
         <span class="rg-presets">${['tight', 'standard', 'loose'].map((p) => `<button type="button" class="chip" data-preset="${p}">${p[0].toUpperCase() + p.slice(1)}</button>`).join('')}</span></div>
       <div class="rg-grid" id="rg-grid">${cells}</div>
@@ -1132,16 +1140,16 @@ function rangesModal(back = closeModal) {
         <button id="rg-cancel" class="quiet">Cancel</button>
         <button class="primary" id="rg-done">Done</button>
       </div>`);
-    const share = () => ($('rg-share').innerHTML = `<b>${Math.round(shareOf(draft[group]) * 100)}%</b> of hands`);
+    const share = () => ($('rg-share').innerHTML = `<b>${Math.round(shareOf(cur[group]) * 100)}%</b> of hands`);
     share();
     const grid = $('rg-grid');
     const setCell = (el, on) => {
       el.classList.toggle('on', on);
       el.setAttribute('aria-pressed', on);
-      const set = new Set(draft[group]);
+      const set = new Set(cur[group]);
       if (on) set.add(el.dataset.name);
       else set.delete(el.dataset.name);
-      draft[group] = [...set];
+      cur[group] = [...set];
       share();
     };
     // Drag to paint: the first cell decides whether the drag adds or removes hands.
@@ -1163,13 +1171,25 @@ function rangesModal(back = closeModal) {
     grid.addEventListener('pointerup', stop);
     grid.addEventListener('pointercancel', stop);
     $('modal-box').querySelectorAll('[data-group]').forEach((b) => (b.onclick = () => { group = b.dataset.group; draw(); }));
-    $('modal-box').querySelectorAll('[data-preset]').forEach((b) => (b.onclick = () => { draft[group] = presetRanges(b.dataset.preset)[group]; draw(); }));
-    $('rg-reset').onclick = () => { Object.assign(draft, presetRanges('standard')); draw(); };
+    $('modal-box').querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => { mode = b.dataset.mode; draw(); }));
+    $('modal-box').querySelectorAll('[data-preset]').forEach((b) => (b.onclick = () => {
+      cur[group] = (mode === 'first' ? presetRanges : presetRaised)(b.dataset.preset)[group];
+      draw();
+    }));
+    $('rg-reset').onclick = () => {
+      draft.first = presetRanges('standard');
+      draft.raised = presetRaised('standard');
+      draw();
+    };
     $('rg-cancel').onclick = () => back();
     $('rg-done').onclick = () => {
-      settings.ranges = draft;
+      settings.ranges = draft.first;
+      settings.rangesRaised = draft.raised;
       saveSettings();
-      if (sess) sess.heroRanges = settings.onlyRange ? settings.ranges : null;
+      if (sess) {
+        sess.heroRanges = settings.onlyRange ? settings.ranges : null;
+        sess.heroRangesRaised = settings.onlyRange ? settings.rangesRaised : null;
+      }
       back();
     };
   };

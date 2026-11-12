@@ -21,7 +21,7 @@ const SUIT_CLS = ['c', 'd', 'h', 's'];
 
 // What a new player starts on: $1/$3 with a 100-big-blind buy-in and a typical capped rake.
 // Players who already have saved settings keep theirs.
-const DEFAULTS = { v: 3, game: APP_GAME.game, maxBuy: APP_GAME.heroBuy, rake: APP_GAME.rake, table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450 };
+const DEFAULTS = { v: 3, game: APP_GAME.game, maxBuy: APP_GAME.heroBuy, rake: APP_GAME.rake, table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450, sideW: null };
 let settings = { ...DEFAULTS };
 let firstVisit = true; // nothing saved yet: deal straight in and show the one-time hint
 try {
@@ -1493,6 +1493,72 @@ $('tab-coach').onclick = () => showTab('coach');
 $('tab-log').onclick = () => showTab('log');
 $('tab-range').onclick = () => showTab('range');
 if (window.innerWidth < 1180) document.body.classList.add('side-closed');
+
+// ---- the side panel's width: drag its left edge, arrow keys on the grip, double-click to reset.
+// Only where the panel sits beside the table (from 1181px; narrower, it slides over the table).
+// The chosen width is saved with the settings; a window too small for it shows it clamped.
+const SIDE_BESIDE = matchMedia('(min-width: 1181px)');
+const STAGE_MIN = 760; // the narrowest table area that stays playable (checked at 1280 and 1440)
+const sideDefault = () => (innerWidth > 1400 ? 380 : 330); // as #side's width in table.css
+const sideMax = () => Math.max(sideDefault(), Math.min(Math.round(innerWidth / 2), innerWidth - STAGE_MIN));
+const clampSide = (w) => Math.round(Math.max(sideDefault(), Math.min(sideMax(), w)));
+function applySide() {
+  const w = settings.sideW ? clampSide(settings.sideW) : sideDefault();
+  const sized = SIDE_BESIDE.matches && w > sideDefault();
+  $('side').classList.toggle('sized', sized);
+  $('side').style.setProperty('--side-w', w + 'px');
+  const grip = $('side-grip');
+  grip.setAttribute('aria-valuemin', sideDefault());
+  grip.setAttribute('aria-valuemax', sideMax());
+  grip.setAttribute('aria-valuenow', sized ? w : sideDefault());
+}
+function setSide(w) {
+  settings.sideW = w == null ? null : clampSide(w);
+  if (settings.sideW === sideDefault()) settings.sideW = null;
+  applySide();
+}
+{
+  const grip = $('side-grip');
+  grip.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    grip.setPointerCapture(e.pointerId);
+    const x0 = e.clientX;
+    const w0 = $('side').getBoundingClientRect().width;
+    document.body.classList.add('side-dragging');
+    const move = (ev) => setSide(w0 + x0 - ev.clientX);
+    const up = () => {
+      grip.removeEventListener('pointermove', move);
+      grip.removeEventListener('pointerup', up);
+      grip.removeEventListener('pointercancel', up);
+      document.body.classList.remove('side-dragging');
+      saveSettings();
+    };
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', up);
+    grip.addEventListener('pointercancel', up);
+  });
+  grip.addEventListener('dblclick', () => {
+    setSide(null);
+    saveSettings();
+  });
+  grip.addEventListener('keydown', (e) => {
+    const now = settings.sideW ? clampSide(settings.sideW) : sideDefault();
+    const step = e.shiftKey ? 80 : 20;
+    let w;
+    if (e.key === 'ArrowLeft') w = now + step; // the grip is on the panel's left edge
+    else if (e.key === 'ArrowRight') w = now - step;
+    else if (e.key === 'Home') w = sideDefault();
+    else if (e.key === 'End') w = sideMax();
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+    setSide(w);
+    saveSettings();
+  });
+  addEventListener('resize', applySide);
+  applySide();
+}
 $('btn-sim').onclick = () => {
   $('btn-sim').classList.remove('fresh'); // stop drawing attention once it has been used
   quickSim();
@@ -1508,7 +1574,7 @@ window.trainer = { get session() { return sess; }, settings, act, nextHand };
 // with coach feedback showing (used for screenshots). The number picks the session.
 function demo(seed) {
   // Always the standard casino table, whatever is saved in Settings.
-  Object.assign(settings, DEFAULTS, { home: settings.home });
+  Object.assign(settings, DEFAULTS, { home: settings.home, sideW: settings.sideW });
   sess = new Session({ ...sessionOpts(), seed });
   sess.startPlayable();
   for (let k = 0; k < 4000; k++) {

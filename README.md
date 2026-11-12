@@ -132,7 +132,9 @@ start getting called lighter.
 ## Features
 
 - **Coach strip** under the table with the verdict on your last play, and a side panel with
-  the full reasoning and the numbers behind it.
+  the full reasoning and the numbers behind it. On a wide screen, drag the panel's left edge
+  (or focus it and use the arrow keys) to widen it and read the range chart bigger; the table
+  shrinks to make room. Double-click the edge to reset.
 - **Range view.** The Ranges tab draws an opponent's likely hands on the 13x13 hand chart and
   updates as the hand goes on, so you can watch a range narrow street by street. It leads
   with how you stand against that range (your equity before the flop, the share you beat

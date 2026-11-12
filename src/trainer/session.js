@@ -1,6 +1,6 @@
 // A session at one table: seats, hands, the trainee's decisions and the feedback on them.
 
-import { makeRng, cardStr } from '../engine/cards.js';
+import { makeRng, cardStr, holeOrder } from '../engine/cards.js';
 import { newHand, applyAction, legal, potSize, positionName, STREET, STREET_NAMES } from '../engine/game.js';
 import { handFeatures, boardTexture, describeHand, TIER } from '../engine/features.js';
 import { classOf, classNames } from '../engine/hands.js';
@@ -366,7 +366,7 @@ export class Session {
       for (let i = 0; i < s.n; i++) {
         if (s.folded[i]) continue;
         const cat = CATEGORY_NAMES[categoryOf(r.scores[i])];
-        h.log.push({ kind: 'show', seat: i, text: `${this.name(i)} shows ${s.hole[i].map(cardStr).join(' ')} (${cat})` });
+        h.log.push({ kind: 'show', seat: i, text: `${this.name(i)} shows ${holeOrder(s.hole[i]).map(cardStr).join(' ')} (${cat})` });
         if (i !== HERO) {
           h.belief.reveal(i, s.hole[i]);
           const p = this.seats[i];

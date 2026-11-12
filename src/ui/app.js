@@ -1,5 +1,5 @@
 import { Session, GAMES, RAKES } from '../trainer/session.js';
-import { RANKS } from '../engine/cards.js';
+import { RANKS, holeOrder } from '../engine/cards.js';
 import { potSize, positionName, STREET } from '../engine/game.js';
 import { classIndex, classOf } from '../engine/hands.js';
 import { evaluate } from '../engine/evaluator.js';
@@ -228,8 +228,8 @@ function renderTable() {
     if (p.steaming) cls.push('steaming');
     if (over && s.result.showdown && !s.folded[i] && i !== HERO) cls.push('shown');
     let cards = '';
-    if (i === HERO) cards = s.hole[i].map((c) => cardHtml(c)).join('');
-    else if (!s.folded[i]) cards = over && s.result.showdown ? s.hole[i].map((c) => cardHtml(c)).join('') : backHtml() + backHtml();
+    if (i === HERO) cards = holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('');
+    else if (!s.folded[i]) cards = over && s.result.showdown ? holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('') : backHtml() + backHtml();
     let read = '';
     if (i !== HERO && settings.reads) {
       const r = sess.readOf(i);
@@ -327,7 +327,7 @@ function tendencies(p) {
     `Before the flop ${style}`,
   ];
   const sd = n.showdowns[0];
-  if (sd) lines.push(`Last shown: ${sd.cards.map((c) => RANKS[c >> 2] + SUIT_SYM[c & 3]).join(' ')} (${sd.won ? 'won' : 'lost'})`);
+  if (sd) lines.push(`Last shown: ${holeOrder(sd.cards).map((c) => RANKS[c >> 2] + SUIT_SYM[c & 3]).join(' ')} (${sd.won ? 'won' : 'lost'})`);
   if (p.steaming) lines.push('Steaming after a big loss');
   return lines;
 }
@@ -451,7 +451,7 @@ function renderActions() {
 function fbCard(d, showWhere = true) {
   const v = d.verdict;
   const where = showWhere
-    ? `<div class="where">Hand ${d.hand} · ${d.streetName} · ${d.position} ${cardsInline(d.hole)}${d.board.length ? ' on ' + cardsInline(d.board) : ''}</div>`
+    ? `<div class="where">Hand ${d.hand} · ${d.streetName} · ${d.position} ${cardsInline(holeOrder(d.hole))}${d.board.length ? ' on ' + cardsInline(d.board) : ''}</div>`
     : `<div class="where">${d.streetName}${d.handText ? ' · you have ' + esc(d.handText) : ''}</div>`;
   const rows = v.options
     .map((o, i) => `<tr class="${i === v.best ? 'best' : ''} ${i === v.mine ? 'mine' : ''}"><td>${esc(o.label)}${o.close && i !== v.best ? ' <span class="approx" title="Too close to the best option to tell apart">≈</span>' : ''}</td><td>${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</td></tr>`)
@@ -473,7 +473,7 @@ function disputeModal(d) {
   const others = v.options.filter((_, i) => i !== v.mine).map((o) => o.label);
   openModal(`<h1>Think the coach is wrong? Say so.</h1>
     <p class="sub">It makes a report of the hand for you to send us.</p>
-    <div class="fb ${v.grade}"><div class="where">Hand ${d.hand} · ${d.streetName} · ${d.position} ${cardsInline(d.hole)}${d.board.length ? ' on ' + cardsInline(d.board) : ''}</div><div class="head">${esc(d.headline)}</div></div>
+    <div class="fb ${v.grade}"><div class="where">Hand ${d.hand} · ${d.streetName} · ${d.position} ${cardsInline(holeOrder(d.hole))}${d.board.length ? ' on ' + cardsInline(d.board) : ''}</div><div class="head">${esc(d.headline)}</div></div>
     <div class="field"><span>What would you do?</span><div class="chip-row" id="d-chips" role="radiogroup">${others.map((l, i) => `<button type="button" class="chip${i === 0 ? ' on' : ''}" role="radio" aria-checked="${i === 0}" data-v="${esc(l)}">${esc(l)}</button>`).join('')}<button type="button" class="chip" role="radio" aria-checked="false" data-v="">Something else</button></div><input type="hidden" id="d-pref" value="${esc(others[0] || '')}"></div>
     <label class="d-label" for="d-why">Why? <small>(optional, but it helps most)</small></label>
     <textarea id="d-why" class="input" rows="3" maxlength="1500" placeholder="For example: this player never folds a pair, so the bluff cannot work."></textarea>
@@ -797,9 +797,9 @@ function openReview() {
   if (s.result && s.result.showdown) for (let i = 1; i < s.n; i++) if (!s.folded[i]) shown.push(i);
   const wins = h.log.filter((e) => e.kind === 'win').map((e) => e.text);
   const runout = `<div class="rv-runout">
-    <div><span class="label">Your hand</span>${cardsInline(s.hole[HERO])}</div>
+    <div><span class="label">Your hand</span>${cardsInline(holeOrder(s.hole[HERO]))}</div>
     ${s.board.length ? `<div><span class="label">Board</span>${cardsInline(s.board)}</div>` : ''}
-    ${shown.map((i) => `<div><span class="label">${esc(sess.seats[i].nick)} showed</span>${cardsInline(s.hole[i])}</div>`).join('')}
+    ${shown.map((i) => `<div><span class="label">${esc(sess.seats[i].nick)} showed</span>${cardsInline(holeOrder(s.hole[i]))}</div>`).join('')}
     ${wins.length ? `<p class="rv-vs">${esc(wins.join('. '))}.</p>` : ''}
   </div>`;
   const firstFlag = ds.find((d) => d.verdict.grade !== 'good');
@@ -1244,7 +1244,7 @@ function playerModal(seat) {
     .join('');
   const sds = n.showdowns.length
     ? n.showdowns
-        .map((sd) => `<div class="sd"><div class="sd-top"><span class="sd-hand">Hand ${sd.hand}</span>${cardsInline(sd.cards)}<span class="sd-on">on</span>${cardsInline(sd.board)}<span class="sd-res ${sd.won ? 'pos' : 'neg'}">${sd.won ? 'Won' : 'Lost'}</span></div><div class="line">${esc(sd.line)}</div></div>`)
+        .map((sd) => `<div class="sd"><div class="sd-top"><span class="sd-hand">Hand ${sd.hand}</span>${cardsInline(holeOrder(sd.cards))}<span class="sd-on">on</span>${cardsInline(sd.board)}<span class="sd-res ${sd.won ? 'pos' : 'neg'}">${sd.won ? 'Won' : 'Lost'}</span></div><div class="line">${esc(sd.line)}</div></div>`)
         .join('')
     : '<div class="empty">No showdowns seen yet.</div>';
   const top = r.ranked[0];

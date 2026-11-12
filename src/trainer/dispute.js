@@ -1,7 +1,7 @@
 // "Disagree?" reports: everything needed to look again at one judged decision, in a form a
 // player can copy or save and send us. No network, no personal data: cards, actions, the
 // coach's reads and the judge's numbers.
-import { cardStr } from '../engine/cards.js';
+import { cardStr, holeOrder } from '../engine/cards.js';
 import { positionName, potSize, STREET_NAMES } from '../engine/game.js';
 
 // Bump when the report's shape changes, so old reports can still be read.
@@ -58,7 +58,7 @@ export function handTruth(sess, s) {
   for (let i = 0; i < s.n; i++) {
     if (i === HERO) continue;
     const p = sess.seats[i];
-    out.push({ seat: i, name: p.nick, type: p.type, tilt: !!p.tilt, cards: cards(s.hole[i]) });
+    out.push({ seat: i, name: p.nick, type: p.type, tilt: !!p.tilt, cards: cards(holeOrder(s.hole[i])) });
   }
   return { board: cards(s.board), players: out, won: s.result ? s.result.won.slice() : null };
 }
@@ -76,7 +76,7 @@ export function disputeReport(record, player = {}) {
       hand: record.hand,
       street: record.streetName,
       position: record.position,
-      hole: cards(record.hole),
+      hole: cards(holeOrder(record.hole)),
       board: cards(record.board),
       pot: record.pot,
       toCall: record.toCall,

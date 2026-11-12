@@ -7,6 +7,11 @@ export const rankOf = (c) => c >> 2;
 export const suitOf = (c) => c & 3;
 export const makeCard = (rank, suit) => (rank << 2) | suit;
 
+// Hole cards for display: high card first, as online clients show them (dealt 5-T reads T-5).
+// Cards are rank * 4 + suit, so sorting high to low also gives pairs a fixed suit order
+// (spades, hearts, diamonds, clubs). Returns a copy: the game state keeps the dealt order.
+export const holeOrder = (cs) => (cs || []).slice().sort((a, b) => b - a);
+
 export function cardStr(c) {
   return RANKS[c >> 2] + SUITS[c & 3];
 }

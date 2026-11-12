@@ -675,6 +675,11 @@ function renderRanges() {
   } else {
     const post = g.street > 0;
     const mine = classOf(s.hole[HERO][0], s.hole[HERO][1]);
+    // Before a player has made a choice of their own (blinds and straddles are forced), every
+    // hand is still possible and the chart would show all of them as fully in range. Say that
+    // instead. Display only: the range itself is unchanged.
+    const upTo = rangeStreet === 'now' ? 99 : rangeStreet;
+    const acted = s.history.some((e) => e.seat === rangeSeat && e.street <= upTo && !['sb', 'bb', 'straddle'].includes(e.type));
     let cells = '';
     for (let i = 0; i < 13; i++) {
       for (let j = 0; j < 13; j++) {
@@ -685,8 +690,13 @@ function renderRanges() {
         // view, lime (you beat it), amber (mixed), red (it beats you), brighter = more likely.
         const tier = c.fill >= 0.45 ? 'in' : c.fill >= 0.12 ? 'some' : on ? 'trace' : 'off';
         const vsRgb = c.ahead >= 0.66 ? '180,228,110' : c.ahead <= 0.34 ? '240,104,95' : '242,176,74';
-const tip = on ? `${GRID[i][j].name}: ${Math.round(c.fill * 100)}% of the way to their likeliest hand${post && c.kind >= 0 ? ', mostly ' + KINDS[c.kind][0].toLowerCase() : ''}${c.ahead !== null ? `; you beat ${Math.round(c.ahead * 100)}% of these` : ''}` : `${GRID[i][j].name}: not in range`;
+        const likely = c.fill >= 0.99 ? 'as likely as any hand in their range' : `about ${Math.max(1, Math.round(c.fill * 100))}% as likely as their likeliest hand`;
+        const tip = on ? `${GRID[i][j].name}: ${likely}${post && c.kind >= 0 ? ', mostly ' + KINDS[c.kind][0].toLowerCase() : ''}${c.ahead !== null ? `; you beat ${Math.round(c.ahead * 100)}% of these` : ''}` : `${GRID[i][j].name}: not in range`;
         const me = GRID[i][j].k === mine ? ' me' : '';
+        if (!acted) {
+          cells += `<div class="rc off${me}" title="${GRID[i][j].name}: possible, like every hand, until they act">${GRID[i][j].name}</div>`;
+          continue;
+        }
         cells += vs && on
           ? `<div class="rc vs${me}" style="background:rgba(${vsRgb},${(0.25 + 0.75 * c.fill).toFixed(2)})" title="${tip}">${GRID[i][j].name}</div>`
           : `<div class="rc ${tier}${me}" title="${tip}">${GRID[i][j].name}</div>`;
@@ -719,9 +729,9 @@ const tip = on ? `${GRID[i][j].name}: ${Math.round(c.fill * 100)}% of the way to
       <div class="chips">${who}</div>
       <div class="chips">${steps}</div>
       <p class="range-title">What ${esc(sess.seats[rangeSeat].nick)} can hold ${label}</p>
-      ${beats}${modes}
-      <div class="rgrid">${cells}</div>
-      ${rangeMode === 'vs' && post ? vsLegend : mix}
+      ${acted ? `${beats}${modes}` : `<div class="unacted-note"><b>${esc(sess.seats[rangeSeat].nick)} hasn't acted yet${s.history.some((e) => e.seat === rangeSeat) ? ' (only the forced blind so far)' : ''}.</b> Any two cards are still possible, so there is no range to show. It fills in as soon as they ${s.history.some((e) => e.seat === rangeSeat) ? 'make a choice' : 'act'}.</div>`}
+      <div class="rgrid${acted ? '' : ' unacted'}">${cells}</div>
+      ${acted ? (rangeMode === 'vs' && post ? vsLegend : mix) : ''}
       <p class="hint" style="text-align:left">${basis} Suited hands are above the diagonal, offsuit below, pairs on it. This is the coach's estimate from how they have played, not their actual cards.</p>`;
   }
   el.querySelectorAll('[data-seat]').forEach((b) => (b.onclick = () => { rangeSeat = +b.dataset.seat; renderRanges(); }));

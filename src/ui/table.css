@@ -1828,3 +1828,8 @@ body.reviewing { overflow: hidden; }
 #modal-box .rg-grid { max-width: 420px; margin: 0 auto; }
 #modal-box .rg-mode { margin: 4px 0 2px; }
 #modal-box .rg-mode-note { text-align: left; margin: 4px 0 0; font-size: 12.5px; }
+
+/* Ranges: a player who has not acted yet */
+#ranges .unacted-note { padding: 12px 14px; margin: 0 0 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: inset 3px 0 0 var(--slate-dim); color: var(--slate); font-size: 13px; line-height: 1.45; }
+#ranges .unacted-note b { color: var(--chalk); }
+#ranges .rgrid.unacted { opacity: 0.45; }

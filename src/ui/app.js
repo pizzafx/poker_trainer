@@ -739,9 +739,9 @@ function render() {
 // The coach's review of a finished hand as its own screen: result and cost first, the run-out,
 // every decision as a row (flagged ones open in place with the coach's own words and numbers),
 // the opponent's card, and Next hand under the thumb. Every figure and sentence comes from the
-// decision records; nothing is written here. Preview only, until the owner approves:
-// play.html?review=new turns it on.
-const REVIEW_V2 = new URLSearchParams(location.search).get('review') === 'new';
+// decision records; nothing is written here. On for everyone since the owner approved it
+// (play.html?review=new, the old preview link, still loads and changes nothing).
+const REVIEW_V2 = true;
 const GRADE_WORD = { good: 'fine', mistake: 'mistake', blunder: 'blunder' };
 const MARK = { good: '✓', mistake: '!', blunder: '✕' };
 const STREET_LABEL = ['Preflop', 'Flop', 'Turn', 'River'];

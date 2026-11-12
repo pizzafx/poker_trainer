@@ -1888,3 +1888,17 @@ body:has(#modal:not(.hidden)) .seat .tip, body:has(#modal:not(.hidden)) .vpip-ti
   #ranges { container-type: inline-size; }
   #side.sized #ranges .rc { font-size: min(17px, max(clamp(7.5px, 0.62vw, 10.5px), 2.45cqw)); }
 }
+
+/* ---- desktop: the table fits the height left above the action dock (--fit-h comes from app.js),
+   the header keeps to one row (pills that do not fit drop out, least important last), and the
+   news line is at most two lines (the full text is in its tooltip) ---- */
+@media (min-width: 901px) {
+  #table { width: min(100%, calc(var(--fit-h, calc(100vh - 265px)) * 1.85), 1300px); }
+  #stats { flex-wrap: wrap; max-height: 30px; overflow: hidden; align-content: flex-start; align-items: center; }
+  #bottom #news { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+}
+/* 901-980px: the dock is one column there, so the side-by-side flex bases (380px, 560px) must not
+   turn into heights */
+@media (min-width: 901px) and (max-width: 980px) {
+  #bottom-left, #actions { flex: none; }
+}

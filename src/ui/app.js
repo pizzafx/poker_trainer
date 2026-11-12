@@ -299,7 +299,7 @@ function renderTable() {
     shownPot = potNow;
   }
   const tapHint = tapHintPending && sess.hand.over ? `${TOUCH.matches || PHONE.matches ? 'Tap' : 'Click'} any player to see what you've noticed about them.` : '';
-  $('news').textContent = drill ? (sess.hand.over ? '' : `Drill: ${DRILLS[drill.cat].what}. ${heroStory()}`) : tapHint || sess.news.join('  ').replace('Hover over a player to see', TOUCH.matches ? 'Tap a player to see' : 'Hover over a player to see');
+  $('news').title = $('news').textContent = drill ? (sess.hand.over ? '' : `Drill: ${DRILLS[drill.cat].what}. ${heroStory()}`) : tapHint || sess.news.join('  ').replace('Hover over a player to see', TOUCH.matches ? 'Tap a player to see' : 'Hover over a player to see');
 }
 
 // What a player's VPIP says, in words: the hover box on the pill and the player card share it.
@@ -1493,6 +1493,36 @@ $('tab-coach').onclick = () => showTab('coach');
 $('tab-log').onclick = () => showTab('log');
 $('tab-range').onclick = () => showTab('range');
 if (window.innerWidth < 1180) document.body.classList.add('side-closed');
+
+// ---- desktop: the table takes the height the action dock leaves, so Fold, Call and Raise always fit.
+// The dock's height varies (coach strip, welcome tip, a two-line news line), so the space kept for it
+// only grows while the table area stays the same size: the table shrinks once, then holds still.
+const FIT = matchMedia('(min-width: 901px)');
+let fitKey = '';
+let fitDock = 0;
+function fitTable() {
+  const stage = $('stage');
+  if (!FIT.matches) {
+    stage.style.removeProperty('--fit-h');
+    return;
+  }
+  const key = stage.clientWidth + 'x' + stage.clientHeight;
+  if (key !== fitKey) {
+    fitKey = key;
+    fitDock = 0;
+  }
+  const bottom = $('bottom');
+  fitDock = Math.max(fitDock, bottom.offsetHeight + parseFloat(getComputedStyle(bottom).marginTop));
+  const cs = getComputedStyle(stage);
+  const avail = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - parseFloat(getComputedStyle($('table')).marginTop) - fitDock - 2;
+  stage.style.setProperty('--fit-h', Math.max(0, Math.floor(avail)) + 'px');
+}
+{
+  const ro = new ResizeObserver(fitTable);
+  ro.observe($('stage'));
+  ro.observe($('bottom'));
+  FIT.addEventListener('change', fitTable);
+}
 
 // ---- the side panel's width: drag its left edge, arrow keys on the grip, double-click to reset.
 // Only where the panel sits beside the table (from 1181px; narrower, it slides over the table).

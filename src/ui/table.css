@@ -656,7 +656,7 @@ table.ev tr.mine td:first-child::after { content: "  (you)"; color: var(--muted)
 #log .ln.me { color: var(--c-fff); font-weight: 600; }
 
 /* ------------------------------------------------------------ modals */
-#modal { position: fixed; inset: 0; background: var(--c-000b); display: flex; align-items: center; justify-content: center; z-index: 20; }
+#modal { position: fixed; inset: 0; background: var(--c-000b); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 #modal-box { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; width: min(760px, 94vw); max-height: 88vh; overflow-y: auto; padding: 22px 24px; box-shadow: 0 30px 80px var(--c-000c); }
 #modal-box h1 { margin: 0 0 4px; font-size: 21px; }
 #modal-box h3 { margin: 18px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
@@ -1833,3 +1833,21 @@ body.reviewing { overflow: hidden; }
 #ranges .unacted-note { padding: 12px 14px; margin: 0 0 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: inset 3px 0 0 var(--slate-dim); color: var(--slate); font-size: 13px; line-height: 1.45; }
 #ranges .unacted-note b { color: var(--chalk); }
 #ranges .rgrid.unacted { opacity: 0.45; }
+
+/* VPIP pill, explanation box: body font for the words, mono for the number only */
+.vpip-tip { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; text-transform: none; }
+.vpip-tip b { font-family: inherit; font-weight: 700; color: var(--chalk); }
+.vpip-tip b .num { font-family: var(--mono); font-weight: 500; color: var(--vc); }
+/* the same line on the player card's "Put money in" tile */
+#modal-box .kv .stat-note { margin: 8px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--slate); }
+
+/* Touch screens: no hover, so the pill is not a target of its own. A tap anywhere on the seat
+   opens the player card and nothing else (no explanation box, no sticky hover lifting the seat). */
+@media (hover: none), (pointer: coarse) {
+  .vpip { cursor: default; }
+  .vpip-tip, .vpip:hover .vpip-tip { display: none; }
+  .seat:hover { z-index: auto; }
+  .seat:hover .tip { display: none; }
+}
+/* While a dialog is open nothing from the table may draw over it */
+body:has(#modal:not(.hidden)) .seat .tip, body:has(#modal:not(.hidden)) .vpip-tip { display: none; }

@@ -256,7 +256,7 @@ function renderTable() {
       <div class="cards">${cards}</div>
       <div class="avatar${vp ? ' has-vpip' : ''}" style="--h:${p.hue ?? 160}${vp ? `;--v:${vp.pct};--vc:${vp.color}` : ''}">${i === HERO ? '' : avatarArt(p)}${badge}${p.steaming ? '<span class="steam-dot" title="On tilt"></span>' : ''}</div>
       <div class="plate"><div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>
-      <div class="stack">${money(stack)}</div>${read}</div>${i === HERO ? madeHand() : ''}${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP ${vp.pct}%</b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vp.pct < 18 ? 'Tight: mostly strong hands.' : vp.pct < 32 ? 'About average.' : vp.pct < 50 ? 'Loose: plays a lot of weak hands.' : 'Plays almost anything.'}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${p.steaming ? '<div class="tilt">Tilt</div>' : ''}${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
+      <div class="stack">${money(stack)}</div>${read}</div>${i === HERO ? madeHand() : ''}${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP <span class="num">${vp.pct}%</span></b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vpipVerdict(vp.pct)}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${p.steaming ? '<div class="tilt">Tilt</div>' : ''}${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
     if (isBtn) {
       const dx = 50 + G.dealer[0] * Math.cos(ang + 0.2);
       const dy = G.cy + G.dealer[1] * Math.sin(ang + 0.2);
@@ -297,6 +297,11 @@ function renderTable() {
   }
   const tapHint = tapHintPending && sess.hand.over ? `${PHONE.matches ? 'Tap' : 'Click'} any player to see what you've noticed about them.` : '';
   $('news').textContent = drill ? (sess.hand.over ? '' : `Drill: ${DRILLS[drill.cat].what}. ${heroStory()}`) : tapHint || sess.news.join('  ');
+}
+
+// What a player's VPIP says, in words: the hover box on the pill and the player card share it.
+function vpipVerdict(pct) {
+  return pct < 18 ? 'Tight: mostly strong hands.' : pct < 32 ? 'About average.' : pct < 50 ? 'Loose: plays a lot of weak hands.' : 'Plays almost anything.';
 }
 
 // The coach's current read, in words, for the hover box.
@@ -1257,7 +1262,7 @@ function playerModal(seat) {
     </div>
     <div class="kv">
       <div class="stat"><small>Hands watched</small><b>${n.hands}</b></div>
-      <div class="stat"><small>Put money in</small><b>${n.hands ? Math.round((100 * n.vpip) / n.hands) + '%' : '–'}</b></div>
+      <div class="stat"><small>Put money in</small><b>${n.hands ? Math.round((100 * n.vpip) / n.hands) + '%' : '–'}</b>${n.hands ? `<p class="stat-note">${n.vpip} of ${n.hands} hands. ${vpipVerdict(Math.round((100 * n.vpip) / n.hands))}</p>` : ''}</div>
       <div class="stat"><small>Raised preflop</small><b>${n.hands ? Math.round((100 * n.pfr) / n.hands) + '%' : '–'}</b></div>
       <div class="stat"><small>Showdowns</small><b>${n.showdowns.length}</b></div>
     </div>

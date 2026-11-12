@@ -1017,3 +1017,21 @@ a.brand:hover { color: var(--accent); }
   .top-actions { gap: 4px; }
   .top-actions button, .top-actions a { padding: 6px 8px; font-size: 12.5px; }
 }
+
+
+/* first visit: a one-time note over the middle of the table */
+#first-hint {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30;
+  width: min(340px, 88%); padding: 14px 16px 12px; border-radius: 12px;
+  background: #101722f5; border: 1px solid var(--accent); box-shadow: 0 16px 40px #05080ee6;
+  font-size: 14px; line-height: 1.45; color: #e2e7ef; text-align: left;
+}
+#first-hint b { display: block; font-size: 15.5px; margin-bottom: 4px; color: var(--accent); }
+#first-hint p { margin: 0 0 8px; }
+#first-hint button { display: block; margin: 6px 0 0 auto; padding: 6px 16px; }
+
+/* Settings: everything past game and stakes sits behind "More options" */
+.more-options { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.more-options > summary { cursor: pointer; color: var(--muted); font-weight: 600; padding: 4px 0; }
+.more-options > summary:hover { color: var(--text); }
+.more-options[open] > summary { margin-bottom: 4px; }

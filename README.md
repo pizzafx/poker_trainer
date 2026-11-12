@@ -144,8 +144,9 @@ start getting called lighter.
   browser; no file editing needed.
 - **Table types.** Typical, aggressive, conservative, or loose-passive: the same player
   types in a different mix.
-- **Game settings.** $1/$3, $2/$3, $2/$5 or $3/$5, buy-in, and rake (Talking Stick Resort's listed
-  structure by default, plus a capped percentage, a flat drop, or none).
+- **Game settings.** $1/$3, $2/$3, $2/$5 or $3/$5, buy-in, and rake (a typical 10% capped rake
+  by default, plus a stepped structure with a jackpot drop, a flat drop, or none). None of it is
+  needed to start: the table deals you in on sensible defaults.
 - **Quick sim.** Plays 40 hands in an instant so you start with something observed about
   every player. Hover over a seat to see it.
 - **Works on a phone.** Below 600px wide the table turns into a tall oval and the coach

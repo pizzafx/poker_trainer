@@ -14,7 +14,7 @@ import { snapshotDecision, handTruth } from './dispute.js';
 import { explain } from './explain.js';
 
 export const GAMES = {
-  // $2/$3 and $3/$5: buy-in ranges as listed for Talking Stick Resort (PokerAtlas).
+  // $2/$3 and $3/$5: buy-in ranges as listed by one Arizona card room.
   // $1/$3 and $2/$5: common US card-room ranges ($100-$300 at $1/$3; $200-$1,000 at $2/$5),
   // not taken from one room. Rooms vary: some cap $1/$3 at $500 or $2/$5 at $500.
   // The opponents play in big blinds, so the same player pool sits at every stake.
@@ -25,10 +25,14 @@ export const GAMES = {
 };
 
 export const RAKES = {
-  // PokerAtlas lists "staggered up to $5, plus a $2 jackpot drop"; an older review has the $5
-  // cap reached at a $60 pot. Modelled as $1 per $12 of pot, capped at $5, plus $2 when there is a flop.
-  tsr: { label: 'Talking Stick Resort: stepped to $5 (at a $60 pot) + $2 jackpot drop', pct: 1 / 12, cap: 5, promo: 2, noFlopNoDrop: true },
-  pct: { label: '10% capped at $6, + $1 promo, no flop no drop', pct: 0.1, cap: 6, promo: 1, noFlopNoDrop: true },
+  // Labels say what each structure is; no venue names. Keys are stored in players' saved
+  // settings, so they stay as they are ('tsr' is the stepped structure). Listed in the order
+  // the Settings menu shows them.
+  // The default for new players.
+  pct: { label: 'Typical casino rake: 10% up to $6, + $1 jackpot, no flop no drop', pct: 0.1, cap: 6, promo: 1, noFlopNoDrop: true },
+  // Stepped: one card room's listed "staggered up to $5, plus a $2 jackpot drop", with the $5 cap
+  // reached at a $60 pot. Modelled as $1 per $12 of pot, capped at $5, plus $2 when there is a flop.
+  tsr: { label: 'Stepped to $5 (reached at a $60 pot) + $2 jackpot drop', pct: 1 / 12, cap: 5, promo: 2, noFlopNoDrop: true },
   drop: { label: 'Flat drop (California style): $6 + $1 jackpot on every flop', fixed: 6, promo: 1, noFlopNoDrop: true },
   none: { label: 'No rake (time game)', pct: 0, cap: 0, promo: 0, noFlopNoDrop: true },
 };

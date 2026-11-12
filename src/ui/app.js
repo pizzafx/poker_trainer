@@ -17,14 +17,24 @@ const HERO = 0;
 const SUIT_SYM = ['♣', '♦', '♥', '♠'];
 const SUIT_CLS = ['c', 'd', 'h', 's'];
 
-const DEFAULTS = { v: 2, game: '2/3', maxBuy: 500, rake: 'tsr', table: 'typical', skipJunk: true, rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450 };
+// What a new player starts on: $1/$3 with a 100-big-blind buy-in and a typical capped rake.
+// Players who already have saved settings keep theirs.
+const DEFAULTS = { v: 2, game: '1/3', maxBuy: 300, rake: 'pct', table: 'typical', skipJunk: true, rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450 };
 let settings = { ...DEFAULTS };
+let firstVisit = true; // nothing saved yet: deal straight in and show the one-time hint
 try {
-  const saved = JSON.parse(localStorage.getItem('trainer-settings') || '{}');
+  const raw = localStorage.getItem('trainer-settings');
+  firstVisit = !raw;
+  const saved = JSON.parse(raw || '{}');
   if (saved.v === DEFAULTS.v) Object.assign(settings, saved); // older saved settings are dropped
 } catch {
   /* storage unavailable: use defaults */
 }
+// A buy-in of 100 big blinds, kept inside the room's range.
+const defaultBuy = (game) => {
+  const g = GAMES[game];
+  return Math.max(g.minBuy, Math.min(g.maxBuy, 100 * g.bb));
+};
 function saveSettings() {
   try {
     localStorage.setItem('trainer-settings', JSON.stringify(settings));
@@ -95,7 +105,8 @@ function sessionOpts() {
     for (const [t] of HOME_TYPES) for (let i = 0; i < (h.counts[t] || 0); i++) lineup.push(t);
     return { ...base, custom: { sb: h.sb, bb: h.bb, minBuy: Math.max(h.bb * 10, Math.round(h.buy / 2)), maxBuy: h.buy }, heroBuy: h.buy, lineup };
   }
-  return { ...base, game: settings.game, maxBuy: settings.maxBuy, heroBuy: settings.maxBuy, rake: settings.rake, table: settings.table };
+  // `maxBuy` in settings is the trainee's own buy-in; opponents buy in across the room's range.
+  return { ...base, game: settings.game, heroBuy: settings.maxBuy, rake: settings.rake, table: settings.table };
 }
 
 let drill = null; // { cat, tried, clean, cost } while drilling one leak
@@ -820,13 +831,12 @@ $('modal').addEventListener('click', (e) => {
   if (e.target === $('modal') && sess) closeModal();
 });
 
-function settingsModal(first) {
+function settingsModal() {
   const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
   openModal(`
-    <h1>${first ? 'Game Theory Optional' : 'Settings'}</h1>
-    <p class="sub">${first ? 'An eight-handed casino cash game against the players you actually meet at $1/$3 to $3/$5. Every decision is scored by how much money it makes against these opponents. Plays that a solver would approve still get flagged when they lose money here.' : 'Game changes start a new session.'}</p>
-    <h3>Game</h3>
-    <div class="form-row"><label>Mode</label><select id="s-mode">${opt('casino', 'Casino table', settings.mode)}${opt('home', 'Home game: you pick the stakes and the players', settings.mode)}</select></div>
+    <h1>Settings</h1>
+    <p class="sub">Changing the game starts a new session.</p>
+    <div class="form-row"><label for="s-mode">Game</label><select id="s-mode">${opt('casino', 'Casino table', settings.mode)}${opt('home', 'Home game: you pick the stakes and the players', settings.mode)}</select></div>
     <div id="home-fields">
       <div class="form-row"><label>Blinds ($)</label><input id="h-sb" type="number" min="1" step="1" value="${settings.home.sb}"><span>/</span><input id="h-bb" type="number" min="1" step="1" value="${settings.home.bb}"></div>
       <div class="form-row"><label>Buy-in ($)</label><input id="h-buy" type="number" min="20" step="10" value="${settings.home.buy}"></div>
@@ -836,21 +846,23 @@ function settingsModal(first) {
       <p class="sub">No rake. Everyone rebuys and nobody leaves. You know who is coming, but not which seat is which.</p>
     </div>
     <div id="casino-fields">
-    <div class="form-row"><label>Stakes</label><select id="s-game">${Object.keys(GAMES).map((g) => opt(g, '$' + g.replace('/', '/$'), settings.game)).join('')}</select></div>
-    <div class="form-row"><label>Maximum buy-in ($)</label><input id="s-buy" type="number" min="60" step="20" value="${settings.maxBuy}"></div>
-    <div class="form-row"><label>Rake</label><select id="s-rake">${Object.entries(RAKES).map(([k, r]) => opt(k, r.label, settings.rake)).join('')}</select></div>
-    <div class="form-row"><label>Table</label><select id="s-table">${Object.entries(TABLES).map(([k, t]) => opt(k, t.label, settings.table)).join('')}</select></div>
+      <div class="form-row"><label for="s-game">Stakes</label><select id="s-game">${Object.keys(GAMES).map((g) => opt(g, '$' + g.replace('/', '/$'), settings.game)).join('')}</select></div>
     </div>
-    <h3>Training</h3>
-    <div class="form-row"><label>Feedback</label><select id="s-fb">${opt('now', 'Right after each decision', settings.feedback)}${opt('after', 'When the hand is over', settings.feedback)}</select></div>
-    <div class="form-row"><label>Skip junk hands (bottom 15%)</label><input id="s-skip" type="checkbox" ${settings.skipJunk ? 'checked' : ''}></div>
-    <div class="form-row"><label>Show ranges during the hand</label><input id="s-ranges" type="checkbox" ${settings.rangesLive ? 'checked' : ''}></div>
-    <div class="form-row"><label>Show coach's reads on seats</label><input id="s-reads" type="checkbox" ${settings.reads ? 'checked' : ''}></div>
-    <div class="form-row"><label>Opponent speed</label><select id="s-speed">${opt('800', 'Slow', String(settings.speed))}${opt('450', 'Normal', String(settings.speed))}${opt('150', 'Fast', String(settings.speed))}</select></div>
-    ${first ? '<p class="sub">Click any seat to see what you have observed about that player. Keys: F fold, C check/call, R bet/raise, Space next hand.</p>' : ''}
+    <details class="more-options"><summary>More options</summary>
+      <div id="casino-more">
+        <div class="form-row"><label for="s-buy">Buy-in ($)</label><input id="s-buy" type="number" min="60" step="20" value="${settings.maxBuy}"></div>
+        <div class="form-row"><label for="s-rake">Rake</label><select id="s-rake">${Object.entries(RAKES).map(([k, r]) => opt(k, r.label, settings.rake)).join('')}</select></div>
+        <div class="form-row"><label for="s-table">Table mix</label><select id="s-table">${Object.entries(TABLES).map(([k, t]) => opt(k, t.label, settings.table)).join('')}</select></div>
+      </div>
+      <div class="form-row"><label for="s-fb">Feedback</label><select id="s-fb">${opt('now', 'Right after each decision', settings.feedback)}${opt('after', 'When the hand is over', settings.feedback)}</select></div>
+      <div class="form-row"><label for="s-skip">Skip junk hands (bottom 15%)</label><input id="s-skip" type="checkbox" ${settings.skipJunk ? 'checked' : ''}></div>
+      <div class="form-row"><label for="s-ranges">Show ranges during the hand</label><input id="s-ranges" type="checkbox" ${settings.rangesLive ? 'checked' : ''}></div>
+      <div class="form-row"><label for="s-reads">Show coach's reads on seats</label><input id="s-reads" type="checkbox" ${settings.reads ? 'checked' : ''}></div>
+      <div class="form-row"><label for="s-speed">Opponent speed</label><select id="s-speed">${opt('800', 'Slow', String(settings.speed))}${opt('450', 'Normal', String(settings.speed))}${opt('150', 'Fast', String(settings.speed))}</select></div>
+    </details>
     <div class="modal-actions">
-      ${first ? '' : '<button id="s-close">Close</button>'}
-      <button class="primary" id="s-start">${first ? 'Deal me in' : 'Start new session'}</button>
+      <button id="s-close">Close</button>
+      <button class="primary" id="s-start">Start new session</button>
     </div>`);
   const read = () => {
     settings.feedback = $('s-fb').value;
@@ -865,6 +877,7 @@ function settingsModal(first) {
     const home = $('s-mode').value === 'home';
     $('home-fields').classList.toggle('hidden', !home);
     $('casino-fields').classList.toggle('hidden', home);
+    $('casino-more').classList.toggle('hidden', home);
     const n = homeTotal();
     $('h-total').textContent = `${n} opponent${n === 1 ? '' : 's'} (1 to 8)`;
     $('h-total').style.color = n >= 1 && n <= 8 ? '' : 'var(--bad)';
@@ -873,7 +886,7 @@ function settingsModal(first) {
   document.querySelectorAll('.h-count').forEach((el) => (el.oninput = syncMode));
   syncMode();
   $('s-game').onchange = () => {
-    $('s-buy').value = GAMES[$('s-game').value].maxBuy;
+    $('s-buy').value = defaultBuy($('s-game').value);
   };
   $('s-start').onclick = () => {
     if ($('s-mode').value === 'home') {
@@ -898,14 +911,37 @@ function settingsModal(first) {
     closeModal();
     newSession();
   };
-  if (!first) {
-    $('s-close').onclick = () => {
-      read();
-      saveSettings();
-      closeModal();
-      render();
-    };
+  $('s-close').onclick = () => {
+    read();
+    saveSettings();
+    closeModal();
+    render();
+  };
+}
+
+// First visit only: a small note over the table on how to play, dismissed once for good.
+function firstHint() {
+  try {
+    if (localStorage.getItem('trainer-hint-seen')) return;
+  } catch {
+    /* storage unavailable: show it this time */
   }
+  const el = document.createElement('div');
+  el.id = 'first-hint';
+  el.setAttribute('role', 'note');
+  el.innerHTML = `<b>You're in.</b>
+    <p>When it's your turn, use Fold, Call or Raise (keys F, C, R). Every decision gets a verdict from the coach.</p>
+    <p>Click any player to see what you have seen them do. Stakes, rake and players are in Settings.</p>
+    <button class="primary" id="first-hint-ok">Got it</button>`;
+  $('table').appendChild(el);
+  $('first-hint-ok').onclick = () => {
+    el.remove();
+    try {
+      localStorage.setItem('trainer-hint-seen', '1');
+    } catch {
+      /* ignore */
+    }
+  };
 }
 
 function playerModal(seat) {
@@ -1085,12 +1121,12 @@ $('btn-sim').onclick = () => {
 };
 $('btn-players').onclick = () => playersModal();
 $('btn-review').onclick = () => sess && reviewModal();
-$('btn-settings').onclick = () => settingsModal(false);
+$('btn-settings').onclick = () => settingsModal();
 
 // Handle for debugging from the browser console.
 window.trainer = { get session() { return sess; }, settings, act, nextHand };
 
-// http://localhost:5173/play.html?demo=7 skips the set-up screen and jumps to a mid-session decision
+// http://localhost:5173/play.html?demo=7 jumps to a mid-session decision
 // with coach feedback showing (used for screenshots). The number picks the session.
 function demo(seed) {
   // Always the standard casino table, whatever is saved in Settings.
@@ -1118,4 +1154,10 @@ function demo(seed) {
 
 const demoSeed = new URLSearchParams(location.search).get('demo');
 if (demoSeed !== null) demo(+demoSeed || 7);
-else settingsModal(true);
+else {
+  // No setup screen: deal straight in on the saved settings, or the defaults on a first visit
+  // (saved now, so the next visit counts as returning).
+  if (firstVisit) saveSettings();
+  newSession();
+  if (firstVisit) firstHint();
+}

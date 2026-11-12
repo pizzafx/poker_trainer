@@ -322,6 +322,8 @@
   --c-f3f0e8a8: #f3f0e8a8;
   --c-2a1a02: #2a1a02;
   --c-2a0806: #2a0806;
+  --c-5b7a45: #5b7a45;
+  --c-4f625a: #4f625a;
 }
 * { box-sizing: border-box; }
 .hidden { display: none !important; }
@@ -1576,3 +1578,110 @@ button.primary:hover:not(:disabled) { background: var(--c-c3ee84); border-color:
 }
 
 #stats .lbl { font-style: normal; margin-right: 3px; }
+
+
+/* ================= brand overhaul, part 3: screens (S2 Ranges) ================= */
+#ranges .chips .chip, #feedback .chip { background: var(--panel-2); border-color: var(--line); color: var(--text); font-family: var(--mono); font-weight: 500; }
+#ranges .chips .chip.on { color: var(--signal); border-color: var(--signal); background: var(--signal-wash); }
+#ranges .chips .chip:disabled { opacity: 0.4; }
+#ranges .range-title { font-family: var(--display); color: var(--chalk); }
+#ranges .rc { font-family: var(--mono); font-weight: 500; letter-spacing: -0.02em; border-radius: 3px; }
+#ranges .rc.in { background: var(--signal); color: var(--signal-ink); }
+#ranges .rc.some { background: var(--c-5b7a45); color: var(--chalk); }
+#ranges .rc.off, #ranges .rc.trace { background: var(--panel-2); color: var(--c-4f625a); }
+#ranges .rc.vs { color: var(--chalk); }
+#ranges .rc.me { outline: 2px solid var(--chalk); outline-offset: -1px; position: relative; z-index: 1; }
+#ranges .legend { font-size: 12px; color: var(--slate); }
+#ranges .legend b { color: var(--chalk); font-family: var(--mono); font-weight: 500; }
+#ranges .legend i.lg-in { background: var(--signal); }
+#ranges .legend i.lg-some { background: var(--c-5b7a45); }
+#ranges .legend i.lg-off { background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line-2); }
+#ranges .legend i.lg-me { background: none; box-shadow: inset 0 0 0 2px var(--chalk); }
+#ranges .hint { font-size: 13px; color: var(--slate); }
+#ranges .standing { background: var(--panel); border: 1px solid var(--line); border-left: 1px solid var(--line); color: var(--slate); font-size: 13px; }
+#ranges .standing b { color: var(--chalk); }
+#ranges .standing .st-num { font: 500 40px/1 var(--mono); letter-spacing: -0.04em; color: var(--signal); min-width: 2.3em; }
+#ranges .mixbar { background: var(--panel-2); }
+
+/* ---- dialogs in the brand look: player card (S3), Leak review (S5), Disagree (S6) ---- */
+#modal-box { background: var(--panel); border-color: var(--line-2); color: var(--text); }
+#modal-box h3 { font-family: var(--display); font-weight: 700; color: var(--chalk); letter-spacing: -0.01em; }
+#modal-box .sub, #modal-box .hint, #modal-box .empty { color: var(--slate); }
+#modal-box .label { font: 500 11px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--slate); }
+#modal-box .label.tilt { color: var(--bad); margin-left: 8px; }
+#modal-box .mono { font-family: var(--mono); font-weight: 500; }
+#modal-box .pos { color: var(--signal); }
+#modal-box .neg { color: var(--bad); }
+#modal-box button.quiet { background: none; border-color: transparent; color: var(--slate); }
+#modal-box button.quiet:hover { color: var(--chalk); background: var(--panel-2); filter: none; }
+
+/* S3 player card */
+#modal-box .pc { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: 18px; padding: 16px; position: relative; overflow: hidden; margin-bottom: 12px; }
+#modal-box .pc::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: hsl(var(--h, 160) 45% 55%); opacity: 0.8; }
+#modal-box .pc-head { display: flex; align-items: center; gap: 12px; }
+#modal-box .pc-head .big-avatar { width: 56px; height: 56px; }
+#modal-box .pc-name { font: 700 21px/1.05 var(--display); letter-spacing: -0.02em; color: var(--chalk); margin: 0; }
+#modal-box .pc-sub { margin-top: 6px; }
+#modal-box .pc-look { margin: 12px 0; color: var(--slate); }
+#modal-box .pc-read { border-top: 1px solid var(--line); padding-top: 12px; }
+#modal-box .pc-guess { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 0; font: 600 16px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--chalk); }
+#modal-box .conf { display: inline-flex; gap: 3px; width: auto; height: auto; background: none; margin: 0; }
+#modal-box .conf i { width: 14px; height: 4px; border-radius: 2px; background: var(--panel-3); }
+#modal-box .conf i.on { background: var(--signal); }
+#modal-box .kv .stat, #modal-box .kv > div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+#modal-box .kv small { color: var(--slate); font-size: 12.5px; }
+#modal-box .kv b { display: block; margin-top: 6px; font: 500 22px/1 var(--mono); color: var(--chalk); letter-spacing: -0.03em; }
+#modal-box .kv b.pos { color: var(--signal); }
+#modal-box .kv b.neg { color: var(--bad); }
+#modal-box .sd { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 8px 0; }
+#modal-box .sd-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#modal-box .sd .cards-inline { --cw: 26px; }
+#modal-box .sd-hand { font: 500 11px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--slate); }
+#modal-box .sd-on { color: var(--slate); font-size: 13px; }
+#modal-box .sd-res { margin-left: auto; font: 500 14px/1 var(--mono); }
+#modal-box .sd-res.pos { color: var(--signal); }
+#modal-box .sd-res.neg { color: var(--bad); }
+#modal-box .sd .line { margin-top: 6px; color: var(--slate); font-size: 13px; }
+#modal-box .bars .bar { background: var(--panel-3); }
+#modal-box .bars .bar i { background: var(--signal); }
+
+/* S5 Leak review */
+#modal-box .leak-list { display: grid; gap: 8px; }
+#modal-box .leak-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; }
+#modal-box .leak-row.top { box-shadow: inset 3px 0 0 var(--signal); }
+#modal-box .lr-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+#modal-box .lr-name { color: var(--chalk); font-weight: 600; }
+#modal-box .lr-count { color: var(--slate); font-size: 12.5px; }
+#modal-box .lr-cost { font: 500 16px/1 var(--mono); color: var(--bad); white-space: nowrap; }
+#modal-box .drill-btn { margin: 0; padding: 6px 12px; min-height: 34px; font-size: 13px; font-weight: 600; color: var(--chalk); background: var(--panel-3); border: 1px solid var(--line-2); border-radius: 10px; }
+#modal-box .drill-btn.primary { color: var(--signal-ink); background: var(--signal); border-color: var(--signal); }
+#modal-box .leak { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; }
+#modal-box .leak-head span:last-child { font-family: var(--mono); color: var(--bad); }
+#modal-box .empty-line { color: var(--slate); margin: 14px 0 4px; }
+
+/* S6 Disagree */
+#modal-box .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+#modal-box .chip-row .chip { min-height: 36px; padding: 0 12px; border-radius: 10px; font: 500 13px/1 var(--mono); color: var(--text); background: var(--panel-2); border: 1px solid var(--line); }
+#modal-box .chip-row .chip.on { color: var(--signal); border-color: var(--signal); background: var(--signal-wash); }
+#modal-box #d-why { height: auto; min-height: 84px; padding: 10px 12px; background: var(--rail); border: 1px solid var(--line-2); border-radius: 12px; color: var(--chalk); font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+#modal-box #d-why:focus, #modal-box .input:focus { outline: none; border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-wash); }
+#modal-box #d-text { background: var(--rail); border-color: var(--line); font: 500 11.5px/1.45 var(--mono); color: var(--text); }
+#modal-box .d-issue { flex-direction: column; align-items: flex-start; gap: 8px; border-top-color: var(--line); }
+#modal-box .d-issue a.button { background: var(--panel-2); border-color: var(--line-2); color: var(--chalk); }
+#modal-box .d-issue .hint, #modal-box .d-issue .hint b { color: var(--warn); }
+@media (max-width: 600px) {
+  #modal-box .kv { grid-template-columns: repeat(2, 1fr); }
+  #modal-box .leak-row { flex-wrap: wrap; }
+}
+@media (max-width: 600px) {
+  /* the Disagree form fits one phone screen with the preview closed */
+  #modal-box:has(#d-why) h1 { font-size: 21px; line-height: 1.15; margin-bottom: 4px; }
+  #modal-box:has(#d-why) .sub { margin-bottom: 8px; }
+  #modal-box:has(#d-why) .fb { padding: 8px 10px; margin-bottom: 8px; }
+  #modal-box:has(#d-why) .field { margin: 8px 0; }
+  #modal-box #d-why { min-height: 60px; }
+  #modal-box:has(#d-why) .d-label { margin: 8px 0 4px; }
+  #modal-box:has(#d-why) .d-preview { margin-top: 8px; }
+  #modal-box:has(#d-why) .modal-actions { margin-top: 10px; }
+  #modal-box .d-issue { margin-top: 10px; padding-top: 10px; }
+}

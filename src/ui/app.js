@@ -1,7 +1,7 @@
 import { Session, GAMES, RAKES } from '../trainer/session.js';
 import { RANKS } from '../engine/cards.js';
 import { potSize, positionName, STREET } from '../engine/game.js';
-import { classIndex } from '../engine/hands.js';
+import { classIndex, classOf } from '../engine/hands.js';
 import { evaluate } from '../engine/evaluator.js';
 import { handFeatures } from '../engine/features.js';
 import { PROFILES, TYPE_IDS, baseDef, currentDef, applyOverrides } from '../bots/profiles.js';
@@ -454,18 +454,30 @@ function fbCard(d, showWhere = true) {
 function disputeModal(d) {
   const v = d.verdict;
   const others = v.options.filter((_, i) => i !== v.mine).map((o) => o.label);
-  openModal(`<h1>Disagree with the coach?</h1>
-    <p class="sub">Tell us what you would have done. This makes a report of the hand that you can copy into a message or save as a file and send to us. Nothing is sent from this page.</p>
+  openModal(`<h1>Think the coach is wrong? Say so.</h1>
+    <p class="sub">It makes a report of the hand for you to send us.</p>
     <div class="fb ${v.grade}"><div class="where">Hand ${d.hand} · ${d.streetName} · ${d.position} ${cardsInline(d.hole)}${d.board.length ? ' on ' + cardsInline(d.board) : ''}</div><div class="head">${esc(d.headline)}</div></div>
-    <div class="form-row"><label for="d-pref">What would you do?</label><select id="d-pref">${others.map((l) => `<option>${esc(l)}</option>`).join('')}<option value="">Something else (say below)</option></select></div>
+    <div class="field"><span>What would you do?</span><div class="chip-row" id="d-chips" role="radiogroup">${others.map((l, i) => `<button type="button" class="chip${i === 0 ? ' on' : ''}" role="radio" aria-checked="${i === 0}" data-v="${esc(l)}">${esc(l)}</button>`).join('')}<button type="button" class="chip" role="radio" aria-checked="false" data-v="">Something else</button></div><input type="hidden" id="d-pref" value="${esc(others[0] || '')}"></div>
     <label class="d-label" for="d-why">Why? <small>(optional, but it helps most)</small></label>
-    <textarea id="d-why" rows="3" maxlength="1500" placeholder="For example: this player never folds a pair, so the bluff cannot work."></textarea>
+    <textarea id="d-why" class="input" rows="3" maxlength="1500" placeholder="For example: this player never folds a pair, so the bluff cannot work."></textarea>
     <details class="d-preview"><summary>What the report contains</summary>
       <p class="hint">Your cards, the board, every action so far, stacks, the coach's read of each opponent and every option with its numbers. ${d.truth ? 'The hand is over, so it also has what each opponent really held.' : 'The hand is still going, so opponents\' cards are left out.'} No personal information.</p>
       <pre id="d-text"></pre></details>
-    <div class="modal-actions"><span id="d-status" class="hint" role="status" aria-live="polite"></span><button id="d-close">Close</button><button id="d-save">Save as file</button><button class="primary" id="d-copy">Copy report</button></div>
+    <div class="modal-actions"><span id="d-status" class="hint" role="status" aria-live="polite"></span><button id="d-close" class="quiet">Close</button><button id="d-save">Save as file</button><button class="primary" id="d-copy">Copy report</button></div>
     <div class="d-issue"><a id="d-issue" class="button" href="#" target="_blank" rel="noopener">Open a GitHub issue</a>
       <span class="hint">Opens a new issue on our GitHub page, filled in with this report. <b>The hand will be public</b> on the repository, and you need a GitHub account to post it.</span></div>`);
+  // The chips choose the alternative; the hidden input keeps the value the report reads.
+  $('d-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    $('d-chips').querySelectorAll('button').forEach((x) => {
+      x.classList.toggle('on', x === b);
+      x.setAttribute('aria-checked', x === b);
+    });
+    $('d-pref').value = b.dataset.v;
+    $('d-pref').dispatchEvent(new Event('change'));
+    if (!b.dataset.v) $('d-why').focus();
+  });
   const build = () => disputeReport(d, { preferred: $('d-pref').value, why: $('d-why').value.trim() });
   const show = () => {
     const report = build();
@@ -601,11 +613,11 @@ for (let i = 0; i < 13; i++) {
   }
 }
 const KINDS = [
-  ['Two pair or better', '255,133,133'],
-  ['Top pair or overpair', '255,182,72'],
-  ['Weaker pair', '233,214,107'],
-  ['Draw', '125,180,242'],
-  ['Nothing', '154,165,184'],
+  ['Two pair or better', '240,104,95'],
+  ['Top pair or overpair', '242,176,74'],
+  ['Weaker pair', '219,226,221'],
+  ['Draw', '147,166,159'],
+  ['Nothing', '100,119,111'],
 ];
 const STREET_TABS = ['Preflop', 'Flop', 'Turn', 'River'];
 let rangeSeat = -1;
@@ -650,24 +662,30 @@ function renderRanges() {
     el.innerHTML = `<div class="chips">${who}</div><div class="chips">${steps}</div><div class="empty">Nothing to show yet.</div>`;
   } else {
     const post = g.street > 0;
+    const mine = classOf(s.hole[HERO][0], s.hole[HERO][1]);
     let cells = '';
     for (let i = 0; i < 13; i++) {
       for (let j = 0; j < 13; j++) {
         const c = g.cells[GRID[i][j].k];
         const on = c.fill > 0.015;
         const vs = rangeMode === 'vs' && c.ahead !== null;
-        // Ahead-or-behind colouring runs red (they beat you) through amber to green (you beat them).
-        const rgb = vs ? (c.ahead >= 0.66 ? '79,224,160' : c.ahead <= 0.34 ? '255,133,133' : '255,209,102') : post && c.kind >= 0 ? KINDS[c.kind][1] : '255,209,102';
-        const alpha = on ? 0.14 + 0.86 * c.fill : 0;
+        // Three tiers by how much of the hand is still in range (brand S2); in the ahead-or-behind
+        // view, lime (you beat it), amber (mixed), red (it beats you), brighter = more likely.
+        const tier = c.fill >= 0.45 ? 'in' : c.fill >= 0.12 ? 'some' : on ? 'trace' : 'off';
+        const vsRgb = c.ahead >= 0.66 ? '180,228,110' : c.ahead <= 0.34 ? '240,104,95' : '242,176,74';
 const tip = on ? `${GRID[i][j].name}: ${Math.round(c.fill * 100)}% of the way to their likeliest hand${post && c.kind >= 0 ? ', mostly ' + KINDS[c.kind][0].toLowerCase() : ''}${c.ahead !== null ? `; you beat ${Math.round(c.ahead * 100)}% of these` : ''}` : `${GRID[i][j].name}: not in range`;
-        cells += `<div class="rc ${on ? (c.fill > 0.55 ? 'hi' : 'mid') : 'off'}" style="${on ? `background:rgba(${rgb},${alpha.toFixed(2)})` : ''}" title="${tip}">${GRID[i][j].name}</div>`;
+        const me = GRID[i][j].k === mine ? ' me' : '';
+        cells += vs && on
+          ? `<div class="rc vs${me}" style="background:rgba(${vsRgb},${(0.25 + 0.75 * c.fill).toFixed(2)})" title="${tip}">${GRID[i][j].name}</div>`
+          : `<div class="rc ${tier}${me}" title="${tip}">${GRID[i][j].name}</div>`;
       }
     }
+    const tierLegend = '<div class="legend"><span><i class="lg-in"></i>In their range</span><span><i class="lg-some"></i>Sometimes</span><span><i class="lg-off"></i>Out</span><span><i class="lg-me"></i>Your hand</span></div>';
     const read = sess.readOf(rangeSeat).ranked[0];
     const sure = read.p >= 0.75 ? 'almost certainly' : read.p >= 0.6 ? 'probably' : read.p >= 0.45 ? 'might be' : null;
     const basis = sure ? `Based on a read that ${esc(sess.seats[rangeSeat].nick)} is ${sure} a ${esc(read.name.toLowerCase())}.` : `No firm read on ${esc(sess.seats[rangeSeat].nick)} yet, so this blends what every type of player would hold: expect it to be wide.`;
     const mix = g.mix ? `<div class="mixbar">${g.mix.map((m, b) => (m > 0.005 ? `<i style="width:${(m * 100).toFixed(1)}%;background:rgb(${KINDS[b][1]})" title="${KINDS[b][0]} ${Math.round(m * 100)}%"></i>` : '')).join('')}</div>
-      <div class="legend">${g.mix.map((m, b) => `<span><i style="background:rgb(${KINDS[b][1]})"></i>${KINDS[b][0]} <b>${Math.round(m * 100)}%</b></span>`).join('')}</div>` : '<div class="legend"><span><i style="background:rgb(255,209,102)"></i>Brighter = more of that hand still in their range</span></div>';
+      <div class="legend">${g.mix.map((m, b) => `<span><i style="background:rgb(${KINDS[b][1]})"></i>${KINDS[b][0]} <b>${Math.round(m * 100)}%</b></span>`).join('')}</div>${tierLegend}` : tierLegend;
     // Headline: where you stand against this range, and how that has moved street by street.
     let beats = '';
     if (g.beats !== null) {
@@ -683,7 +701,7 @@ const tip = on ? `${GRID[i][j].name}: ${Math.round(c.fill * 100)}% of the way to
       </div>`;
     }
     const modes = post ? `<div class="chips"><button class="chip ${rangeMode === 'kind' ? 'on' : ''}" data-mode="kind">Colour: what they have</button><button class="chip ${rangeMode === 'vs' ? 'on' : ''}" data-mode="vs">Colour: ahead or behind you</button></div>` : '';
-    const vsLegend = '<div class="legend"><span><i style="background:rgb(79,224,160)"></i>You beat it</span><span><i style="background:rgb(255,209,102)"></i>Mixed</span><span><i style="background:rgb(255,133,133)"></i>It beats you</span><span>Brighter = more likely</span></div>';
+    const vsLegend = '<div class="legend"><span><i style="background:rgb(180,228,110)"></i>You beat it</span><span><i style="background:rgb(242,176,74)"></i>Mixed</span><span><i style="background:rgb(240,104,95)"></i>It beats you</span><span>Brighter = more likely</span></div>';
     const label = rangeStreet === 'now' ? (h.over ? 'at the end of the hand' : 'right now') : `after the ${STREET_TABS[rangeStreet].toLowerCase()} betting`;
     el.innerHTML = `
       <div class="chips">${who}</div>
@@ -997,26 +1015,36 @@ function playerModal(seat) {
     .join('');
   const sds = n.showdowns.length
     ? n.showdowns
-        .map((sd) => `<div class="sd">Hand ${sd.hand}: showed ${cardsInline(sd.cards)} on ${cardsInline(sd.board)} ${sd.won ? '(won)' : '(lost)'}<div class="line">${esc(sd.line)}</div></div>`)
+        .map((sd) => `<div class="sd"><div class="sd-top"><span class="sd-hand">Hand ${sd.hand}</span>${cardsInline(sd.cards)}<span class="sd-on">on</span>${cardsInline(sd.board)}<span class="sd-res ${sd.won ? 'pos' : 'neg'}">${sd.won ? 'Won' : 'Lost'}</span></div><div class="line">${esc(sd.line)}</div></div>`)
         .join('')
     : '<div class="empty">No showdowns seen yet.</div>';
+  const top = r.ranked[0];
+  const lvl = top.p >= 0.75 ? 3 : top.p >= 0.6 ? 2 : top.p >= 0.45 ? 1 : 0;
+  // Same wording as the read on the seat: "Nit", "Likely nit", "Nit?".
+  const word = shortType(top.id);
+  const guess = lvl === 3 ? word : lvl === 2 ? `Likely ${word === 'ABC' ? word : word.toLowerCase()}` : lvl === 1 ? `${word}?` : 'Too early to say';
   openModal(`
-    <div class="p-head"><div class="big-avatar" style="--h:${p.hue ?? 160}">${avatarArt(p)}</div><div><h1>${esc(p.nick)} ${p.steaming ? '<span class="badge steam">on tilt</span>' : ''}</h1>
-    <p class="sub" style="margin:0">${esc(p.look)}. Stack ${money(p.stack)}.</p></div></div>
-    <h3>What you have seen</h3>
-    <div class="kv">
-      <div><small>Hands watched</small><b>${n.hands}</b></div>
-      <div><small>Put money in</small><b>${n.hands ? Math.round((100 * n.vpip) / n.hands) + '%' : '–'}</b></div>
-      <div><small>Raised preflop</small><b>${n.hands ? Math.round((100 * n.pfr) / n.hands) + '%' : '–'}</b></div>
-      <div><small>Showdowns</small><b>${n.showdowns.length}</b></div>
+    <div class="pc" style="--h:${p.hue ?? 160}">
+      <div class="pc-head"><div class="big-avatar" style="--h:${p.hue ?? 160}">${avatarArt(p)}</div>
+        <div><h1 class="pc-name">${esc(p.nick)}</h1><div class="pc-sub"><span class="label">${n.hands} hand${n.hands === 1 ? '' : 's'} watched</span>${p.steaming ? ' <span class="label tilt">Tilt</span>' : ''}</div></div></div>
+      <p class="pc-look">${esc(p.look)}. Stack <span class="mono">${money(p.stack)}</span>.</p>
+      <div class="pc-read"><span class="label">Coach's read</span>
+        <div class="pc-guess">${esc(guess)}<span class="conf">${[1, 2, 3].map((k) => `<i class="${k <= lvl ? 'on' : ''}"></i>`).join('')}</span></div></div>
     </div>
+    <div class="kv">
+      <div class="stat"><small>Hands watched</small><b>${n.hands}</b></div>
+      <div class="stat"><small>Put money in</small><b>${n.hands ? Math.round((100 * n.vpip) / n.hands) + '%' : '–'}</b></div>
+      <div class="stat"><small>Raised preflop</small><b>${n.hands ? Math.round((100 * n.pfr) / n.hands) + '%' : '–'}</b></div>
+      <div class="stat"><small>Showdowns</small><b>${n.showdowns.length}</b></div>
+    </div>
+    <h3>Showdowns</h3>
     ${sds}
-    <h3>Coach's read</h3>
+    <h3>How the coach reads them</h3>
     <p class="sub">What a sharp observer could conclude from the look, the betting and the showdowns so far. This is the read your decisions are judged against.</p>
     <div class="bars">${bars}</div>
     <p class="sub" style="margin-top:10px">${esc(r.ranked[0].name)}: ${esc(PROFILES[r.ranked[0].id].blurb)}</p>
     <div id="p-truth"></div>
-    <div class="modal-actions"><button id="p-reveal">Reveal true style (spoiler)</button><button class="primary" id="p-close">Close</button></div>`);
+    <div class="modal-actions"><button id="p-reveal" class="quiet">Reveal true style (spoiler)</button><button class="primary" id="p-close">Close</button></div>`);
   $('p-close').onclick = closeModal;
   $('p-reveal').onclick = () => {
     $('p-truth').innerHTML = `<p class="spoiler"><b>Actually: ${esc(PROFILES[p.type].name)}${p.tilt ? ', currently on tilt' : ''}.</b> ${esc(PROFILES[p.type].blurb)}</p>`;
@@ -1096,34 +1124,31 @@ function playersModal(type = 'station') {
 
 function reviewModal() {
   const rev = sess.review();
-  const sessionLeaks = rev.list.length
-    ? rev.list
-        .map(
-          (c, i) => `<div class="leak"><div class="leak-head" data-leak="${i}"><span>${esc(CATEGORIES[c.category] || c.category)}</span><span>${c.count}× · ${money(c.loss)}</span></div>
+  const sessionLeaks = rev.list
+    .map(
+      (c, i) => `<div class="leak"><div class="leak-head" data-leak="${i}"><span>${esc(CATEGORIES[c.category] || c.category)}</span><span class="mono">${c.count}× · ${money(c.loss)}</span></div>
           <div class="leak-body hidden" id="leak-${i}" style="margin-top:8px">${c.examples.slice(0, 4).map((d) => fbCard(d)).join('')}</div></div>`,
-        )
-        .join('')
-    : '<div class="empty">Nothing flagged yet. Play some hands.</div>';
+    )
+    .join('');
   const all = Object.entries(leaks).sort((x, y) => y[1].loss - x[1].loss);
-  const allHtml = all.length
-    ? all
-        .map(([cat, e]) => `<div class="leak"><div class="leak-head" style="cursor:default"><span>${esc(CATEGORIES[cat] || cat)}</span><span>${e.count}× · ${money(e.loss)} <button class="drill-btn" data-cat="${cat}">Drill this</button></span></div></div>`)
-        .join('')
-    : '<div class="empty">No leaks tracked yet. They build up here as you play, across sessions.</div>';
+  // One row per leak across all sessions: name, total cost, count, Drill. The costliest leads.
+  const allHtml = all
+    .map(([cat, e], i) => `<div class="leak-row${i === 0 ? ' top' : ''}"><div class="lr-main"><span class="lr-name">${esc(CATEGORIES[cat] || cat)}</span><span class="lr-count">${e.count} time${e.count === 1 ? '' : 's'}</span></div>
+      <span class="lr-cost">${money(e.loss)}</span><button class="drill-btn${i === 0 ? ' primary' : ''}" data-cat="${cat}">Drill</button></div>`)
+    .join('');
   openModal(`
     <h1>Leak review</h1>
-    <p class="sub">Where your money is going, biggest leak first. The cost is the average amount each flagged play gives up compared with the best option, not what you happened to win or lose on the day.</p>
+    <p class="sub">Where your money goes, biggest leak first, measured against the best option.</p>
     <div class="kv">
-      <div><small>Hands</small><b>${rev.hands}</b></div>
-      <div><small>Result</small><b>${signed(rev.net)}</b></div>
-      <div><small>Decisions judged</small><b>${rev.judged}</b></div>
-      <div><small>Cost of mistakes</small><b>${money(rev.lost)}</b></div>
+      <div class="stat"><small>Hands</small><b>${rev.hands}</b></div>
+      <div class="stat"><small>Result</small><b class="${rev.net > 0 ? 'pos' : rev.net < 0 ? 'neg' : ''}">${signed(rev.net)}</b></div>
+      <div class="stat"><small>Decisions judged</small><b>${rev.judged}</b></div>
+      <div class="stat"><small>Cost of mistakes</small><b>${money(rev.lost)}</b></div>
     </div>
-    <h3>Your biggest leaks, all sessions</h3>
-    <p class="sub">Pick one to drill: the trainer deals you only that kind of spot, one after another.</p>
-    ${allHtml}
-    <h3>This session, with examples</h3>${sessionLeaks}
-    <div class="modal-actions"><button class="primary" id="r-close">Close</button></div>`);
+    ${all.length || rev.list.length ? `
+    ${all.length ? `<h3>Your leaks, all sessions</h3><div class="leak-list">${allHtml}</div>` : ''}
+    ${rev.list.length ? `<h3>This session, with examples</h3>${sessionLeaks}` : ''}` : '<p class="empty-line">No leaks yet. They build up here as you play.</p>'}
+    <div class="modal-actions"><button id="r-close">Close</button></div>`);
   $('r-close').onclick = closeModal;
   $('modal-box').querySelectorAll('.drill-btn').forEach((b) => (b.onclick = () => startDrill(b.dataset.cat)));
   $('modal-box').querySelectorAll('.leak-head').forEach((el) => {

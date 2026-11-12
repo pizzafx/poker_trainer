@@ -704,8 +704,8 @@ function renderRanges() {
     }
     const tierLegend = '<div class="legend"><span><i class="lg-in"></i>In their range</span><span><i class="lg-some"></i>Sometimes</span><span><i class="lg-off"></i>Out</span><span><i class="lg-me"></i>Your hand</span></div>';
     const read = sess.readOf(rangeSeat).ranked[0];
-    const sure = read.p >= 0.75 ? 'almost certainly' : read.p >= 0.6 ? 'probably' : read.p >= 0.45 ? 'might be' : null;
-    const basis = sure ? `Based on a read that ${esc(sess.seats[rangeSeat].nick)} is ${sure} a ${esc(read.name.toLowerCase())}.` : `No firm read on ${esc(sess.seats[rangeSeat].nick)} yet, so this blends what every type of player would hold: expect it to be wide.`;
+    const sure = read.p >= 0.75 ? 'is almost certainly' : read.p >= 0.6 ? 'is probably' : read.p >= 0.45 ? 'might be' : null;
+    const basis = sure ? `Based on a read that ${esc(sess.seats[rangeSeat].nick)} ${sure} a ${esc(read.name.toLowerCase())}.` : `No firm read on ${esc(sess.seats[rangeSeat].nick)} yet, so this blends what every type of player would hold: expect it to be wide.`;
     const mix = g.mix ? `<div class="mixbar">${g.mix.map((m, b) => (m > 0.005 ? `<i style="width:${(m * 100).toFixed(1)}%;background:rgb(${KINDS[b][1]})" title="${KINDS[b][0]} ${Math.round(m * 100)}%"></i>` : '')).join('')}</div>
       <div class="legend">${g.mix.map((m, b) => `<span><i style="background:rgb(${KINDS[b][1]})"></i>${KINDS[b][0]} <b>${Math.round(m * 100)}%</b></span>`).join('')}</div>${tierLegend}` : tierLegend;
     // Headline: where you stand against this range, and how that has moved street by street.

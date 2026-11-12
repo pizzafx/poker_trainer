@@ -1425,6 +1425,9 @@ input.toggle:checked::after { left: 21px; background: var(--accent); }
      375x667 screen. Seats were checked for collisions at 360. */
   #table { flex: 1 1 auto; width: 100%; max-width: 460px; height: auto; min-height: 360px; aspect-ratio: auto; margin-top: 20px; }
   #bottom { flex: none; gap: 6px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  /* the column under the table never grows wider than the screen (a long news line used to push
+     the coach strip off the right edge) */
+  #bottom-left { width: 100%; min-width: 0; }
   #news:empty { display: none; }
   /* table news gets one line here; the full text is in the hand log */
   #news { min-height: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 16px; font-size: 12px; width: 100%; padding: 0 2px; }

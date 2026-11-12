@@ -1,5 +1,10 @@
 # Game Theory Optional
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo/wordmark.svg">
+  <img src="assets/logo/wordmark-light.svg" alt="Game Theory Optional" width="420">
+</picture>
+
 *GTO usually stands for game theory optimal. At your table, it's optional.*
 
 Game Theory Optional is a free poker trainer for the games you actually sit in: the
@@ -229,6 +234,8 @@ research_notes/ raw notes from each research thread
 
 The code is MIT licensed: see [`LICENSE`](LICENSE). The research report and notes in
 `reports/` and `research_notes/` are included for reference and are not covered by it.
+The two web fonts in `assets/fonts/` (Space Grotesk and IBM Plex Mono) are under the SIL Open
+Font License 1.1, not MIT; their licence texts are beside them.
 
 ## Ideas for later
 

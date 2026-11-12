@@ -184,7 +184,7 @@ function lastStreetAction(s, seat) {
 // the seat (chipOut), clear of the board and of the diagonal seats' markers; the top seat's
 // marker sits higher (chipTop) so the markers above the board do not form one crowded row.
 const WIDE_GEOM = { cy: 49, seat: [44, 38], dealer: [34, 26.5], chip: [27, 20, 20], chipLift: 0, chipOut: 0, chipTop: 0 };
-const PHONE_GEOM = { cy: 50, seat: [37.5, 41], dealer: [25, 31], chip: [23, 24.5, 18], chipLift: 14.5, chipOut: 13, chipTop: 6 };
+const PHONE_GEOM = { cy: 50, seat: [37.5, 41], dealer: [25, 31], chip: [23, 24.5, 18], chipLift: 14.5, chipOut: 13, chipTop: 6, heroY: 85 };
 const PHONE = matchMedia('(max-width: 600px)');
 // At 900px and narrower the coach panel sits below the table in the page (table.css).
 const NARROW = matchMedia('(max-width: 900px)');
@@ -203,7 +203,8 @@ function renderTable() {
   for (let i = 0; i < n; i++) {
     const ang = ((90 + (i * 360) / n) * Math.PI) / 180;
     const x = 50 + G.seat[0] * Math.cos(ang);
-    const y = G.cy + G.seat[1] * Math.sin(ang);
+    // On a phone your own seat sits a little higher, so your cards, plate and hand name stay inside the table box.
+    const y = i === HERO && G.heroY ? G.heroY : G.cy + G.seat[1] * Math.sin(ang);
     const p = sess.seats[i];
     const pos = positionName(s, i);
     const cls = ['seat'];

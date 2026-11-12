@@ -1249,7 +1249,7 @@ body:has(.drill-chip) #sim-wrap { display: none; }
   .seat .cards .card + .card { margin-left: -6px; }
   .seat.shown .cards { --cw: 22px; margin-left: -2px; top: -10px; }
   .seat.shown .cards .card + .card { margin-left: 1px; }
-  .seat.hero .cards { --cw: 15cqw; }
+  .seat.hero .cards { --cw: 14cqw; }
   .seat.hero .cards .card + .card { margin-left: -2cqw; }
   .seat.hero .plate { min-width: 0; width: 100%; padding: 2px 6px 3px; gap: 5px; margin-top: 3px; }
   .chipbet { font-size: 11.5px; padding: 1px 6px 1px 4px; gap: 3px; }

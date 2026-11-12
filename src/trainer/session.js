@@ -38,6 +38,9 @@ export const RAKES = {
   none: { label: 'No rake (time game)', pct: 0, cap: 0, promo: 0, noFlopNoDrop: true },
 };
 
+// The game a new player is dealt into: the app's defaults, and what scripts/ checks by default.
+export const APP_GAME = { game: '1/3', rake: 'pct', heroBuy: 300 };
+
 const HERO = 0;
 
 export class Session {

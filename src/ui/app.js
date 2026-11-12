@@ -1,4 +1,4 @@
-import { Session, GAMES, RAKES } from '../trainer/session.js';
+import { Session, GAMES, RAKES, APP_GAME } from '../trainer/session.js';
 import { RANKS, holeOrder } from '../engine/cards.js';
 import { potSize, positionName, STREET } from '../engine/game.js';
 import { classIndex, classOf } from '../engine/hands.js';
@@ -21,7 +21,7 @@ const SUIT_CLS = ['c', 'd', 'h', 's'];
 
 // What a new player starts on: $1/$3 with a 100-big-blind buy-in and a typical capped rake.
 // Players who already have saved settings keep theirs.
-const DEFAULTS = { v: 3, game: '1/3', maxBuy: 300, rake: 'pct', table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450 };
+const DEFAULTS = { v: 3, game: APP_GAME.game, maxBuy: APP_GAME.heroBuy, rake: APP_GAME.rake, table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450 };
 let settings = { ...DEFAULTS };
 let firstVisit = true; // nothing saved yet: deal straight in and show the one-time hint
 try {

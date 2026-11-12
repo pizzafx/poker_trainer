@@ -9,6 +9,9 @@ import { TYPE_IDS } from '../src/bots/profiles.js';
 import { HandBelief, newRead } from '../src/trainer/belief.js';
 import { judgeDecision } from '../src/trainer/judge.js';
 import { Session } from '../src/trainer/session.js';
+import { SESSION, HAND, GAME_LINE } from './config.js';
+
+console.log(GAME_LINE + '\n');
 
 // A read that is `conf` sure the player is `type`.
 function readFor(type, conf = 0.85) {
@@ -22,7 +25,7 @@ function runSpot({ name, types, stacks, button, hole, board, script, expect }) {
   const rng = makeRng(42);
   const n = types.length + 1;
   // Fix the board by stacking the deck: deal fixed hole cards and then control draws.
-  const s = newHand({ stacks: stacks || new Array(n).fill(300), button, sb: 2, bb: 3, rng, hole: [parseCards(hole), ...types.map(() => null)] });
+  const s = newHand({ stacks: stacks || new Array(n).fill(300), button, ...HAND, rng, hole: [parseCards(hole), ...types.map(() => null)] });
   const bd = parseCards(board);
   // Opponents' real cards do not matter for the judge (it never looks at them), but make
   // sure the scripted board cards are still in the deck by swapping them out of any hand.
@@ -184,7 +187,7 @@ console.log(`\n${pass}/${total} spots as expected`);
 
 // Automated session: the hero just calls/checks or folds at random; checks nothing crashes
 // and reports timing of the judge.
-const sess = new Session({ seed: 7, samples: 300 });
+const sess = new Session({ ...SESSION, seed: 7, samples: 300 });
 const rng = makeRng(3);
 let t0 = Date.now();
 let judged = 0;

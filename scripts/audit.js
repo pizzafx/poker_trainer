@@ -4,11 +4,14 @@
 
 import { makeRng, cardStr } from '../src/engine/cards.js';
 import { Session } from '../src/trainer/session.js';
+import { SESSION, GAME_LINE } from './config.js';
 
 const seed = +(process.argv[2] || 11);
 const HANDS = +(process.argv[3] || 120);
 const only = process.argv[4] || null;
-const sess = new Session({ seed, samples: 600 });
+const sess = new Session({ ...SESSION, seed, samples: 600 });
+console.log(GAME_LINE);
+
 const rng = makeRng(seed + 1);
 const found = [];
 for (let h = 0; h < HANDS; h++) {

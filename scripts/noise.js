@@ -4,9 +4,12 @@
 
 import { Session } from '../src/trainer/session.js';
 import { judgeDecision } from '../src/trainer/judge.js';
+import { SESSION, GAME_LINE } from './config.js';
 
 const samples = +(process.argv[2] || 600);
-const sess = new Session({ seed: 21, skipBelow: 0.15 });
+const sess = new Session({ ...SESSION, seed: 21, skipBelow: 0.15 });
+console.log(GAME_LINE);
+
 sess.warmUp(30);
 let shown = 0;
 const want = [0, 0, 1, 2, 3]; // streets to sample

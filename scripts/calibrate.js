@@ -8,8 +8,10 @@ import { handFeatures, boardTexture, TIER } from '../src/engine/features.js';
 import { classOf } from '../src/engine/hands.js';
 import { buildContext, preflopPolicy, postflopPolicy, sampleAction } from '../src/bots/policy.js';
 import { PROFILES, TYPE_IDS } from '../src/bots/profiles.js';
+import { HAND, GAME_LINE } from './config.js';
 
 const HANDS = +(process.argv[2] || 30000);
+console.log(GAME_LINE);
 const lineup = process.argv[3] ? process.argv[3].split(',') : null;
 const rng = makeRng(12345);
 
@@ -49,7 +51,7 @@ for (let h = 0; h < HANDS; h++) {
   if (h % 200 === 0) table = pickTable();
   const n = table.length;
   button = (button + 1) % n;
-  const s = newHand({ stacks: new Array(n).fill(300), button, sb: 2, bb: 3, rng });
+  const s = newHand({ stacks: new Array(n).fill(300), button, ...HAND, rng });
   const did = table.map(() => ({ vpip: false, pfr: false, limped: false }));
   let pfRaises = 0;
   let pfAgg = -1;

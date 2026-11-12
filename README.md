@@ -226,6 +226,11 @@ node scripts/noise.js 3000      # how repeatable the judge's numbers are
 node scripts/flagrate.js        # how often a sensible player gets flagged, and for what
 ```
 
+They play the game the app deals a new player ($1/$3, the typical casino rake, a $300 buy-in).
+Add `--legacy` to any of them for the configuration used before November 2026 ($2/$3, with
+the stepped rake for sessions and a 10% rake capped at $5 for set-piece hands), to reproduce
+older numbers.
+
 If you disagree with how a type plays, change it on the **Players** screen in the app.
 The sliders cover the settings that matter most. Every number, including ones the screen
 does not expose, is in `src/bots/profiles.js` with a comment; after editing that file, rerun

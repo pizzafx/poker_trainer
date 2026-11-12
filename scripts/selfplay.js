@@ -9,13 +9,15 @@ import { buildContext, preflopPolicy, postflopPolicy, sampleAction } from '../sr
 import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { judgeDecision } from '../src/trainer/judge.js';
 import { Session } from '../src/trainer/session.js';
+import { SESSION, GAME_LINE } from './config.js';
 
 const HANDS = +(process.argv[2] || 600);
+console.log(GAME_LINE);
 const seed = +(process.argv[3] || 5);
 
 function run(mode) {
   const buy = +(process.argv[4] || 0) || undefined; // optional buy-in, to test shallower stacks
-  const sess = new Session({ seed, samples: 60, maxBuy: buy, heroBuy: buy });
+  const sess = new Session({ ...SESSION, seed, samples: 60, ...(buy ? { maxBuy: buy, heroBuy: buy } : {}) });
   const rng = makeRng(seed + 99);
   let k = 0;
   for (let h = 0; h < HANDS; h++) {

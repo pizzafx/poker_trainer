@@ -12,11 +12,14 @@ import { buildContext, preflopPolicy, postflopPolicy, sampleAction } from '../sr
 import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { CATEGORIES } from '../src/trainer/explain.js';
 import { Session } from '../src/trainer/session.js';
+import { SESSION, GAME_LINE } from './config.js';
 
 const HANDS = +(process.argv[2] || 140);
 const seed = +(process.argv[3] || 7);
 const show = +(process.argv[4] || 0);
-const sess = new Session({ seed, skipBelow: 0.15, samples: 600 });
+const sess = new Session({ ...SESSION, seed, skipBelow: 0.15, samples: 600 });
+console.log(GAME_LINE);
+
 const rng = makeRng(seed + 5);
 for (let h = 0; h < HANDS; h++) {
   sess.freshStack();

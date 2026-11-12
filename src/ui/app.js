@@ -201,6 +201,8 @@ const PHONE_GEOM = { cy: 50, seat: [37.5, 41], dealer: [25, 31], chip: [23, 24.5
 const PHONE = matchMedia('(max-width: 600px)');
 // At 900px and narrower the coach panel sits below the table in the page (table.css).
 const NARROW = matchMedia('(max-width: 900px)');
+// A touch screen (no hover): wording says tap, not hover or click.
+const TOUCH = matchMedia('(hover: none), (pointer: coarse)');
 
 // A player's drawn avatar: the look's symbol from the sprite inlined in play.html.
 const avatarArt = (p) => `<svg class="av-art" viewBox="0 0 48 48" aria-hidden="true"><use href="#av-${p.lookId}"/></svg>`;
@@ -256,9 +258,9 @@ function renderTable() {
     seatsHtml += `<div class="${cls.join(' ')}" style="left:${x}%;top:${y}%" data-seat="${i}"${i === HERO ? '' : ' role="button" tabindex="0"'}>
       <div class="cards">${cards}</div>
       <div class="avatar${vp ? ' has-vpip' : ''}" style="--h:${p.hue ?? 160}${vp ? `;--v:${vp.pct};--vc:${vp.color}` : ''}">${i === HERO ? '' : avatarArt(p)}${badge}${p.steaming ? '<span class="steam-dot" title="On tilt"></span>' : ''}</div>
-      <div class="plate"><div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>
+      <div class="plate">${i === HERO && isBtn ? '<div class="dealer mine" title="You are on the button">D</div>' : ''}<div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>
       <div class="stack">${money(stack)}</div>${read}</div>${i === HERO ? madeHand() : ''}${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP <span class="num">${vp.pct}%</span></b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vpipVerdict(vp.pct)}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${p.steaming ? '<div class="tilt">Tilt</div>' : ''}${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
-    if (isBtn) {
+    if (isBtn && i !== HERO) {
       const dx = 50 + G.dealer[0] * Math.cos(ang + 0.2);
       const dy = G.cy + G.dealer[1] * Math.sin(ang + 0.2);
       seatsHtml += `<div class="dealer" style="left:${dx}%;top:${dy}%">D</div>`;
@@ -296,8 +298,8 @@ function renderTable() {
     el.classList.add('bump');
     shownPot = potNow;
   }
-  const tapHint = tapHintPending && sess.hand.over ? `${PHONE.matches ? 'Tap' : 'Click'} any player to see what you've noticed about them.` : '';
-  $('news').textContent = drill ? (sess.hand.over ? '' : `Drill: ${DRILLS[drill.cat].what}. ${heroStory()}`) : tapHint || sess.news.join('  ');
+  const tapHint = tapHintPending && sess.hand.over ? `${TOUCH.matches || PHONE.matches ? 'Tap' : 'Click'} any player to see what you've noticed about them.` : '';
+  $('news').textContent = drill ? (sess.hand.over ? '' : `Drill: ${DRILLS[drill.cat].what}. ${heroStory()}`) : tapHint || sess.news.join('  ').replace('Hover over a player to see', TOUCH.matches ? 'Tap a player to see' : 'Hover over a player to see');
 }
 
 // What a player's VPIP says, in words: the hover box on the pill and the player card share it.
@@ -398,7 +400,7 @@ function renderActions() {
     }
     const verb = s.currentBet === 0 ? 'Bet' : 'Raise to';
     // On a phone the long all-in label becomes "Max"; the full words stay in the tooltip.
-    const short = (l) => (PHONE.matches && l === 'Put them all-in' ? 'Max' : l);
+    const short = (l) => (!PHONE.matches ? l : l === 'Put them all-in' || l === 'All-in' ? 'Max' : l.replace(' of stacks', ' stack'));
     const pre = L.canRaise ? presets(L, s).map(([l, v]) => `<button data-to="${v}" title="${l === 'Put them all-in' ? 'Put them all-in: ' : ''}$${v}">${short(l)}</button>`).join('') : '';
     const need = L.callAmt ? Math.round((100 * L.callAmt) / (L.pot + L.callAmt)) : 0;
     const sizeNote = (to) => (s.currentBet > 0 ? `${(to / s.currentBet).toFixed(1)}× the bet` : `${Math.round((100 * to) / Math.max(1, L.pot))}% of the pot`);

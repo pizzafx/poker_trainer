@@ -1862,3 +1862,14 @@ body:has(#modal:not(.hidden)) .seat .tip, body:has(#modal:not(.hidden)) .vpip-ti
 #ranges .vs-legend .lg-grad { display: inline-block; width: 72px; height: 10px; border-radius: 3px; }
 #ranges .chips.modes { align-items: center; }
 #ranges .chips.modes .label { color: var(--slate); font-size: 11px; margin-right: 2px; }
+
+/* Your dealer button sits just left of your name plate, clear of your cards */
+.seat.hero .plate { overflow: visible; }
+.dealer.mine { left: -6px; top: 50%; transform: translate(-100%, -50%); }
+
+/* Phone: every bet-size chip fits on the row (no sideways scrolling); the amount box is narrower */
+@media (max-width: 600px) {
+  .act-row.size .sz { overflow: visible; gap: 4px; }
+  .act-row.size .sz button { flex: 1 1 0; min-width: 0; padding: 0 2px; font-size: 12px; letter-spacing: -0.02em; white-space: nowrap; }
+  .act-row.size input[type=number] { width: 64px; }
+}

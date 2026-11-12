@@ -11,6 +11,7 @@ import { DRILLS } from '../trainer/drills.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
 import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '../trainer/dispute.js';
+import { RANGE_GROUPS, presetRanges, shareOf } from '../trainer/ranges.js';
 
 const $ = (id) => document.getElementById(id);
 const HERO = 0;
@@ -19,14 +20,25 @@ const SUIT_CLS = ['c', 'd', 'h', 's'];
 
 // What a new player starts on: $1/$3 with a 100-big-blind buy-in and a typical capped rake.
 // Players who already have saved settings keep theirs.
-const DEFAULTS = { v: 2, game: '1/3', maxBuy: 300, rake: 'pct', table: 'typical', skipJunk: true, rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450 };
+const DEFAULTS = { v: 3, game: '1/3', maxBuy: 300, rake: 'pct', table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450 };
 let settings = { ...DEFAULTS };
 let firstVisit = true; // nothing saved yet: deal straight in and show the one-time hint
 try {
   const raw = localStorage.getItem('trainer-settings');
   firstVisit = !raw;
   const saved = JSON.parse(raw || '{}');
-  if (saved.v === DEFAULTS.v) Object.assign(settings, saved); // older saved settings are dropped
+  if (saved.v === DEFAULTS.v) Object.assign(settings, saved);
+  else if (saved.v === 2) {
+    // Version 2 had "skip junk hands" (the bottom 15%). Its place is taken by your own ranges:
+    // on (the standard ranges) for players who had it on, off for those who had it off.
+    const { skipJunk, ...rest } = saved;
+    Object.assign(settings, rest, { v: DEFAULTS.v, onlyRange: skipJunk !== false, ranges: presetRanges('standard') });
+    try {
+      localStorage.setItem('trainer-settings', JSON.stringify(settings));
+    } catch {
+      /* ignore */
+    }
+  } // anything older is dropped
 } catch {
   /* storage unavailable: use defaults */
 }
@@ -98,7 +110,7 @@ const HOME_TYPES = [
 ];
 
 function sessionOpts() {
-  const base = { skipBelow: settings.skipJunk ? 0.15 : 0, samples: 600 };
+  const base = { heroRanges: settings.onlyRange ? settings.ranges : null, samples: 600 };
   if (settings.mode === 'home') {
     const h = settings.home;
     const lineup = [];
@@ -1014,7 +1026,8 @@ function settingsModal() {
         <label class="field"><span>Who's at the table</span><select id="s-table" class="input">${Object.entries(TABLES).map(([k, t]) => opt(k, t.label, settings.table)).join('')}</select></label>
       </div>
       <label class="field"><span>Feedback</span><select id="s-fb" class="input">${opt('now', 'Right after each decision', settings.feedback)}${opt('after', 'When the hand is over', settings.feedback)}</select></label>
-      ${toggle('s-skip', settings.skipJunk, "Skip hands you'd fold anyway")}
+      ${toggle('s-only', settings.onlyRange, "Only deal me hands I'd play")}
+      <button type="button" class="link-btn" id="s-edit-ranges">Edit my ranges</button>
       ${toggle('s-ranges', settings.rangesLive, 'Show ranges during the hand')}
       ${toggle('s-reads', settings.reads, "Show the coach's reads on seats")}
       <label class="field"><span>Opponent speed</span><select id="s-speed" class="input">${opt('800', 'Slow', String(settings.speed))}${opt('450', 'Normal', String(settings.speed))}${opt('150', 'Fast', String(settings.speed))}</select></label>
@@ -1042,8 +1055,8 @@ function settingsModal() {
     settings.feedback = $('s-fb').value;
     settings.reads = $('s-reads').checked;
     settings.rangesLive = $('s-ranges').checked;
-    settings.skipJunk = $('s-skip').checked;
-    if (sess) sess.skipBelow = settings.skipJunk ? 0.15 : 0;
+    settings.onlyRange = $('s-only').checked;
+    if (sess) sess.heroRanges = settings.onlyRange ? settings.ranges : null;
     settings.speed = +$('s-speed').value;
   };
   const homeTotal = () => [...document.querySelectorAll('.h-count')].reduce((a, el) => a + Math.max(0, Math.floor(+el.value || 0)), 0);
@@ -1091,6 +1104,76 @@ function settingsModal() {
     closeModal();
     render();
   };
+  $('s-edit-ranges').onclick = () => {
+    read();
+    saveSettings();
+    rangesModal(() => settingsModal());
+  };
+}
+
+// Your own starting-hand ranges, one per seat group: tap or drag across the chart to add or
+// remove hands. Hands outside the range for your seat are folded for you (checked when free).
+function rangesModal(back = closeModal) {
+  const draft = JSON.parse(JSON.stringify(settings.ranges));
+  let group = 'early';
+  const draw = () => {
+    const sel = new Set(draft[group]);
+    const cells = GRID.map((row) => row.map(({ name }) => `<button type="button" class="rg-cell${sel.has(name) ? ' on' : ''}" data-name="${name}" aria-pressed="${sel.has(name)}">${name}</button>`).join('')).join('');
+    openModal(`
+      <h1>Your ranges</h1>
+      <p class="sub">Hands outside your range for the seat are folded for you, and the next hand is dealt.</p>
+      <div class="type-chips rg-groups" role="tablist">${RANGE_GROUPS.map(([g, label, seats]) => `<button type="button" class="chip${g === group ? ' on' : ''}" role="tab" aria-selected="${g === group}" data-group="${g}" title="${seats}">${label}</button>`).join('')}</div>
+      <div class="rg-bar"><span class="rg-share" id="rg-share"></span>
+        <span class="rg-presets">${['tight', 'standard', 'loose'].map((p) => `<button type="button" class="chip" data-preset="${p}">${p[0].toUpperCase() + p.slice(1)}</button>`).join('')}</span></div>
+      <div class="rg-grid" id="rg-grid">${cells}</div>
+      <p class="hint rg-hint">Suited hands above the diagonal, offsuit below, pairs on it. Tap a hand, or drag across several.</p>
+      <div class="modal-actions players-foot">
+        <button id="rg-reset" class="quiet">Reset all to standard</button>
+        <button id="rg-cancel" class="quiet">Cancel</button>
+        <button class="primary" id="rg-done">Done</button>
+      </div>`);
+    const share = () => ($('rg-share').innerHTML = `<b>${Math.round(shareOf(draft[group]) * 100)}%</b> of hands`);
+    share();
+    const grid = $('rg-grid');
+    const setCell = (el, on) => {
+      el.classList.toggle('on', on);
+      el.setAttribute('aria-pressed', on);
+      const set = new Set(draft[group]);
+      if (on) set.add(el.dataset.name);
+      else set.delete(el.dataset.name);
+      draft[group] = [...set];
+      share();
+    };
+    // Drag to paint: the first cell decides whether the drag adds or removes hands.
+    let paint = null;
+    grid.addEventListener('pointerdown', (e) => {
+      const el = e.target.closest('.rg-cell');
+      if (!el) return;
+      e.preventDefault();
+      paint = !el.classList.contains('on');
+      setCell(el, paint);
+    });
+    grid.addEventListener('pointermove', (e) => {
+      if (paint === null) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('.rg-cell');
+      if (el && el.classList.contains('on') !== paint) setCell(el, paint);
+    });
+    const stop = () => (paint = null);
+    window.addEventListener('pointerup', stop, { once: true });
+    grid.addEventListener('pointerup', stop);
+    grid.addEventListener('pointercancel', stop);
+    $('modal-box').querySelectorAll('[data-group]').forEach((b) => (b.onclick = () => { group = b.dataset.group; draw(); }));
+    $('modal-box').querySelectorAll('[data-preset]').forEach((b) => (b.onclick = () => { draft[group] = presetRanges(b.dataset.preset)[group]; draw(); }));
+    $('rg-reset').onclick = () => { Object.assign(draft, presetRanges('standard')); draw(); };
+    $('rg-cancel').onclick = () => back();
+    $('rg-done').onclick = () => {
+      settings.ranges = draft;
+      saveSettings();
+      if (sess) sess.heroRanges = settings.onlyRange ? settings.ranges : null;
+      back();
+    };
+  };
+  draw();
 }
 
 // First visit only. The coach strip shows one line on how this works until "Got it" or the

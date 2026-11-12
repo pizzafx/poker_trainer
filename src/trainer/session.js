@@ -3,7 +3,7 @@
 import { makeRng, cardStr } from '../engine/cards.js';
 import { newHand, applyAction, legal, potSize, positionName, STREET, STREET_NAMES } from '../engine/game.js';
 import { handFeatures, boardTexture, describeHand, TIER } from '../engine/features.js';
-import { classOf } from '../engine/hands.js';
+import { classOf, classNames } from '../engine/hands.js';
 import { CATEGORY_NAMES, categoryOf } from '../engine/evaluator.js';
 import { buildContext, preflopPolicy, postflopPolicy, sampleAction } from '../bots/policy.js';
 import { PROFILES, TYPE_IDS, tilted, HERO_PROFILE } from '../bots/profiles.js';
@@ -11,6 +11,7 @@ import { makePlayer, tiltChance, rebuyChance, buyIn, TABLES } from './players.js
 import { HandBelief, newRead, posterior } from './belief.js';
 import { judgeDecision, rangePicture } from './judge.js';
 import { snapshotDecision, handTruth } from './dispute.js';
+import { groupOf } from './ranges.js';
 import { explain } from './explain.js';
 
 export const GAMES = {
@@ -60,6 +61,9 @@ export class Session {
     this.mix = (TABLES[opts.table] || TABLES.typical).mix;
     this.heat = 0; // how much the table has noticed the trainee raising and bluffing (0..1)
     this.skipBelow = opts.skipBelow || 0; // skip hands where the trainee's cards are in this bottom share
+    // Or the trainee's own ranges, { early, middle, cutoff, button, sb, bb }: lists of hand classes.
+    // A hand outside the range for the seat is folded for them. Takes the place of skipBelow.
+    this.heroRanges = opts.heroRanges || null;
     this.seats = [];
     const nicks = new Set();
     for (let i = 0; i < this.n; i++) {
@@ -536,8 +540,14 @@ export class Session {
   // ---- skipping junk hands ------------------------------------------------------
 
   isJunk() {
-    const h = this.hand.state.hole[HERO];
-    return HERO_PROFILE.playPct[classOf(h[0], h[1])] < this.skipBelow;
+    const s = this.hand.state;
+    const h = s.hole[HERO];
+    const k = classOf(h[0], h[1]);
+    if (this.heroRanges) {
+      const range = this.heroRanges[groupOf(positionName(s, HERO))] || [];
+      return !range.includes(classNames[k]);
+    }
+    return HERO_PROFILE.playPct[k] < this.skipBelow;
   }
 
   // Plays the hand out with the trainee checking when free and folding otherwise.
@@ -563,13 +573,13 @@ export class Session {
     const news = [];
     let skipped = 0;
     this.startHand();
-    while (this.skipBelow > 0 && !this.hand.over && this.isJunk() && skipped < 60) {
+    while ((this.heroRanges || this.skipBelow > 0) && !this.hand.over && this.isJunk() && skipped < 60) {
       news.push(...this.news);
       this.foldOut();
       skipped++;
       this.startHand();
     }
-    if (skipped) news.unshift(`Skipped ${skipped} junk hand${skipped > 1 ? 's' : ''} (folded for you).`);
+    if (skipped) news.unshift(this.heroRanges ? `Skipped ${skipped} hand${skipped > 1 ? 's' : ''} outside your ranges (folded for you).` : `Skipped ${skipped} junk hand${skipped > 1 ? 's' : ''} (folded for you).`);
     this.news = [...news, ...this.news];
     return this.hand;
   }

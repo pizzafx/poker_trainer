@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const port = +(process.env.PORT || 5173);
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.md': 'text/plain' };
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.md': 'text/plain', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
 
 createServer(async (req, res) => {
   try {
@@ -16,7 +16,9 @@ createServer(async (req, res) => {
     const file = normalize(join(root, path));
     if (!file.startsWith(root)) throw new Error('outside root');
     const body = await readFile(file);
-    res.writeHead(200, { 'content-type': (types[extname(file)] || 'application/octet-stream') + '; charset=utf-8', 'cache-control': 'no-store' });
+    const type = types[extname(file)] || 'application/octet-stream';
+    // charset only for text; images and fonts are binary
+    res.writeHead(200, { 'content-type': /^(text|application\/json|image\/svg)/.test(type) ? type + '; charset=utf-8' : type, 'cache-control': 'no-store' });
     res.end(body);
   } catch {
     res.writeHead(404);

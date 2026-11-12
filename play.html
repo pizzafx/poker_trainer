@@ -8,15 +8,22 @@
 </head>
 <body>
 <header id="top">
-  <a class="brand" href="index.html" title="Home"><span class="spade">♠</span> Game Theory Optional</a>
+  <a class="brand" href="index.html" title="Home"><img class="tile" src="assets/logo/tile.svg" alt="" width="28" height="28"><span class="spade">♠</span><span class="brand-name"> Game Theory Optional</span></a>
   <div id="stats"></div>
-  <div class="top-actions">
-    <button id="btn-side">Coach &amp; log</button>
-    <button id="btn-review">Leak review</button>
-    <button id="btn-players">Players</button>
-    <button id="btn-settings">Settings</button>
-    <a id="btn-faq" href="faq.html" target="_blank" rel="noopener">FAQ</a>
-  </div>
+  <!-- On a phone the buttons sit behind one Menu button; from 601px the menu is kept open and
+       its summary hidden, so the buttons show in the header as before (see app.js, table.css). -->
+  <details class="menu" id="menu" open>
+    <summary aria-label="Menu"><i aria-hidden="true"></i>Menu</summary>
+    <div class="top-actions">
+      <button id="btn-side"><span class="d-only">Coach &amp; log</span><span class="m-only">Coach &amp; hand log</span></button>
+      <button id="btn-review">Leak review<small class="m-only">Where your money is going, biggest leak first</small></button>
+      <button id="btn-players">Players<small class="m-only">Who they are and how they play; change anything</small></button>
+      <button id="btn-settings">Settings</button>
+      <hr class="m-only">
+      <button id="btn-sim-menu" class="m-only">Quick sim<small>Play 40 hands in a second so you sit down knowing the table</small></button>
+      <a id="btn-faq" href="faq.html" target="_blank" rel="noopener">FAQ</a>
+    </div>
+  </details>
 </header>
 <main>
   <section id="stage">

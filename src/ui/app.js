@@ -150,7 +150,7 @@ function renderStats() {
   const rev = sess.review();
   $('stats').innerHTML = `
     <span>$${g.sb}/$${g.bb}${sess.lineup ? ' home game' : ''} · hand<b>${sess.handNo}</b></span>
-    <span>Session<b class="${net >= 0 ? 'pos' : 'neg'}">${signed(net)}</b></span>
+    <span class="sess-pill"><i class="lbl">Session</i><b class="${net >= 0 ? 'pos' : 'neg'}">${signed(net)}</b></span>
     <span>Mistakes cost<b class="${rev.lost > 0 ? 'neg' : ''}">${money(rev.lost)}</b></span>
     <span>Flagged<b>${rev.flagged}</b> of ${rev.judged}</span>`;
 }
@@ -204,6 +204,7 @@ function renderTable() {
     const p = sess.seats[i];
     const pos = positionName(s, i);
     const cls = ['seat'];
+    if (p.nick.length > 11) cls.push('long');
     if (i === HERO) cls.push('hero');
     if (s.folded[i]) cls.push('folded');
     if (!over && s.toAct === i) cls.push('acting');
@@ -223,7 +224,7 @@ function renderTable() {
         const word = shortType(top.id);
         const label = lvl === 3 ? word : lvl === 2 ? `Likely ${word === 'ABC' ? word : word.toLowerCase()}` : `${word}?`;
         read = `<div class="read ${lvl >= 2 ? 'firm' : ''}"><i class="conf c${lvl}"></i>${esc(label)}</div>`;
-      } else read = `<div class="read">–</div>`;
+      }
     }
     const stack = over ? s.stacks[i] : s.stacks[i];
     const isBtn = pos === 'BTN' || pos === 'BTN/SB';
@@ -238,7 +239,7 @@ function renderTable() {
       <div class="cards">${cards}</div>
       <div class="avatar${vp ? ' has-vpip' : ''}" style="--h:${(i * 43) % 360}${vp ? `;--v:${vp.pct};--vc:${vp.color}` : ''}">${i === HERO ? '' : p.icon}${badge}${p.steaming ? '<span class="steam-dot" title="On tilt">🔥</span>' : ''}</div>
       <div class="plate"><div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>
-      <div class="stack">${money(stack)}</div>${read}</div>${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP ${vp.pct}%</b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vp.pct < 18 ? 'Tight: mostly strong hands.' : vp.pct < 32 ? 'About average.' : vp.pct < 50 ? 'Loose: plays a lot of weak hands.' : 'Plays almost anything.'}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
+      <div class="stack">${money(stack)}</div>${read}</div>${i === HERO ? madeHand() : ''}${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP ${vp.pct}%</b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vp.pct < 18 ? 'Tight: mostly strong hands.' : vp.pct < 32 ? 'About average.' : vp.pct < 50 ? 'Loose: plays a lot of weak hands.' : 'Plays almost anything.'}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
     if (isBtn) {
       const dx = 50 + G.dealer[0] * Math.cos(ang + 0.2);
       const dy = G.cy + G.dealer[1] * Math.sin(ang + 0.2);
@@ -277,7 +278,8 @@ function renderTable() {
     el.classList.add('bump');
     shownPot = potNow;
   }
-  $('news').textContent = drill ? (sess.hand.over ? '' : `Drill: ${DRILLS[drill.cat].what}. ${heroStory()}`) : sess.news.join('  ');
+  const tapHint = tapHintPending && sess.hand.over ? `${PHONE.matches ? 'Tap' : 'Click'} any player to see what you've noticed about them.` : '';
+  $('news').textContent = drill ? (sess.hand.over ? '' : `Drill: ${DRILLS[drill.cat].what}. ${heroStory()}`) : tapHint || sess.news.join('  ');
 }
 
 // The coach's current read, in words, for the hover box.
@@ -344,6 +346,13 @@ function handName(hole, board) {
   }
   return name;
 }
+// Your made hand under your plate on the table (shown on phones instead of the row above the sizes).
+function madeHand() {
+  const s = sess.hand.state;
+  if (s.folded[HERO]) return '';
+  const name = handName(s.hole[HERO], s.board);
+  return name ? `<div class="made">${esc(name)}</div>` : '';
+}
 function myHand() {
   const s = sess.hand.state;
   if (s.folded[HERO]) return '';
@@ -355,6 +364,7 @@ function renderActions() {
   const el = $('actions');
   const st = sess.status();
   const h = sess.hand;
+  el.classList.toggle('turn', st === 'hero');
   if (st === 'hero') {
     const L = sess.heroOptions();
     const s = h.state;
@@ -364,12 +374,14 @@ function renderActions() {
       raiseStep = s.history.length;
     }
     const verb = s.currentBet === 0 ? 'Bet' : 'Raise to';
-    const pre = L.canRaise ? presets(L, s).map(([l, v]) => `<button data-to="${v}" title="$${v}">${l}</button>`).join('') : '';
+    // On a phone the long all-in label becomes "Max"; the full words stay in the tooltip.
+    const short = (l) => (PHONE.matches && l === 'Put them all-in' ? 'Max' : l);
+    const pre = L.canRaise ? presets(L, s).map(([l, v]) => `<button data-to="${v}" title="${l === 'Put them all-in' ? 'Put them all-in: ' : ''}$${v}">${short(l)}</button>`).join('') : '';
     const need = L.callAmt ? Math.round((100 * L.callAmt) / (L.pot + L.callAmt)) : 0;
     const sizeNote = (to) => (s.currentBet > 0 ? `${(to / s.currentBet).toFixed(1)}× the bet` : `${Math.round((100 * to) / Math.max(1, L.pot))}% of the pot`);
     el.innerHTML = `${myHand()}
-      ${L.canRaise ? `<div class="act-row size presets">${pre}
-        <span class="dollar">$</span><input type="number" id="a-num" aria-label="Raise amount" min="${L.minTo}" max="${L.maxTo}" value="${raiseTo}">
+      ${L.canRaise ? `<div class="act-row size presets"><div class="sz">${pre}</div>
+        <span class="dollar">$</span><input type="number" inputmode="numeric" id="a-num" aria-label="Raise amount" min="${L.minTo}" max="${L.maxTo}" value="${raiseTo}">
         <input type="range" id="a-range" aria-label="Raise amount" min="${L.minTo}" max="${L.maxTo}" value="${raiseTo}"></div>` : '<div class="act-row size empty"></div>'}
       <div class="act-row main">
         <button id="a-fold" ${L.canFold ? '' : 'disabled'}><span>Fold<kbd>F</kbd></span><small>${L.canFold ? '&nbsp;' : 'checking is free'}</small></button>
@@ -521,6 +533,16 @@ function renderToast() {
   const h = sess.hand;
   const el = $('toast');
   const d = h.decisions[h.decisions.length - 1];
+  if (hintOn) {
+    el.innerHTML = `<div class="toast hint"><img class="tile" src="assets/logo/tile.svg" alt="" width="22" height="22">
+      <span class="t-main">Play it the way you would live. The coach speaks up when a play costs you money.</span>
+      <button type="button" class="t-more" id="hint-ok">Got it</button></div>`;
+    $('hint-ok').onclick = () => {
+      endHint();
+      renderToast();
+    };
+    return;
+  }
   if (!d) {
     el.innerHTML = '';
     return;
@@ -725,6 +747,7 @@ function scheduleAuto() {
 
 function act(action) {
   if (sess.status() !== 'hero') return;
+  endHint();
   const d = sess.heroAct(action);
   noteLeak(d);
   raiseTo = 0;
@@ -743,6 +766,7 @@ function act(action) {
 function nextHand() {
   if (sess.status() !== 'over') return;
   if (drill) return nextSpot();
+  tapHintPending = false; // shown once, at the end of the first hand
   pastLog = [...pastLog, ...sess.hand.log].slice(-120);
   sess.startPlayable();
   raiseTo = 0;
@@ -833,37 +857,53 @@ $('modal').addEventListener('click', (e) => {
 
 function settingsModal() {
   const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
+  const seg = (id, items, cur) => `<div class="seg" role="radiogroup" data-for="${id}">${items.map(([v, l]) => `<button type="button" role="radio" data-v="${v}" aria-checked="${v === cur}" class="${v === cur ? 'on' : ''}">${l}</button>`).join('')}</div><input type="hidden" id="${id}" value="${cur}">`;
+  const toggle = (id, on, label) => `<label class="trow" for="${id}"><span>${label}</span><input id="${id}" type="checkbox" class="toggle" ${on ? 'checked' : ''}></label>`;
   openModal(`
-    <h1>Settings</h1>
-    <p class="sub">Changing the game starts a new session.</p>
-    <div class="form-row"><label for="s-mode">Game</label><select id="s-mode">${opt('casino', 'Casino table', settings.mode)}${opt('home', 'Home game: you pick the stakes and the players', settings.mode)}</select></div>
+    <h1>Your game</h1>
+    <div class="field"><span>Where do you play?</span>${seg('s-mode', [['casino', 'Casino'], ['home', 'Home game']], settings.mode)}</div>
+    <div id="casino-fields">
+      <div class="field"><span>Stakes</span>${seg('s-game', Object.keys(GAMES).map((g) => [g, '$' + g.replace('/', '/$')]), settings.game)}</div>
+    </div>
     <div id="home-fields">
-      <div class="form-row"><label>Blinds ($)</label><input id="h-sb" type="number" min="1" step="1" value="${settings.home.sb}"><span>/</span><input id="h-bb" type="number" min="1" step="1" value="${settings.home.bb}"></div>
-      <div class="form-row"><label>Buy-in ($)</label><input id="h-buy" type="number" min="20" step="10" value="${settings.home.buy}"></div>
+      <div class="form-row"><label>Blinds ($)</label><input id="h-sb" type="number" inputmode="numeric" min="1" step="1" value="${settings.home.sb}"><span>/</span><input id="h-bb" type="number" inputmode="numeric" min="1" step="1" value="${settings.home.bb}"></div>
+      <div class="form-row"><label>Buy-in ($)</label><input id="h-buy" type="number" inputmode="numeric" min="20" step="10" value="${settings.home.buy}"></div>
       <div class="form-row" style="align-items:flex-start"><label>Players<br><small id="h-total"></small></label>
-        <div class="home-grid">${HOME_TYPES.map(([t, label]) => `<label>${label}</label><input class="h-count" data-type="${t}" type="number" min="0" max="8" step="1" value="${settings.home.counts[t] || 0}">`).join('')}</div>
+        <div class="home-grid">${HOME_TYPES.map(([t, label]) => `<label>${label}</label><input class="h-count" data-type="${t}" type="number" inputmode="numeric" min="0" max="8" step="1" value="${settings.home.counts[t] || 0}">`).join('')}</div>
       </div>
       <p class="sub">No rake. Everyone rebuys and nobody leaves. You know who is coming, but not which seat is which.</p>
     </div>
-    <div id="casino-fields">
-      <div class="form-row"><label for="s-game">Stakes</label><select id="s-game">${Object.keys(GAMES).map((g) => opt(g, '$' + g.replace('/', '/$'), settings.game)).join('')}</select></div>
-    </div>
     <details class="more-options"><summary>More options</summary>
       <div id="casino-more">
-        <div class="form-row"><label for="s-buy">Buy-in ($)</label><input id="s-buy" type="number" min="60" step="20" value="${settings.maxBuy}"></div>
-        <div class="form-row"><label for="s-rake">Rake</label><select id="s-rake">${Object.entries(RAKES).map(([k, r]) => opt(k, r.label, settings.rake)).join('')}</select></div>
-        <div class="form-row"><label for="s-table">Table mix</label><select id="s-table">${Object.entries(TABLES).map(([k, t]) => opt(k, t.label, settings.table)).join('')}</select></div>
+        <label class="field"><span>Buy-in ($)</span><input id="s-buy" class="input" type="number" inputmode="numeric" min="60" step="20" value="${settings.maxBuy}"></label>
+        <label class="field"><span>House cut</span><select id="s-rake" class="input">${Object.entries(RAKES).map(([k, r]) => opt(k, r.label, settings.rake)).join('')}</select></label>
+        <label class="field"><span>Who's at the table</span><select id="s-table" class="input">${Object.entries(TABLES).map(([k, t]) => opt(k, t.label, settings.table)).join('')}</select></label>
       </div>
-      <div class="form-row"><label for="s-fb">Feedback</label><select id="s-fb">${opt('now', 'Right after each decision', settings.feedback)}${opt('after', 'When the hand is over', settings.feedback)}</select></div>
-      <div class="form-row"><label for="s-skip">Skip junk hands (bottom 15%)</label><input id="s-skip" type="checkbox" ${settings.skipJunk ? 'checked' : ''}></div>
-      <div class="form-row"><label for="s-ranges">Show ranges during the hand</label><input id="s-ranges" type="checkbox" ${settings.rangesLive ? 'checked' : ''}></div>
-      <div class="form-row"><label for="s-reads">Show coach's reads on seats</label><input id="s-reads" type="checkbox" ${settings.reads ? 'checked' : ''}></div>
-      <div class="form-row"><label for="s-speed">Opponent speed</label><select id="s-speed">${opt('800', 'Slow', String(settings.speed))}${opt('450', 'Normal', String(settings.speed))}${opt('150', 'Fast', String(settings.speed))}</select></div>
+      <label class="field"><span>Feedback</span><select id="s-fb" class="input">${opt('now', 'Right after each decision', settings.feedback)}${opt('after', 'When the hand is over', settings.feedback)}</select></label>
+      ${toggle('s-skip', settings.skipJunk, "Skip hands you'd fold anyway")}
+      ${toggle('s-ranges', settings.rangesLive, 'Show ranges during the hand')}
+      ${toggle('s-reads', settings.reads, "Show the coach's reads on seats")}
+      <label class="field"><span>Opponent speed</span><select id="s-speed" class="input">${opt('800', 'Slow', String(settings.speed))}${opt('450', 'Normal', String(settings.speed))}${opt('150', 'Fast', String(settings.speed))}</select></label>
     </details>
-    <div class="modal-actions">
-      <button id="s-close">Close</button>
+    <div class="modal-actions settings-foot">
+      <small>Changing these starts a new session.</small>
+      <button id="s-close" class="quiet">Close</button>
       <button class="primary" id="s-start">Start new session</button>
     </div>`);
+  // Segmented choices write to their hidden input and fire "change" like the old selects did.
+  document.querySelectorAll('#modal-box .seg').forEach((g) => {
+    g.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      g.querySelectorAll('button').forEach((x) => {
+        x.classList.toggle('on', x === b);
+        x.setAttribute('aria-checked', x === b);
+      });
+      const input = $(g.dataset.for);
+      input.value = b.dataset.v;
+      input.dispatchEvent(new Event('change'));
+    });
+  });
   const read = () => {
     settings.feedback = $('s-fb').value;
     settings.reads = $('s-reads').checked;
@@ -919,29 +959,27 @@ function settingsModal() {
   };
 }
 
-// First visit only: a small note over the table on how to play, dismissed once for good.
-function firstHint() {
+// First visit only. The coach strip shows one line on how this works until "Got it" or the
+// first action; when the first hand ends, the news line says once that players can be tapped.
+let hintOn = false;
+let tapHintPending = false;
+function endHint() {
+  if (!hintOn) return;
+  hintOn = false;
+  try {
+    localStorage.setItem('trainer-hint-seen', '1');
+  } catch {
+    /* ignore */
+  }
+}
+function startHints() {
   try {
     if (localStorage.getItem('trainer-hint-seen')) return;
   } catch {
     /* storage unavailable: show it this time */
   }
-  const el = document.createElement('div');
-  el.id = 'first-hint';
-  el.setAttribute('role', 'note');
-  el.innerHTML = `<b>You're in.</b>
-    <p>When it's your turn, use Fold, Call or Raise (keys F, C, R). Every decision gets a verdict from the coach.</p>
-    <p>Click any player to see what you have seen them do. Stakes, rake and players are in Settings.</p>
-    <button class="primary" id="first-hint-ok">Got it</button>`;
-  $('table').appendChild(el);
-  $('first-hint-ok').onclick = () => {
-    el.remove();
-    try {
-      localStorage.setItem('trainer-hint-seen', '1');
-    } catch {
-      /* ignore */
-    }
-  };
+  hintOn = true;
+  tapHintPending = true;
 }
 
 function playerModal(seat) {
@@ -1110,6 +1148,19 @@ $('seats').addEventListener('keydown', (e) => {
 });
 $('btn-side').onclick = () => (document.body.classList.contains('side-closed') ? openSide() : document.body.classList.add('side-closed'));
 PHONE.addEventListener('change', () => sess && render());
+// The header menu: on a phone a sheet behind "Menu" that closes after any choice or a tap
+// elsewhere; from 601px always open, so the buttons sit in the header row as before.
+const menuEl = $('menu');
+const syncMenu = () => (menuEl.open = !PHONE.matches);
+syncMenu();
+PHONE.addEventListener('change', syncMenu);
+menuEl.querySelector('.top-actions').addEventListener('click', () => {
+  if (PHONE.matches) menuEl.open = false;
+});
+document.addEventListener('click', (e) => {
+  if (PHONE.matches && menuEl.open && !menuEl.contains(e.target)) menuEl.open = false;
+});
+$('btn-sim-menu').onclick = () => quickSim();
 $('side-close').onclick = () => document.body.classList.add('side-closed');
 $('tab-coach').onclick = () => showTab('coach');
 $('tab-log').onclick = () => showTab('log');
@@ -1157,7 +1208,9 @@ if (demoSeed !== null) demo(+demoSeed || 7);
 else {
   // No setup screen: deal straight in on the saved settings, or the defaults on a first visit
   // (saved now, so the next visit counts as returning).
-  if (firstVisit) saveSettings();
+  if (firstVisit) {
+    saveSettings();
+    startHints();
+  }
   newSession();
-  if (firstVisit) firstHint();
 }

@@ -1366,7 +1366,7 @@ function playerModal(seat) {
     .join('');
   const sds = n.showdowns.length
     ? n.showdowns
-        .map((sd) => `<div class="sd"><div class="sd-top"><span class="sd-hand">Hand ${sd.hand}</span>${cardsInline(holeOrder(sd.cards))}<span class="sd-on">on</span>${cardsInline(sd.board)}<span class="sd-res ${sd.won ? 'pos' : 'neg'}">${sd.won ? 'Won' : 'Lost'}</span></div><div class="line">${esc(sd.line)}</div></div>`)
+        .map((sd) => `<div class="sd"><div class="sd-top"><span class="sd-hand">${sd.hand > 0 ? `Hand ${sd.hand}` : 'Before you sat in'}</span>${cardsInline(holeOrder(sd.cards))}<span class="sd-on">on</span>${cardsInline(sd.board)}<span class="sd-res ${sd.won ? 'pos' : 'neg'}">${sd.won ? 'Won' : 'Lost'}</span></div><div class="line">${esc(sd.line)}</div></div>`)
         .join('')
     : '<div class="empty">No showdowns seen yet.</div>';
   const top = r.ranked[0];
@@ -1602,7 +1602,13 @@ $('side-close').onclick = () => document.body.classList.add('side-closed');
 $('tab-coach').onclick = () => showTab('coach');
 $('tab-log').onclick = () => showTab('log');
 $('tab-range').onclick = () => showTab('range');
-if (window.innerWidth < 1180) document.body.classList.add('side-closed');
+// Up to 1180px wide the panel slides over the table (table.css, max-width: 1180px), so it starts
+// closed there, and closes when the window is narrowed into that range; it opens again on request.
+const SIDE_OVER = matchMedia('(max-width: 1180px)');
+if (SIDE_OVER.matches) document.body.classList.add('side-closed');
+SIDE_OVER.addEventListener('change', () => {
+  if (SIDE_OVER.matches) document.body.classList.add('side-closed');
+});
 
 // ---- desktop: the table takes the height the action dock leaves, so Fold, Call and Raise always fit.
 // The dock's height varies (coach strip, welcome tip, a two-line news line), so the space kept for it

@@ -106,6 +106,7 @@ export class Session {
     this.invested = this.heroBuy;
     this.button = Math.floor(this.rng() * this.n);
     this.handNo = 0;
+    this.started = false; // has a hand been dealt for the trainee to play yet?
     this.hand = null;
     this.news = []; // table happenings between hands
     this.decisions = []; // every judged decision this session
@@ -620,15 +621,34 @@ export class Session {
 
   // Starts the next hand worth playing: junk hands are folded for you and still count
   // (blinds are paid, the button moves, everyone's reads keep building).
+  // At the start of a session, hands folded for you before the first one you play do not count:
+  // your stack and result start at that hand, and it is hand 1. Later skips count as usual.
   startPlayable() {
     const news = [];
     let skipped = 0;
+    const first = !this.started;
+    this.started = true;
     this.startHand();
     while ((this.heroRanges || this.skipBelow > 0) && !this.hand.over && (this.heroRanges ? this.outOfRange() : this.isJunk()) && skipped < 60) {
       news.push(...this.news);
       this.foldOut();
       skipped++;
+      if (first) {
+        const me = this.seats[HERO];
+        me.stack = this.heroBuy;
+        this.invested = this.heroBuy;
+        this.results = [];
+      }
       this.startHand();
+    }
+    if (first && skipped) {
+      this.handNo = 1;
+      this.hand.no = 1;
+      const head = this.hand.log.find((e) => e.kind === 'head');
+      if (head) head.text = 'Hand 1';
+      // showdowns seen while waiting for that hand happened before it
+      for (const s of this.seats) if (!s.hero) for (const sd of s.notes.showdowns) if (sd.hand > 0) sd.hand = 0;
+      return this.hand;
     }
     if (skipped) news.unshift(this.heroRanges ? `Skipped ${skipped} hand${skipped > 1 ? 's' : ''} outside your ranges (folded for you).` : `Skipped ${skipped} junk hand${skipped > 1 ? 's' : ''} (folded for you).`);
     this.news = [...news, ...this.news];

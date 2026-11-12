@@ -1928,3 +1928,5 @@ body:has(#modal:not(.hidden)) .seat .tip, body:has(#modal:not(.hidden)) .vpip-ti
 @media (max-width: 600px) {
   .toast .t-tip { grid-row: 2; font-size: 12px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 }
+/* phones: a seat plate at the edge must not make the page scroll sideways (QA D4) */
+@media (max-width: 600px) { #stage { overflow-x: clip; } }

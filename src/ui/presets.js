@@ -1,5 +1,5 @@
 // Bet-size preset buttons for the action bar, and which size is selected by default.
-// Pure functions (no DOM) so they can be tested in Node.
+// Pure functions (no DOM), so they can be tested in Node.
 import { STREET } from '../engine/game.js';
 
 export function presets(L, s) {

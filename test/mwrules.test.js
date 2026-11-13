@@ -5,10 +5,10 @@ import { STREET, legal } from '../src/engine/game.js';
 import { handFeatures, TIER } from '../src/engine/features.js';
 import { POS } from '../src/bots/policy.js';
 import { judgeDecision } from '../src/trainer/judge.js';
-import { limpOutsideTipFor, robustVerdict, anchorStatus } from '../src/trainer/grade.js';
+import { limpOutsideTipFor, robustVerdict, anchorStatus, applyAnchors } from '../src/trainer/grade.js';
 import { build, gradeAll } from '../scripts/gradeall.js';
 import { SPOTS } from '../scripts/mwbench_spots.js';
-import { explain } from '../src/trainer/explain.js';
+import { explain, anchorLine } from '../src/trainer/explain.js';
 import { buildContext } from '../src/bots/policy.js';
 
 // STRAT: a call before the river with top pair or better and a draw is yellow at most, at any size.
@@ -144,4 +144,53 @@ test('estimate lines agree with the grade (F05, F06, F14)', () => {
     }
   }
   assert.ok(checked >= 4, `${checked} anchor notes checked`);
+});
+
+// QA F1 (hand 37): A4's "close, not graded" covers only the call and the fold; a raise $52 below the
+// call keeps its flag. Hand 37's numbers on a real facing-a-bet spot (F10's board and players).
+test('A4 never ungrades a raise outside the close call-or-fold pair (QA hand 37)', () => {
+  const { s } = build(SPOTS.find((x) => x.id === 'F10'));
+  const ctx = buildContext(s);
+  const mk = (mine, grade) => ({
+    options: [{ type: 'fold', ev: 0 }, { type: 'call', ev: 6.6 }, { type: 'raise', to: 122, ev: -45.6, F: 0.02, alpha: 0.45, W: 0.2, need: 0.4, called: 500, R: 0 }],
+    best: 1, mine, grade, loss: mine === 2 ? 52 : 0, se: 2, sameKind: false, pot: 25, small: 9, anchors: { n: 1500, Q: 0.04, price: 0.3, topSizeBest: false },
+  });
+  const raise = mk(2, 'blunder');
+  applyAnchors(raise, s, ctx);
+  assert.equal(raise.grade, 'blunder');
+  assert.notEqual(raise.note, 'closeCall');
+  const call = mk(1, 'good'); // the call the close rule is about: not graded
+  call.options[0].ev = 8; // the judge's best is a fold
+  call.best = 0;
+  call.anchors.Q = 0.6;
+  applyAnchors(call, s, ctx);
+  assert.equal(call.note, 'closeCall');
+});
+
+// QA F3: every template at every bucket: no "almost never of the time", no "get almost never", and no
+// number under 5% or over 95%.
+test('estimate wording at the extreme buckets reads properly in every template', () => {
+  const vals = [0.01, 0.5, 0.99];
+  const lines = [];
+  const opp = { type: 'raise', to: 60 };
+  for (const F of vals) for (const alpha of [0.3, 0.6]) for (const W of [...vals, null]) for (const need of [0.03, 0.4]) {
+    for (const st of ['works', 'even', 'fails']) {
+      for (const tier of [TIER.HIGH_CARD, TIER.TOP_PAIR_GOOD]) for (const line of ['auto', '5']) for (const toCall of [0, 20]) {
+        const o = { ...opp, ev: 5, F, alpha, W, need: W === null ? null : need, called: W === null ? 0 : 100, st };
+        const v = { line, anchors: { n: 1000, Q: F, price: need, topSizeBest: false }, options: [{ type: 'check', ev: 0, st: 'works' }, o], mine: 1, best: 1, grade: 'good', small: 9 };
+        lines.push(anchorLine({ verdict: v, street: 2, tier, drawEquity: 0, opponents: 2, toCall, raises: 1 }));
+        // a call or fold facing a bet, and a check measured against the bet
+        const vc = { line: 'auto', anchors: { n: 1000, Q: F, price: need }, options: [{ type: 'fold', ev: 0 }, { type: 'call', ev: 1, st }], mine: 1, best: 1, grade: 'good', small: 9 };
+        lines.push(anchorLine({ verdict: vc, street: 2, tier, drawEquity: tier === TIER.HIGH_CARD ? F : 0, opponents: 2, toCall: 10, raises: 1 }));
+        const vk = { ...v, mine: 0, grade: 'mistake' };
+        lines.push(anchorLine({ verdict: vk, street: 3, tier, drawEquity: 0, opponents: 2, toCall: 0, raises: 0 }));
+      }
+    }
+  }
+  const text = lines.filter(Boolean);
+  assert.ok(text.length > 500, `${text.length} lines`);
+  for (const l of text) {
+    assert.doesNotMatch(l, /almost (never|always) of the time|get almost never|need almost never|fold almost (never|always) of|only almost/, l);
+    for (const m of l.matchAll(/(\d+)%/g)) assert.ok(+m[1] >= 5 && +m[1] <= 95, `${m[0]} in: ${l}`);
+  }
 });

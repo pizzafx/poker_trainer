@@ -155,7 +155,13 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'premium') return `${mine.label}: fine. (Raising with this hand is never a mistake.)`;
   if (v.note === 'anchorHabit' || v.note === 'anchorEven' || v.note === 'sizePeak') return `${mine.label}: fine.`;
   if (v.note === 'anchorFails') return `${mine.label}: fine. (It gives up less than the coach flags, but by the estimate below it does not work.)`; // the coach's estimate below says why
-  if (v.note === 'anchor') return `${mine.label}: fine. (By the coach's own numbers this is close, so it is not flagged.)`;
+  if (v.note === 'anchor') {
+    // the bars' gap stated, then why it is not flagged (QA F2)
+    const alt = gap(best) > 0 && best !== mine ? best : top;
+    return gap(alt) > 0
+      ? `${mine.label}: fine. (${bare(alt)} ${more(alt)} on the bars, but by the coach's estimate below this is close, so it is not flagged.)`
+      : `${mine.label}: fine. (By the coach's estimate below this is close, so it is not flagged.)`;
+  }
   if (v.note === 'closeCall') return `${mine.label}: not graded.`;
   if (v.note === 'preSize') return `${mine.label}: fine. (${bare(best)} ${more(best, 'scores about the same')}; using one size with all your hands is the better habit.)`;
   if (v.note === 'semiBluff') return `${mine.label}: fine. (With a draw this good, betting is standard against players who can fold.)`;
@@ -217,15 +223,22 @@ const NUM_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 
 // Percentages to the nearest 5; "almost never" / "almost always" at the ends; what you get, then what
 // you need; "ahead right now" before the river. Shown under flags, notes, vetoes and not-graded
 // decisions only; never under a play a rule-based note overrules (R5, R5b, R7).
-const p5 = (x) => (x < 0.05 ? 'almost never' : x > 0.95 ? 'almost always' : `about ${Math.round(x * 20) * 5}%`);
-// "ahead about 70% of the time" / "almost never ahead" / "almost always ahead"
-const aheadP = (x, now) => (x < 0.05 ? `almost never ahead${now}` : x > 0.95 ? `almost always ahead${now}` : `ahead${now} ${p5(x)} of the time`);
+// Shares in words (QA F3): rounded to the nearest 5, and below 5% / above 95% in words that fit the
+// sentence, never a number outside 5-95 and never "almost never of the time".
+//  often(x):  "about 45% of the time" | "almost never" | "almost always"   (how often something happens)
+//  share(x):  "about 45%" | "almost nothing" | "almost all of it"           (what a play needs or gets)
 const r5 = (x) => Math.round(Math.max(0, Math.min(1, x)) * 20);
+export const often = (x) => (x < 0.05 ? 'almost never' : x > 0.95 ? 'almost always' : `about ${r5(x) * 5}% of the time`);
+export const share = (x, about = true) => (x < 0.05 ? 'almost nothing' : x > 0.95 ? 'almost all of it' : `${about ? 'about ' : ''}${r5(x) * 5}%`);
+// "ahead about 70% of the time" / "almost never ahead" / "almost always ahead"
+const aheadP = (x, now) => (x < 0.05 ? `almost never ahead${now}` : x > 0.95 ? `almost always ahead${now}` : `ahead${now} ${often(x)}`);
+// "everyone folds about 45% of the time" / "almost no one folds" / "nearly everyone folds"
+const foldsP = (x, only = false) => (x < 0.05 ? 'almost no one folds' : x > 0.95 ? 'nearly everyone folds' : `everyone folds ${only ? 'only ' : ''}${often(x)}`);
 const LINE8A = 'Close. The price is right for a call, but the bets still to come take most of that back. Nothing here is graded.';
 const LINE8B = 'Close. A raise with another player in the pot is usually a strong hand. Calling and folding are both reasonable; nothing here is graded.';
 const LINE9 = "Bigger bets score higher only because the coach's opponents call almost any size; real ones often do not. Use half to three-quarters of the pot; sizes are not graded here.";
 
-function anchorLine(d) {
+export function anchorLine(d) {
   const v = d.verdict;
   if (!v.line || !v.anchors || v.mine < 0) return null;
   if (v.line === '8a') return LINE8A;
@@ -247,28 +260,27 @@ function anchorLine(d) {
       const chk = v.options.find((x) => x.type === 'check');
       const top = v.options.reduce((a, x) => (x.ev > a.ev ? x : a), v.options[0]);
       const checkFine = chk && Math.round(top.ev) - Math.round(chk.ev) <= (v.small || 0);
-      if (thin) return `When called you are ${aheadP(o.W, '')} and need ${p5(o.need)}. That is thin: ${checkFine ? 'a small bet or a check are both fine' : 'a smaller bet is fine too'}.`;
-      if (s === 'works') return `When this ${kw} is called you are ${aheadP(o.W, now)} and need ${p5(o.need)}. These players call with worse: bet for value.`;
-      return `When this ${kw} is called you are ${aheadP(o.W, now)} and need ${p5(o.need)}. They mostly call with better hands.`;
+      if (thin) return `When called you are ${aheadP(o.W, '')} and need ${share(o.need)}. That is thin: ${checkFine ? 'a small bet or a check are both fine' : 'a smaller bet is fine too'}.`;
+      if (s === 'works') return `When this ${kw} is called you are ${aheadP(o.W, now)} and need ${share(o.need)}. These players call with worse: bet for value.`;
+      return `When this ${kw} is called you are ${aheadP(o.W, now)} and need ${share(o.need)}. They mostly call with better hands.`;
     }
-    if (s === 'works') return `Everyone folds ${p5(o.F)} of the time and this ${kw} needs ${p5(o.alpha).replace('about ', '')}. A bigger ${kw} needs more folds than you get.`;
-    if (s === 'even' || r5(o.F) === r5(o.alpha)) return `This ${kw} about breaks even on folds: you get ${p5(o.F).replace('about ', '')} and need ${p5(o.alpha).replace('about ', '')}. Fine, not needed.`;
-    return `This ${kw} needs everyone to fold ${p5(o.alpha)} of the time. Here they ${o.F < 0.05 ? 'almost never do' : `fold only ${p5(o.F).replace('about ', 'about ')}`}. Do not bluff this field.`;
+    if (s === 'works') return `${foldsP(o.F)[0].toUpperCase()}${foldsP(o.F).slice(1)} and this ${kw} needs ${share(o.alpha, false)}. A bigger ${kw} needs more folds than you get.`;
+    if (s === 'even' || r5(o.F) === r5(o.alpha)) return `This ${kw} about breaks even on folds: you get ${share(o.F, false)} and need ${share(o.alpha, false)}. Fine, not needed.`;
+    return `${kw === 'bet' ? 'Betting' : 'Raising'} here needs everyone to fold ${often(o.alpha)}; ${o.F < 0.05 ? 'they almost never do' : o.F > 0.95 ? 'they nearly always do' : `they fold only ${often(o.F)}`}. Do not bluff this field.`;
   };
   let line = null;
   if (v.line === '5') {
     const called = mine.W !== null && mine.W !== undefined ? `when called you are ${aheadP(mine.W, now)}` : 'you are almost never ahead when called';
-    const folds = mine.F < 0.05 ? 'almost no one folds' : `everyone folds only ${p5(mine.F).replace('about ', '')} of the time`;
-    line = `This scores higher against these opponents, but ${called} and ${folds}; it needs ${p5(mine.alpha).replace('about ', '')}. Not a habit to build.`;
+    line = `This scores higher against these opponents, but ${called} and ${foldsP(mine.F, true)}; it needs ${share(mine.alpha, false)}. Not a habit to build.`;
   } else if (ref !== mine && ref.type === 'raise' && mine.type === 'raise' && v.grade !== 'good' && ref.F !== undefined && mine.F !== undefined) {
     // a size flagged against another size: what the size changes
     const $ = (o) => `$${o.to - (d.currentBet || 0)}`;
     if (ref.to > mine.to) {
       line = made && ref.W !== null
         ? `At ${$(ref)} you are still ${aheadP(ref.W, now)} when called, and these players still call: the bigger ${kw} earns more.`
-        : `At ${$(ref)} everyone folds ${p5(ref.F).replace('about ', 'about ')} of the time, against ${p5(mine.F).replace('about ', '')} at ${$(mine)}: the bigger ${kw} works better here.`;
+        : `At ${$(ref)} ${foldsP(ref.F)}, against ${share(mine.F, false)} at ${$(mine)}: the bigger ${kw} works better here.`;
     } else {
-      line = `At ${$(mine)} everyone folds ${p5(mine.F)} of the time, against ${p5(ref.F).replace('about ', '')} at ${$(ref)}: the bigger ${kw} folds out the worse hands you want to keep in.`;
+      line = `At ${$(mine)} ${foldsP(mine.F)}, against ${share(ref.F, false)} at ${$(ref)}: the bigger ${kw} folds out the worse hands you want to keep in.`;
     }
   } else if (ref !== mine && ref.type === 'raise' && v.grade !== 'good' && (mine.type !== 'raise' || ref.to !== mine.to)) {
     const b = bet(ref);
@@ -279,10 +291,10 @@ function anchorLine(d) {
     const call = v.options.find((o) => o.type === 'call');
     const s = call ? st(call) : null;
     const who = d.toCall > 0 && opp === 2 && d.raises <= 1 ? ' of both players' : '';
-    const need = p5(A.price).replace('about ', '');
+    const need = share(A.price, false);
     if (hf.drawEquity >= 0.14) {
       // a draw: its chance to come in, against the price
-      line = `Your draw comes in ${p5(hf.drawEquity)} of the time and the price needs ${need}. ${s === 'works' ? 'Call.' : 'Not at this price.'}`;
+      line = `Your draw comes in ${often(hf.drawEquity)} and the price needs ${need}. ${s === 'works' ? 'Call.' : 'Not at this price.'}`;
     } else if (s === 'works') line = `You are ${aheadP(A.Q, '').replace('ahead', `ahead${who}`)} and need ${need} at this price. Call.${hf.tier >= TIER.WEAK_PAIR && hf.tier <= TIER.OVERPAIR_TPTK ? ' Raising gets called mostly by better hands.' : ''}`;
     else if (s === 'fails') line = `You are ${aheadP(A.Q, '')} here and need ${need} at this price. Good players bluff just enough to make this close. This player's bets are nearly always real. Fold.`;
     else line = `You are ${aheadP(A.Q, '')} here and need ${need} at this price: close.`;

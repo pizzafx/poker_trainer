@@ -616,7 +616,7 @@ export function anchorStatus(o, v, hf, opp) {
 
 // A1-A5, after every other rule: the anchors can veto a flag or veto praise; they never create a
 // flag (A5). Rule-based notes (R5, R5b, R6, R7, the passive-lead fold) overrule them.
-function applyAnchors(v, s, ctx) {
+export function applyAnchors(v, s, ctx) {
   const hf = handFeatures(s.hole[HERO], s.board);
   let opp = 0;
   for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) opp++;
@@ -636,7 +636,8 @@ function applyAnchors(v, s, ctx) {
   const A = v.anchors;
   if (A.Q !== undefined) {
     const raw = v.options[RAW].type;
-    if ((raw === 'fold' && A.Q >= A.price + 0.2) || (raw === 'call' && A.Q <= A.price - 0.2)) {
+    // only the call and the fold it is about; a raise or bet outside that pair keeps its grade (QA F1)
+    if ((mine.type === 'call' || mine.type === 'fold') && ((raw === 'fold' && A.Q >= A.price + 0.2) || (raw === 'call' && A.Q <= A.price - 0.2))) {
       v.grade = 'good';
       v.note = 'closeCall';
       v.line = '8a';

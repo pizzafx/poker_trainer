@@ -246,3 +246,20 @@ test('the A6s check (T01) stays a note under the amended R1', () => {
   assert.equal(check.v.grade, 'good');
   assert.equal(check.v.note, 'mwCheck');
 });
+
+// Owner (Nov 2026, the pro's exception): a check before the river may be red only on the turn, when it
+// closes the action, with two pair or better. Hand 101's shape (the bettor still to act behind) stays
+// yellow however much it costs.
+test('turn exception: a closing two-pair check can be red; one with the bettor behind stays yellow', () => {
+  const grade = (spot) => {
+    const { s, belief, env } = build(spot);
+    const opts = { samples: 1500, seed: 5 };
+    const v0 = judgeDecision(s, 0, belief, null, opts);
+    return gradeAll(s, v0, opts, env).find((x) => x.o.type === 'check').v;
+  };
+  const closing = grade({ id: 'close', button: 0, hole: 'Ad 8d', board: 'As 8h 4c Jd 2s', seats: { 7: 'station', 2: 'station' }, line: '7c 0r15 2c 7c | 2x 7x 0b25 2c 7c | 2x 7x' });
+  assert.equal(closing.grade, 'blunder');
+  const behind = grade({ id: 'behind', button: 2, hole: 'Ad 8d', board: 'As 8h 4c Jd 2s', seats: { 1: 'station', 2: 'station' }, line: '0r15 1c 2c | 0x 1x 2b25 0c 1c' });
+  assert.equal(behind.grade, 'mistake');
+  assert.ok(behind.loss > 8 * 3 * 1.6 || behind.loss > 0.2 * 100, 'its loss is above the red bar, so the cap is what keeps it yellow');
+});

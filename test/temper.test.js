@@ -125,8 +125,9 @@ test('temper: raising aces preflop is never flagged, at any size', () => {
   assert.equal(v.note, 'premium');
 });
 
-test('temper: checking a strong hand before the river is never red', () => {
-  const spot = at((p) => p.street >= 1 && p.street < STREET.RIVER && p.toCall === 0 && p.canRaise && p.tier >= TIER.TWO_PAIR, 12);
+test('temper: checking a strong hand on the flop is never red', () => {
+  // (a turn check that closes the action with two pair or better may be red: owner, Nov 2026; see mwrules.test.js)
+  const spot = at((p) => p.street === STREET.FLOP && p.toCall === 0 && p.canRaise && p.tier >= TIER.TWO_PAIR, 12);
   const to = Math.max(spot.L.minTo, Math.round(spot.pot / 2));
   const v = run(spot, verdict(spot, [['check', 0, 0], ['raise', to, 40 * smallOf(spot)]], 0, 1), { type: 'check' });
   assert.notEqual(v.grade, 'blunder');

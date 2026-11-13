@@ -442,8 +442,11 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   // Calling instead of raising with two pair or better, multiway, facing a bet and a caller, is
   // yellow at most (owner's ruling on F15).
   if (mw && ctx.toCall > 0 && ctx.callersIn >= 1 && mine.type === 'call' && tier >= TIER.TWO_PAIR && isRaise(best())) capYellow();
-  // 9. A check before the river is never red.
-  if (!river && mine.type === 'check') capYellow();
+  // 9. A check before the river is never red, except (owner, Nov 2026, the pro's exception) a turn check
+  //    that closes the action (nobody left to act, so no check-raise and a whole street given up) with
+  //    two pair or better: that one keeps a red grade if its loss clears the normal red bar.
+  const closesTurn = s.street === STREET.TURN && behind.count === 0 && tier >= TIER.TWO_PAIR;
+  if (!river && mine.type === 'check' && !closesTurn) capYellow();
 
   // The flag must hold whichever plausible opponent is real (MATH_MULTIWAY 2b, replacing the
   // "fragile" test after the flop). Scenarios: the base run, opponents calling a little wider and

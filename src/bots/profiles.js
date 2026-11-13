@@ -88,8 +88,8 @@ const DEFS = {
     stackOff: 0.009,
     paintLove: 0.5,
     textureBlind: 0.2,
-    absSens: 0.09,
-    neverFold: 0.6,
+    absSens: 0.12, // POOL P1v2, Nov 2026: was 0.09
+    neverFold: 0.66, // POOL P1v2, Nov 2026: was 0.6
     cbet: [0.45, 0.22, 0.1],
     barrel: [0.14, 0.04],
     stab: [0.14, 0.1, 0.04],
@@ -111,7 +111,7 @@ const DEFS = {
     sizeValue: [0, 0.15, 0.45, 0.35, 0.05],
     sizeThin: [0.25, 0.5, 0.25, 0, 0],
     sizeBluff: [0.35, 0.45, 0.2, 0, 0],
-    overFold: 0.03,
+    overFold: 0.05, // POOL P1v2, Nov 2026: was 0.03
   },
   abc: {
     name: 'Straightforward recreational',
@@ -143,6 +143,7 @@ const DEFS = {
     raiseRespect: [0.12, 0.17, 0.23],
     minRaise: 0.3,
     absSens: 0.08,
+    neverFold: 0.62, // POOL P1v2, Nov 2026 (was the shared default)
   },
   station: {
     name: 'Loose-passive calling station',
@@ -168,7 +169,7 @@ const DEFS = {
     paintLove: 0.4,
     textureBlind: 0.8,
     absSens: 0.055,
-    neverFold: 0.55,
+    neverFold: 0.6, // POOL P1v2, Nov 2026: was 0.55
     cbet: [0.4, 0.25, 0.14],
     barrel: [0.2, 0.08],
     stab: [0.2, 0.15, 0.08],
@@ -177,9 +178,9 @@ const DEFS = {
     slowplay: 0.45,
     donk: 0.45,
     mwTighten: 0.02,
-    callThr: [0.22, 0.26, 0.26],
+    callThr: [0.24, 0.3, 0.32], // POOL P1v2, Nov 2026: was [0.22, 0.26, 0.26]
     sizeSens: 0.35,
-    sizeCap: 0.07,
+    sizeCap: 0.09, // POOL P1v2, Nov 2026: was 0.07
     chase: 0.6,
     float: 0.15,
     raiseValue: [0.82, 0.84, 0.87],
@@ -189,8 +190,8 @@ const DEFS = {
     sizeValue: [0.1, 0.3, 0.35, 0.2, 0.05],
     sizeThin: [0.4, 0.4, 0.2, 0, 0],
     sizeBluff: [0.4, 0.4, 0.2, 0, 0],
-    absFrom: 40,
-    overFold: 0.04,
+    absFrom: 30, // POOL P1v2, Nov 2026: was 40
+    overFold: 0.06, // POOL P1v2, Nov 2026: was 0.04
   },
   whale: {
     name: 'Gambler',
@@ -217,7 +218,7 @@ const DEFS = {
     paintLove: 0.6,
     textureBlind: 0.9,
     absSens: 0.06,
-    neverFold: 0.5,
+    neverFold: 0.54, // POOL P1v2, Nov 2026: was 0.5
     cbet: [0.5, 0.35, 0.25],
     barrel: [0.3, 0.18],
     stab: [0.32, 0.26, 0.18],
@@ -239,7 +240,7 @@ const DEFS = {
     sizeValue: [0.1, 0.25, 0.3, 0.25, 0.1],
     sizeThin: [0.35, 0.35, 0.2, 0.1, 0],
     sizeBluff: [0.2, 0.3, 0.25, 0.15, 0.1],
-    absFrom: 30,
+    absFrom: 25, // POOL P1v2, Nov 2026: was 30
     overFold: 0.04,
   },
   maniac: {
@@ -357,7 +358,7 @@ const DEFS = {
     fourBetBluff: 0.03,
     stackOff: 0.02,
     textureBlind: 0.15,
-    neverFold: 0.62,
+    neverFold: 0.66, // POOL P1v2, Nov 2026: was 0.62
     cbet: [0.65, 0.35, 0.15],
     barrel: [0.4, 0.2],
     stab: [0.45, 0.35, 0.2],

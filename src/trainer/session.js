@@ -11,7 +11,7 @@ import { makePlayer, tiltChance, rebuyChance, buyIn, TABLES } from './players.js
 import { HandBelief, newRead, posterior } from './belief.js';
 import { judgeDecision, rangePicture, pairedGap, refreshClose } from './judge.js';
 import { snapshotDecision, handTruth } from './dispute.js';
-import { groupOf, presetRanges, expandRange, LIMPER_OFFSUIT, TIGHTER_ROW } from './ranges.js';
+import { groupOf, presetRanges, presetRaised, expandRange, LIMPER_OFFSUIT, TIGHTER_ROW } from './ranges.js';
 import { explain } from './explain.js';
 
 export const GAMES = {
@@ -44,6 +44,10 @@ export const APP_GAME = { game: '1/3', rake: 'pct', heroBuy: 300 };
 const HERO = 0;
 
 const TIGHT_FIRST = presetRanges('tight'); // first-in folds are only flagged for these hands
+const STANDARD_FIRST = presetRanges('standard');
+const STANDARD_RAISED = presetRaised('standard');
+// Light re-raises that survive at tougher tables: no junk-3-bet note for these.
+const NOT_JUNK_3BET = expandRange('99+ A2s+ KTs+ QTs+ JTs');
 const LIMPER_KEEP = { default: expandRange(LIMPER_OFFSUIT.default), button: expandRange(LIMPER_OFFSUIT.button) };
 
 // A soft tip, not a flag, on every open-limp: you limped first in (nobody limped or raised before
@@ -63,7 +67,46 @@ export function limpTipFor(v, ctx) {
   const g = pairedGap(v, v.mine, br);
   if (g.mean > 2.2 * g.se) return null; // the judge clearly prefers the limp
   const to = raises[0][0].to;
-  return { to, text: `raising first in, to about $${to}, usually does better than limping. Fewer players see the flop, and you keep the lead.` };
+  return { kind: 'limp', to, text: `raising first in, to about $${to}, usually does better than limping. Fewer players see the flop, and you keep the lead.` };
+}
+
+const SEAT_WORDS = { early: 'early position', middle: 'middle position', cutoff: 'the cutoff', button: 'the button', sb: 'the small blind', bb: 'the big blind' };
+
+// A soft note on an open (first in, nobody limped) with a hand outside the Standard range for the
+// seat; rule-based, vetoed only when the judge clearly says the open beat folding. The dollar
+// figure is given only when folding was clearly better.
+export function openTipFor(v, ctx, name, group) {
+  if (v.grade !== 'good' || v.mine < 0 || ctx.street !== STREET.PRE || group === 'bb') return null;
+  const mine = v.options[v.mine];
+  if (mine.type !== 'raise' || ctx.raises !== 0 || ctx.limpers !== 0) return null;
+  if (STANDARD_FIRST[group].includes(name)) return null;
+  const fold = v.options.findIndex((o) => o.type === 'fold');
+  if (fold < 0) return null;
+  const g = pairedGap(v, v.mine, fold);
+  if (g.mean > 2.2 * g.se) return null; // the judge clearly likes this open
+  const where = SEAT_WORDS[group];
+  const usual = group === 'button' || group === 'sb' ? 'most players fold it here' : 'most players open it only from later seats';
+  const cost = -g.mean > 2.2 * g.se ? Math.round(v.options[fold].ev) - Math.round(mine.ev) : 0;
+  return { kind: 'wideOpen', text: `${name} is outside the Standard range from ${where}; ${usual}.${cost > 0 ? ` Here folding was about $${cost} better.` : ''}` };
+}
+
+// A soft note on a re-raise of a single raise with a hand outside the Standard facing-a-raise range
+// (suited aces, suited broadways and nines or better exempt); vetoed only when the judge clearly
+// says the re-raise beat calling or folding.
+export function junk3betTipFor(v, ctx, name, group) {
+  if (v.grade !== 'good' || v.mine < 0 || ctx.street !== STREET.PRE) return null;
+  const mine = v.options[v.mine];
+  if (mine.type !== 'raise' || ctx.raises !== 1) return null;
+  if (STANDARD_RAISED[group].includes(name) || NOT_JUNK_3BET.includes(name)) return null;
+  let alt = -1;
+  v.options.forEach((o, i) => {
+    if (o.type !== 'raise' && (alt < 0 || o.ev > v.options[alt].ev)) alt = i;
+  });
+  if (alt < 0) return null;
+  const g = pairedGap(v, v.mine, alt);
+  if (g.mean > 2.2 * g.se) return null;
+  const cost = -g.mean > 2.2 * g.se ? Math.round(v.options[alt].ev) - Math.round(mine.ev) : 0;
+  return { kind: 'junk3bet', text: `re-raising with ${name} is mostly a bluff, and these players seldom fold to a re-raise; calling or folding is the usual play.${cost > 0 ? ` Here ${v.options[alt].label.toLowerCase()} was about $${cost} better.` : ''}` };
 }
 
 export class Session {
@@ -320,7 +363,12 @@ export class Session {
     };
     const verdict = judgeDecision(s, HERO, h.belief, action, judgeOpts);
     this.temper(verdict, s, ctx, action, judgeOpts);
-    const tip = limpTipFor(verdict, ctx);
+    let tip = limpTipFor(verdict, ctx);
+    if (!tip && s.street === STREET.PRE) {
+      const name = classNames[classOf(s.hole[HERO][0], s.hole[HERO][1])];
+      const group = groupOf(positionName(s, HERO));
+      tip = openTipFor(verdict, ctx, name, group) || junk3betTipFor(verdict, ctx, name, group);
+    }
     if (tip) verdict.tip = tip;
     // The opponent whose range matters most: whoever bet, else the last aggressor, else anyone left.
     let villain = -1;
@@ -563,6 +611,9 @@ export class Session {
       }
       // Re-raising queens or better or ace-king is never a blunder, except into a nit.
       if (isRaise(mine) && premium >= 0.96 && !aggNit) capYellow();
+      // Raise sizes before the flop are never flagged: one size for all hands is the right habit,
+      // and the judge's preferred size moves with the hand (a size tell if copied).
+      if (isRaise(mine) && isRaise(best())) return pass('preSize');
     } else {
       const river = s.street === STREET.RIVER;
       const tier = hf.tier;
@@ -590,6 +641,12 @@ export class Session {
       if (!river && ctx.toCall === 0 && mine.type === 'check' && tier >= TIER.TOP_PAIR_GOOD && isRaise(best())) {
         const upTo75 = (o) => !isRaise(o) || o.to - s.currentBet <= 0.75 * v.pot + 0.5;
         if (regrade(upTo75, 'sizeCheck')) return;
+      }
+      // A semi-bluff with a real draw (a quarter or more of equity to come) is only flagged against
+      // a player read as unable to fold, and then yellow at most (STRAT item 7).
+      if (isRaise(mine) && !isRaise(best()) && hf.drawEquity >= 0.25 && !river) {
+        if (!stickyRead()) return pass('semiBluff');
+        capYellow();
       }
       // Sizing: a bet of 60% of the pot or more is never "too small", and sizing is never red.
       if (isRaise(mine) && isRaise(best())) {

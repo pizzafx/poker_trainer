@@ -99,3 +99,39 @@ test('limp tip: in a real session it appears on first-in limps and never counts 
   const rev = sess.review();
   assert.equal(rev.flagged, sess.decisions.filter((d) => d.verdict.grade !== 'good').length, 'tips are not flags');
 });
+
+// ---- the other soft notes: opens outside Standard, junk 3-bets ----
+import { openTipFor, junk3betTipFor } from '../src/trainer/session.js';
+
+function openVerdict({ raise = 1, se = 1, grade = 'good' } = {}) {
+  return { grade, mine: 1, best: 1, se, options: [{ type: 'fold', ev: 0, label: 'Fold' }, { type: 'raise', to: 12, ev: raise, label: 'Raise to $12 (4.0x)' }] };
+}
+const openCtx = { street: STREET.PRE, raises: 0, limpers: 0, pos: POS.EP };
+
+test('open note: a hand outside Standard for the seat gets it; Standard hands and clear winners do not', () => {
+  const tip = openTipFor(openVerdict(), openCtx, 'K5s', 'early');
+  assert.ok(tip);
+  assert.equal(tip.kind, 'wideOpen');
+  assert.equal(tip.text, 'K5s is outside the Standard range from early position; most players open it only from later seats.');
+  assert.equal(openTipFor(openVerdict(), openCtx, 'AKo', 'early'), null, 'in Standard');
+  assert.equal(openTipFor(openVerdict({ raise: 5 }), openCtx, 'K5s', 'early'), null, 'the judge clearly likes the open');
+  assert.equal(openTipFor(openVerdict(), { ...openCtx, limpers: 1 }, 'K5s', 'early'), null, 'not over limpers');
+  assert.equal(openTipFor(openVerdict(), openCtx, 'K5s', 'bb'), null, 'not from the big blind');
+  assert.match(openTipFor(openVerdict(), openCtx, 'J4o', 'button').text, /most players fold it here\.$/);
+  assert.match(openTipFor(openVerdict({ raise: -4 }), openCtx, 'J4o', 'button').text, /Here folding was about \$4 better\.$/, 'dollars only when clear');
+});
+
+function threeBetVerdict({ raise = 1, call = 1.5, se = 1 } = {}) {
+  return { grade: 'good', mine: 2, best: 2, se, options: [{ type: 'fold', ev: 0, label: 'Fold' }, { type: 'call', ev: call, label: 'Call $12' }, { type: 'raise', to: 40, ev: raise, label: 'Raise to $40 (3.3x)' }] };
+}
+const threeCtx = { street: STREET.PRE, raises: 1, limpers: 0, pos: POS.BB };
+
+test('junk 3-bet note: junk gets it; suited aces, suited broadways and 99+ are exempt', () => {
+  const tip = junk3betTipFor(threeBetVerdict(), threeCtx, 'J7o', 'bb');
+  assert.ok(tip);
+  assert.equal(tip.kind, 'junk3bet');
+  assert.match(tip.text, /^re-raising with J7o is mostly a bluff/);
+  for (const n of ['A4s', 'KJs', 'QTs', '99', 'TT']) assert.equal(junk3betTipFor(threeBetVerdict(), threeCtx, n, 'bb'), null, n);
+  assert.equal(junk3betTipFor(threeBetVerdict({ raise: 6, call: 1 }), threeCtx, 'J7o', 'bb'), null, 'the judge clearly likes the re-raise');
+  assert.equal(junk3betTipFor(threeBetVerdict(), { ...threeCtx, raises: 2 }, 'J7o', 'bb'), null, 'only against a single raise');
+});

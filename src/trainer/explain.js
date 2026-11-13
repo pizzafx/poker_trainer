@@ -127,6 +127,8 @@ const THEORY = {
 function goodHeadline(v, mine, best) {
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
   if (v.note === 'premium') return `${mine.label}: fine. (Raising with this hand is never a mistake.)`;
+  if (v.note === 'preSize') return `${mine.label}: fine. (${best.label} scores about the same; using one size with all your hands is the better habit.)`;
+  if (v.note === 'semiBluff') return `${mine.label}: fine. (With a draw this good, betting is standard against players who can fold.)`;
   if (v.note === 'flatOk') return `${mine.label}: fine. (Re-raising also works here.)`;
   if (v.note === 'callAlso') return `${mine.label}: fine. (Calling also works here.)`;
   if (v.note === 'callOne3bet') return `${mine.label}: fine. (A re-raise from this kind of player is usually a big pair: calling once is fine, stacking off unimproved is not.)`;
@@ -171,6 +173,7 @@ export function explain(d) {
       theory: null,
       cost: 0,
       tip: v.tip ? v.tip.text : null, // "Tip: ..." under a fine verdict
+      tipKind: v.tip ? v.tip.kind : null,
     };
   }
   const category = categorise(d);

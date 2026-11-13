@@ -1930,3 +1930,5 @@ body:has(#modal:not(.hidden)) .seat .tip, body:has(#modal:not(.hidden)) .vpip-ti
 }
 /* phones: a seat plate at the edge must not make the page scroll sideways (QA D4) */
 @media (max-width: 600px) { #stage { overflow-x: clip; } }
+/* range editor: hands beyond Standard for the seat */
+.rg-extra { color: var(--warn); }

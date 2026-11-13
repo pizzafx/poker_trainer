@@ -57,7 +57,10 @@ for (const d of flagged) cats[d.category] = (cats[d.category] || 0) + 1;
 console.log(`seed ${seed}: ${ds.length} decisions, ${flagged.length} flagged (${((100 * flagged.length) / ds.length).toFixed(1)}%), ${red} red`);
 console.log('  by leak:', Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', ') || 'none');
 const openLimps = ds.filter((d) => d.street === STREET.PRE && d.ctx.raises === 0 && d.ctx.limpers === 0 && d.ctx.pos <= 2 && d.verdict.options[d.verdict.mine].type === 'call');
-console.log(`  limp tips: ${ds.filter((d) => d.tip).length} (on ${openLimps.filter((d) => d.tip).length} of ${openLimps.length} first-in limps from a non-blind seat)${LIMPER ? ' [habitual limper]' : ''}`);
+const tipKinds = {};
+for (const d of ds) if (d.tipKind) tipKinds[d.tipKind] = (tipKinds[d.tipKind] || 0) + 1;
+console.log(`  tips: ${Object.entries(tipKinds).map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}; limp tip on ${openLimps.filter((d) => d.tipKind === 'limp').length} of ${openLimps.length} first-in limps from a non-blind seat${LIMPER ? ' [habitual limper]' : ''}`);
+for (const d of ds.filter((x) => x.tipKind && x.tipKind !== 'limp').slice(0, show)) console.log(`  ~ hand ${d.hand} ${d.position} [${d.hole.map(cardStr).join(' ')}]: Tip: ${d.tip}`);
 console.log('  guardrails that passed a play:', Object.entries(notes).map(([k, v]) => `${k} ${v}`).join(', ') || 'none');
 for (const d of flagged.slice(0, show)) {
   console.log(`  - hand ${d.hand} ${d.streetName} ${d.position} [${d.hole.map(cardStr).join(' ')}] board [${d.board.map(cardStr).join(' ')}] pot ${d.pot}: ${d.headline}  (${(CATEGORIES[d.category] || d.category).split(':')[0]})`);

@@ -107,6 +107,27 @@ try {
 } catch {
   /* storage unavailable */
 }
+// Habits the coach noted with a tip (not mistakes): counted across sessions for Leak review.
+const HABITS = {
+  limp: 'Limped first in (raising usually does better)',
+  wideOpen: 'Opened a hand outside the Standard range for the seat',
+  junk3bet: 'Re-raised with a hand that is mostly a bluff here',
+};
+let habits = {};
+try {
+  habits = JSON.parse(localStorage.getItem('trainer-habits') || '{}');
+} catch {
+  /* storage unavailable */
+}
+function noteHabit(d) {
+  if (!d || !d.tipKind || drill) return;
+  habits[d.tipKind] = (habits[d.tipKind] || 0) + 1;
+  try {
+    localStorage.setItem('trainer-habits', JSON.stringify(habits));
+  } catch {
+    /* ignore */
+  }
+}
 function noteLeak(d) {
   if (!d || d.verdict.grade === 'good' || !d.category) return;
   const e = (leaks[d.category] ||= { count: 0, loss: 0, streets: {} });
@@ -974,6 +995,7 @@ function act(action) {
   endHint();
   const d = sess.heroAct(action);
   noteLeak(d);
+  noteHabit(d);
   raiseTo = 0;
   if (drill) {
     drill.tried++;
@@ -1301,7 +1323,11 @@ function rangesModal(back = closeModal) {
         <button id="rg-cancel" class="quiet">Cancel</button>
         <button class="primary" id="rg-done">Done</button>
       </div>`);
-    const share = () => ($('rg-share').innerHTML = `<b>${Math.round(shareOf(cur[group]) * 100)}%</b> of hands`);
+    const std = (mode === 'first' ? presetRanges : presetRaised)('standard')[group];
+    const share = () => {
+      const extra = cur[group].filter((n) => !std.includes(n)).length;
+      $('rg-share').innerHTML = `<b>${Math.round(shareOf(cur[group]) * 100)}%</b> of hands${extra ? ` · <span class="rg-extra">${extra} hand${extra === 1 ? '' : 's'} looser than Standard</span>` : ''}`;
+    };
     share();
     const grid = $('rg-grid');
     const setCell = (el, on) => {
@@ -1552,6 +1578,14 @@ function reviewModal() {
       <div class="stat"><small>Decisions judged</small><b>${rev.judged}</b></div>
       <div class="stat"><small>Cost of mistakes</small><b>${money(rev.lost)}</b></div>
     </div>
+    ${(() => {
+      const here = {};
+      for (const d of sess.decisions) if (d.tipKind) here[d.tipKind] = (here[d.tipKind] || 0) + 1;
+      const rows = Object.keys(HABITS).filter((k) => habits[k] || here[k]);
+      if (!rows.length) return '';
+      return `<h3>Habits the coach noted</h3><p class="sub">Not mistakes: plays that are fine here but usually give a little away. The tip under each verdict says why.</p>
+        <div class="leak-list">${rows.map((k) => `<div class="leak-row"><div class="lr-main"><span class="lr-name">${esc(HABITS[k])}</span><span class="lr-count">${habits[k] || 0} time${habits[k] === 1 ? '' : 's'} in all${here[k] ? `, ${here[k]} this session` : ''}</span></div></div>`).join('')}</div>`;
+    })()}
     ${all.length || rev.list.length ? `
     ${all.length ? `<h3>Your leaks, all sessions</h3><div class="leak-list">${allHtml}</div>` : ''}
     ${rev.list.length ? `<h3>This session, with examples</h3>${sessionLeaks}` : ''}` : '<p class="empty-line">No leaks yet. They build up here as you play.</p>'}

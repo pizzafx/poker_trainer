@@ -316,9 +316,6 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   const potBefore = v.pot - s.bet.reduce((a, x) => a + x, 0);
   if (passiveLead && onePair && mine.type === 'fold' && s.currentBet >= 0.25 * potBefore) return pass('passiveFold');
   // R6. Folding one pair to a raise of your bet, when another player has also put money in.
-  if (ctx.toCall > 0 && onePair && ctx.raises >= 2 && ctx.iBetThisStreet) {
-    if (s.history.some((h) => h.street === s.street && h.seat !== HERO && h.seat !== s.lastRaiser && ['call', 'bet', 'raise'].includes(h.type))) v.r6Spot = true;
-  }
   if (ctx.toCall > 0 && mine.type === 'fold' && onePair && ctx.raises >= 2 && ctx.iBetThisStreet) {
     const others = s.history.some((h) => h.street === s.street && h.seat !== HERO && h.seat !== s.lastRaiser && ['call', 'bet', 'raise'].includes(h.type));
     if (others) {
@@ -622,11 +619,13 @@ function applyAnchors(v, s, ctx) {
   for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) opp++;
   const st = (o) => anchorStatus(o, v, hf, opp);
   const mine = v.options[v.mine];
-  if (v.note === 'mwHabit' || v.note === 'passiveFold' || v.rule === 'R5' || v.rule === 'R5b') return;
-  if (v.rule === 'R6' || v.r6Spot) {
-    v.line = '8b'; // a raise with another player in: the neutral line for every option
+  // a raise of your bet with another player in (the R6 spot): the neutral line under every option
+  const onePair = hf.tier >= TIER.WEAK_PAIR && hf.tier <= TIER.OVERPAIR_TPTK;
+  if (ctx.toCall > 0 && onePair && ctx.raises >= 2 && ctx.iBetThisStreet && s.history.some((h) => h.street === s.street && h.seat !== HERO && h.seat !== s.lastRaiser && ['call', 'bet', 'raise'].includes(h.type))) {
+    v.line = '8b';
     return;
   }
+  if (v.note === 'mwHabit' || v.note === 'passiveFold' || v.rule === 'R5' || v.rule === 'R5b') return;
   const RAW = v.options.reduce((b, o, i) => (o.ev > v.options[b].ev ? i : b), 0);
   // A4: the judge's best is a fold while a call works by 20 points or more, or the reverse:
   // nothing on this decision is graded, and the line names no play.

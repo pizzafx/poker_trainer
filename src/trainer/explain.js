@@ -205,6 +205,7 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A bluff ${more(top)} against these bots; not enough to rely on at a real table.)`;
   if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read, so it is not graded.)`;
   if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')}.)`;
+  if (gap(top) > bar(top)) return `${mine.label}: fine. (${bare(top)} ${more(top)} on our read, but the coach does not hold you to it here.)`;
   const rivals = v.options.filter((o, i) => i !== v.best && o.close);
   if (!rivals.length) return `${mine.label}: the best play here.`;
   return `${mine.label}: good. (${rivals.length === 1 ? bare(rivals[0]) + ' rates' : 'Other options rate'} about the same.)`;
@@ -237,22 +238,29 @@ function anchorLine(d) {
   const mine = v.options[v.mine];
   const ref = v.options[v.best];
   const made = hf.tier >= TIER.WEAK_PAIR && !(hf.drawEquity >= 0.14 && hf.tier <= TIER.MIDDLE_PAIR);
+  const kw = d.toCall > 0 ? 'raise' : 'bet'; // what the play is called in the line
   const bet = (o) => {
     const s = st(o);
     if (made && o.W !== null) {
       const thin = s === 'even' || r5(o.W) === r5(o.need);
-      if (thin) return `When called you are ${aheadP(o.W, '')} and need ${p5(o.need)}. That is thin: a small bet or a check are both fine.`;
-      if (s === 'works') return `When this bet is called you are ${aheadP(o.W, now)} and need ${p5(o.need)}. These players call with worse: bet for value.`;
-      return `When this bet is called you are ${aheadP(o.W, now)} and need ${p5(o.need)}. They mostly call with better hands.`;
+      const chk = v.options.find((x) => x.type === 'check');
+      const top = v.options.reduce((a, x) => (x.ev > a.ev ? x : a), v.options[0]);
+      const checkFine = chk && Math.round(top.ev) - Math.round(chk.ev) <= (v.small || 0);
+      if (thin) return `When called you are ${aheadP(o.W, '')} and need ${p5(o.need)}. That is thin: ${checkFine ? 'a small bet or a check are both fine' : 'a smaller bet is fine too'}.`;
+      if (s === 'works') return `When this ${kw} is called you are ${aheadP(o.W, now)} and need ${p5(o.need)}. These players call with worse: bet for value.`;
+      return `When this ${kw} is called you are ${aheadP(o.W, now)} and need ${p5(o.need)}. They mostly call with better hands.`;
     }
-    if (s === 'works') return `Everyone folds ${p5(o.F)} of the time and this bet needs ${p5(o.alpha).replace('about ', '')}. A bigger bet needs more folds than you get.`;
-    if (s === 'even' || r5(o.F) === r5(o.alpha)) return `This bet about breaks even on folds: you get ${p5(o.F).replace('about ', '')} and need ${p5(o.alpha).replace('about ', '')}. Fine, not needed.`;
-    return `This bet needs everyone to fold ${p5(o.alpha)} of the time. Here they ${o.F < 0.05 ? 'almost never do' : `fold only ${p5(o.F).replace('about ', 'about ')}`}. Do not bluff this field.`;
+    if (s === 'works') return `Everyone folds ${p5(o.F)} of the time and this ${kw} needs ${p5(o.alpha).replace('about ', '')}. A bigger ${kw} needs more folds than you get.`;
+    if (s === 'even' || r5(o.F) === r5(o.alpha)) return `This ${kw} about breaks even on folds: you get ${p5(o.F).replace('about ', '')} and need ${p5(o.alpha).replace('about ', '')}. Fine, not needed.`;
+    return `This ${kw} needs everyone to fold ${p5(o.alpha)} of the time. Here they ${o.F < 0.05 ? 'almost never do' : `fold only ${p5(o.F).replace('about ', 'about ')}`}. Do not bluff this field.`;
   };
   let line = null;
   if (v.line === '5') {
-    const called = made && mine.W !== null ? `when called you are ${aheadP(mine.W, now)}` : 'you are almost never ahead when called';
+    const called = mine.W !== null && mine.W !== undefined ? `when called you are ${aheadP(mine.W, now)}` : 'you are almost never ahead when called';
     line = `This scores higher against these opponents, but ${called} and everyone folds only ${p5(mine.F).replace('about ', '')} of the time; it needs ${p5(mine.alpha).replace('about ', '')}. Not a habit to build.`;
+  } else if (ref !== mine && ref.type === 'raise' && v.grade !== 'good' && (mine.type !== 'raise' || ref.to !== mine.to)) {
+    const b = bet(ref);
+    line = `${d.toCall > 0 ? `A raise to $${ref.to}` : `A bet of $${ref.to - (d.currentBet || 0)}`}: ${b[0].toLowerCase()}${b.slice(1)}`;
   } else if (mine.type === 'raise') line = bet(mine);
   else if (v.anchors.Q !== undefined && (mine.type === 'call' || mine.type === 'fold')) {
     const A = v.anchors;

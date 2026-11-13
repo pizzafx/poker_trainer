@@ -236,7 +236,7 @@ const aheadP = (x, now) => (x < 0.05 ? `almost never ahead${now}` : x > 0.95 ? `
 const foldsP = (x, only = false) => (x < 0.05 ? 'almost no one folds' : x > 0.95 ? 'nearly everyone folds' : `everyone folds ${only ? 'only ' : ''}${often(x)}`);
 const LINE8A = 'Close. The price is right for a call, but the bets still to come take most of that back. Nothing here is graded.';
 const LINE8B = 'Close. A raise with another player in the pot is usually a strong hand. Calling and folding are both reasonable; nothing here is graded.';
-const LINE9 = 'Bigger bets score higher only because these opponents call any size; real players often fold. Use half to three-quarters of the pot; bigger is not required.';
+const LINE9 = 'Bigger bets score higher only because these opponents call any size. Use half to three-quarters of the pot; bigger is not required.';
 
 export function anchorLine(d) {
   const v = d.verdict;
@@ -272,11 +272,15 @@ export function anchorLine(d) {
   let line = null;
   if (v.line === '5') {
     // the pro's shorter wording (Nov 2026): three lines at 375 px, about 150 characters
+    // (the pro's ~140-character form; a failing bet is never "almost always ahead", and its need is
+    // never under 5% or over 95%, so those cases do not reach this line)
     const W = mine.W;
-    const called = W === null || W === undefined || W < 0.05 ? 'You are almost never ahead when called' : W > 0.95 ? `When called you are almost always ahead${now}` : `When called you are ahead${now} ${share(W)}`;
-    const folds = mine.F < 0.05 ? 'almost no one folds' : mine.F > 0.95 ? 'nearly everyone folds' : `everyone folds only ${share(mine.F)}`;
+    const nowS = river ? '' : ' now';
+    const called = W === null || W === undefined || W < 0.05 ? 'Called, you are almost never ahead' : W > 0.95 ? `Called, you are almost always ahead${nowS}` : `Called, you are ahead${nowS} ${share(W)}`;
+    const folds = mine.F < 0.05 ? 'almost no one folds' : mine.F > 0.95 ? 'nearly everyone folds' : `everyone folds ${share(mine.F)}`;
     // the middle sentence alone when the headline above already says "not a habit to build" (CEO)
-    line = v.note === 'mwHabit' ? `${called} and ${folds}; it needs ${share(mine.alpha, false)}.` : `Scores higher against these opponents only. ${called} and ${folds}; it needs ${share(mine.alpha, false)}. Not a habit.`;
+    const mid = `${called}; ${folds}, and it needs ${share(mine.alpha, false)}.`;
+    line = v.note === 'mwHabit' ? mid : `Scores higher only against these opponents. ${mid} Not a habit.`;
   } else if (ref !== mine && ref.type === 'raise' && mine.type === 'raise' && v.grade !== 'good' && ref.F !== undefined && mine.F !== undefined) {
     // a size flagged against another size: what the size changes
     const $ = (o) => `$${o.to - (d.currentBet || 0)}`;

@@ -64,6 +64,18 @@ export class HandBelief {
     this.featStreet = -1;
   }
 
+  // A plain copy of the tracker (reads, dead cards, weights, board) to send to the judge worker;
+  // fromPlain rebuilds a working tracker from it. The board-feature cache is rebuilt on demand.
+  toPlain() {
+    return { reads: this.reads, dead: this.dead, w: this.w, board: this.board };
+  }
+
+  static fromPlain(o) {
+    const b = Object.create(HandBelief.prototype);
+    Object.assign(b, { reads: o.reads, dead: o.dead, w: o.w, board: o.board, feats: null, featStreet: -1 });
+    return b;
+  }
+
   setBoard(board) {
     for (let i = this.board.length; i < board.length; i++) {
       const card = board[i];

@@ -15,10 +15,34 @@ const read = (p) => readFileSync(join(root, p), 'utf8');
 const hash = (p) => createHash('sha256').update(readFileSync(join(root, p))).digest('hex').slice(0, 10);
 const changed = [];
 const put = (p, text) => {
-  if (read(p) === text) return;
+  let old = null;
+  try {
+    old = read(p);
+  } catch {
+    /* new file */
+  }
+  if (old === text) return;
   changed.push(p);
   if (!check) writeFileSync(join(root, p), text);
 };
+
+// 0. src/trainer/version.js: one build id over every module, so the judge worker (where import
+//    maps do not apply) can tell the page whether its modules are the same version.
+{
+  const all = [];
+  const list = (dir) => {
+    for (const e of readdirSync(join(root, dir), { withFileTypes: true })) {
+      const p = `${dir}/${e.name}`;
+      if (e.isDirectory()) list(p);
+      else if (e.name.endsWith('.js') && p !== 'src/trainer/version.js') all.push(p);
+    }
+  };
+  list('src');
+  all.sort();
+  const h = createHash('sha256');
+  for (const f of all) h.update(f).update(readFileSync(join(root, f)));
+  put('src/trainer/version.js', `// Written by scripts/stamp.js: a build id over every module under src/.\nexport const BUILD = '${h.digest('hex').slice(0, 12)}';\n`);
+}
 
 // 1. fonts.css points at the font files with their versions.
 const FONTS = ['assets/fonts/space-grotesk-var.woff2', 'assets/fonts/IBMPlexMono-Medium-Latin1.woff2'];

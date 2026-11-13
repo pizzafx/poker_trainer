@@ -13,6 +13,7 @@ import { presets, defaultRaise } from './presets.js';
 import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '../trainer/dispute.js';
 import { RANGE_GROUPS, presetRanges, presetRaised, shareOf, previousStandard } from '../trainer/ranges.js';
 import { equityVsRange } from '../trainer/equity.js';
+import { BUILD } from '../trainer/version.js';
 
 const $ = (id) => document.getElementById(id);
 const HERO = 0;
@@ -88,6 +89,7 @@ try {
   /* storage unavailable */
 }
 // Turns the saved control values into parameter overrides and puts them in force.
+let overrides = {};
 function applyTuning() {
   const all = {};
   for (const [type, vals] of Object.entries(tuning)) {
@@ -96,8 +98,61 @@ function applyTuning() {
     all[type] = {};
     for (const c of CONTROLS) if (vals[c.key] !== undefined) Object.assign(all[type], c.set(base, vals[c.key]));
   }
+  overrides = all;
   applyOverrides(all);
+  judge.tune();
 }
+
+// ---- the judge worker: grading runs off the main thread so the table stays responsive. If the
+// worker cannot start, or its cached modules are a different build from the page's, decisions
+// are graded here instead, as before.
+const judge = {
+  worker: null,
+  ready: false,
+  next: 1,
+  waiting: new Map(),
+  start() {
+    try {
+      this.worker = new Worker(new URL(`../trainer/judge.worker.js?v=${BUILD}`, import.meta.url), { type: 'module' });
+    } catch {
+      return;
+    }
+    this.worker.onmessage = (e) => {
+      const m = e.data;
+      if (m.type === 'hello') {
+        this.ready = m.build === BUILD;
+        if (this.ready) this.tune();
+        else this.stop();
+        return;
+      }
+      const w = this.waiting.get(m.id);
+      if (!w) return;
+      this.waiting.delete(m.id);
+      if (m.type === 'graded') w.resolve(m.verdict);
+      else w.reject(new Error(m.error));
+    };
+    this.worker.onerror = () => this.stop();
+    this.worker.postMessage({ type: 'hello' });
+  },
+  stop() {
+    this.ready = false;
+    if (this.worker) this.worker.terminate();
+    this.worker = null;
+    for (const w of this.waiting.values()) w.reject(new Error('judge worker stopped'));
+    this.waiting.clear();
+  },
+  tune() {
+    if (this.worker && this.ready) this.worker.postMessage({ type: 'tuning', overrides });
+  },
+  grade(job) {
+    const id = this.next++;
+    return new Promise((resolve, reject) => {
+      this.waiting.set(id, { resolve, reject });
+      this.worker.postMessage({ type: 'grade', id, job });
+    });
+  },
+};
+judge.start();
 applyTuning();
 
 // Leaks tracked across sessions: { category: { count, loss, streets: { street: count } } }
@@ -436,6 +491,7 @@ function renderActions() {
   const st = sess.status();
   const h = sess.hand;
   el.classList.toggle('turn', st === 'hero');
+  el.classList.toggle('busy', thinking);
   if (st === 'hero') {
     const L = sess.heroOptions();
     const s = h.state;
@@ -626,6 +682,10 @@ function renderToast() {
       endHint();
       renderToast();
     };
+    return;
+  }
+  if (thinking) {
+    el.innerHTML = '<div class="toast quiet thinking" role="status"><span class="t-main">The coach is working it out…</span></div>';
     return;
   }
   if (!d) {
@@ -990,10 +1050,29 @@ function scheduleAuto() {
   }, wait);
 }
 
-function act(action) {
-  if (sess.status() !== 'hero') return;
+let thinking = false; // a decision is being graded in the worker
+async function act(action) {
+  if (sess.status() !== 'hero' || thinking) return;
   endHint();
-  const d = sess.heroAct(action);
+  let d;
+  if (judge.ready) {
+    const here = sess;
+    const hand = sess.hand;
+    const step = hand.state.history.length;
+    thinking = true;
+    renderToast();
+    renderActions();
+    let verdict = null;
+    try {
+      verdict = await judge.grade(sess.gradeJob(action));
+    } catch {
+      verdict = null; // graded here instead, below
+    }
+    thinking = false;
+    // A new session or drill started meanwhile: this decision no longer applies.
+    if (sess !== here || sess.hand !== hand || hand.state.history.length !== step) return render();
+    d = verdict ? sess.heroCommit(action, verdict) : sess.heroAct(action);
+  } else d = sess.heroAct(action);
   noteLeak(d);
   noteHabit(d);
   raiseTo = 0;
@@ -1772,7 +1851,7 @@ $('btn-review').onclick = () => sess && reviewModal();
 $('btn-settings').onclick = () => settingsModal();
 
 // Handle for debugging from the browser console.
-window.trainer = { get session() { return sess; }, settings, act, nextHand };
+window.trainer = { get session() { return sess; }, settings, act, nextHand, get workerReady() { return judge.ready; } };
 
 // http://localhost:5173/play.html?demo=7 jumps to a mid-session decision
 // with coach feedback showing (used for screenshots). The number picks the session.

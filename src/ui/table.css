@@ -1932,3 +1932,6 @@ body:has(#modal:not(.hidden)) .seat .tip, body:has(#modal:not(.hidden)) .vpip-ti
 @media (max-width: 600px) { #stage { overflow-x: clip; } }
 /* range editor: hands beyond Standard for the seat */
 .rg-extra { color: var(--warn); }
+/* while the coach grades a decision in the background: the buttons wait, the rest of the page works */
+#actions.busy .act-row button { pointer-events: none; opacity: 0.55; }
+.toast.thinking .t-main { color: var(--slate); font-weight: 400; }

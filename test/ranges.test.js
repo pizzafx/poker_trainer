@@ -8,16 +8,18 @@ import { classOf, classNames } from '../src/engine/hands.js';
 import { Session } from '../src/trainer/session.js';
 import { RANGE_GROUPS, PRESETS, presetRanges, shareOf, groupOf } from '../src/trainer/ranges.js';
 
-test('ranges: presets hit their shares and nest tight < standard < loose', () => {
+test('ranges: presets are about the right width and nest tight < standard < loose', () => {
   const t = presetRanges('tight');
   const s = presetRanges('standard');
   const l = presetRanges('loose');
+  // Standard is hand-written now (notes/STRAT_RANGES.md, with the live pro's edits)
+  const want = { early: 0.122, middle: 0.176, cutoff: 0.252, button: 0.351, sb: 0.273, bb: PRESETS.standard.bb };
   for (const [g] of RANGE_GROUPS) {
-    for (const [name, r] of [['tight', t], ['standard', s], ['loose', l]]) {
-      const share = shareOf(r[g]);
-      assert.ok(Math.abs(share - PRESETS[name][g]) < 0.02, `${name} ${g}: ${share}`);
-      assert.ok(r[g].includes('AA'), `${name} ${g} has aces`);
-    }
+    assert.ok(Math.abs(shareOf(s[g]) - want[g]) < 0.005, `standard ${g}: ${shareOf(s[g])}`);
+    assert.ok(shareOf(t[g]) < shareOf(s[g]) && shareOf(s[g]) < shareOf(l[g]), g);
+    for (const [name, r] of [['tight', t], ['standard', s], ['loose', l]]) assert.ok(r[g].includes('AA'), `${name} ${g} has aces`);
+    if (g !== 'bb') assert.ok(s[g].includes('22'), `every pair opens from ${g} in Standard`);
+    if (g === 'early') assert.ok(!s[g].includes('AJo') && !s[g].includes('A4s'), 'the live pro took AJo and A4s out of Early');
     for (const n of t[g]) assert.ok(s[g].includes(n), `tight ${g} ${n} not in standard`);
     for (const n of s[g]) assert.ok(l[g].includes(n), `standard ${g} ${n} not in loose`);
   }
@@ -62,7 +64,8 @@ test('ranges: drills ignore the range filter', () => {
   assert.ok(found, 'a weak preflop spot is dealt in a drill');
 });
 
-import { expandRange, presetRaised, PRESETS_RAISED } from '../src/trainer/ranges.js';
+import { expandRange, presetRaised, PRESETS_RAISED, LIMPER_OFFSUIT, TIGHTER_ROW } from '../src/trainer/ranges.js';
+import { buildContext } from '../src/bots/policy.js';
 
 test('ranges: range notation expands as poker players write it', () => {
   assert.deepEqual(expandRange('QQ+').sort(), ['AA', 'KK', 'QQ']);
@@ -109,4 +112,41 @@ test('ranges: facing a raise at your first decision, only hands in that range re
   assert.ok(raised >= 1, `${raised} raised spots`);
   assert.ok(unraised > 20, `${unraised} first-in spots`);
   assert.equal(sess.decisions.length, 0);
+});
+
+test('ranges: behind limpers weak offsuit hands are folded first in, and big or early raises use the next tighter row', () => {
+  const sess = new Session({ seed: 77, samples: 10, heroRanges: presetRanges('standard'), heroRangesRaised: presetRaised('standard') });
+  const keep = { default: expandRange(LIMPER_OFFSUIT.default), button: expandRange(LIMPER_OFFSUIT.button) };
+  const raisedRows = presetRaised('standard');
+  let limped = 0;
+  let bigOrEarly = 0;
+  for (let i = 0; i < 1200; i++) {
+    sess.startPlayable();
+    if (sess.status() !== 'hero') {
+      sess.foldOut();
+      continue;
+    }
+    const s = sess.hand.state;
+    const ctx = buildContext(s);
+    const group = groupOf(positionName(s, 0));
+    const name = classNames[classOf(s.hole[0][0], s.hole[0][1])];
+    if (ctx.raises === 0 && ctx.limpers > 0 && group !== 'sb' && group !== 'bb') {
+      limped++;
+      if (name.endsWith('o')) assert.ok(keep[group === 'button' ? 'button' : 'default'].includes(name), `${name} behind limpers from ${group}`);
+    }
+    if (ctx.raises === 1) {
+      const raiser = s.lastRaiser;
+      let lb = 0;
+      for (const e of s.history) {
+        if (e.type === 'raise') break;
+        if (e.type === 'call') lb++;
+      }
+      if (ctx.raiseBB > 5.5 + lb || groupOf(positionName(s, raiser)) === 'early') {
+        bigOrEarly++;
+        assert.ok(raisedRows[TIGHTER_ROW[group]].includes(name), `${name} from ${group} facing a big or early raise`);
+      }
+    }
+    sess.foldOut();
+  }
+  assert.ok(limped >= 5, `${limped} limped pots, ${bigOrEarly} big or early raises`);
 });

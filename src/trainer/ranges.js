@@ -51,10 +51,48 @@ export function topShare(share) {
   return out;
 }
 
+// Standard first in, written out by hand (notes/STRAT_RANGES.md 1b with the live pro's edits,
+// Nov 2026): every pair, the better suited hands, offsuit hands only from late position. All
+// raise-or-fold. The big blind's "first in" only matters when the pot is limped to it (it checks),
+// so it keeps the wide generated list.
+const STANDARD_FIRST = {
+  early: '22+ ATs+ A5s KTs+ QTs+ JTs T9s AQo+ KQo',
+  middle: '22+ A9s+ A5s-A2s K9s+ Q9s+ J9s+ T9s 98s 87s ATo+ KJo+',
+  cutoff: '22+ A2s+ K8s+ Q9s+ J9s+ T8s+ 97s+ 86s+ 76s 65s 54s A9o+ KTo+ QTo+ JTo',
+  button: '22+ A2s+ K5s+ Q8s+ J8s+ T7s+ 96s+ 86s+ 75s+ 64s+ 54s A7o+ A5o K9o+ Q9o+ J9o+ T9o 98o',
+  sb: '22+ A2s+ K7s+ Q8s+ J8s+ T8s+ 97s+ 87s 76s 65s A8o+ A5o KTo+ QTo+ JTo',
+};
+// Tight: Standard without the small pairs, the suited wheel aces and the suited connectors in early
+// and middle position (the live pro's derivation); elsewhere the tightest generated hands that are
+// also in Standard. First-in folds are only flagged for hands in Tight.
+const TIGHT_FIRST = {
+  early: '66+ ATs+ KTs+ QTs+ JTs AQo+ KQo',
+  middle: '66+ A9s+ K9s+ Q9s+ J9s+ ATo+ KJo+',
+};
+
 export function presetRanges(name = 'standard') {
-  const p = PRESETS[name];
-  return Object.fromEntries(RANGE_GROUPS.map(([g]) => [g, topShare(p[g])]));
+  const std = Object.fromEntries(RANGE_GROUPS.map(([g]) => [g, STANDARD_FIRST[g] ? expandRange(STANDARD_FIRST[g]) : topShare(PRESETS.standard[g])]));
+  if (name === 'standard') return std;
+  if (name === 'tight') return Object.fromEntries(RANGE_GROUPS.map(([g]) => [g, TIGHT_FIRST[g] ? expandRange(TIGHT_FIRST[g]) : topShare(PRESETS.tight[g]).filter((n) => std[g].includes(n))]));
+  // Loose: the generated loose list, plus anything Standard has that it lacks.
+  return Object.fromEntries(RANGE_GROUPS.map(([g]) => [g, [...new Set([...topShare(PRESETS.loose[g]), ...std[g]])]]));
 }
+
+// Standard as it was before the hand-written presets, so ranges a player saved without changing
+// them can be moved to the new Standard while customised ones are left alone.
+export function previousStandard() {
+  return {
+    first: Object.fromEntries(RANGE_GROUPS.map(([g]) => [g, topShare(PRESETS.standard[g])])),
+    raised: Object.fromEntries(RANGE_GROUPS.map(([g]) => [g, expandRange(PREVIOUS_RAISED_STANDARD[g])])),
+  };
+}
+
+// Behind limpers, offsuit hands below these are folded first in (they are dominated and cannot
+// isolate); not in the small blind, where completing is a cheap, different decision.
+export const LIMPER_OFFSUIT = { default: 'ATo+ KJo+', button: 'A9o+ KTo+ QTo+ JTo' };
+
+// Facing a big (5x or more) or early raise, every seat uses the next tighter facing-a-raise row.
+export const TIGHTER_ROW = { early: 'early', middle: 'early', cutoff: 'middle', button: 'cutoff', sb: 'early', bb: 'middle' };
 
 // Share of all 1,326 starting hands that a list of class names covers.
 export function shareOf(names) {
@@ -76,17 +114,18 @@ export const PRESETS_RAISED = {
     early: 'TT+ AQs+ AKo',
     middle: '99+ AJs+ KQs AQo+',
     cutoff: '88+ AJs+ KQs AQo+',
-    button: '66+ ATs+ KJs+ QJs JTs AJo+ KQo',
+    button: '66+ ATs+ KJs+ QJs JTs AQo+ KQo',
     sb: '99+ AJs+ KQs AQo+',
     bb: '55+ A9s+ KTs+ QTs+ JTs T9s AJo+ KQo',
   },
+  // notes/STRAT_RANGES.md 1e with the live pro's edit (no AJo on the button), Nov 2026
   standard: {
-    early: '99+ AJs+ KQs AQo+',
-    middle: '88+ ATs+ KJs+ QJs AQo+',
-    cutoff: '77+ ATs+ KTs+ QTs+ JTs AJo+ KQo',
-    button: '22+ A9s+ A5s-A4s KTs+ QTs+ JTs T9s 98s 87s 76s ATo+ KQo',
-    sb: '88+ ATs+ KJs+ QJs AQo+',
-    bb: '22+ A2s+ K9s+ Q9s+ J9s+ T9s 98s 87s 76s 65s ATo+ KJo+ QJo',
+    early: '77+ AQs+ AKo',
+    middle: '66+ AJs+ KQs AQo+',
+    cutoff: '22+ ATs+ KJs+ QJs JTs T9s AQo+',
+    button: '22+ ATs+ A5s-A4s KTs+ QTs+ JTs T9s 98s 87s 76s 65s AQo+ KQo',
+    sb: '77+ AJs+ KQs AQo+',
+    bb: '22+ A2s+ K9s+ Q9s+ J9s+ T8s+ 97s+ 86s+ 75s+ 64s+ 54s ATo+ KTo+ QTo+ JTo',
   },
   loose: {
     early: '88+ ATs+ KJs+ QJs AJo+ KQo',
@@ -96,6 +135,15 @@ export const PRESETS_RAISED = {
     sb: '77+ A9s+ KTs+ QTs+ JTs AJo+ KQo',
     bb: '22+ A2s+ K7s+ Q8s+ J8s+ T8s+ 97s+ 86s+ 75s+ 64s+ 54s A8o+ KTo+ QTo+ JTo',
   },
+};
+
+const PREVIOUS_RAISED_STANDARD = {
+  early: '99+ AJs+ KQs AQo+',
+  middle: '88+ ATs+ KJs+ QJs AQo+',
+  cutoff: '77+ ATs+ KTs+ QTs+ JTs AJo+ KQo',
+  button: '22+ A9s+ A5s-A4s KTs+ QTs+ JTs T9s 98s 87s 76s ATo+ KQo',
+  sb: '88+ ATs+ KJs+ QJs AQo+',
+  bb: '22+ A2s+ K9s+ Q9s+ J9s+ T9s 98s 87s 76s 65s ATo+ KJo+ QJo',
 };
 
 const RANK_ORDER = '23456789TJQKA';
@@ -126,5 +174,9 @@ export function expandRange(text) {
 
 export function presetRaised(name = 'standard') {
   const p = PRESETS_RAISED[name];
-  return Object.fromEntries(RANGE_GROUPS.map(([g]) => [g, expandRange(p[g])]));
+  const own = Object.fromEntries(RANGE_GROUPS.map(([g]) => [g, expandRange(p[g])]));
+  if (name !== 'loose') return own;
+  // Loose contains Standard
+  const std = presetRaised('standard');
+  return Object.fromEntries(RANGE_GROUPS.map(([g]) => [g, [...new Set([...own[g], ...std[g]])]]));
 }

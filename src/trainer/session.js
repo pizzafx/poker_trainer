@@ -11,7 +11,7 @@ import { makePlayer, tiltChance, rebuyChance, buyIn, TABLES } from './players.js
 import { HandBelief, newRead, posterior } from './belief.js';
 import { judgeDecision, rangePicture, pairedGap, refreshClose } from './judge.js';
 import { snapshotDecision, handTruth } from './dispute.js';
-import { groupOf } from './ranges.js';
+import { groupOf, presetRanges, expandRange, LIMPER_OFFSUIT, TIGHTER_ROW } from './ranges.js';
 import { explain } from './explain.js';
 
 export const GAMES = {
@@ -42,6 +42,9 @@ export const RAKES = {
 export const APP_GAME = { game: '1/3', rake: 'pct', heroBuy: 300 };
 
 const HERO = 0;
+
+const TIGHT_FIRST = presetRanges('tight'); // first-in folds are only flagged for these hands
+const LIMPER_KEEP = { default: expandRange(LIMPER_OFFSUIT.default), button: expandRange(LIMPER_OFFSUIT.button) };
 
 // A soft tip, not a flag, on every open-limp: you limped first in (nobody limped or raised before
 // you) from any seat but the blinds. Rule-based, not a dollar test: the judge only vetoes it when it
@@ -552,9 +555,10 @@ export class Session {
       // Flatting one raise with jacks or better, ace-king or ace-queen suited instead of re-raising
       // is a style choice: never flagged (PRO review, item 9; the squeeze size made it come up).
       if (mine.type === 'call' && ctx.raises === 1 && isRaise(best()) && ['AA', 'KK', 'QQ', 'JJ', 'AKs', 'AKo', 'AQs'].includes(name)) return pass('flatOk');
-      // Folds: only flagged with a hand in the top 35%, and never worse than a mistake.
+      // Folds: first in, only flagged with a hand in the Tight preset for the seat (so the presets
+      // and the coach agree); facing a raise, only with a hand in the top 35%. Never red.
       if (mine.type === 'fold') {
-        if (playable < 0.65) return pass('preFold');
+        if (ctx.raises === 0 ? !TIGHT_FIRST[groupOf(positionName(s, HERO))].includes(name) : playable < 0.65) return pass('preFold');
         capYellow();
       }
       // Re-raising queens or better or ace-king is never a blunder, except into a nit.
@@ -705,14 +709,36 @@ export class Session {
   // nobody has raised before you, the facing-a-raise range when someone has. When the two agree
   // the answer is known at the deal; otherwise the players before you act first (at once, not
   // one by one on screen) and the range that fits what they did decides.
+  //
+  // Two rules on top of the lists: behind limpers, weak offsuit hands are folded first in (not in
+  // the blinds); and facing a big (above the usual 5x plus one per limper) or early raise, the next tighter facing-a-raise row
+  // applies as well (PRO review, Nov 2026).
   outOfRange() {
+    const s = this.hand.state;
+    const group = groupOf(positionName(s, HERO));
+    const name = classNames[classOf(s.hole[HERO][0], s.hole[HERO][1])];
     const first = this.inRange(this.heroRanges);
     const raised = this.heroRangesRaised ? this.inRange(this.heroRangesRaised) : first;
-    if (first === raised) return !first;
+    const limpFold = first && group !== 'sb' && group !== 'bb' && name.endsWith('o') && !LIMPER_KEEP[group === 'button' ? 'button' : 'default'].includes(name);
+    const tighter = this.heroRangesRaised ? (this.heroRangesRaised[TIGHTER_ROW[group]] || []).includes(name) : raised;
+    if (first === raised && !limpFold && raised === tighter) return !first;
     let guard = 0;
     while (this.status() === 'bot' && guard++ < 50) this.stepBot();
     if (this.status() !== 'hero') return false; // the hand ended before you (a walk): nothing to skip
-    return this.hand.state.raises > 0 ? !raised : !first;
+    if (s.raises > 0) {
+      const ctx = buildContext(s);
+      const raiser = s.lastRaiser;
+      // "Big" is bigger than the usual open here (5 big blinds plus one per limper).
+      let limpersBefore = 0;
+      for (const e of s.history) {
+        if (e.type === 'raise') break;
+        if (e.type === 'call') limpersBefore++;
+      }
+      const bigOrEarly = ctx.raiseBB > 5.5 + limpersBefore || (raiser >= 0 && raiser !== HERO && groupOf(positionName(s, raiser)) === 'early');
+      return !(raised && (!bigOrEarly || tighter));
+    }
+    if (limpFold && buildContext(s).limpers > 0) return true;
+    return !first;
   }
 
   // Plays the hand out with the trainee checking when free and folding otherwise.

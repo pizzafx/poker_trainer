@@ -11,7 +11,7 @@ import { DRILLS } from '../trainer/drills.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
 import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '../trainer/dispute.js';
-import { RANGE_GROUPS, presetRanges, presetRaised, shareOf } from '../trainer/ranges.js';
+import { RANGE_GROUPS, presetRanges, presetRaised, shareOf, previousStandard } from '../trainer/ranges.js';
 import { equityVsRange } from '../trainer/equity.js';
 
 const $ = (id) => document.getElementById(id);
@@ -42,6 +42,30 @@ try {
   } // anything older is dropped
 } catch {
   /* storage unavailable: use defaults */
+}
+// Standard became hand-written in Nov 2026. A seat's saved range that is still exactly the old
+// Standard moves to the new one; anything the player changed is left as it is.
+{
+  const was = previousStandard();
+  const now = { first: presetRanges('standard'), raised: presetRaised('standard') };
+  const same = (a, b) => Array.isArray(a) && a.length === b.length && b.every((n) => a.includes(n));
+  let moved = false;
+  for (const [key, kind] of [['ranges', 'first'], ['rangesRaised', 'raised']]) {
+    if (!settings[key]) continue;
+    for (const [g] of RANGE_GROUPS) {
+      if (same(settings[key][g], was[kind][g]) && !same(settings[key][g], now[kind][g])) {
+        settings[key] = { ...settings[key], [g]: now[kind][g] };
+        moved = true;
+      }
+    }
+  }
+  if (moved && !firstVisit) {
+    try {
+      localStorage.setItem('trainer-settings', JSON.stringify(settings));
+    } catch {
+      /* ignore */
+    }
+  }
 }
 // A buy-in of 100 big blinds, kept inside the room's range.
 const defaultBuy = (game) => {

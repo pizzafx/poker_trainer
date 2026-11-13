@@ -4,6 +4,7 @@
 import { STREET } from '../engine/game.js';
 import { TIER } from '../engine/features.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
+import { anchorStatus } from './grade.js';
 
 export const CATEGORIES = {
   paidOff: 'Paying off: calling when their bet or raise is almost always the goods',
@@ -152,6 +153,9 @@ function goodHeadline(v, mine, best, d = {}) {
   const who = d.opponents === 1 ? 'this player' : 'these players';
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
   if (v.note === 'premium') return `${mine.label}: fine. (Raising with this hand is never a mistake.)`;
+  if (v.note === 'anchorHabit' || v.note === 'anchorEven' || v.note === 'sizePeak') return `${mine.label}: fine.`; // the coach's estimate below says why
+  if (v.note === 'anchor') return `${mine.label}: fine. (By the coach's own numbers this is close, so it is not flagged.)`;
+  if (v.note === 'closeCall') return `${mine.label}: not graded.`;
   if (v.note === 'preSize') return `${mine.label}: fine. (${bare(best)} ${more(best, 'scores about the same')}; using one size with all your hands is the better habit.)`;
   if (v.note === 'semiBluff') return `${mine.label}: fine. (With a draw this good, betting is standard against players who can fold.)`;
   if (v.note === 'flatOk') return `${mine.label}: fine. (Re-raising also works here.)`;
@@ -207,6 +211,77 @@ function goodHeadline(v, mine, best, d = {}) {
 }
 const NUM_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
 
+// ---- the anchors' line (MATH_BASELINE_SPEC 4; the live pro's wording) ----
+// Percentages to the nearest 5; "almost never" / "almost always" at the ends; what you get, then what
+// you need; "ahead right now" before the river. Shown under flags, notes, vetoes and not-graded
+// decisions only; never under a play a rule-based note overrules (R5, R5b, R7).
+const p5 = (x) => (x < 0.05 ? 'almost never' : x > 0.95 ? 'almost always' : `about ${Math.round(x * 20) * 5}%`);
+// "ahead about 70% of the time" / "almost never ahead" / "almost always ahead"
+const aheadP = (x, now) => (x < 0.05 ? `almost never ahead${now}` : x > 0.95 ? `almost always ahead${now}` : `ahead${now} ${p5(x)} of the time`);
+const r5 = (x) => Math.round(Math.max(0, Math.min(1, x)) * 20);
+const LINE8A = 'Close. The price is right for a call, but the bets still to come take most of that back. Nothing here is graded.';
+const LINE8B = 'Close. A raise with another player in the pot is usually a strong hand. Calling and folding are both reasonable; nothing here is graded.';
+const LINE9 = "Bigger bets score higher here because the coach's opponents call almost any size. Real ones often do not. Use half to three-quarters of the pot; sizes are not graded in this spot.";
+
+function anchorLine(d) {
+  const v = d.verdict;
+  if (!v.line || !v.anchors || v.mine < 0) return null;
+  if (v.line === '8a') return LINE8A;
+  if (v.line === '8b') return LINE8B;
+  if (v.line === '9') return LINE9;
+  const hf = { tier: d.tier ?? 0, drawEquity: d.drawEquity ?? 0 };
+  const opp = d.opponents || 1;
+  const st = (o) => anchorStatus(o, v, hf, opp);
+  const river = d.street === STREET.RIVER;
+  const now = river ? '' : ' right now';
+  const mine = v.options[v.mine];
+  const ref = v.options[v.best];
+  const made = hf.tier >= TIER.WEAK_PAIR && !(hf.drawEquity >= 0.14 && hf.tier <= TIER.MIDDLE_PAIR);
+  const bet = (o) => {
+    const s = st(o);
+    if (made && o.W !== null) {
+      const thin = s === 'even' || r5(o.W) === r5(o.need);
+      if (thin) return `When called you are ${aheadP(o.W, '')} and need ${p5(o.need)}. That is thin: a small bet or a check are both fine.`;
+      if (s === 'works') return `When this bet is called you are ${aheadP(o.W, now)} and need ${p5(o.need)}. These players call with worse: bet for value.`;
+      return `When this bet is called you are ${aheadP(o.W, now)} and need ${p5(o.need)}. They mostly call with better hands.`;
+    }
+    if (s === 'works') return `Everyone folds ${p5(o.F)} of the time and this bet needs ${p5(o.alpha).replace('about ', '')}. A bigger bet needs more folds than you get.`;
+    if (s === 'even' || r5(o.F) === r5(o.alpha)) return `This bet about breaks even on folds: you get ${p5(o.F).replace('about ', '')} and need ${p5(o.alpha).replace('about ', '')}. Fine, not needed.`;
+    return `This bet needs everyone to fold ${p5(o.alpha)} of the time. Here they ${o.F < 0.05 ? 'almost never do' : `fold only ${p5(o.F).replace('about ', 'about ')}`}. Do not bluff this field.`;
+  };
+  let line = null;
+  if (v.line === '5') {
+    const called = made && mine.W !== null ? `when called you are ${aheadP(mine.W, now)}` : 'you are almost never ahead when called';
+    line = `This scores higher against these opponents, but ${called} and everyone folds only ${p5(mine.F).replace('about ', '')} of the time; it needs ${p5(mine.alpha).replace('about ', '')}. Not a habit to build.`;
+  } else if (mine.type === 'raise') line = bet(mine);
+  else if (v.anchors.Q !== undefined && (mine.type === 'call' || mine.type === 'fold')) {
+    const A = v.anchors;
+    const call = v.options.find((o) => o.type === 'call');
+    const s = call ? st(call) : null;
+    const who = d.toCall > 0 && opp === 2 && d.raises <= 1 ? ' of both players' : '';
+    const need = p5(A.price).replace('about ', '');
+    if (hf.drawEquity >= 0.14) {
+      // a draw: its chance to come in, against the price
+      line = `Your draw comes in ${p5(hf.drawEquity)} of the time and the price needs ${need}. ${s === 'works' ? 'Call.' : 'Not at this price.'}`;
+    } else if (s === 'works') line = `You are ${aheadP(A.Q, '').replace('ahead', `ahead${who}`)} and need ${need} at this price. Call.${hf.tier >= TIER.WEAK_PAIR && hf.tier <= TIER.OVERPAIR_TPTK ? ' Raising gets called mostly by better hands.' : ''}`;
+    else if (s === 'fails') line = `You are ${aheadP(A.Q, '')} here and need ${need} at this price. Good players bluff just enough to make this close. This player's bets are nearly always real. Fold.`;
+    else line = `You are ${aheadP(A.Q, '')} here and need ${need} at this price: close.`;
+  } else if (mine.type === 'check' && ref.type === 'raise' && ref !== mine) {
+    const b = bet(ref);
+    line = `A bet of $${ref.to - (d.currentBet || 0)}: ${b[0].toLowerCase()}${b.slice(1)}`;
+  }
+  if (!line) return null;
+  // the optional clauses (MATH_BASELINE_SPEC 4)
+  const post = d.villain && d.villain.picture && d.villain.picture.post;
+  if (post) {
+    let top = 0;
+    for (let k = 1; k < post.length; k++) if (post[k] > post[top]) top = k;
+    if (post[top] < 0.5) line += ' You have not seen much of these players yet. Take the play that works against anyone.';
+    else if (['tag', 'lag'].includes(TYPE_IDS[top])) line += ` ${d.villain.nick} is a solid player: do not count on the loose calls or the missing bluffs you get from the others.`;
+  }
+  return line;
+}
+
 // What a flagged play cost, as shown: the gap between the two options' values in whole dollars,
 // each rounded the way the numbers table and the bars show them, so the three always agree and
 // totals add up to the sum of what each verdict said.
@@ -230,6 +305,7 @@ export function explain(d) {
       cost: 0,
       tip: v.tip ? v.tip.text : null, // "Tip: ..." under a fine verdict
       tipKind: v.tip ? v.tip.kind : null,
+      anchor: anchorLine(d),
     };
   }
   const category = categorise(d);
@@ -274,5 +350,5 @@ export function explain(d) {
     if (d.tier === null || d.tier < TIER.TOP_PAIR_GOOD || (multiway && d.tier <= TIER.OVERPAIR_TPTK)) theory = null; // R11
     else if (d.regularIn) theory = 'Why theory disagrees: against players who call too wide and rarely bluff, a good hand should simply bet.';
   }
-  return { category, headline, reasons, theory, cost };
+  return { category, headline, reasons, theory, cost, anchor: anchorLine(d) };
 }

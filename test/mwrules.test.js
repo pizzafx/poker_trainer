@@ -5,7 +5,7 @@ import { STREET, legal } from '../src/engine/game.js';
 import { handFeatures, TIER } from '../src/engine/features.js';
 import { POS } from '../src/bots/policy.js';
 import { judgeDecision } from '../src/trainer/judge.js';
-import { limpOutsideTipFor, robustVerdict } from '../src/trainer/grade.js';
+import { limpOutsideTipFor, robustVerdict, anchorStatus } from '../src/trainer/grade.js';
 import { build, gradeAll } from '../scripts/gradeall.js';
 
 // STRAT: a call before the river with top pair or better and a draw is yellow at most, at any size.
@@ -89,4 +89,29 @@ test('scenario test: the no-named-option flag needs 1.5 bars in every scenario',
   // and one option beating it by the bar everywhere is named instead
   const named = opts([[0, 10, 20], [0, 9.5, 12], [0, 11, 9.2]]);
   assert.equal(named.pick, 1);
+});
+
+// MATH_BASELINE_SPEC 1: works / about break-even / fails, with the two-standard-error guard.
+test('anchors: a play works, breaks even or fails on its own numbers', () => {
+  const v = { anchors: { n: 3000, Q: 0.5, price: 0.2 } };
+  const made = { tier: TIER.TOP_PAIR_GOOD, drawEquity: 0 };
+  const air = { tier: TIER.HIGH_CARD, drawEquity: 0.02 };
+  const draw = { tier: TIER.HIGH_CARD, drawEquity: 0.32 };
+  const bet = (o) => ({ type: 'raise', to: 50, ...o });
+  // value: ahead when called against what k callers need
+  assert.equal(anchorStatus(bet({ W: 0.8, need: 0.45, called: 1500, F: 0.1, alpha: 0.35 }), v, made, 2), 'works');
+  assert.equal(anchorStatus(bet({ W: 0.5, need: 0.45, called: 1500, F: 0.1, alpha: 0.35 }), v, made, 2), 'even');
+  assert.equal(anchorStatus(bet({ W: 0.3, need: 0.45, called: 1500, F: 0.1, alpha: 0.35 }), v, made, 2), 'fails');
+  assert.equal(anchorStatus(bet({ W: 0.4, need: 0.45, called: 30, F: 0.1, alpha: 0.35 }), v, made, 2), 'even', 'too few calls to tell');
+  // nothing: folds against alpha; above it only by a margin
+  assert.equal(anchorStatus(bet({ F: 0.45, alpha: 0.35, W: 0.05, need: 0.4, called: 900 }), v, air, 2), 'works');
+  assert.equal(anchorStatus(bet({ F: 0.34, alpha: 0.35, W: 0.05, need: 0.4, called: 900 }), v, air, 2), 'even');
+  assert.equal(anchorStatus(bet({ F: 0.1, alpha: 0.6, W: 0.05, need: 0.4, called: 900 }), v, air, 2), 'fails');
+  // a draw works on folds or on its own equity
+  assert.equal(anchorStatus(bet({ F: 0.02, alpha: 0.42, W: 0.01, need: 0.3, called: 900 }), v, draw, 2), 'works');
+  assert.equal(anchorStatus(bet({ F: 0.02, alpha: 0.42, W: 0.01, need: 0.4, called: 900 }), v, draw, 2), 'fails');
+  // a call: ahead right now against the price
+  assert.equal(anchorStatus({ type: 'call' }, v, made, 2), 'works');
+  assert.equal(anchorStatus({ type: 'call' }, { anchors: { n: 3000, Q: 0.05, price: 0.3 } }, made, 2), 'fails');
+  assert.equal(anchorStatus({ type: 'check' }, v, made, 2), 'works');
 });

@@ -637,6 +637,9 @@ function noteText(d) {
   const body = (k >= 0 ? d.headline.slice(k + 2) : d.headline).replace(/^(fine|good|not graded)\.\s*/, '').replace(/^\((.*)\)$/, '$1');
   return body;
 }
+// MATH's anchors: "The coach's estimate" under flags, notes, vetoes and not-graded decisions
+const anchorHtml = (d) => (d.anchor ? `<p class="anchor-line"><span class="label">The coach's estimate</span> ${esc(d.anchor)}</p>` : '');
+const notGraded = (v) => v.note === 'unclear' || v.note === 'closeCall';
 const noteLine = (d, cls) => {
   const n = noteText(d);
   return n ? `<p class="${cls}">${esc(n)}</p>` : '';
@@ -671,6 +674,7 @@ function fbCard(d, showWhere = true) {
     .join('');
   return `<div class="fb ${v.grade}">${where}
     <div class="head">${esc(d.headline)}</div>
+    ${anchorHtml(d)}
     ${tipLine(d)}
     ${d.reasons.map((r) => `<p>${esc(r)}</p>`).join('')}
     ${d.theory ? `<p class="theory">${esc(d.theory)}</p>` : ''}
@@ -817,7 +821,7 @@ function stripHtml(show, { worst, prev }) {
   const g = v.grade;
   const mine = v.options[v.mine];
   const tipping = g === 'good' && !!show.tipKind;
-  const word = g === 'good' ? (v.note === 'unclear' ? 'not graded' : v.mine === v.best && !tipping && !v.note ? 'best play' : 'fine') : g; // with a tip or a note it is "fine", as the headline says (QA Z3, M4)
+  const word = g === 'good' ? (notGraded(v) ? 'not graded' : v.mine === v.best && !tipping && !v.note ? 'best play' : 'fine') : g; // with a tip or a note it is "fine", as the headline says (QA Z3, M4)
   const cost = g === 'good' ? 0 : shownCost(v);
   const tipFn = g === 'good' && show.tipKind ? STRIP_TIP[show.tipKind] : null;
   const tip = g === 'good' && show.tipKind ? (tipFn && v.tip ? tipFn(v.tip) : 'Tip') : '';
@@ -1194,9 +1198,9 @@ function openReview(stored = false) {
   const rows = ds.map((d) => {
     const v = d.verdict;
     const mine = v.options[v.mine];
-    const head = `<span class="label">${STREET_LABEL[d.street] || d.streetName}</span><span class="vmark ${d.verdict.grade}">${MARK[v.grade]}</span><span class="what">${esc(mine ? mine.label : '')}</span><span class="grade ${v.grade}">${v.note === 'unclear' ? 'not graded' : GRADE_WORD[v.grade]}</span>`;
+    const head = `<span class="label">${STREET_LABEL[d.street] || d.streetName}</span><span class="vmark ${d.verdict.grade}">${MARK[v.grade]}</span><span class="what">${esc(mine ? mine.label : '')}</span><span class="grade ${v.grade}">${notGraded(v) ? 'not graded' : GRADE_WORD[v.grade]}</span>`;
     const link = rec ? `<button type="button" class="link-btn rv-replay" data-replay-dec="${ds.indexOf(d)}">▶ replay</button>` : '';
-    if (v.grade === 'good') return `<div class="rv-step">${head}${link}</div>${tipLine(d, 'tip-line rv-tip')}${noteLine(d, 'tip-line rv-tip rv-note')}`;
+    if (v.grade === 'good') return `<div class="rv-step">${head}${link}</div>${tipLine(d, 'tip-line rv-tip')}${noteLine(d, 'tip-line rv-tip rv-note')}${anchorHtml(d)}`;
     const evs = v.options.map((o) => o.ev);
     const lo = Math.min(...evs, 0);
     const hi = Math.max(...evs, 0);
@@ -1207,6 +1211,7 @@ function openReview(stored = false) {
     return `<details class="rv-flag ${v.grade}" ${d === firstFlag ? 'open' : ''}><summary class="rv-step">${head}${link}</summary>
       <div class="rv-body">
         <h2>${esc(d.headline)}</h2>
+        ${anchorHtml(d)}
         ${d.reasons.map((r) => `<p class="why">${esc(readThen(d, r))}</p>`).join('')}
         <p class="label">What each option is worth, on average</p>
         <div class="bars">${bars}</div>
@@ -2665,6 +2670,7 @@ function flagBlock(d) {
   const eq = d.villain && d.villain.picture && d.villain.picture.equity !== null && d.villain.picture.equity !== undefined ? d.villain.picture.equity : null;
   const duo = eq !== null && d.toCall > 0 ? `<div class="duo"><div class="stat"><span class="label">You beat</span><b>${Math.round(eq * 100)}%</b></div><div class="stat"><span class="label">You needed</span><b>${Math.round(d.odds * 100)}%</b></div></div>` : '';
   return `<h2>${esc(d.headline)}</h2>
+    ${anchorHtml(d)}
     ${d.reasons.map((r) => `<p class="why">${esc(r)}</p>`).join('')}
     <p class="label">What each option is worth, on average</p>
     <div class="bars">${bars}</div>
@@ -2683,7 +2689,7 @@ function renderReplayCoach() {
     const d = rec.decisions[f.decision];
     const v = d.verdict;
     const mine = v.options[v.mine];
-    const head = `<div class="rp-card-head"><span class="vmark ${v.grade}">${MARK[v.grade]}</span><div><b>${esc(mine ? mine.label : '')}</b><small>${esc(actionSub(rec, f, RP.i))}</small></div><span class="grade ${v.grade}">${v.note === 'unclear' ? 'not graded' : GRADE_WORD[v.grade]}</span></div>`;
+    const head = `<div class="rp-card-head"><span class="vmark ${v.grade}">${MARK[v.grade]}</span><div><b>${esc(mine ? mine.label : '')}</b><small>${esc(actionSub(rec, f, RP.i))}</small></div><span class="grade ${v.grade}">${notGraded(v) ? 'not graded' : GRADE_WORD[v.grade]}</span></div>`;
     if (v.grade !== 'good') {
       html = `<div class="rp-card ${v.grade}">${head}<div class="rv-body">${flagBlock(d)}
         <div class="rv-acts">${d.villain ? `<button type="button" class="btn small" data-rseat="${d.villain.seat}">See ${esc(d.villain.nick)}'s range</button>` : ''}${d.category && DRILLS[d.category] ? `<button type="button" class="btn small" data-drill="${d.category}">Drill this leak</button>` : ''}${d.snapshot ? '<button type="button" class="btn small quiet" data-rdispute="1">Disagree?</button>' : ''}</div></div></div>`;
@@ -3017,7 +3023,7 @@ function handCardHtml(p) {
   const verdictOf = (d) => {
     if (!d) return '';
     const g = d.verdict.grade;
-    if (g === 'good') return `<span class="hl-v good"><span class="vmark good">${MARK.good}</span>${d.verdict.note === 'unclear' ? 'not graded' : d.tipKind ? 'fine · tip' : 'fine'}</span>`;
+    if (g === 'good') return `<span class="hl-v good"><span class="vmark good">${MARK.good}</span>${notGraded(d.verdict) ? 'not graded' : d.tipKind ? 'fine · tip' : 'fine'}</span>`;
     return `<span class="hl-v ${g}">${g === 'blunder' ? 'Blunder' : 'Mistake'} · ${money(d.cost)}${p.why ? ` <button type="button" class="link-btn hl-why" data-why="${decisions.indexOf(d)}">Why ›</button>` : ''}</span>`;
   };
   let heroN = 0;

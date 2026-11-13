@@ -7,6 +7,7 @@ import { makeRng } from '../engine/cards.js';
 import { COMBOS } from '../engine/hands.js';
 import { legal, applyAction, cloneState, potSize, STREET } from '../engine/game.js';
 import { handFeatures, boardTexture, TIER } from '../engine/features.js';
+import { evaluate } from '../engine/evaluator.js';
 import { classOf } from '../engine/hands.js';
 import { buildContext, preflopPolicy, postflopPolicy, sampleAction } from '../bots/policy.js';
 import { PROFILES, TYPE_IDS, HERO_PROFILE } from '../bots/profiles.js';
@@ -169,6 +170,20 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   // After the flop, each sample's dealt hands, so the free "ranges stronger / weaker" scenarios can
   // count later, only if a flag needs them, how many opponents beat the trainee (MATH_MULTIWAY 2b).
   const dealtCombos = s.board.length >= 3 ? new Uint16Array(N * opps.length) : null;
+  // MATH's anchors (MATH_BASELINE_SPEC, phase 2a), after the flop, on the base run only: per option,
+  // how the opponents first answered (everyone folds, someone raises, or k callers) and whether the
+  // trainee's hand beats every caller's right now; facing a bet, whether it beats everyone who has put
+  // money in on this street. No extra play-outs.
+  const anchors = s.board.length >= 3 && !opts.shift && !opts.heroProfile;
+  const A = anchors ? cands.map(() => ({ allFold: 0, raised: 0, called: 0, ahead: 0, need: 0 })) : null;
+  // a made hand's score is evaluate() of the seven (or fewer) cards, as handFeatures' score is
+  const scoreOf = (hole) => evaluate([...hole, ...s.board]);
+  const myScore = anchors ? scoreOf(s.hole[hero]) : 0;
+  const oppScore = new Map();
+  const inSeats = [];
+  if (anchors) for (const h of s.history) if (h.street === s.street && h.seat !== hero && ['bet', 'raise', 'call'].includes(h.type) && !s.folded[h.seat] && !inSeats.includes(h.seat)) inSeats.push(h.seat);
+  let q = 0;
+  const startLen = s.history.length;
   let n = 0;
   let guard = 0;
   heroP = opts.heroProfile || HERO_PROFILE;
@@ -209,11 +224,52 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     }
     base.plan = plan;
     const seedK = (seed * 104729 + n) | 0;
+    if (anchors) {
+      oppScore.clear();
+      for (const o of opps) oppScore.set(o, scoreOf(base.hole[o]));
+      // ahead of everyone who has put money in (1 ahead, 0.5 tied, 0 behind)
+      if (inSeats.length) {
+        let ok = 1;
+        for (const o of inSeats) {
+          const sc = oppScore.get(o);
+          if (sc > myScore) ok = 0;
+          else if (sc === myScore) ok = Math.min(ok, 0.5);
+        }
+        q += ok;
+      }
+    }
     for (let c = 0; c < C; c++) {
       const st = cloneState(base);
       applyAction(st, cands[c], rngS);
       playOut(st, hero, prof, seedK, opts.heat || 0, opts.shift || 0);
       res[c][n] = st.stacks[hero] - baseStack;
+      if (A && cands[c].type === 'raise') {
+        // each opponent's first answer to the bet, on this street
+        const hist = st.history;
+        const seen = new Set();
+        let callers = 0;
+        let ok = 1;
+        let raised = false;
+        for (let i = startLen + 1; i < hist.length && hist[i].street === s.street; i++) {
+          const h = hist[i];
+          if (h.seat === hero || seen.has(h.seat)) break;
+          seen.add(h.seat);
+          if (h.type === 'call') {
+            callers++;
+            const sc = oppScore.get(h.seat);
+            if (sc > myScore) ok = 0;
+            else if (sc === myScore) ok = Math.min(ok, 0.5);
+          } else if (h.type === 'raise' || h.type === 'bet') raised = true;
+        }
+        const a = A[c];
+        if (raised) a.raised++;
+        else if (!callers) a.allFold++;
+        else {
+          a.called++;
+          a.need += 1 / (callers + 1);
+          a.ahead += ok;
+        }
+      }
     }
     n++;
   }
@@ -286,8 +342,15 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     else if (loss >= small) grade = 'mistake';
   }
 
+  const anchorOf = (c, i) => {
+    if (!A || c.type !== 'raise') return {};
+    const a = A[i];
+    const B = c.to - s.bet[hero];
+    return { F: a.allFold / Math.max(1, n), R: a.raised / Math.max(1, n), alpha: B / (pot + B), W: a.called ? a.ahead / a.called : null, need: a.called ? a.need / a.called : null, called: a.called };
+  };
+  const raiseIdx = cands.map((c, i) => (c.type === 'raise' ? i : -1)).filter((i) => i >= 0);
   const verdict = {
-    options: cands.map((c, i) => ({ ...c, ev: evs[i], close: close[i] })),
+    options: cands.map((c, i) => ({ ...c, ev: evs[i], close: close[i], ...anchorOf(c, i) })),
     best,
     mine,
     loss,
@@ -298,6 +361,14 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     pot,
     street: s.street,
   };
+  if (A) {
+    verdict.anchors = { n, topSizeBest: raiseIdx.length > 1 && best === raiseIdx[raiseIdx.length - 1] };
+    if (inSeats.length) {
+      const callAmt = legal(s).callAmt;
+      verdict.anchors.Q = q / Math.max(1, n);
+      verdict.anchors.price = callAmt / (pot + callAmt);
+    }
+  }
   // The per-run results, kept out of JSON (reports, storage) but available to pairedGap below.
   const sample = dealtCombos ? { combos: dealtCombos, opps: opps.length, hole: s.hole[hero], board: s.board.slice(), beats: null } : null;
   Object.defineProperty(verdict, 'runs', { value: { res, n, sample }, enumerable: false });
@@ -327,11 +398,11 @@ export function tiltedEvs(v, k) {
   const { res, n, sample } = v.runs;
   if (!sample.beats) {
     // how many opponents hold a better hand than the trainee right now, per sample (counted once)
-    const mine = handFeatures(sample.hole, sample.board).score;
+    const mine = evaluate([...sample.hole, ...sample.board]);
     sample.beats = new Uint8Array(n);
     for (let i = 0; i < n; i++) {
       let c = 0;
-      for (let j = 0; j < sample.opps; j++) if (handFeatures(COMBOS[sample.combos[i * sample.opps + j]], sample.board).score > mine) c++;
+      for (let j = 0; j < sample.opps; j++) if (evaluate([...COMBOS[sample.combos[i * sample.opps + j]], ...sample.board]) > mine) c++;
       sample.beats[i] = c;
     }
   }

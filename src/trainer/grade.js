@@ -115,6 +115,11 @@ export function gradeDecision(s, belief, action, judgeOpts, env) {
 // and does not flag plays a competent player would defend. Multiway rules: MULTIWAY_COACH_SPEC.md
 // (FINAL, Nov 2026), R1-R11; the scenario test at the end is MATH_MULTIWAY 2b.
 export function temper(v, s, ctx, action, judgeOpts, env) {
+  guardrails(v, s, ctx, action, judgeOpts, env);
+  if (v.mine >= 0 && v.anchors && s.street !== STREET.PRE) applyAnchors(v, s, ctx);
+}
+
+function guardrails(v, s, ctx, action, judgeOpts, env) {
   if (v.mine < 0) return;
   v.small = Math.max(3 * s.bbAmt, 0.1 * v.pot); // the yellow bar, for the notes' copy
   const pre = s.street === STREET.PRE;
@@ -295,19 +300,31 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
   // 1. Declining to bluff-raise is never a mistake: compare with the best non-raise.
   if (ctx.toCall > 0 && isRaise(best()) && !isRaise(mine) && weak && regrade((o) => !isRaise(o), 'bluffRaise', 'noRaise')) return;
   // R5. Declining to raise with one pair facing a bet is never flagged.
-  if (ctx.toCall > 0 && onePair && mine.type === 'call' && isRaise(best())) return pass(null);
+  if (ctx.toCall > 0 && onePair && mine.type === 'call' && isRaise(best())) {
+    v.rule = 'R5';
+    return pass(null);
+  }
   // R5b. Facing a passive player's lead with a caller in, a call with one pair is never flagged;
   //     nor is a fold (the spec accepts both: one pair is rarely best when a passive player leads
   //     into a crowd).
-  if (passiveLead && onePair && mine.type === 'call') return pass(null);
+  if (passiveLead && onePair && mine.type === 'call') {
+    v.rule = 'R5b';
+    return pass(null);
+  }
   //     Only against a lead of a quarter of the pot or more: getting 4 to 1 or better, a one-pair fold
   //     is graded as usual (STRAT, Nov 2026).
   const potBefore = v.pot - s.bet.reduce((a, x) => a + x, 0);
   if (passiveLead && onePair && mine.type === 'fold' && s.currentBet >= 0.25 * potBefore) return pass('passiveFold');
   // R6. Folding one pair to a raise of your bet, when another player has also put money in.
+  if (ctx.toCall > 0 && onePair && ctx.raises >= 2 && ctx.iBetThisStreet) {
+    if (s.history.some((h) => h.street === s.street && h.seat !== HERO && h.seat !== s.lastRaiser && ['call', 'bet', 'raise'].includes(h.type))) v.r6Spot = true;
+  }
   if (ctx.toCall > 0 && mine.type === 'fold' && onePair && ctx.raises >= 2 && ctx.iBetThisStreet) {
     const others = s.history.some((h) => h.street === s.street && h.seat !== HERO && h.seat !== s.lastRaiser && ['call', 'bet', 'raise'].includes(h.type));
-    if (others) return pass(null);
+    if (others) {
+      v.rule = 'R6';
+      return pass(null);
+    }
   }
   // 2. Nobody is held to an overbet: compare with the best option up to a pot-sized bet.
   const over = (o) => isRaise(o) && o.to - s.currentBet > v.pot * 1.05;
@@ -557,4 +574,158 @@ function thinValue(v, s, env, bar) {
   // the gap as the numbers table rounds it, and whether it reaches the yellow bar (QA K2)
   const gain = Math.round(v.options[bet].ev) - Math.round(mine.ev);
   return { size, to: v.options[bet].to, nick: from >= 0 ? env.name(from) : null, gain, small: gain < bar };
+}
+
+// ---------------- MATH's anchors (MATH_BASELINE_SPEC, phase 2a) ----------------
+// Each play is "works", "even" (about break-even) or "fails" on the numbers the judge recorded: how
+// often everyone folds (F, against what a bet with no equity needs, alpha), how often the hand is
+// ahead right now when called (W, against need = 1/(callers+1)), and, facing a bet, how often it is
+// ahead of everyone who put money in (Q, against the price). A share counts as above or below its
+// threshold only when it clears it by two standard errors; otherwise "even". The tolerances (0.05,
+// 0.10, 0.20) are MATH's, tunables.
+export function anchorStatus(o, v, hf, opp) {
+  const A = v.anchors;
+  if (!A || !hf) return null;
+  const draw = hf.drawEquity >= 0.14 && hf.tier <= TIER.MIDDLE_PAIR;
+  const se = (x, k) => Math.sqrt(Math.max(0, x * (1 - x)) / Math.max(1, k));
+  if (o.type === 'raise') {
+    if (o.F === undefined) return null;
+    if (draw) return o.F >= o.alpha - 0.05 || hf.drawEquity >= (o.need ?? 1 / (opp + 1)) ? 'works' : 'fails';
+    if (hf.tier >= TIER.WEAK_PAIR) {
+      if (!o.called) return 'even';
+      const e = se(o.W, o.called);
+      if (o.W - (o.need + 0.1) >= 2 * e) return 'works';
+      if (o.need - o.W >= 2 * e) return 'fails';
+      return 'even';
+    }
+    const e = se(o.F, A.n);
+    if (o.F >= o.alpha + Math.max(0.02, 2 * e)) return 'works';
+    if (o.alpha - 0.05 - o.F >= 2 * e) return 'fails';
+    return 'even';
+  }
+  if (o.type === 'call') {
+    if (A.Q === undefined) return null;
+    if (hf.drawEquity >= 0.14) return hf.drawEquity >= A.price ? 'works' : 'fails';
+    const e = se(A.Q, A.n);
+    if (A.Q - (A.price + 0.1) >= 2 * e) return 'works';
+    if (A.price - 0.1 - A.Q >= 2 * e) return 'fails';
+    return 'even';
+  }
+  return 'works'; // checking and folding are always available
+}
+
+// A1-A5, after every other rule: the anchors can veto a flag or veto praise; they never create a
+// flag (A5). Rule-based notes (R5, R5b, R6, R7, the passive-lead fold) overrule them.
+function applyAnchors(v, s, ctx) {
+  const hf = handFeatures(s.hole[HERO], s.board);
+  let opp = 0;
+  for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) opp++;
+  const st = (o) => anchorStatus(o, v, hf, opp);
+  const mine = v.options[v.mine];
+  if (v.note === 'mwHabit' || v.note === 'passiveFold' || v.rule === 'R5' || v.rule === 'R5b') return;
+  if (v.rule === 'R6' || v.r6Spot) {
+    v.line = '8b'; // a raise with another player in: the neutral line for every option
+    return;
+  }
+  const RAW = v.options.reduce((b, o, i) => (o.ev > v.options[b].ev ? i : b), 0);
+  // A4: the judge's best is a fold while a call works by 20 points or more, or the reverse:
+  // nothing on this decision is graded, and the line names no play.
+  const A = v.anchors;
+  if (A.Q !== undefined) {
+    const raw = v.options[RAW].type;
+    if ((raw === 'fold' && A.Q >= A.price + 0.2) || (raw === 'call' && A.Q <= A.price - 0.2)) {
+      v.grade = 'good';
+      v.note = 'closeCall';
+      v.line = '8a';
+      return;
+    }
+  }
+  const regrade = (allow) => {
+    let alt = -1;
+    v.options.forEach((o, i) => {
+      if ((i === v.mine || allow(o)) && (alt < 0 || o.ev > v.options[alt].ev)) alt = i;
+    });
+    if (alt === v.best) return;
+    v.best = alt;
+    v.sameKind = v.options[alt].type === mine.type;
+    if (alt === v.mine) {
+      v.loss = 0;
+      v.se = 0;
+      v.grade = 'good';
+    } else {
+      const g = pairedGap(v, alt, v.mine);
+      const k = v.sameKind ? 1.6 : 1;
+      const small = v.small;
+      const big = Math.max(8 * s.bbAmt, 0.2 * v.pot);
+      // only ever smaller than before
+      const RANK = { good: 0, mistake: 1, blunder: 2 };
+      const g2 = !(g.mean > 2.2 * g.se) || g.mean < small * k ? 'good' : g.mean >= big * k ? 'blunder' : 'mistake';
+      if (RANK[g2] < RANK[v.grade]) v.grade = g2;
+      v.loss = g.mean;
+      v.se = g.se;
+    }
+    v.ref = null;
+    refreshClose(v);
+  };
+  const supported = (o) => o.type !== 'raise' || st(o) === 'works';
+  if (v.grade === 'good') {
+    // A2, praise: a bet or raise the anchors do not support is never labelled best. One that fails
+    // gets the "not a habit" note (line 5); one about break-even just its line (4b or 2).
+    if (mine.type === 'raise' && st(mine) && st(mine) !== 'works') {
+      if (v.best === v.mine && st(mine) === 'fails') v.note = 'anchorHabit';
+      else if (!v.note) v.note = 'anchorEven';
+      let b = -1;
+      v.options.forEach((o, i) => {
+        if (i !== v.mine && supported(o) && (b < 0 || o.ev > v.options[b].ev)) b = i;
+      });
+      if (b >= 0) {
+        v.best = b;
+        v.sameKind = v.options[b].type === mine.type;
+        refreshClose(v);
+      }
+      v.line = v.note === 'anchorHabit' ? '5' : 'auto';
+      return;
+    }
+    // ...nor named as the play that "rates about the same" (A3: with nothing or a draw, the
+    // reference is the best supported size, or a check)
+    if (v.best !== v.mine && !supported(v.options[v.best])) {
+      let b = v.mine;
+      v.options.forEach((o, i) => {
+        if (supported(o) && o.ev > v.options[b].ev) b = i;
+      });
+      v.best = b;
+      v.sameKind = v.options[b].type === mine.type;
+      refreshClose(v);
+    }
+    if (v.note) v.line = 'auto';
+    return;
+  }
+  // A2, reference: an unsupported bet or raise is never the play a flag is measured against
+  if (v.options[v.best].type === 'raise' && !supported(v.options[v.best])) {
+    regrade(supported);
+    if (v.grade === 'good') {
+      v.note = 'anchor';
+      v.line = 'auto';
+      return;
+    }
+  }
+  // A3: sizes are not graded when the largest size is the best and the hand is less than two pair
+  if (mine.type === 'raise' && v.options[v.best].type === 'raise' && A.topSizeBest && hf.tier < TIER.TWO_PAIR) {
+    v.grade = 'good';
+    v.note = 'sizePeak';
+    v.line = '9';
+    return;
+  }
+  // A1: a flag stands only if the play fails: a bet or raise that is the trainee's own ("bluffing
+  // players who do not fold", overplaying) or a call measured against a fold ("paying off") on its own
+  // numbers; otherwise ("missed value", "folded too much") when the play it is measured against works.
+  const ref = v.options[v.best];
+  // (a size flag, bet against bigger bet, is missed value: the reference must work)
+  const own = (mine.type === 'raise' && ref.type !== 'raise') || (mine.type === 'call' && ref.type === 'fold');
+  const verdictOk = own ? st(mine) === 'fails' || st(mine) === null : st(ref) === 'works' || st(ref) === null;
+  if (!verdictOk) {
+    v.grade = 'good';
+    v.note = 'anchor';
+  }
+  v.line = 'auto';
 }

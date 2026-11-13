@@ -289,7 +289,10 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
   //     nor is a fold (the spec accepts both: one pair is rarely best when a passive player leads
   //     into a crowd).
   if (passiveLead && onePair && mine.type === 'call') return pass(null);
-  if (passiveLead && onePair && mine.type === 'fold') return pass('passiveFold');
+  //     Only against a lead of a quarter of the pot or more: getting 4 to 1 or better, a one-pair fold
+  //     is graded as usual (STRAT, Nov 2026).
+  const potBefore = v.pot - s.bet.reduce((a, x) => a + x, 0);
+  if (passiveLead && onePair && mine.type === 'fold' && s.currentBet >= 0.25 * potBefore) return pass('passiveFold');
   // R6. Folding one pair to a raise of your bet, when another player has also put money in.
   if (ctx.toCall > 0 && mine.type === 'fold' && onePair && ctx.raises >= 2 && ctx.iBetThisStreet) {
     const others = s.history.some((h) => h.street === s.street && h.seat !== HERO && h.seat !== s.lastRaiser && ['call', 'bet', 'raise'].includes(h.type));
@@ -320,7 +323,10 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
   const pfr = heroRaisedPreflop(s);
   const shape = boardShape(s.board);
   const protect = goodTP && (shape.twoTone || shape.connected) && (ctx.inPosition || pfr);
-  const r1Exception = (opp === 2 && goodTP && ctx.inPosition && pfr && !behind.preflopRaiser) || (opp >= 3 && protect);
+  const fourWayException = opp >= 3 && protect;
+  const r1Exception = (opp === 2 && goodTP && ctx.inPosition && pfr && !behind.preflopRaiser) || fourWayException;
+  // ...and the four-way case is yellow at most, on every street (STRAT, Nov 2026)
+  if (fourWayException && mine.type === 'check' && isRaise(best())) capYellow();
   // 4. Checking one pair before the river out of position to three or more players, or with
   //    the preflop raiser still to act behind, is never flagged (PRO review, item 4).
   if (!river && ctx.toCall === 0 && mine.type === 'check' && onePair && !r1Exception) {

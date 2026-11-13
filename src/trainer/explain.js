@@ -236,7 +236,7 @@ const aheadP = (x, now) => (x < 0.05 ? `almost never ahead${now}` : x > 0.95 ? `
 const foldsP = (x, only = false) => (x < 0.05 ? 'almost no one folds' : x > 0.95 ? 'nearly everyone folds' : `everyone folds ${only ? 'only ' : ''}${often(x)}`);
 const LINE8A = 'Close. The price is right for a call, but the bets still to come take most of that back. Nothing here is graded.';
 const LINE8B = 'Close. A raise with another player in the pot is usually a strong hand. Calling and folding are both reasonable; nothing here is graded.';
-const LINE9 = 'Bigger bets score higher only because these opponents call any size; real players often fold. Use half to three-quarters of the pot; sizes are not graded.';
+const LINE9 = 'Bigger bets score higher only because these opponents call any size; real players often fold. Use half to three-quarters of the pot; bigger is not required.';
 
 export function anchorLine(d) {
   const v = d.verdict;
@@ -275,7 +275,8 @@ export function anchorLine(d) {
     const W = mine.W;
     const called = W === null || W === undefined || W < 0.05 ? 'You are almost never ahead when called' : W > 0.95 ? `When called you are almost always ahead${now}` : `When called you are ahead${now} ${share(W)}`;
     const folds = mine.F < 0.05 ? 'almost no one folds' : mine.F > 0.95 ? 'nearly everyone folds' : `everyone folds only ${share(mine.F)}`;
-    line = `Scores higher against these opponents only. ${called} and ${folds}; it needs ${share(mine.alpha, false)}. Not a habit.`;
+    // the middle sentence alone when the headline above already says "not a habit to build" (CEO)
+    line = v.note === 'mwHabit' ? `${called} and ${folds}; it needs ${share(mine.alpha, false)}.` : `Scores higher against these opponents only. ${called} and ${folds}; it needs ${share(mine.alpha, false)}. Not a habit.`;
   } else if (ref !== mine && ref.type === 'raise' && mine.type === 'raise' && v.grade !== 'good' && ref.F !== undefined && mine.F !== undefined) {
     // a size flagged against another size: what the size changes
     const $ = (o) => `$${o.to - (d.currentBet || 0)}`;

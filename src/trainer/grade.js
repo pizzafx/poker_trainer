@@ -334,8 +334,25 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   if (mw && onePair && ctx.toCall === 0 && isRaise(best()) && !upTo75(best()) && regrade(upTo75, 'sizeCheck', 'upTo75')) return;
   // R8. Tiny pots: no "missed value" flag with one pair or weaker.
   if (v.pot < 6 * bb && tier <= TIER.OVERPAIR_TPTK && (mine.type === 'check' || mine.type === 'call') && isRaise(best())) return pass('tinyPot');
-  // R4. Draws multiway are never flagged for checking or calling.
-  if (mw && draw && (mine.type === 'check' || mine.type === 'call') && isRaise(best())) return pass('mwDraw');
+  // Owner, Nov 2026 (amending R1 and R4): a very costly multiway check is a yellow flag, not a note,
+  // when all hold: the gap is three bars or more (and clears its margin of error); the bet holds up on
+  // the anchors (with a draw only on its own equity, 1 / (callers + 1), and only with nobody left to act
+  // behind); and that same bet beats checking in every scenario (checked at the end).
+  const costly = (forDraw) => {
+    if (mine.type !== 'check' || !isRaise(best()) || !v.anchors) return false;
+    const ref = best();
+    if (ref.F === undefined) return false;
+    const g = pairedGap(v, v.best, v.mine);
+    if (!(g.mean >= 3 * small && g.mean > 2.2 * g.se)) return false;
+    if (forDraw) return ctx.inPosition && hf.drawEquity >= (ref.need ?? 1 / (opp + 1));
+    return anchorStatus(ref, v, hf, opp) === 'works';
+  };
+  // R4. Draws multiway are never flagged for checking or calling (except the costly check above).
+  if (mw && draw && (mine.type === 'check' || mine.type === 'call') && isRaise(best())) {
+    if (!costly(true)) return pass('mwDraw');
+    v.costly = { ref: v.best, note: 'mwDraw' };
+    capYellow();
+  }
   // R1 exceptions: three-way with top pair good kicker or better, in position, as the preflop
   // raiser; four-way or more with that hand on a two-tone or connected board, in position or as the
   // preflop raiser (protection matters most there). Otherwise a multiway one-pair check is a note.
@@ -353,10 +370,16 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   if (mw && onePair && mine.type === 'check' && isRaise(best())) {
     if (river) capYellow();
     else if (!r1Exception) {
-      pass('mwCheck');
       v.mw = { to: best().to, gain: Math.round(best().ev) - Math.round(mine.ev), players: opp + 1 };
       v.thin = thinValue(v, s, env, small); // who the bet would get called by, as the A6s note says
-      return;
+      // the older out-of-position pass (PRO item 4) still comes first for one pair
+      const oop = behind.count >= 3 || behind.preflopRaiser;
+      if (oop || !costly(false)) {
+        pass(oop ? 'checkOOP' : 'mwCheck');
+        return;
+      }
+      v.costly = { ref: v.best, note: 'mwCheck' };
+      capYellow();
     }
   }
   // 3. Checking a pair no better than top pair with a weak kicker before the river is never
@@ -400,7 +423,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   }
   // 6. Passing up a bluff: not flagged against players read as unable to fold, and it
   //    needs a wide margin (wider on the river) against everyone else. Never red.
-  if (ctx.toCall === 0 && isRaise(best()) && mine.type === 'check' && weak) {
+  if (ctx.toCall === 0 && isRaise(best()) && mine.type === 'check' && weak && !v.costly) {
     const margin = (river ? 3 : 2) * small;
     if (v.loss < margin || stickyRead()) return pass('passedBluff');
     v.grade = 'mistake';
@@ -444,6 +467,8 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     small,
     notHabit: v.options.map((o) => !habitOf(o)),
   });
+  // a costly multiway check stands only if the scenarios name that same bet (amended R1/R4)
+  if (v.costly && (r.pick !== v.costly.ref || r.near)) return pass(v.costly.note);
   if (r.pick >= 0) {
     const pick = r.pick;
     const pickGap = gaps[pick];

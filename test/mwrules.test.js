@@ -236,3 +236,13 @@ test('scenario test: near-dominance flags a stack-sized bet that one read rescue
   const h112 = run([61, 44, 63, 112, 22], 35); // 1.7 bars on average: not flagged
   assert.equal(h112.pick, -1);
 });
+
+// Owner (Nov 2026): costly multiway checks may be yellow, but the A6s spot (T01) stays a note.
+test('the A6s check (T01) stays a note under the amended R1', () => {
+  const { s, belief, env } = build(SPOTS.find((x) => x.id === 'T01'));
+  const opts = { samples: 1500, seed: 5 };
+  const v0 = judgeDecision(s, 0, belief, null, opts);
+  const check = gradeAll(s, v0, opts, env).find((r) => r.o.type === 'check');
+  assert.equal(check.v.grade, 'good');
+  assert.equal(check.v.note, 'mwCheck');
+});

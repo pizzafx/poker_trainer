@@ -1848,7 +1848,7 @@ function rangesPane(startGroup) {
     const cells = GRID.map((row) => row.map(({ name }) => `<button type="button" class="rg-cell${sel.has(name) ? ' on' : ''}${sel.has(name) && !std.includes(name) ? ' x' : ''}" data-name="${name}" aria-pressed="${sel.has(name)}">${name}</button>`).join('')).join('');
     pane.innerHTML = `
       <div class="gm-body">
-        <label class="row-toggle" for="rg-only"><span class="rt-text"><b>Fold hands outside my ranges</b><span class="rt-sub">Those hands are skipped and the next one is dealt.</span>${draft.only ? '' : '<span class="rt-off">Your ranges are saved, but nothing is folded for you until this is on.</span>'}</span><input id="rg-only" type="checkbox" class="toggle" ${draft.only ? 'checked' : ''}></label>
+        <label class="row-toggle" for="rg-only"><span class="rt-text"><b>Fold hands outside my ranges</b>${draft.only ? '<span class="rt-sub">Those hands are skipped and the next one is dealt.</span>' : '<span class="rt-off">Your ranges are saved, but nothing is folded for you until this is on.</span>'}</span><input id="rg-only" type="checkbox" class="toggle" ${draft.only ? 'checked' : ''}></label>
         <div class="rg-groups2" role="tablist" aria-label="Seat">${RANGE_GROUPS.map(([g, label, seats]) => {
           const x = looser(mode, g);
           return `<button type="button" role="tab" aria-selected="${g === group}" class="${g === group ? 'on' : ''}" data-group="${g}" title="${seats}">${label}<small>${Math.round(shareOf(cur[g]) * 100)}%${x ? ` <i>+${x}</i>` : ''}</small></button>`;

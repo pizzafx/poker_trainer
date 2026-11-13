@@ -126,6 +126,17 @@ const THEORY = {
 
 function goodHeadline(v, mine, best) {
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
+  if (v.note === 'premium') return `${mine.label}: fine. (Raising with this hand is never a mistake.)`;
+  if (v.note === 'flatOk') return `${mine.label}: fine. (Re-raising also works here.)`;
+  if (v.note === 'callAlso') return `${mine.label}: fine. (Calling also works here.)`;
+  if (v.note === 'callOne3bet') return `${mine.label}: fine. (A re-raise from this kind of player is usually a big pair: calling once is fine, stacking off unimproved is not.)`;
+  if (v.note === 'thinValue') {
+    if (!v.thin) return `${mine.label}: fine.`;
+    return `${mine.label}: fine. ${v.thin.nick ? `Against ${v.thin.nick} a bet` : 'A bet'} of about ${v.thin.size} rates a little higher.`;
+  }
+  if (v.note === 'checkOOP') return `${mine.label}: fine. (With several players or the preflop raiser still to act behind you, checking one pair is standard.)`;
+  if (v.note === 'sizeCheck') return `${mine.label}: fine. (A bet of up to three-quarters of the pot rates about the same.)`;
+  if (v.note === 'callPrice') return `${mine.label}: fine. (Folding rates a little higher, but this call can only cost its price; later decisions are graded when you make them.)`;
   if (v.note === 'bluffRaise') return `${mine.label}: fine. (The simulation likes a bluff-raise here, but that only works on these bots; it is not a habit to build.)`;
   if (v.note === 'overbet') return `${mine.label}: fine. (A bet bigger than the pot scores higher against these bots; a pot-sized bet or smaller is all you are held to.)`;
   if (v.note === 'preBluff') return `${mine.label}: fine. (A re-raise bluff scores higher against these bots; it is not a habit to build.)`;
@@ -185,5 +196,11 @@ export function explain(d) {
   if (category === 'paidOff' && (d.tier === null || d.tier < TIER.TOP_PAIR_GOOD)) theory = null;
   // "A routine fold against a balanced range" is only true of one-pair hands.
   if (category === 'overFold' && d.tier !== null && d.tier > TIER.OVERPAIR_TPTK) theory = null;
+  // "A good hand should simply bet" is for top pair with a good kicker or better, and the pot-control
+  // sentence is wrong while a regular, who does attack weakness, is still in the hand.
+  if (category === 'missedValue') {
+    if (d.tier === null || d.tier < TIER.TOP_PAIR_GOOD) theory = null;
+    else if (d.regularIn) theory = 'Why theory disagrees: against players who call too wide and rarely bluff, a good hand should simply bet.';
+  }
   return { category, headline, reasons, theory, cost };
 }

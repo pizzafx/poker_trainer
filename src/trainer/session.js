@@ -9,7 +9,7 @@ import { buildContext, preflopPolicy, postflopPolicy, sampleAction, POS } from '
 import { PROFILES, TYPE_IDS, tilted, HERO_PROFILE } from '../bots/profiles.js';
 import { makePlayer, tiltChance, rebuyChance, buyIn, TABLES } from './players.js';
 import { HandBelief, newRead, posterior } from './belief.js';
-import { judgeDecision, rangePicture } from './judge.js';
+import { judgeDecision, rangePicture, pairedGap, refreshClose } from './judge.js';
 import { snapshotDecision, handTruth } from './dispute.js';
 import { groupOf } from './ranges.js';
 import { explain } from './explain.js';
@@ -341,6 +341,10 @@ export class Session {
     const feats = s.street === STREET.PRE ? null : handFeatures(s.hole[HERO], s.board);
     const live = [];
     for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) live.push(i);
+    const regularIn = live.some((i) => {
+      const r = this.readOf(i).ranked[0];
+      return r.p >= 0.5 && ['tag', 'lag', 'gto'].includes(r.id);
+    });
     const record = {
       id: this.decisions.length + 1,
       hand: this.handNo,
@@ -354,6 +358,7 @@ export class Session {
       odds: ctx.odds,
       raises: ctx.raises,
       opponents: live.length,
+      regularIn,
       verdict,
       villain: villain >= 0 ? { seat: villain, nick: this.name(villain), picture, steaming: this.seats[villain].steaming } : null,
       handText: feats ? describeHand(feats, s.board) : null,
@@ -474,17 +479,31 @@ export class Session {
     const mine = v.options[v.mine];
     const isRaise = (o) => o.type === 'raise';
     const best = () => v.options[v.best];
+    const gradeFor = (loss, sameKind) => {
+      const k = sameKind ? 1.6 : 1;
+      return loss < small * k ? 'good' : loss >= big * k ? 'blunder' : 'mistake';
+    };
     // Re-grade against the best option among those `allow` accepts (your own play always counts).
+    // The new gap has to clear its own margin of error, as the judge's first verdict did, and the
+    // "too close to call" marks are redone against the new reference.
     const regrade = (allow, note) => {
       let alt = -1;
       v.options.forEach((o, i) => {
         if ((i === v.mine || allow(o)) && (alt < 0 || o.ev > v.options[alt].ev)) alt = i;
       });
       v.best = alt;
-      v.loss = v.options[alt].ev - mine.ev;
       v.sameKind = v.options[alt].type === mine.type;
-      const k = v.sameKind ? 1.6 : 1;
-      v.grade = alt === v.mine || v.loss < small * k ? 'good' : v.loss >= big * k ? 'blunder' : 'mistake';
+      if (alt === v.mine) {
+        v.loss = 0;
+        v.se = 0;
+        v.grade = 'good';
+      } else {
+        const g = pairedGap(v, alt, v.mine);
+        v.loss = g.mean;
+        v.se = g.se;
+        v.grade = g.mean > 2.2 * g.se ? gradeFor(g.mean, v.sameKind) : 'good';
+      }
+      refreshClose(v);
       if (v.grade === 'good') v.note = note;
       return v.grade === 'good';
     };
@@ -492,57 +511,154 @@ export class Session {
       v.grade = 'good';
       v.note = note;
     };
+    const capYellow = () => {
+      if (v.grade === 'blunder') v.grade = 'mistake';
+    };
+    const top = (seat) => (seat >= 0 && seat !== HERO ? this.readOf(seat).ranked[0] : null);
+    const readAs = (seat, ids) => {
+      const r = top(seat);
+      return !!r && r.p >= 0.5 && ids.includes(r.id);
+    };
     // Is a live opponent read as someone who does not fold?
     const stickyRead = () => {
       for (let i = 0; i < s.n; i++) {
         if (i === HERO || s.folded[i]) continue;
-        const top = this.readOf(i).ranked[0];
-        if (top.p >= 0.5 && ['station', 'whale', 'maniac', 'beginner'].includes(top.id)) return true;
+        if (readAs(i, ['station', 'whale', 'maniac', 'beginner'])) return true;
       }
       return false;
     };
 
     if (pre) {
       const cls = classOf(s.hole[HERO][0], s.hole[HERO][1]);
+      const name = classNames[cls];
       const playable = HERO_PROFILE.playPct[cls]; // 1 = best hand to play
       const premium = HERO_PROFILE.raisePct[cls]; // 1 = best hand to raise
+      const aggNit = readAs(ctx.aggressor, ['nit']);
+      // Aces: a raise is never flagged, at any size, against anyone (PRO review, item 1).
+      if (isRaise(mine) && name === 'AA') return pass('premium');
+      // Kings: never flagged, except into a read nit's re-raise, and then yellow at most.
+      if (isRaise(mine) && name === 'KK') {
+        if (!(ctx.raises >= 2 && aggNit)) return pass('premium');
+        capYellow();
+      }
+      // Queens or better and ace-king: re-raising when a call scores best is fine.
+      if (isRaise(mine) && ctx.raises >= 1 && premium >= 0.96 && best().type === 'call') return pass('callAlso');
       // A re-raise with a hand outside the top few percent is a bluff: compare with the best
       // option that is not a raise.
       if (ctx.raises >= 1 && isRaise(best()) && premium < 0.94 && regrade((o) => !isRaise(o), 'preBluff')) return;
+      // The opener calling one re-raise: jacks or better, ace-king and ace-queen suited are never
+      // red; queens or better and ace-king are fine unless the re-raiser is read as a nit.
+      if (mine.type === 'call' && ctx.iRaised && ctx.raises === 2 && ['AA', 'KK', 'QQ', 'JJ', 'AKs', 'AKo', 'AQs'].includes(name)) {
+        if (['AA', 'KK', 'QQ', 'AKs', 'AKo'].includes(name) && !aggNit) return pass('callOne3bet');
+        capYellow();
+      }
+      // Flatting one raise with jacks or better, ace-king or ace-queen suited instead of re-raising
+      // is a style choice: never flagged (PRO review, item 9; the squeeze size made it come up).
+      if (mine.type === 'call' && ctx.raises === 1 && isRaise(best()) && ['AA', 'KK', 'QQ', 'JJ', 'AKs', 'AKo', 'AQs'].includes(name)) return pass('flatOk');
       // Folds: only flagged with a hand in the top 35%, and never worse than a mistake.
       if (mine.type === 'fold') {
         if (playable < 0.65) return pass('preFold');
-        if (v.grade === 'blunder') v.grade = 'mistake';
+        capYellow();
       }
       // Re-raising queens or better or ace-king is never a blunder, except into a nit.
-      if (isRaise(mine) && premium >= 0.96 && v.grade === 'blunder') {
-        const agg = ctx.aggressor >= 0 && ctx.aggressor !== HERO ? this.readOf(ctx.aggressor).ranked[0] : null;
-        if (!(agg && agg.id === 'nit' && agg.p >= 0.5)) v.grade = 'mistake';
-      }
+      if (isRaise(mine) && premium >= 0.96 && !aggNit) capYellow();
     } else {
+      const river = s.street === STREET.RIVER;
+      const tier = hf.tier;
       // 1. Declining to bluff-raise is never a mistake: compare with the best non-raise.
       if (ctx.toCall > 0 && isRaise(best()) && !isRaise(mine) && weak && regrade((o) => !isRaise(o), 'bluffRaise')) return;
       // 2. Nobody is held to an overbet: compare with the best option up to a pot-sized bet.
       const over = (o) => isRaise(o) && o.to - s.currentBet > v.pot * 1.05;
       if (over(best()) && regrade((o) => !over(o), 'overbet')) return;
+      // 3. Checking a pair no better than top pair with a weak kicker before the river is never
+      //    flagged: it gets a note naming the bet (at most 75% of the pot) that rates higher
+      //    (PRO_SPOT_A6s).
+      if (!river && ctx.toCall === 0 && mine.type === 'check' && tier >= TIER.WEAK_PAIR && tier <= TIER.TOP_PAIR_WEAK) {
+        pass('thinValue');
+        v.thin = this.thinValue(v, s);
+        return;
+      }
+      // 4. Checking one pair before the river out of position to three or more players, or with
+      //    the preflop raiser still to act behind, is never flagged (PRO review, item 4).
+      if (!river && ctx.toCall === 0 && mine.type === 'check' && tier >= TIER.WEAK_PAIR && tier <= TIER.OVERPAIR_TPTK) {
+        const behind = this.behindHero(s);
+        if (behind.count >= 3 || behind.preflopRaiser) return pass('checkOOP');
+      }
+      // 5. Checks with top pair, good kicker or better before the river are measured against bets
+      //    of at most 75% of the pot (and are never red, below).
+      if (!river && ctx.toCall === 0 && mine.type === 'check' && tier >= TIER.TOP_PAIR_GOOD && isRaise(best())) {
+        const upTo75 = (o) => !isRaise(o) || o.to - s.currentBet <= 0.75 * v.pot + 0.5;
+        if (regrade(upTo75, 'sizeCheck')) return;
+      }
       // Sizing: a bet of 60% of the pot or more is never "too small", and sizing is never red.
       if (isRaise(mine) && isRaise(best())) {
         if (best().to > mine.to && mine.to - s.currentBet >= 0.6 * v.pot) return pass('sizeOk');
-        if (v.grade === 'blunder') v.grade = 'mistake';
+        capYellow();
       }
-      // 3. Passing up a bluff: not flagged against players read as unable to fold, and it
+      // 6. Passing up a bluff: not flagged against players read as unable to fold, and it
       //    needs a wide margin (wider on the river) against everyone else. Never red.
       if (ctx.toCall === 0 && isRaise(best()) && mine.type === 'check' && weak) {
         const margin = (s.street === STREET.RIVER ? 3 : 2) * small;
         if (v.loss < margin || stickyRead()) return pass('passedBluff');
         v.grade = 'mistake';
       }
+      // 7. A call against a fold is graded on what it can lose here: at most its price. Money
+      //    lost later is graded at those later decisions (PRO review, item 3).
+      if (mine.type === 'call' && best().type === 'fold' && v.loss > ctx.toCall) {
+        v.grade = gradeFor(ctx.toCall, false);
+        if (v.grade === 'good') return pass('callPrice');
+      }
+      // 8. Flop and turn calls with top pair or better, up to half the pot and 15 big blinds,
+      //    are yellow at most.
+      if (!river && mine.type === 'call' && tier >= TIER.TOP_PAIR_WEAK && ctx.toCall <= 0.5 * (v.pot - ctx.toCall) + 0.5 && ctx.toCall <= 15 * bb) capYellow();
+      // 9. A check before the river is never red.
+      if (!river && mine.type === 'check') capYellow();
     }
     // The flag must survive opponents being a little looser and a little tighter than assumed.
     for (const shift of [-0.05, 0.05]) {
       const v2 = judgeDecision(s, HERO, this.hand.belief, action, { ...judgeOpts, samples: Math.round(judgeOpts.samples / 2), shift });
       if (v2.options[v.best].ev - v2.options[v.mine].ev < small * 0.5) return pass('fragile');
     }
+  }
+
+  // Opponents still to act after the trainee on this street, and whether the preflop raiser is
+  // one of them.
+  behindHero(s) {
+    const n = s.n;
+    const order = (i) => (i - s.button - 1 + n) % n;
+    let raiser = -1;
+    for (const h of s.history) if (h.street === STREET.PRE && h.type === 'raise') raiser = h.seat;
+    let count = 0;
+    let preflopRaiser = false;
+    for (let i = 0; i < n; i++) {
+      if (i === HERO || s.folded[i] || s.allIn[i]) continue;
+      if (order(i) > order(HERO)) {
+        count++;
+        if (i === raiser) preflopRaiser = true;
+      }
+    }
+    return { count, preflopRaiser };
+  }
+
+  // For a check with a thin-value hand: the best bet of at most 75% of the pot, if it rates
+  // higher, and who it would get called by when one opponent is the obvious source.
+  thinValue(v, s) {
+    const mine = v.options[v.mine];
+    let bet = -1;
+    v.options.forEach((o, i) => {
+      if (o.type === 'raise' && o.to - s.currentBet <= 0.75 * v.pot + 0.5 && (bet < 0 || o.ev > v.options[bet].ev)) bet = i;
+    });
+    if (bet < 0 || v.options[bet].ev <= mine.ev) return null;
+    const frac = (v.options[bet].to - s.currentBet) / Math.max(1, v.pot);
+    const size = frac < 0.42 ? 'a third of the pot' : frac < 0.62 ? 'half the pot' : 'three-quarters of the pot';
+    const live = [];
+    for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) live.push(i);
+    const callers = live.filter((i) => {
+      const r = this.readOf(i).ranked[0];
+      return r.p >= 0.5 && ['station', 'whale', 'maniac', 'beginner', 'abc'].includes(r.id);
+    });
+    const from = live.length === 1 ? live[0] : callers.length === 1 ? callers[0] : -1;
+    return { size, to: v.options[bet].to, nick: from >= 0 ? this.name(from) : null };
   }
 
   // ---- ranges ---------------------------------------------------------------------

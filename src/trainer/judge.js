@@ -47,6 +47,17 @@ export function candidateActions(s, heroAction) {
       } else {
         tos.add(roundChips(base * 3));
         tos.add(roundChips(base * 4.2));
+        // A squeeze: with callers after the raise, three times the raise plus one raise per caller
+        // (PRO review, item 1). Without it the "small" re-raise tested is one nobody should make.
+        if (s.raises === 1) {
+          let callers = 0;
+          let seen = false;
+          for (const h of s.history) {
+            if (h.type === 'raise') seen = true;
+            else if (seen && h.type === 'call' && !s.folded[h.seat]) callers++;
+          }
+          if (callers > 0) tos.add(roundChips(base * (3 + callers)));
+        }
         if (s.raises >= 2 || L.maxTo <= base * 8) tos.add(L.maxTo);
       }
     } else if (s.currentBet === 0) {
@@ -267,7 +278,7 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     else if (loss >= small) grade = 'mistake';
   }
 
-  return {
+  const verdict = {
     options: cands.map((c, i) => ({ ...c, ev: evs[i], close: close[i] })),
     best,
     mine,
@@ -279,6 +290,36 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     pot,
     street: s.street,
   };
+  // The per-run results, kept out of JSON (reports, storage) but available to pairedGap below.
+  Object.defineProperty(verdict, 'runs', { value: { res, n }, enumerable: false });
+  return verdict;
+}
+
+// How much better option `a` did than option `b` on the same run-outs, with its standard error.
+export function pairedGap(v, a, b) {
+  // A verdict built by hand (tests) has no runs: use its values and its own standard error.
+  if (!v.runs) return { mean: v.options[a].ev - v.options[b].ev, se: v.se || 0 };
+  const { res, n } = v.runs;
+  let sum = 0;
+  let sq = 0;
+  for (let k = 0; k < n; k++) {
+    const d = res[a][k] - res[b][k];
+    sum += d;
+    sq += d * d;
+  }
+  const mean = sum / Math.max(1, n);
+  return { mean, se: Math.sqrt(Math.max(0, sq / Math.max(1, n) - mean * mean) / Math.max(1, n)) };
+}
+
+// Re-marks which options are too close to the best one to tell apart (after a guardrail has
+// changed which option counts as best).
+export function refreshClose(v) {
+  if (!v.runs) return;
+  v.options.forEach((o, i) => {
+    if (i === v.best) return (o.close = true);
+    const g = pairedGap(v, v.best, i);
+    o.close = g.mean < 2 * g.se;
+  });
 }
 
 // A plain-language picture of one opponent's likely holdings, for the feedback text.

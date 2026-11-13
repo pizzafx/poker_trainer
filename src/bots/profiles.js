@@ -570,8 +570,8 @@ const HERO_DEF = {
   exploit: true,
   overLimp: 0.5,
   raiseBluff: [0.04, 0.025, 0.006],
-  // The overcall term is an opponent tendency (POOL); the stand-in was not part of it.
-  mwOvercall: [0, 0, 0],
+  // mwOvercall comes from the tag, [0, .07, .10]: a solid player folds one pair more behind a bet
+  // and a call (POOL, 13 Nov 2026).
 };
 
 export const TYPE_IDS = Object.keys(DEFS);

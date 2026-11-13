@@ -122,8 +122,9 @@ const judge = {
     this.worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'hello') {
-        // ready only when the worker's modules are byte for byte the page's (W2)
-        this.ready = m.build === BUILD && !(m.stale && m.stale.length);
+        // ready only when the modules the worker loaded are byte for byte the page's (W2). Its own
+        // copy of version.js is not compared: that file changes on every push and is only a label.
+        this.ready = Array.isArray(m.stale) && !m.stale.length;
         if (this.ready) this.tune();
         else this.stop();
         return;

@@ -143,7 +143,7 @@ const DEFS = {
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   abc: {
-    mwOvercall: [0, 0.05, 0.07], // POOL overcall, owner-approved 13 Nov 2026
+    mwOvercall: [0, 0.05, 0.09], // POOL overcall, owner-approved 13 Nov 2026 (river .07 -> .09, POOL correction)
     name: 'Straightforward recreational',
     blurb: 'Plays his cards face up: bets when he hits, gives up when he misses, limps along a lot.',
     share: 0.315, // POOL share, Nov 2026: was 0.235
@@ -453,7 +453,7 @@ const DEFS = {
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   lag: {
-    mwOvercall: [0, 0.1, 0.09], // POOL overcall, owner-approved 13 Nov 2026
+    mwOvercall: [0, 0.1, 0.1], // POOL overcall, owner-approved 13 Nov 2026 (river .09 -> .10, POOL correction)
     name: 'Tricky aggressive regular',
     blurb: 'Plays many hands in position and applies pressure, but picks his spots better than the maniac.',
     share: 0.04,
@@ -502,7 +502,7 @@ const DEFS = {
     mwTrap3: [0.5, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
   },
   beginner: {
-    mwOvercall: [0, 0.08, 0.12], // POOL overcall, owner-approved 13 Nov 2026
+    mwOvercall: [0, 0.08, 0.15], // POOL overcall, owner-approved 13 Nov 2026 (river .12 -> .15, POOL correction)
     name: 'Total beginner',
     blurb: 'Still learning. Plays most hands, limps, bets small, calls with any piece of the board, and gets scared off by big bets.',
     share: 0, // never dealt into the casino pool; you seat them in a home game

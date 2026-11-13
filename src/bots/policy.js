@@ -62,14 +62,18 @@ export function buildContext(s, seat = s.toAct) {
     let iLimped = false;
     let raisesSeen = 0;
     let raiserPos = -1;
+    let limpReraise = false; // A1: was the latest re-raise made by a player who limped first?
+    const limped = new Set();
     for (const h of s.history) {
       if (h.type === 'raise') {
+        limpReraise = raisesSeen >= 1 && limped.has(h.seat);
         raisesSeen++;
         callers = 0;
         if (h.seat === seat) iRaised = true;
         raiserPos = h.seat;
       } else if (h.type === 'call') {
         if (raisesSeen === 0) {
+          limped.add(h.seat);
           if (!s.folded[h.seat]) limpers++;
         } else if (!s.folded[h.seat]) callers++;
         if (h.seat === seat) iLimped = true;
@@ -77,6 +81,7 @@ export function buildContext(s, seat = s.toAct) {
     }
     ctx.limpers = limpers;
     ctx.callers = callers;
+    ctx.limpReraise = limpReraise && s.raises >= 2;
     ctx.iRaised = iRaised;
     ctx.iLimped = iLimped && !iRaised;
     ctx.raiseBB = s.currentBet / ctx.base;
@@ -236,6 +241,12 @@ export function preflopPolicy(ctx, P, cls) {
       const cw = P.callThreeBet * (cold ? 0.5 : 1) * (1 + 0.5 * P.callCrowd * ctx.callers);
       call = (1 - raise) * inTop(mix, cw);
     }
+    // A1 (POOL, Nov 2026): a limp-reraise is about the strongest thing anyone does at these tables
+    // (kings or aces, queens, ace-king): everything but the very top of a range gets out.
+    if (ctx.limpReraise && rp < 0.985) {
+      call *= 0.4;
+      raise *= 0.3;
+    }
     if (P.exploit && ctx.villain) {
       // Tight players' re-raises are the top of their range: continue tighter.
       const k = clamp(0.4 + 1.2 * ctx.villain.aggro, 0.35, 1.3);
@@ -394,6 +405,12 @@ export function postflopPolicy(ctx, P, f) {
     pBluffRaise = P.raiseBluff[st];
     if (st < 2 && f.drawEquity >= 0.3) pBluffRaise = Math.max(pBluffRaise, P.raiseBluff[st] * 3 + P.semiBluff * 0.15);
     if (facingRaise) pBluffRaise *= 0.4;
+    // R1 (POOL, Nov 2026): big raises are value at these tables, so a bluff-raise that would put in
+    // 40% of the stack or more (or all of it) is rare, except from a maniac.
+    if (ctx.canRaise) {
+      const main = raiseSizes(ctx, P)[0].to;
+      if (main >= ctx.maxTo || main - ctx.myBet >= 0.4 * ctx.stack) pBluffRaise *= P.jamBluffMult;
+    }
     pBluffRaise = clamp(pBluffRaise * bluffMultFor(P, ctx), 0, 0.9);
   }
   let raise = pRaiseV + (1 - pRaiseV) * pBluffRaise;

@@ -58,6 +58,7 @@ const BASE = {
   float: 0.06, // flop call in position with nothing
   raiseValue: [0.8, 0.82, 0.88], // minimum strength to raise
   raiseBluff: [0.03, 0.02, 0.004], // chance to raise as a bluff
+  jamBluffMult: 0.25, // R1: bluff-raises that would be all-in or 40%+ of the stack are this much as likely
   raiseRespect: [0.12, 0.17, 0.24], // extra strength needed to continue against a raise
   minRaise: 0.2, // share of raises that are small "click-backs"
   // --- bet sizing ---
@@ -290,6 +291,7 @@ const DEFS = {
     sizeThin: [0.05, 0.2, 0.35, 0.25, 0.15],
     sizeBluff: [0.05, 0.15, 0.3, 0.3, 0.2],
     overFold: 0.06,
+    jamBluffMult: 0.6, // POOL R1, Nov 2026 (was the shared default)
   },
   gto: {
     name: 'Solver-style player',
@@ -372,7 +374,7 @@ const DEFS = {
     chase: 0.95,
     float: 0.12,
     raiseValue: [0.78, 0.8, 0.86],
-    raiseBluff: [0.06, 0.035, 0.007],
+    raiseBluff: [0.06, 0.035, 0.002], // POOL R2, Nov 2026: was [0.06, 0.035, 0.007]
     raiseRespect: [0.08, 0.12, 0.18],
     minRaise: 0.05,
     sizeValue: [0.05, 0.2, 0.45, 0.22, 0.08],
@@ -413,7 +415,7 @@ const DEFS = {
     chase: 0.9,
     float: 0.25,
     raiseValue: [0.74, 0.77, 0.82],
-    raiseBluff: [0.11, 0.08, 0.025],
+    raiseBluff: [0.11, 0.08, 0.01], // POOL R2, Nov 2026: was [0.11, 0.08, 0.025]
     raiseRespect: [0.06, 0.09, 0.13],
     minRaise: 0.05,
     sizeValue: [0.05, 0.15, 0.4, 0.25, 0.15],

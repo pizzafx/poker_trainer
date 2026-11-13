@@ -220,3 +220,19 @@ test('anchors, 13 Nov rules: river exactness, beating the check, small prices, t
   assert.equal(flag.grade, 'mistake');
   assert.equal(flag.line, null, 'no "close" line under a standing flag');
 });
+
+// MATH, 13 Nov (QA G1): near-dominance. Hand 14's margins (base, calls wider, calls tighter, ranges
+// x2, ranges x0.5) against the best bet: one favourable scenario must not shield it.
+test('scenario test: near-dominance flags a stack-sized bet that one read rescues (QA hand 14)', () => {
+  const run = (margins, bar) => {
+    const scen = margins.map((m) => [0, m]); // option 0 is the play, option 1 the alternative
+    return robustVerdict(scen, 0, { usable: [false, true], bar: () => bar, significant: () => true, kind: (i) => ['raise', 'raise'][i], small: bar, notHabit: [true, true] });
+  };
+  const h14 = run([59, 46, 58, 109, 4], 9.6);
+  assert.equal(h14.pick, 1);
+  assert.equal(h14.near, true);
+  const h107 = run([48, 42, 55, 130, -10], 10); // beaten in one scenario by up to one bar: still flagged (bar assumed $10)
+  assert.equal(h107.pick, 1);
+  const h112 = run([61, 44, 63, 112, 22], 35); // 1.7 bars on average: not flagged
+  assert.equal(h112.pick, -1);
+});

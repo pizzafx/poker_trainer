@@ -459,6 +459,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
       if (v.grade === 'good') return pass('fragile');
       refreshClose(v);
     }
+    if (r.near && v.grade === 'blunder') v.grade = 'mistake'; // near-dominance: yellow at most
     return;
   }
   if (r.dominated) {
@@ -491,6 +492,27 @@ export function robustVerdict(scen, mine, { usable, bar, significant, kind, smal
     }
   }
   if (pick >= 0) return { pick };
+  // Near-dominance (MATH, 13 Nov): one favourable scenario must not shield a play that trails an
+  // alternative by three bars on average and never beats it by more than a bar (a stack-sized bet is the
+  // most sensitive to the range read, so it always finds one). Yellow at most; names that alternative.
+  let near = -1;
+  let nearMean = -Infinity;
+  for (let a = 0; a < usable.length; a++) {
+    if (!usable[a] || !significant(a)) continue;
+    let mn = Infinity;
+    let sum = 0;
+    for (const e of scen) {
+      const m = e[a] - e[mine];
+      mn = Math.min(mn, m);
+      sum += m;
+    }
+    const mean = sum / scen.length;
+    if (mn >= -bar(a) && mean >= 3 * bar(a) && mean > nearMean) {
+      near = a;
+      nearMean = mean;
+    }
+  }
+  if (near >= 0) return { pick: near, near: true };
   let dom = Infinity;
   for (const e of scen) {
     let mx = -Infinity;

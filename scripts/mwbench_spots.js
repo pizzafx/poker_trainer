@@ -119,7 +119,9 @@ export const EXPECT = {
   // depend on the app's narrower "calls tighter" scenario (calling thresholds +0.05 only); MATH's
   // prototype also raises the never-fold floor, and there the $135 raise is a coin flip at the bar.
   // MATH (Nov 2026): keep the narrower scenario; do not widen it without re-checking F12.
-  F12: { accept: ['fold', 'call'], flag: ['raise:2-5'] },
+  // MATH, 13 Nov (near-dominance): the $285 shove trails the fold by three bars on average and never
+  // beats it by more than one, so it is flagged too, yellow at most.
+  F12: { accept: ['fold', 'call'], flag: ['raise:2-10'], maxGrade: { 'raise:9-10': 'mistake' } },
   F13: { accept: ['bet:0.45-1.05'], flag: ['check'] },       // †
   F14: { accept: ['check'] },
   F15: { accept: ['raise:2.5-5.5'], flag: ['call'], maxGrade: { call: 'mistake' } }, // owner: call is yellow

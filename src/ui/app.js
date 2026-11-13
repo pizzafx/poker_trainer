@@ -922,20 +922,36 @@ function renderRanges() {
   el.querySelectorAll('[data-street]').forEach((b) => (b.onclick = () => { rangeStreet = b.dataset.street === 'now' ? 'now' : +b.dataset.street; renderRanges(); }));
 }
 
+let logFrames = null; // { rec, frames } for links from the last hand into the replayer
 function renderLog() {
   const el = $('log');
-  const lines = [...pastLog, ...sess.hand.log];
-  const replayable = (l) => l.kind === 'head' && !drill && (pastLog.includes(l) || sess.hand.over);
-  el.innerHTML = lines.map((l) => `<div class="ln ${l.kind}${l.seat === HERO && l.kind === 'act' ? ' me' : ''}">${esc(l.text)}${replayable(l) ? ` <button type="button" class="link-btn ln-replay" data-replay-no="${esc(l.text.replace(/\D+/g, ''))}">Replay ›</button>` : ''}</div>`).join('');
-  el.querySelectorAll('[data-replay-no]').forEach((b) => (b.onclick = async () => {
-    const no = +b.dataset.replayNo;
-    const all = (await listHands()) || [];
-    const mine = all.filter((r) => r.kind === 'hand' && r.session === sess.id);
-    const rec = mine.find((r) => r.no === no) || (lastRecord && lastRecord.no === no ? lastRecord : null);
-    if (rec) openReplay(rec, { from: 'table', list: mine });
-  }));
-  el.scrollTop = el.scrollHeight;
+  const h = sess.hand;
+  if (!h) return;
+  const s = h.state;
+  const over = h.over;
+  const rec = over && !drill && lastRecord && lastRecord.session === sess.id && lastRecord.no === h.no ? lastRecord : null;
+  if (rec && (!logFrames || logFrames.rec !== rec)) logFrames = { rec, frames: framesOf(rec) };
+  const links = rec
+    ? (idx) => {
+        const j = logFrames.frames.findIndex((f) => f.state.history.length > idx);
+        return j >= 0 ? j : null;
+      }
+    : null;
+  const shows = over ? h.log.filter((l) => l.kind === 'show' || l.kind === 'win').map((l) => l.text) : [];
+  const card = handCardHtml({
+    s, seats: sess.seats, decisions: h.decisions, bb: s.bbAmt, no: h.no, position: positionName(s, HERO), over, net: over && h.summary ? h.summary.net : 0,
+    shows, showdown: over && s.result && s.result.showdown, live: !over, pending: thinking ? pendingAction : null, links, why: true,
+    actions: rec ? `<div class="hl-acts"><button type="button" data-hl="summary">Summary</button><button type="button" class="primary" data-hl="replay">Replay hand ${h.no}</button></div>` : '',
+  });
+  el.innerHTML = `<p class="label hl-label">${over ? 'Last hand' : 'This hand'}</p>${card}${drill ? '' : earlierHtml()}`;
+  el.querySelectorAll('[data-frame]').forEach((b) => (b.onclick = () => openReplay(rec, { from: 'table', frame: +b.dataset.frame, list: tonightHands() })));
+  el.querySelectorAll('[data-why]').forEach((b) => (b.onclick = (e) => { e.stopPropagation(); showTab('coach'); }));
+  el.querySelectorAll('[data-hl]').forEach((b) => (b.onclick = () => (b.dataset.hl === 'summary' ? openReview() : openReplay(rec, { from: 'table', list: tonightHands() }))));
+  el.querySelectorAll('[data-key]').forEach((b) => (b.onclick = () => openReplay((tonight || []).find((r) => r.key === +b.dataset.key), { from: 'table', list: tonightHands() })));
+  el.querySelectorAll('[data-lf]').forEach((b) => (b.onclick = () => { logFilter = b.dataset.lf; renderLog(); }));
+  el.querySelectorAll('[data-allhands]').forEach((b) => (b.onclick = () => openHistory()));
 }
+const tonightHands = () => (tonight || []).filter((r) => r.kind === 'hand');
 
 function render() {
   if (RP && document.body.classList.contains('replaying')) return renderReplay();
@@ -1132,6 +1148,7 @@ let thinking = false; // a decision is being graded in the worker
 let gradeTurn = 0; // bumped whenever the table changes under a pending grade (W1)
 function dropPendingGrade() {
   gradeTurn++;
+  pendingAction = null;
   if (!thinking) return;
   thinking = false;
   $('actions')?.classList.remove('busy');
@@ -1146,8 +1163,10 @@ async function act(action) {
     const step = hand.state.history.length;
     const turn = ++gradeTurn;
     thinking = true;
+    pendingAction = action;
     renderToast();
     renderActions();
+    if (currentTab === 'log') renderLog();
     let verdict = null;
     try {
       verdict = await judge.grade(sess.gradeJob(action));
@@ -1157,6 +1176,7 @@ async function act(action) {
     // A new session, hand or drill started meanwhile: this decision no longer applies.
     if (turn !== gradeTurn) return;
     thinking = false;
+    pendingAction = null;
     if (sess !== here || sess.hand !== hand || hand.state.history.length !== step) return render();
     d = verdict ? sess.heroCommit(action, verdict) : sess.heroAct(action);
   } else d = sess.heroAct(action);
@@ -1282,6 +1302,7 @@ function keepPlaying(s) {
     if (rec.kind === 'hand') lastRecord = rec;
     keepHand(rec).then((key) => {
       if (key && rec === lastRecord) lastRecord = { ...rec, key };
+      refreshTonight();
     });
     if (saving) return;
     saving = setTimeout(async () => {
@@ -1300,6 +1321,7 @@ function newSession() {
   keepPlaying(sess);
   if (owner) clearSession();
   pastLog = [];
+  tonight = [];
   sess.startPlayable();
   advance();
 }
@@ -1322,6 +1344,7 @@ async function resumeOrNew() {
   pastLog = [];
   sess.startPlayable();
   sess.news.unshift(`Welcome back: your session carries on at hand ${sess.handNo}.`);
+  refreshTonight();
   advance();
 }
 
@@ -2130,7 +2153,8 @@ function openReplay(rec, opts = {}) {
   hideReview();
   const frames = framesOf(rec);
   let i = 0;
-  if (opts.decision !== undefined && opts.decision >= 0) i = Math.max(0, frames.findIndex((f) => f.decision === opts.decision));
+  if (opts.frame !== undefined) i = Math.max(0, Math.min(frames.length - 1, opts.frame));
+  else if (opts.decision !== undefined && opts.decision >= 0) i = Math.max(0, frames.findIndex((f) => f.decision === opts.decision));
   else {
     const flagged = rec.decisions.findIndex((d) => d.verdict.grade !== 'good');
     if (flagged >= 0) i = Math.max(0, frames.findIndex((f) => f.decision === flagged));
@@ -2429,6 +2453,21 @@ function renderReplayCoach() {
 function renderReplayLog() {
   const rec = RP.rec;
   const f = RP.frames[RP.i];
+  const fs = f.state;
+  const end = f.kind === 'end';
+  const html = handCardHtml({
+    s: fs, seats: rec.seats, decisions: rec.decisions, bb: rec.bb, no: rec.no, position: rec.position, over: end, net: rec.result.net[HERO],
+    shows: end ? rec.log.filter((l) => l.kind === 'show' || l.kind === 'win').map((l) => l.text) : [], showdown: rec.result.showdown, live: false,
+    links: (idx) => {
+      const j = RP.frames.findIndex((g) => g.state.history.length > idx);
+      return j >= 0 ? j : null;
+    },
+    current: fs.history.length - 1,
+  });
+  const later = rec.history.length - fs.history.length;
+  $('log').innerHTML = html + (later > 0 && !end ? `<p class="hint">${later} more action${later === 1 ? '' : 's'} after this point.</p>` : '');
+  $('log').querySelectorAll('[data-frame]').forEach((b) => (b.onclick = () => go(+b.dataset.frame)));
+  return;
   const acts = f.state.history.filter((e) => !['sb', 'bb', 'straddle'].includes(e.type)).length;
   const boards = f.state.board.length === 0 ? 0 : f.state.board.length === 3 ? 1 : f.state.board.length === 4 ? 2 : 3;
   const actFrame = []; // act index -> frame
@@ -2646,6 +2685,150 @@ function drawHistory() {
 
 function positionOf(rec) {
   return rec.position || '';
+}
+
+
+// ---- the Hand log tab (REPLAYER_HANDOFF.md section 7): "This hand" as a readable story with your
+// verdicts on it, then "Earlier tonight", one row per hand, each a way into the replayer. The
+// replayer's own log tab uses the same card, so a hand reads the same live and in replay.
+let pendingAction = null; // your action while the coach grades it (shown as "coach is checking…")
+let tonight = null; // kept hands and folded-for-you markers of this sitting, newest last
+let logFilter = 'all';
+
+function refreshTonight() {
+  const id = sess && sess.id;
+  if (!id || drill) return;
+  listHands().then((all) => {
+    tonight = (all || []).filter((r) => r.session === id);
+    if (currentTab === 'log' && !RP) renderLog();
+  });
+}
+
+const POSTS = new Set(['sb', 'bb', 'straddle']);
+const bbOf = (x, bb) => {
+  const v = x / bb;
+  return Number.isInteger(v) ? v : Math.round(v * 10) / 10;
+};
+
+// p: { s, seats, decisions, bb, no, position, over, net, shows, live, pending, links, current }
+function handCardHtml(p) {
+  const { s, seats, decisions, bb } = p;
+  const H = s.history;
+  const nameOf = (i) => (i === HERO ? 'You' : seats[i].nick);
+  // the pot as each street began, and which bets you then faced
+  let running = 0;
+  const potAt = [];
+  const facing = new Set();
+  for (let k = 0; k < H.length; k++) {
+    const e = H[k];
+    // the pot as each street began (before the flop: once the blinds are in)
+    if (potAt[e.street] === undefined && !POSTS.has(e.type)) potAt[e.street] = running;
+    running += e.amount || 0;
+    if (e.seat !== HERO && (e.type === 'bet' || e.type === 'raise')) {
+      if (H.slice(k + 1).some((x) => x.seat === HERO && x.street === e.street)) facing.add(k);
+    }
+  }
+  const verdictOf = (d) => {
+    if (!d) return '';
+    const g = d.verdict.grade;
+    if (g === 'good') return `<span class="hl-v good"><span class="vmark good">${MARK.good}</span>${d.tipKind ? 'fine · tip' : 'fine'}</span>`;
+    return `<span class="hl-v ${g}">${g === 'blunder' ? 'Blunder' : 'Mistake'} · ${money(d.cost)}${p.why ? ` <button type="button" class="link-btn hl-why" data-why="${decisions.indexOf(d)}">Why ›</button>` : ''}</span>`;
+  };
+  let heroN = 0;
+  const lines = { 0: [], 1: [], 2: [], 3: [] };
+  // blinds, and the folds before anyone puts money in, as one quiet line
+  let k = 0;
+  const posts = [];
+  while (k < H.length && POSTS.has(H[k].type)) posts.push(H[k++]);
+  const folds = [];
+  while (k < H.length && H[k].street === 0 && H[k].type === 'fold' && H[k].seat !== HERO) folds.push(H[k++]);
+  const sb = posts.find((e) => e.type === 'sb');
+  const big = posts.find((e) => e.type === 'bb');
+  const strad = posts.find((e) => e.type === 'straddle');
+  let blind = `Blinds $${sb ? sb.amount : s.sbAmt} / $${big ? big.amount : bb}${strad ? `, straddle $${strad.amount}` : ''}`;
+  if (folds.length) blind += ` · ${folds.length === 1 ? `${nameOf(folds[0].seat)} folds` : `${folds.length} folds, ${positionName(s, folds[0].seat)} to ${positionName(s, folds[folds.length - 1].seat)}`}`;
+  lines[0].push({ html: `<span class="hl-t">${esc(blind)}</span>`, quiet: true, idx: k - 1 });
+  for (; k < H.length; k++) {
+    const e = H[k];
+    if (POSTS.has(e.type)) continue;
+    const me = e.seat === HERO;
+    const who = esc(nameOf(e.seat));
+    let text = '';
+    if (e.type === 'fold') text = `${who} fold${me ? '' : 's'}`;
+    else if (e.type === 'check') text = `${who} check${me ? '' : 's'}`;
+    else if (e.type === 'call') {
+      const more = e.to > e.amount ? ' more' : '';
+      text = `${who} call${me ? '' : 's'} <b>$${e.amount}</b>${more}${e.street === 0 || facing.has(k) ? ` <small>${bbOf(e.to, bb)} bb</small>` : ''}`;
+    } else {
+      const verb = e.type === 'bet' ? 'bet' : 'raise';
+      const pot = H.slice(0, k).reduce((a, x) => a + (x.amount || 0), 0);
+      const size = me && e.street > 0 && e.type === 'bet' ? ` <small>${Math.round((100 * e.to) / Math.max(1, pot))}% pot</small>` : e.street === 0 || facing.has(k) ? ` <small>${bbOf(e.to, bb)} bb</small>` : '';
+      text = `${who} ${verb}${me ? '' : 's'}${e.type === 'raise' ? ' to' : ''} <b>$${e.to}</b>${size}`;
+    }
+    if (e.allIn || (s.allIn && s.allIn[e.seat] && !H.slice(k + 1).some((x) => x.seat === e.seat))) text += ' <small>all-in</small>';
+    const d = me ? decisions[heroN++] : null;
+    lines[e.street].push({ html: `<span class="hl-t">${text}</span>${me ? verdictOf(d) : ''}`, me, grade: d ? d.verdict.grade : null, quiet: e.type === 'fold' && !me, facing: facing.has(k), idx: k });
+  }
+  // your action while the coach is checking it
+  if (p.pending && p.live) {
+    const a = p.pending;
+    const words = a.type === 'raise' ? (s.currentBet ? `raise to <b>$${a.to}</b>` : `bet <b>$${a.to}</b>`) : a.type === 'call' ? `call <b>$${s.currentBet - s.bet[HERO]}</b>` : a.type;
+    lines[s.street].push({ html: `<span class="hl-t">You ${words}</span><span class="hl-v checking" aria-live="polite"><i class="spin"></i>coach is checking…</span>`, me: true, pending: true });
+  } else if (p.live && s.toAct >= 0 && s.toAct !== HERO) {
+    lines[s.street].push({ html: `<span class="hl-t">${esc(nameOf(s.toAct))} to act…</span>`, next: true });
+  }
+  const streetCards = (st) => (st === 1 ? s.board.slice(0, 3) : st === 2 ? s.board.slice(3, 4) : st === 3 ? s.board.slice(4, 5) : []);
+  const lineHtml = (l) => {
+    const link = p.links && l.idx !== undefined && !l.pending && !l.next ? p.links(l.idx) : null;
+    const cls = ['hl-ln', l.quiet ? 'quiet' : '', l.me ? `me ${l.grade || ''}` : '', l.facing ? 'facing' : '', l.next ? 'next' : '', l.pending ? 'pending' : '', p.current !== undefined && l.idx === p.current ? 'cur' : ''].filter(Boolean).join(' ');
+    return link !== null && link !== undefined
+      ? `<button type="button" class="${cls}" data-frame="${link}"><i class="hl-dot"></i>${l.html}</button>`
+      : `<div class="${cls}"><i class="hl-dot"></i>${l.html}</div>`;
+  };
+  const streets = [0, 1, 2, 3]
+    .filter((st) => st === 0 || s.board.length >= [0, 3, 4, 5][st])
+    .map((st) => `<div class="hl-st"><div class="hl-head"><span class="label">${SD_LABEL[st]}</span>${st ? cardsInline(streetCards(st)) : ''}<span class="hl-pot">pot $${potAt[st] ?? running}</span></div>${lines[st].map(lineHtml).join('')}</div>`)
+    .join('');
+  const show = p.over && p.shows && p.shows.length ? `<div class="hl-st"><div class="hl-head"><span class="label">${p.showdown ? 'Showdown' : 'Result'}</span></div>${p.shows.map((t) => `<div class="hl-ln quiet"><i class="hl-dot"></i><span class="hl-t">${esc(t)}</span></div>`).join('')}<div class="hl-ln result"><span class="hl-t">${p.net > 0 ? 'You win' : p.net < 0 ? 'You lose' : 'You break even'}</span><b class="mono">${p.net === 0 ? '$0' : signed(p.net)}</b></div></div>` : '';
+  const flagged = decisions.filter((d) => d.verdict.grade !== 'good');
+  const sub = p.live || !p.over
+    ? `$${s.sbAmt}/$${bb} · you ${p.live ? 'have' : 'had'} ${money(s.stacks[HERO])}`
+    : `Hand over · ${flagged.length ? `${flagged.length} ${flagged.some((d) => d.verdict.grade === 'blunder') ? `blunder${flagged.length > 1 ? 's' : ''}` : `mistake${flagged.length > 1 ? 's' : ''}`}` : decisions.length ? 'every decision fine' : 'no decisions'}`;
+  return `<div class="hl-card"><div class="hl-top">${cardsInline(holeOrder(s.hole[HERO]))}<div><b>Hand ${p.no}${p.position ? ` · ${p.position}` : ''}</b><small>${sub}</small></div>${p.live ? '<span class="hl-live">Live</span>' : ''}</div>${streets}${show}${p.actions || ''}</div>`;
+}
+
+function earlierHtml() {
+  if (!tonight) return '<p class="hint">Loading earlier hands…</p>';
+  // the hand just finished is the card above until the next deal
+  const shown = (r) => !(sess.hand && sess.hand.over && r.no === sess.hand.no);
+  const hands = tonight.filter((r) => r.kind === 'hand' && shown(r));
+  const flaggedFn = (r) => r.decisions.some((d) => d.verdict.grade !== 'good');
+  const playedFn = (r) => r.history.some((e) => e.seat === HERO && (e.type === 'call' || e.type === 'raise' || e.type === 'bet'));
+  const fn = logFilter === 'flagged' ? flaggedFn : logFilter === 'played' ? playedFn : () => true;
+  const rows = [];
+  let skips = [];
+  const flush = () => {
+    if (!skips.length) return;
+    const nos = skips.map((x) => x.no).sort((a, b) => a - b);
+    rows.push(`<div class="hdiv">${nos.length === 1 ? `Hand ${nos[0]} folded for you` : `Hands ${nos[0]}–${nos[nos.length - 1]} folded for you`}</div>`);
+    skips = [];
+  };
+  for (const r of [...tonight].reverse()) {
+    if (r.kind === 'skip') {
+      if (logFilter === 'all') skips.push(r);
+      continue;
+    }
+    if (!fn(r) || !shown(r)) continue;
+    flush();
+    const net = r.result.net[HERO];
+    rows.push(`<button type="button" class="hl-row" data-key="${r.key}">${cardsInline(holeOrder(r.hole[HERO]))}<span class="hr-a"><span>Hand <b>${r.no}</b> · ${esc(r.position || '')}</span><b class="mono">${net === 0 ? '$0' : signed(net)}</b></span><span class="hr-b">${r.board.length ? cardsInline(r.board) : '<i>no flop</i>'}${handMarker(r)}</span></button>`);
+  }
+  flush();
+  const counts = { all: hands.length, flagged: hands.filter(flaggedFn).length, played: hands.filter(playedFn).length };
+  return `<div class="hl-earlier"><div class="hl-ehead"><span class="label">Earlier tonight</span><button type="button" class="link-btn" data-allhands>All hands ›</button></div>
+    <div class="chips">${[['all', 'All'], ['flagged', 'Flagged'], ['played', 'Played']].map(([k, l]) => `<button type="button" class="chip${logFilter === k ? ' on' : ''}" data-lf="${k}">${l} <span class="num">${counts[k]}</span></button>`).join('')}</div>
+    ${rows.join('') || '<p class="hint">No earlier hands yet.</p>'}
+    <p class="hint">Tap a hand to step through it. Your last 100 hands are in Hand history.</p></div>`;
 }
 
 // Handle for debugging from the browser console.

@@ -408,7 +408,8 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
   // half as strong (re-weighting, no new runs). The stand-in is skipped at six players or more and when
   // the gap is over three bars (MATH: it changes no flag there; it is the slowest scenario).
   const baseBar = small * (v.sameKind ? 1.6 : 1);
-  const half = Math.round(judgeOpts.samples / 2);
+  // a quarter of the samples each at six players or more (speed; the base run is one of the scenarios)
+  const half = Math.round(judgeOpts.samples / (opp + 1 >= 6 ? 4 : 2));
   const runs = [-0.05, 0.05].map((shift) => judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, samples: half, shift }));
   if (opp + 1 < 6 && v.loss <= 3 * baseBar) runs.push(judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, samples: half, heroProfile: THIN_HERO }));
   const scen = [v.options.map((o) => o.ev), ...runs.filter((r) => r.options.length === v.options.length).map((r) => r.options.map((o) => o.ev))];

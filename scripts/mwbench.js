@@ -6,6 +6,7 @@
 // Exit code 1 if anything fails.
 import { STREET } from '../src/engine/game.js';
 import { judgeDecision } from '../src/trainer/judge.js';
+import { samplesFor } from '../src/trainer/session.js';
 import { gradeAll, matches, build } from './gradeall.js';
 import { SPOTS, EXPECT } from './mwbench_spots.js';
 
@@ -22,7 +23,7 @@ const t0 = Date.now();
 for (const spot of SPOTS.filter((x) => !ids || ids.includes(x.id))) {
   const ex = EXPECT[spot.id] || {};
   const { s, belief, env } = build(spot);
-  const samples = Math.round(BASE_SAMPLES * (s.street <= STREET.FLOP ? 5 : s.street === STREET.TURN ? 2.5 : 1.3));
+  const samples = samplesFor(BASE_SAMPLES, s); // as the app's judge
   const opts = { samples, seed: 5 };
   const v0 = judgeDecision(s, 0, belief, null, opts);
   const pot = v0.pot;

@@ -41,6 +41,16 @@ export const RAKES = {
 };
 
 // The game a new player is dealt into: the app's defaults, and what scripts/ checks by default.
+// How many run-outs the judge plays at a decision. Early streets have more left to happen, so they
+// need more to pin down. With six players or more in the hand, 70%: there most close one-pair and draw
+// decisions are notes, so what is left to flag is large, and each run-out costs the most (QA timed up
+// to 5.4 s per flagged decision; CEO, Nov 2026: about 3 s at most).
+export function samplesFor(base, s) {
+  let players = 0;
+  for (let i = 0; i < s.n; i++) if (!s.folded[i]) players++;
+  return Math.round(base * (s.street <= STREET.FLOP ? 5 : s.street === STREET.TURN ? 2.5 : 1.3) * (players >= 6 ? 0.7 : 1));
+}
+
 export const APP_GAME = { game: '1/3', rake: 'pct', heroBuy: 300 };
 
 const HERO = 0;
@@ -539,8 +549,7 @@ export class Session {
   judgeOpts() {
     const s = this.hand.state;
     return {
-      // Early streets have more left to happen, so they need more run-outs to pin down.
-      samples: Math.round(this.samples * (s.street <= STREET.FLOP ? 5 : s.street === STREET.TURN ? 2.5 : 1.3)),
+      samples: samplesFor(this.samples, s),
       seed: (this.handNo * 131 + s.history.length) | 0,
       heat: this.heat,
     };

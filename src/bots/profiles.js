@@ -105,7 +105,8 @@ const DEFS = {
     stackOff: 0.009,
     paintLove: 0.5,
     textureBlind: 0.2,
-    absSens: 0.12, // POOL P1v2, Nov 2026: was 0.09
+    absSens: 0.09, // POOL amendment 1, Nov 2026: P1v2 had 0.12 (nits folded top pair to small third bets)
+    absFrom: 20, // POOL amendment 1, Nov 2026: was 15 (the base)
     neverFold: 0.66, // POOL P1v2, Nov 2026: was 0.6
     cbet: [0.45, 0.22, 0.1],
     barrel: [0.14, 0.04],
@@ -207,7 +208,7 @@ const DEFS = {
     slowplay: 0.45,
     donk: 0.45,
     mwTighten: 0.02,
-    callThr: [0.24, 0.3, 0.32], // POOL P1v2, Nov 2026: was [0.22, 0.26, 0.26]
+    callThr: [0.24, 0.3, 0.28], // POOL P1v2 + amendment 1, Nov 2026: was [0.22, 0.26, 0.26]
     sizeSens: 0.35,
     sizeCap: 0.09, // POOL P1v2, Nov 2026: was 0.07
     chase: 0.6,

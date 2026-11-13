@@ -588,30 +588,46 @@ export function anchorStatus(o, v, hf, opp) {
   if (!A || !hf) return null;
   const draw = hf.drawEquity >= 0.14 && hf.tier <= TIER.MIDDLE_PAIR;
   const se = (x, k) => Math.sqrt(Math.max(0, x * (1 - x)) / Math.max(1, k));
+  // MATH, 13 Nov addendum: on the river the arithmetic is exact, so no tolerances (only the
+  // two-standard-error guard); before it, the call tolerance shrinks with a small price.
+  const river = v.street === STREET.RIVER;
   if (o.type === 'raise') {
     if (o.F === undefined) return null;
     if (draw) return o.F >= o.alpha - 0.05 || hf.drawEquity >= (o.need ?? 1 / (opp + 1)) ? 'works' : 'fails';
     if (hf.tier >= TIER.WEAK_PAIR) {
       if (!o.called) return 'even';
       const e = se(o.W, o.called);
-      if (o.W - (o.need + 0.1) >= 2 * e) return 'works';
+      if (o.W - (o.need + (river ? 0 : 0.1)) >= 2 * e) return 'works';
       if (o.need - o.W >= 2 * e) return 'fails';
       return 'even';
     }
+    const need = needOf(o, v); // on the river, what the bet must fold to beat checking
     const e = se(o.F, A.n);
-    if (o.F >= o.alpha + Math.max(0.02, 2 * e)) return 'works';
-    if (o.alpha - 0.05 - o.F >= 2 * e) return 'fails';
+    if (o.F >= need + Math.max(river ? 0 : 0.02, 2 * e)) return 'works';
+    if (need - (river ? 0 : 0.05) - o.F >= 2 * e) return 'fails';
     return 'even';
   }
   if (o.type === 'call') {
     if (A.Q === undefined) return null;
     if (hf.drawEquity >= 0.14) return hf.drawEquity >= A.price ? 'works' : 'fails';
+    const tol = river ? 0 : Math.min(0.1, A.price / 2);
     const e = se(A.Q, A.n);
-    if (A.Q - (A.price + 0.1) >= 2 * e) return 'works';
-    if (A.price - 0.1 - A.Q >= 2 * e) return 'fails';
+    if (A.Q - (A.price + tol) >= 2 * e) return 'works';
+    if (A.price - tol - A.Q >= 2 * e) return 'fails';
     return 'even';
   }
   return 'works'; // checking and folding are always available
+}
+
+// The folds a bet with less than a pair needs. Before the river, alpha = B / (P + B). On the river it
+// has to beat the value of checking, not zero: (B + max(0, EV of checking)) / (P + B) (MATH, 13 Nov).
+export function needOf(o, v) {
+  if (v.street !== STREET.RIVER || o.alpha === undefined || o.alpha >= 1) return o.alpha;
+  const chk = v.options.find((x) => x.type === 'check');
+  if (!chk) return o.alpha;
+  const P = v.pot;
+  const B = (o.alpha * P) / (1 - o.alpha);
+  return (B + Math.max(0, chk.ev)) / (P + B);
 }
 
 // A1-A5, after every other rule: the anchors can veto a flag or veto praise; they never create a
@@ -728,10 +744,16 @@ export function applyAnchors(v, s, ctx) {
   const ref = v.options[v.best];
   // (a size flag, bet against bigger bet, is missed value: the reference must work)
   const own = (mine.type === 'raise' && ref.type !== 'raise') || (mine.type === 'call' && ref.type === 'fold');
-  const verdictOk = own ? st(mine) === 'fails' || st(mine) === null : st(ref) === 'works' || st(ref) === null;
-  if (!verdictOk) {
+  const s1 = own ? st(mine) : st(ref);
+  // "about break-even" vetoes a flag only before the river and only under twice the bar; otherwise
+  // the judge's grade stands, without the estimate line (MATH, 13 Nov: never print "close" under it).
+  // A play that works (own) or a reference that fails always vetoes, with the gap in the note.
+  const bar2 = 2 * v.small * (v.sameKind ? 1.6 : 1);
+  const evenVetoes = s1 === 'even' && s.street !== STREET.RIVER && v.loss < bar2;
+  const veto = own ? s1 === 'works' || evenVetoes : s1 === 'fails' || evenVetoes;
+  if (veto) {
     v.grade = 'good';
     v.note = 'anchor';
-  }
-  v.line = 'auto';
+    v.line = 'auto';
+  } else v.line = s1 === 'even' ? null : 'auto';
 }

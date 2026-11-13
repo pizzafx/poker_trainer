@@ -5,7 +5,7 @@ import { STREET, legal } from '../src/engine/game.js';
 import { handFeatures, TIER } from '../src/engine/features.js';
 import { POS } from '../src/bots/policy.js';
 import { judgeDecision } from '../src/trainer/judge.js';
-import { limpOutsideTipFor, robustVerdict, anchorStatus, applyAnchors } from '../src/trainer/grade.js';
+import { limpOutsideTipFor, robustVerdict, anchorStatus, applyAnchors, needOf } from '../src/trainer/grade.js';
 import { build, gradeAll } from '../scripts/gradeall.js';
 import { SPOTS } from '../scripts/mwbench_spots.js';
 import { explain, anchorLine } from '../src/trainer/explain.js';
@@ -193,4 +193,30 @@ test('estimate wording at the extreme buckets reads properly in every template',
     assert.doesNotMatch(l, /almost (never|always) of the time|get almost never|need almost never|fold almost (never|always) of|only almost/, l);
     for (const m of l.matchAll(/(\d+)%/g)) assert.ok(+m[1] >= 5 && +m[1] <= 95, `${m[0]} in: ${l}`);
   }
+});
+
+// MATH, 13 Nov addendum: no river tolerances, a river bluff must beat checking, a call's tolerance
+// shrinks with a small price, and "about break-even" only vetoes small, pre-river flags.
+test('anchors, 13 Nov rules: river exactness, beating the check, small prices, the even veto', () => {
+  const made = { tier: TIER.TOP_PAIR_GOOD, drawEquity: 0 };
+  const air = { tier: TIER.HIGH_CARD, drawEquity: 0 };
+  // QA hand 24: almost never ahead against a 10% price, before the river: now "fails" (was "even")
+  assert.equal(anchorStatus({ type: 'call' }, { street: 2, anchors: { n: 1000, Q: 0.02, price: 0.1 } }, made, 2), 'fails');
+  // river value bet: ahead 50% against a 45% need works on the river (no 10-point margin), not on the turn
+  const vb = { type: 'raise', to: 50, W: 0.5, need: 0.45, called: 3000, F: 0.1, alpha: 0.3 };
+  assert.equal(anchorStatus(vb, { street: 3, anchors: { n: 3000 }, options: [] }, made, 2), 'works');
+  assert.equal(anchorStatus(vb, { street: 2, anchors: { n: 3000 }, options: [] }, made, 2), 'even');
+  // river bluff: it must fold enough to beat the check's value
+  const v = { street: 3, pot: 100, anchors: { n: 3000 }, options: [{ type: 'check', ev: 40 }] };
+  const b = { type: 'raise', to: 50, F: 0.45, alpha: 50 / 150 };
+  assert.ok(Math.abs(needOf(b, v) - 90 / 150) < 1e-9, `need ${needOf(b, v)}`);
+  assert.equal(anchorStatus(b, v, air, 2), 'fails'); // 45% of folds against 60% needed
+  assert.equal(needOf(b, { ...v, street: 2 }), b.alpha);
+  // a flag on the river is not vetoed by "about break-even"
+  const { s } = build(SPOTS.find((x) => x.id === 'R05'));
+  const ctx = buildContext(s);
+  const flag = { options: [{ type: 'check', ev: 30 }, { type: 'raise', to: 13, ev: 5, F: 0.1, alpha: 0.5, W: 0.48, need: 0.5, called: 400 }], best: 0, mine: 1, grade: 'mistake', loss: 25, se: 2, sameKind: false, pot: 13, small: 9, street: 3, anchors: { n: 780, topSizeBest: false } };
+  applyAnchors(flag, s, ctx);
+  assert.equal(flag.grade, 'mistake');
+  assert.equal(flag.line, null, 'no "close" line under a standing flag');
 });

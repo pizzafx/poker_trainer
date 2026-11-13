@@ -4,7 +4,7 @@
 import { STREET } from '../engine/game.js';
 import { TIER } from '../engine/features.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
-import { anchorStatus } from './grade.js';
+import { anchorStatus, needOf } from './grade.js';
 
 export const CATEGORIES = {
   paidOff: 'Paying off: calling when their bet or raise is almost always the goods',
@@ -253,8 +253,9 @@ export function anchorLine(d) {
   const ref = v.options[v.best];
   const made = hf.tier >= TIER.WEAK_PAIR && !(hf.drawEquity >= 0.14 && hf.tier <= TIER.MIDDLE_PAIR);
   const kw = d.toCall > 0 ? 'raise' : 'bet'; // what the play is called in the line
-  const bet = (o) => {
-    const s = st(o);
+  const bet = (o0) => {
+    const o = { ...o0, alpha: needOf(o0, v) }; // on the river, the folds it needs to beat checking
+    const s = st(o0);
     if (made && o.W !== null) {
       const thin = s === 'even' || r5(o.W) === r5(o.need);
       const chk = v.options.find((x) => x.type === 'check');

@@ -2084,9 +2084,10 @@ function reviewModal() {
       const noted = (note) => sess.decisions.filter((d) => d.verdict.note === note);
       const mwRows = [];
       const times = (n) => `${n} time${n === 1 ? '' : 's'} this session`;
-      const chk = noted('mwCheck');
+      // every one-pair check note with two or more opponents in counts, whichever rule gave it (STRAT)
+      const chk = sess.decisions.filter((d) => d.opponents >= 2 && ['mwCheck', 'thinValue', 'checkOOP'].includes(d.verdict.note));
       if (chk.length >= 3) {
-        const gains = chk.map((d) => (d.verdict.mw && d.verdict.mw.gain) || 0).filter((g) => g > 0);
+        const gains = chk.map((d) => (d.verdict.mw && d.verdict.mw.gain) || (d.verdict.thin && d.verdict.thin.gain) || 0).filter((g) => g > 0);
         const avg = gains.length ? Math.round(gains.reduce((a, g) => a + g, 0) / gains.length) : 0;
         mwRows.push([`Checked one pair in a multiway pot (a bet rated higher ${gains.length} time${gains.length === 1 ? '' : 's'}${avg ? `, about $${avg} each` : ''})`, times(chk.length)]);
       }

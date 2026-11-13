@@ -155,7 +155,7 @@ function goodHeadline(v, mine, best) {
     return `${mine.label}: fine. (${v.thin.nick ? `Against ${v.thin.nick}, a bet` : 'A bet'} of about ${v.thin.size} ${by}.)`;
   }
   // "scores higher" only when it does; within the yellow bar but lower, "close to the best play" (QA M1)
-  if (v.note === 'mwHabit') return `${mine.label}: fine. (${v.habitHigher ? 'It scores higher against these opponents' : 'It is close to the best play here'}; not a habit to build.${HABIT_WHY[v.habit] ? ' ' + HABIT_WHY[v.habit] : ''})`;
+  if (v.note === 'mwHabit') return `${mine.label}: fine. (${v.habitHigher ? 'It scores higher against these opponents; not a habit to build.' : 'It is close to the best here, but not a habit to build.'}${HABIT_WHY[v.habit] ? ' ' + HABIT_WHY[v.habit] : ''})`;
   if (v.note === 'mwCheck') {
     const m = v.mw || {};
     const who = v.thin && v.thin.nick ? `Against ${v.thin.nick}, a bet` : 'A bet';
@@ -188,6 +188,7 @@ function goodHeadline(v, mine, best) {
 // totals add up to the sum of what each verdict said.
 export function shownCost(v) {
   if (v.grade === 'good' || v.mine < 0) return 0;
+  if (v.dominated) return v.dominated; // behind the best play by at least this much under every read
   return Math.max(0, Math.round(v.options[v.best].ev) - Math.round(v.options[v.mine].ev));
 }
 
@@ -213,7 +214,9 @@ export function explain(d) {
   const b = kind(best);
   const word = v.grade === 'blunder' ? 'Blunder' : 'Mistake';
   const ref = v.ref === 'noRaise' ? `${best.label.toLowerCase()} (the best play that is not a raise)` : v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
-  const headline = `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}.`;
+  const headline = v.dominated
+    ? `${word}: ${mine.label.toLowerCase()} scores at least $${cost} below the best play here under every reasonable read of these players.`
+    : `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}.`;
   const reasons = [];
   const r1 = readLine(d);
   if (r1) reasons.push(r1);

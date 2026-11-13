@@ -132,7 +132,9 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
   // Re-grade against the best option among those `allow` accepts (your own play always counts).
   // The new gap has to clear its own margin of error, as the judge's first verdict did, and the
   // "too close to call" marks are redone against the new reference (R10).
+  let allowed = () => true; // the options a guardrail allows as the comparison (kept for the scenario test)
   const regrade = (allow, note, ref) => {
+    allowed = allow;
     let alt = -1;
     v.options.forEach((o, i) => {
       if ((i === v.mine || allow(o)) && (alt < 0 || o.ev > v.options[alt].ev)) alt = i;
@@ -218,7 +220,7 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
         v.grade = 'good';
         v.note = 'mwHabit';
         v.habit = h;
-        v.habitHigher = mine.ev >= v.options[ref].ev; // "scores higher" only when it does
+        v.habitHigher = v.options.every((o) => o.ev <= mine.ev); // "scores higher" only when it is the judge's best (STRAT)
         v.loss = 0;
         v.se = 0;
         v.best = ref;
@@ -276,7 +278,8 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
     if (isRaise(mine) && premium >= 0.96 && !aggNit) capYellow();
     // Raise sizes before the flop are never flagged: one size for all hands is the right habit,
     // and the judge's preferred size moves with the hand (a size tell if copied).
-    if (isRaise(mine) && isRaise(best())) return pass('preSize');
+    //    Only within the same-kind yellow bar; beyond it the size is graded as usual (STRAT, QA M2a).
+    if (isRaise(mine) && isRaise(best()) && v.loss < small * 1.6) return pass('preSize');
     // The flag must survive opponents being a little looser and a little tighter than assumed.
     for (const shift of [-0.05, 0.05]) {
       const v2 = judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, samples: Math.round(judgeOpts.samples / 2), shift });
@@ -400,17 +403,69 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
   if (!river && mine.type === 'check') capYellow();
 
   // The flag must hold whichever plausible opponent is real (MATH_MULTIWAY 2b, replacing the
-  // "fragile" test after the flop): the same named alternative beats your play by the bar in every
-  // scenario: opponents calling a little wider and tighter, a "thin value" stand-in for you in the
-  // play-outs, and every range read twice as strong or half as strong (re-weighting, no new runs).
-  // When the best kind of play changes between scenarios, the decision is not graded.
+  // "fragile" test after the flop). Scenarios: the base run, opponents calling a little wider and
+  // tighter, a "thin value" stand-in for you in the play-outs, and every range read twice as strong or
+  // half as strong (re-weighting, no new runs). The stand-in is skipped at six players or more and when
+  // the gap is over three bars (MATH: it changes no flag there; it is the slowest scenario).
+  const baseBar = small * (v.sameKind ? 1.6 : 1);
   const half = Math.round(judgeOpts.samples / 2);
   const runs = [-0.05, 0.05].map((shift) => judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, samples: half, shift }));
-  runs.push(judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, samples: half, heroProfile: THIN_HERO }));
-  const scen = runs.filter((r) => r.options.length === v.options.length).map((r) => r.options.map((o) => o.ev));
+  if (opp + 1 < 6 && v.loss <= 3 * baseBar) runs.push(judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, samples: half, heroProfile: THIN_HERO }));
+  const scen = [v.options.map((o) => o.ev), ...runs.filter((r) => r.options.length === v.options.length).map((r) => r.options.map((o) => o.ev))];
   if (v.runs && v.runs.sample) scen.push(tiltedEvs(v, 2), tiltedEvs(v, 0.5));
+  const usable = (o, i) => i !== v.mine && !habitOf(o) && allowed(o);
+  // Every alternative is tried, not only the base best (STRAT, QA M2b): the flag names the one that
+  // beats your play by its bar in every scenario with the most to spare.
+  let pick = -1;
+  let pickMargin = -Infinity;
+  let pickGap = null;
+  v.options.forEach((o, a) => {
+    if (!usable(o, a)) return;
+    const barA = small * (o.type === mine.type ? 1.6 : 1);
+    const g = pairedGap(v, a, v.mine);
+    if (!(g.mean > 2.2 * g.se)) return;
+    let m = Infinity;
+    for (const e of scen) m = Math.min(m, e[a] - e[v.mine] - barA);
+    if (m >= 0 && m > pickMargin) {
+      pick = a;
+      pickMargin = m;
+      pickGap = g;
+    }
+  });
+  if (pick >= 0) {
+    if (pick !== v.best) {
+      const RANK = { good: 0, mistake: 1, blunder: 2 };
+      const sameK = v.options[pick].type === mine.type;
+      const g2 = gradeFor(pickGap.mean, sameK);
+      v.best = pick;
+      v.sameKind = sameK;
+      v.loss = pickGap.mean;
+      v.se = pickGap.se;
+      if (RANK[g2] < RANK[v.grade]) v.grade = g2; // never worse than the guardrails above left it
+      if (v.grade === 'good') return pass('fragile');
+      refreshClose(v);
+    }
+    return;
+  }
+  // No single option beats it everywhere, but it trails whichever option is best in each scenario by
+  // 1.5 bars or more (the maximum of noisy estimates runs high): yellow, naming no one option (MATH).
+  let dom = Infinity;
+  for (const e of scen) {
+    let mx = -Infinity;
+    v.options.forEach((o, i) => {
+      if (usable(o, i)) mx = Math.max(mx, e[i]);
+    });
+    dom = Math.min(dom, mx - e[v.mine]);
+  }
+  if (dom >= 1.5 * small) {
+    v.grade = 'mistake';
+    v.dominated = Math.round(dom);
+    v.ref = null;
+    return;
+  }
+  // Otherwise not graded; "unclear" when the best kind of play changes between scenarios.
   const kind = (o) => (o.type === 'raise' ? 'raise' : o.type);
-  const kinds = new Set([kind(best())]);
+  const kinds = new Set();
   for (const e of scen) {
     let b = -1;
     v.options.forEach((o, i) => {
@@ -418,9 +473,7 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
     });
     kinds.add(kind(v.options[b]));
   }
-  if (kinds.size > 1) return pass('unclear');
-  const bar = small * (v.sameKind ? 1.6 : 1);
-  for (const e of scen) if (e[v.best] - e[v.mine] < bar) return pass('fragile');
+  return pass(kinds.size > 1 ? 'unclear' : 'fragile');
 }
 
 // "Thin value" stand-in for the trainee in the play-outs (MATH_MULTIWAY 2b): bets thinner, never slowplays.

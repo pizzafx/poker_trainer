@@ -112,7 +112,9 @@ export const EXPECT = {
   F09: { accept: ['check', 'bet:0.45-0.8'] },                // R8 tiny pot
   F10: { accept: ['call'], softFlag: ['raise'], noGrade: true },
   F11: { accept: ['call', 'raise'], flag: ['fold'], note: { raise: 'mwHabit' }, neverBest: ['raise'] }, // owner: R7 note, never flagged; fold flagged (draw above the price)
-  F12: { accept: ['fold', 'call'], noGrade: true },
+  // R12 now tries every alternative (STRAT, QA M2b): the raises trail the call by the bar in every
+  // scenario, so they are flagged (as the live pro would); fold and call stay ungraded.
+  F12: { accept: ['fold', 'call'], flag: ['raise:2-5'] },
   F13: { accept: ['bet:0.45-1.05'], flag: ['check'] },       // †
   F14: { accept: ['check'] },
   F15: { accept: ['raise:2.5-5.5'], flag: ['call'], maxGrade: { call: 'mistake' } }, // owner: call is yellow
@@ -121,7 +123,9 @@ export const EXPECT = {
   T03: { accept: ['check', 'bet'], note: { bet: 'mwHabit' }, neverBest: ['bet'], noGrade: true }, // owner: R7 note, never flagged; MATH: do not grade
   T04: { accept: ['bet:0.6-1.05'], flag: ['check'] },        // two pair: R1 does not apply; R8? pot 4.3bb → see ‡
   T05: { accept: ['call', 'fold', 'raise'], note: { raise: 'mwHabit' }, neverBest: ['raise'] }, // owner: R7 note, never flagged; R5b
-  R01: { accept: ['bet:0.3-0.8'], flag: ['check'], maxGrade: { check: 'mistake' }, quote: 'bet:0.74' }, // owner: check yellow; R3 quotes $90, $60 good
+  // $40 (33% of the pot) is below R2's 45% floor with top pair good kicker: yellow at most, now that R12
+  // names $90, which beats it in every scenario.
+  R01: { accept: ['bet:0.45-0.8'], flag: ['check'], maxGrade: { check: 'mistake', 'bet:0.3-0.44': 'mistake' }, quote: 'bet:0.74' }, // owner: check yellow; R3 quotes $90, $60 good
   R02: { accept: ['check'] },
   // CEO, 13 Nov 2026 (QA M1): R7 waives only plays within the yellow bar of the best other option. The
   // $100 raise (+$3 over the call) keeps the note; the shove ($64 below the call) is graded, red.

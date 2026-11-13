@@ -146,14 +146,15 @@ const THEORY = {
 // (STRAT, QA Q1, Nov 2026). `v.small` is the yellow bar the guardrails used.
 function goodHeadline(v, mine, best, d = {}) {
   const gap = (o) => Math.max(0, Math.round(o.ev) - Math.round(mine.ev));
-  const bar = (o) => (v.small || 0) * (o.type === mine.type ? 1.6 : 1);
+  const bar = () => v.small || 0; // the yellow bar, the same for every option here (QA E4)
   const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
   // "scores about $X more", or the fallback wording when the gap is within the bar
   const more = (o, within) => (gap(o) > bar(o) || !within ? (gap(o) > 0 ? `scores about $${gap(o)} more` : 'scores about the same') : within);
   const who = d.opponents === 1 ? 'this player' : 'these players';
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
   if (v.note === 'premium') return `${mine.label}: fine. (Raising with this hand is never a mistake.)`;
-  if (v.note === 'anchorHabit' || v.note === 'anchorEven' || v.note === 'sizePeak') return `${mine.label}: fine.`; // the coach's estimate below says why
+  if (v.note === 'anchorHabit' || v.note === 'anchorEven' || v.note === 'sizePeak') return `${mine.label}: fine.`;
+  if (v.note === 'anchorFails') return `${mine.label}: fine. (It gives up less than the coach flags, but by the estimate below it does not work.)`; // the coach's estimate below says why
   if (v.note === 'anchor') return `${mine.label}: fine. (By the coach's own numbers this is close, so it is not flagged.)`;
   if (v.note === 'closeCall') return `${mine.label}: not graded.`;
   if (v.note === 'preSize') return `${mine.label}: fine. (${bare(best)} ${more(best, 'scores about the same')}; using one size with all your hands is the better habit.)`;
@@ -232,7 +233,7 @@ function anchorLine(d) {
   if (v.line === '9') return LINE9;
   const hf = { tier: d.tier ?? 0, drawEquity: d.drawEquity ?? 0 };
   const opp = d.opponents || 1;
-  const st = (o) => anchorStatus(o, v, hf, opp);
+  const st = (o) => o.st ?? anchorStatus(o, v, hf, opp); // grading's own classification (QA E1)
   const river = d.street === STREET.RIVER;
   const now = river ? '' : ' right now';
   const mine = v.options[v.mine];
@@ -257,7 +258,8 @@ function anchorLine(d) {
   let line = null;
   if (v.line === '5') {
     const called = mine.W !== null && mine.W !== undefined ? `when called you are ${aheadP(mine.W, now)}` : 'you are almost never ahead when called';
-    line = `This scores higher against these opponents, but ${called} and everyone folds only ${p5(mine.F).replace('about ', '')} of the time; it needs ${p5(mine.alpha).replace('about ', '')}. Not a habit to build.`;
+    const folds = mine.F < 0.05 ? 'almost no one folds' : `everyone folds only ${p5(mine.F).replace('about ', '')} of the time`;
+    line = `This scores higher against these opponents, but ${called} and ${folds}; it needs ${p5(mine.alpha).replace('about ', '')}. Not a habit to build.`;
   } else if (ref !== mine && ref.type === 'raise' && v.grade !== 'good' && (mine.type !== 'raise' || ref.to !== mine.to)) {
     const b = bet(ref);
     line = `${d.toCall > 0 ? `A raise to $${ref.to}` : `A bet of $${ref.to - (d.currentBet || 0)}`}: ${b[0].toLowerCase()}${b.slice(1)}`;
@@ -321,7 +323,7 @@ export function explain(d) {
   const m = kind(mine);
   const b = kind(best);
   const word = v.grade === 'blunder' ? 'Blunder' : 'Mistake';
-  const ref = v.ref === 'noRaise' ? `${best.label.toLowerCase()} (the best play that is not a raise)` : v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
+  const ref = v.ref === 'anchor' ? `${best.label.toLowerCase()} (the best play that works against anyone)` : v.ref === 'noRaise' ? `${best.label.toLowerCase()} (the best play that is not a raise)` : v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
   const headline = v.dominated
     ? `${word}: ${mine.label.toLowerCase()} scores at least $${cost} below the best play here under every reasonable read of these players.`
     : `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}.`;

@@ -7,6 +7,9 @@ import { POS } from '../src/bots/policy.js';
 import { judgeDecision } from '../src/trainer/judge.js';
 import { limpOutsideTipFor, robustVerdict, anchorStatus } from '../src/trainer/grade.js';
 import { build, gradeAll } from '../scripts/gradeall.js';
+import { SPOTS } from '../scripts/mwbench_spots.js';
+import { explain } from '../src/trainer/explain.js';
+import { buildContext } from '../src/bots/policy.js';
 
 // STRAT: a call before the river with top pair or better and a draw is yellow at most, at any size.
 test('top pair good kicker plus an open-ended draw, facing a nit\'s pot-sized turn bet: the call is never red', () => {
@@ -114,4 +117,31 @@ test('anchors: a play works, breaks even or fails on its own numbers', () => {
   assert.equal(anchorStatus({ type: 'call' }, v, made, 2), 'works');
   assert.equal(anchorStatus({ type: 'call' }, { anchors: { n: 3000, Q: 0.05, price: 0.3 } }, made, 2), 'fails');
   assert.equal(anchorStatus({ type: 'check' }, v, made, 2), 'works');
+});
+
+// QA E1: a "fine" verdict's estimate line uses the same classification as the grade: a break-even
+// bet gets the break-even wording, a failing one (within the flag bar) says it does not work.
+test('estimate lines agree with the grade (F05, F06, F14)', () => {
+  let checked = 0;
+  for (const id of ['F05', 'F06', 'F14']) {
+    const { s, belief, env } = build(SPOTS.find((x) => x.id === id));
+    const opts = { samples: 1500, seed: 5 };
+    const v0 = judgeDecision(s, 0, belief, null, opts);
+    const hf = handFeatures(s.hole[0], s.board);
+    const ctx = buildContext(s);
+    for (const r of gradeAll(s, v0, opts, env)) {
+      const e = explain({ verdict: r.v, street: s.street, tier: hf.tier, drawEquity: hf.drawEquity, opponents: s.folded.filter((f, i) => i && !f).length, toCall: ctx.toCall, raises: ctx.raises, board: s.board, villain: null });
+      if (r.v.note === 'anchorEven') {
+        checked++;
+        assert.match(e.anchor, /breaks even|thin/, `${id} ${r.o.label}: ${e.anchor}`);
+      }
+      if (r.v.note === 'anchorFails') {
+        checked++;
+        assert.match(e.headline, /does not work/);
+        assert.match(e.anchor, /Do not bluff|call with better/, `${id} ${r.o.label}: ${e.anchor}`);
+      }
+      if (e.anchor) assert.doesNotMatch(e.anchor, /only almost never/);
+    }
+  }
+  assert.ok(checked >= 4, `${checked} anchor notes checked`);
 });

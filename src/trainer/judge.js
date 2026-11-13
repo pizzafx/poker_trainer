@@ -184,6 +184,9 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   if (anchors) for (const h of s.history) if (h.street === s.street && h.seat !== hero && ['bet', 'raise', 'call'].includes(h.type) && !s.folded[h.seat] && !inSeats.includes(h.seat)) inSeats.push(h.seat);
   let q = 0;
   const startLen = s.history.length;
+  // A time budget (the app sets one; tests do not): stop sampling once it is spent, after at least
+  // 200 samples, so no decision takes much more than a few seconds on a slow machine.
+  const t0 = opts.budgetMs ? performance.now() : 0;
   let n = 0;
   let guard = 0;
   heroP = opts.heroProfile || HERO_PROFILE;
@@ -272,6 +275,7 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
       }
     }
     n++;
+    if (opts.budgetMs && n >= 200 && (n & 31) === 0 && performance.now() - t0 > opts.budgetMs) break;
   }
 
   const evs = res.map((r) => {

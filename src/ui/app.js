@@ -663,7 +663,11 @@ function readThen(d, r) {
   }
   return out;
 }
-const refTag = (v, i) => (i === v.best && v.ref ? ' <span class="ref-tag" title="The best bet the coach holds you to here; bigger sizes are not held against you">reference</span>' : '');
+const REF_WHY = {
+  anchor: 'The best play that works against anyone; a longer bar here comes from these opponents only',
+  noRaise: 'The best play that is not a raise; the coach does not hold you to the raise',
+};
+const refTag = (v, i) => (i === v.best && v.ref ? ` <span class="ref-tag" title="${esc(REF_WHY[v.ref] || 'The best bet the coach holds you to here; bigger sizes are not held against you')}">reference</span>` : '');
 function fbCard(d, showWhere = true) {
   const v = d.verdict;
   const where = showWhere

@@ -550,6 +550,8 @@ export class Session {
     const s = this.hand.state;
     return {
       samples: samplesFor(this.samples, s),
+      // about 3 s at most per decision: 2 s for the judgement, the rest for the re-runs a flag needs
+      budgetMs: 2000,
       seed: (this.handNo * 131 + s.history.length) | 0,
       heat: this.heat,
     };

@@ -288,7 +288,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     if (isRaise(mine) && isRaise(best()) && v.loss < small * 1.6) return pass('preSize');
     // The flag must survive opponents being a little looser and a little tighter than assumed.
     for (const shift of [-0.05, 0.05]) {
-      const v2 = judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, samples: Math.round(judgeOpts.samples / 2), shift });
+      const v2 = judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, ...(judgeOpts.budgetMs ? { budgetMs: judgeOpts.budgetMs / 4 } : {}), samples: Math.round(judgeOpts.samples / 2), shift });
       if (v2.options[v.best].ev - v2.options[v.mine].ev < small * 0.5) return pass('fragile');
     }
     return;
@@ -426,8 +426,9 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   const baseBar = small * (v.sameKind ? 1.6 : 1);
   // a quarter of the samples each at six players or more (speed; the base run is one of the scenarios)
   const half = Math.round(judgeOpts.samples / (opp + 1 >= 6 ? 4 : 2));
-  const runs = [-0.05, 0.05].map((shift) => judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, samples: half, shift }));
-  if (opp + 1 < 6 && v.loss <= 3 * baseBar) runs.push(judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, samples: half, heroProfile: THIN_HERO }));
+  const reOpts = judgeOpts.budgetMs ? { budgetMs: judgeOpts.budgetMs / 5 } : {}; // each re-run gets a fifth of the budget
+  const runs = [-0.05, 0.05].map((shift) => judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, ...reOpts, samples: half, shift }));
+  if (opp + 1 < 6 && v.loss <= 3 * baseBar) runs.push(judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, ...reOpts, samples: half, heroProfile: THIN_HERO }));
   const scen = [v.options.map((o) => o.ev), ...runs.filter((r) => r.options.length === v.options.length).map((r) => r.options.map((o) => o.ev))];
   if (v.runs && v.runs.sample) scen.push(tiltedEvs(v, 2), tiltedEvs(v, 0.5));
   const usable = v.options.map((o, i) => i !== v.mine && !habitOf(o) && allowed(o));
@@ -618,6 +619,7 @@ function applyAnchors(v, s, ctx) {
   let opp = 0;
   for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) opp++;
   const st = (o) => anchorStatus(o, v, hf, opp);
+  for (const o of v.options) o.st = st(o); // the line in explain.js reads these, so both agree (QA E1)
   const mine = v.options[v.mine];
   // a raise of your bet with another player in (the R6 spot): the neutral line under every option
   const onePair = hf.tier >= TIER.WEAK_PAIR && hf.tier <= TIER.OVERPAIR_TPTK;
@@ -663,7 +665,7 @@ function applyAnchors(v, s, ctx) {
       v.loss = g.mean;
       v.se = g.se;
     }
-    v.ref = null;
+    v.ref = 'anchor';
     refreshClose(v);
   };
   const supported = (o) => o.type !== 'raise' || st(o) === 'works';
@@ -672,7 +674,7 @@ function applyAnchors(v, s, ctx) {
     // gets the "not a habit" note (line 5); one about break-even just its line (4b or 2).
     if (mine.type === 'raise' && st(mine) && st(mine) !== 'works') {
       if (v.best === v.mine && st(mine) === 'fails') v.note = 'anchorHabit';
-      else if (!v.note) v.note = 'anchorEven';
+      else if (!v.note) v.note = st(mine) === 'fails' ? 'anchorFails' : 'anchorEven';
       let b = -1;
       v.options.forEach((o, i) => {
         if (i !== v.mine && supported(o) && (b < 0 || o.ev > v.options[b].ev)) b = i;
@@ -680,6 +682,7 @@ function applyAnchors(v, s, ctx) {
       if (b >= 0) {
         v.best = b;
         v.sameKind = v.options[b].type === mine.type;
+        v.ref = 'anchor'; // the green row is the best play that works, not the longest bar (QA E3)
         refreshClose(v);
       }
       v.line = v.note === 'anchorHabit' ? '5' : 'auto';
@@ -692,6 +695,7 @@ function applyAnchors(v, s, ctx) {
       v.options.forEach((o, i) => {
         if (supported(o) && o.ev > v.options[b].ev) b = i;
       });
+      if (b !== v.best) v.ref = 'anchor';
       v.best = b;
       v.sameKind = v.options[b].type === mine.type;
       refreshClose(v);

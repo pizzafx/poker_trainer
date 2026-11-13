@@ -104,9 +104,9 @@ export const EXPECT = {
   F01: { accept: ['check', 'bet:0.3-0.8'] },                 // R1 (3-way, K9 not goodTP)
   F02: { accept: ['bet:0.45-1.05'], flag: ['check'] },       // 4-way check → R1 makes it a note: see note †
   F03: { accept: ['bet:0.45-1.05'], flag: ['check'] },       // †
-  // CEO/STRAT (Nov 2026): a draw bet up to the pot whose folds beat its need by 2 points is exempt from
-  // the "not a habit" note ($15: 30% against 25%); $25 (34% against 35%) and bigger keep it.
-  F04: { accept: ['check', 'bet:0.3-0.6'], note: { 'bet:0.5-1.6': 'mwHabit' } },                 // R4
+  // CEO/STRAT (Nov 2026): a draw bet up to the pot that the anchors count as working is exempt from the
+  // "not a habit" note ($15: 30% against 25%; $25: 34% against 35%); bigger sizes keep it.
+  F04: { accept: ['check', 'bet:0.3-0.6'], note: { 'bet:0.7-1.6': 'mwHabit' }, neverBest: ['bet:0.7-1.6'] },                 // R4
   F05: { accept: ['check', 'bet:0.3-0.4'] },
   F06: { accept: ['check'] },
   F07: { accept: ['bet:0.6-1.6'], flag: ['check'] },          // set: not onePair, R1 does not apply

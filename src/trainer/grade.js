@@ -201,9 +201,10 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     if (!mw) return null;
     if (ctx.toCall > 0 && onePair) return passiveLead ? 'passiveLead' : 'raiseCaller';
     if (ctx.toCall > 0 && draw) return 'drawRaise';
-    // A bet up to the pot whose folds beat what it needs by 2 points or more is exempt (CEO, F04, with
-    // STRAT's conditions): overbets keep the note, and noise around the need does not remove it.
-    const supported = () => o.F !== undefined && betFrac(o) <= 1.05 && o.F >= o.alpha + 0.02;
+    // A draw bet up to the pot that the anchors count as working is exempt (CEO, F04, with STRAT's
+    // conditions): folds within 5 points of what it needs, or the draw's own equity covering it, the
+    // same rule as anchorStatus for draws. Overbets keep the note.
+    const supported = () => o.F !== undefined && betFrac(o) <= 1.05 && (o.F >= o.alpha - 0.05 || hf.drawEquity >= (o.need ?? 1 / (opp + 1)));
     if (draw && live.some((i) => readAs(i, ['station'])) && !supported()) return 'drawStation';
     if (draw && betFrac(o) > 1.05) return 'drawOverbet';
     return null;

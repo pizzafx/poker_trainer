@@ -629,13 +629,45 @@ function renderActions() {
 }
 
 const tipLine = (d, cls = 'tip-line') => (d.tip ? `<p class="${cls}"><b class="tip-label">Tip:</b> ${esc(d.tip)}</p>` : '');
+// The coach's note on a fine verdict, without the "X: fine." it starts with (QA K1: the review shows it
+// under the fine row, as the strip and the panel do).
+function noteText(d) {
+  if (d.tip || !d.verdict.note || !d.headline) return '';
+  const k = d.headline.indexOf(': ');
+  const body = (k >= 0 ? d.headline.slice(k + 2) : d.headline).replace(/^(fine|good)\.\s*/, '').replace(/^\((.*)\)$/, '$1');
+  return body;
+}
+const noteLine = (d, cls) => {
+  const n = noteText(d);
+  return n ? `<p class="${cls}">${esc(n)}</p>` : '';
+};
+// The read in a review is the one the coach had at the decision; say so, and what it is now when
+// it has moved on (STRAT, QA C4).
+function readThen(d, r) {
+  const vil = d.villain;
+  if (!vil || !vil.picture || !r.startsWith(vil.nick) && !r.startsWith('By now')) return r;
+  let out = r.replace(`By now ${vil.nick} plays like a `, `At the time, ${vil.nick} played like a `).replace(`${vil.nick} is most likely a `, `At the time, ${vil.nick} looked most likely a `);
+  if (out === r || !sess || !sess.seats[vil.seat] || sess.replay) return out;
+  const post = vil.picture.post;
+  let then = 0;
+  for (let t2 = 1; t2 < post.length; t2++) if (post[t2] > post[then]) then = t2;
+  const nowTop = sess.readOf(vil.seat).ranked[0];
+  if (nowTop.id !== TYPE_IDS[then]) {
+    const word = shortType(nowTop.id);
+    const lvl = nowTop.p >= 0.75 ? 3 : nowTop.p >= 0.6 ? 2 : nowTop.p >= 0.45 ? 1 : 0;
+    const guess = lvl === 3 ? word : lvl === 2 ? `Likely ${word === 'ABC' ? word : word.toLowerCase()}` : `${word}?`;
+    out = out.replace(/\.$/, '') + ` — now: ${guess}.`;
+  }
+  return out;
+}
+const refTag = (v, i) => (i === v.best && v.ref ? ' <span class="ref-tag" title="The best bet the coach holds you to here; bigger sizes are not held against you">reference</span>' : '');
 function fbCard(d, showWhere = true) {
   const v = d.verdict;
   const where = showWhere
     ? `<div class="where">Hand ${d.hand} · ${d.streetName} · ${d.position} ${cardsInline(holeOrder(d.hole))}${d.board.length ? ' on ' + cardsInline(d.board) : ''}</div>`
     : `<div class="where">${d.streetName}${d.handText ? ' · you have ' + esc(d.handText) : ''}</div>`;
   const rows = v.options
-    .map((o, i) => `<tr class="${i === v.best ? 'best' : ''} ${i === v.mine ? 'mine' : ''}"><td>${esc(o.label)}${o.close && i !== v.best ? ' <span class="approx" title="Too close to the best option to tell apart">≈</span>' : ''}</td><td>${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</td></tr>`)
+    .map((o, i) => `<tr class="${i === v.best ? 'best' : ''} ${i === v.mine ? 'mine' : ''}"><td>${esc(o.label)}${refTag(v, i)}${o.close && i !== v.best ? ' <span class="approx" title="Too close to the best option to tell apart">≈</span>' : ''}</td><td>${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</td></tr>`)
     .join('');
   return `<div class="fb ${v.grade}">${where}
     <div class="head">${esc(d.headline)}</div>
@@ -1164,18 +1196,18 @@ function openReview(stored = false) {
     const mine = v.options[v.mine];
     const head = `<span class="label">${STREET_LABEL[d.street] || d.streetName}</span><span class="vmark ${d.verdict.grade}">${MARK[v.grade]}</span><span class="what">${esc(mine ? mine.label : '')}</span><span class="grade ${v.grade}">${GRADE_WORD[v.grade]}</span>`;
     const link = rec ? `<button type="button" class="link-btn rv-replay" data-replay-dec="${ds.indexOf(d)}">▶ replay</button>` : '';
-    if (v.grade === 'good') return `<div class="rv-step">${head}${link}</div>${tipLine(d, 'tip-line rv-tip')}`;
+    if (v.grade === 'good') return `<div class="rv-step">${head}${link}</div>${tipLine(d, 'tip-line rv-tip')}${noteLine(d, 'tip-line rv-tip rv-note')}`;
     const evs = v.options.map((o) => o.ev);
     const lo = Math.min(...evs, 0);
     const hi = Math.max(...evs, 0);
     const width = (ev) => Math.max(4, Math.round(((ev - lo) / Math.max(1e-9, hi - lo)) * 100));
-    const bars = v.options.map((o, i) => `<div class="bar ${i === v.best ? 'best' : ''} ${i === v.mine ? 'yours' : ''}"><span>${esc(o.label)}</span><span class="track"><i style="--w:${width(o.ev)}%"></i></span><span class="mono">${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</span></div>`).join('');
+    const bars = v.options.map((o, i) => `<div class="bar ${i === v.best ? 'best' : ''} ${i === v.mine ? 'yours' : ''}"><span>${esc(o.label)}${refTag(v, i)}</span><span class="track"><i style="--w:${width(o.ev)}%"></i></span><span class="mono">${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</span></div>`).join('');
     const eq = d.villain && d.villain.picture && d.villain.picture.equity !== null && d.villain.picture.equity !== undefined ? d.villain.picture.equity : null;
     const duo = eq !== null && d.toCall > 0 ? `<div class="duo"><div class="stat"><span class="label">You beat</span><b>${Math.round(eq * 100)}%</b></div><div class="stat"><span class="label">You needed</span><b>${Math.round(d.odds * 100)}%</b></div></div>` : '';
     return `<details class="rv-flag ${v.grade}" ${d === firstFlag ? 'open' : ''}><summary class="rv-step">${head}${link}</summary>
       <div class="rv-body">
         <h2>${esc(d.headline)}</h2>
-        ${d.reasons.map((r) => `<p class="why">${esc(r)}</p>`).join('')}
+        ${d.reasons.map((r) => `<p class="why">${esc(readThen(d, r))}</p>`).join('')}
         <p class="label">What each option is worth, on average</p>
         <div class="bars">${bars}</div>
         ${duo}
@@ -2047,9 +2079,23 @@ function reviewModal() {
       const here = {};
       for (const d of sess.decisions) if (d.tipKind) here[d.tipKind] = (here[d.tipKind] || 0) + 1;
       const rows = Object.keys(HABITS).filter((k) => habits[k] || here[k]);
-      if (!rows.length) return '';
+      // Multiway notes this session, once a kind reaches 3 (MULTIWAY_COACH_SPEC R9): without this a
+      // player who never bets top pair into a crowd would see nothing.
+      const noted = (note) => sess.decisions.filter((d) => d.verdict.note === note);
+      const mwRows = [];
+      const chk = noted('mwCheck');
+      if (chk.length >= 3) {
+        const gains = chk.map((d) => (d.verdict.mw && d.verdict.mw.gain) || 0).filter((g) => g > 0);
+        const avg = gains.length ? Math.round(gains.reduce((a, g) => a + g, 0) / gains.length) : 0;
+        mwRows.push(`You checked one pair in multiway pots ${chk.length} times; a bet rated higher ${gains.length} time${gains.length === 1 ? '' : 's'}${avg ? ` (about $${avg} each)` : ''}`);
+      }
+      const drw = noted('mwDraw');
+      if (drw.length >= 3) mwRows.push(`You checked or called a draw in multiway pots ${drw.length} times where a bet or raise rated higher`);
+      const hab = noted('mwHabit');
+      if (hab.length >= 3) mwRows.push(`You made a play that scores against these opponents but is not a habit to build ${hab.length} times`);
+      if (!rows.length && !mwRows.length) return '';
       return `<h3>Habits the coach noted</h3><p class="sub">Not mistakes: plays that are fine here but usually give a little away. The tip under each verdict says why.</p>
-        <div class="leak-list">${rows.map((k) => `<div class="leak-row"><div class="lr-main"><span class="lr-name">${esc(HABITS[k])}</span><span class="lr-count">${habits[k] || 0} time${habits[k] === 1 ? '' : 's'} in all${here[k] ? `, ${here[k]} this session` : ''}</span></div></div>`).join('')}</div>`;
+        <div class="leak-list">${rows.map((k) => `<div class="leak-row"><div class="lr-main"><span class="lr-name">${esc(HABITS[k])}</span><span class="lr-count">${habits[k] || 0} time${habits[k] === 1 ? '' : 's'} in all${here[k] ? `, ${here[k]} this session` : ''}</span></div></div>`).join('')}${mwRows.map((r) => `<div class="leak-row"><div class="lr-main"><span class="lr-name">${esc(r)}</span><span class="lr-count">this session</span></div></div>`).join('')}</div>`;
     })()}
     ${all.length || rev.list.length ? `
     ${all.length ? `<h3>Your leaks, all sessions</h3><div class="leak-list">${allHtml}</div>` : ''}

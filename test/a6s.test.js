@@ -74,6 +74,7 @@ test('A6s: checking weak top pair on the turn is green, with a note naming the s
   assert.ok(v.thin, 'a smaller bet rates higher, so there is a note');
   assert.equal(v.thin.nick, 'Jeans');
   assert.ok(v.thin.to - s.currentBet <= 0.75 * v.pot + 0.5, `quoted bet $${v.thin.to} is at most 75% of the $${v.pot} pot`);
-  assert.match(out.headline, /^Check: fine\. Against Jeans a bet of about (a third|half|three-quarters) of the pot rates a little higher\.$/);
+  // QA K2/K3: in parentheses, a comma after the name, and the real figure once it reaches the yellow bar
+  assert.match(out.headline, /^Check: fine\. \(Against Jeans, a bet of about (a third|half|three-quarters) of the pot (rates a little higher|does about \$\d+ better)\.\)$/);
   assert.equal(out.cost, 0);
 });

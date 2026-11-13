@@ -67,7 +67,7 @@ test('temper: not re-raising preflop as a bluff is never flagged', () => {
 });
 
 test('temper: not bluff-raising a weak hand after the flop is never flagged', () => {
-  const spot = at((p) => p.street >= 1 && p.toCall > 0 && p.canRaise && p.tier >= 0 && p.tier <= TIER.MIDDLE_PAIR);
+  const spot = at((p) => p.street >= 1 && p.toCall > 0 && p.canRaise && p.tier >= 0 && p.tier <= TIER.MIDDLE_PAIR && p.opponents === 1); // heads-up: multiway, a raise with one pair or a draw is a "not a habit" play (R7)
   const to = spot.L.minTo;
   const v = run(spot, verdict(spot, [['fold', 0, 0], ['call', 0, -5], ['raise', to, 120]], 0, 2), { type: 'fold' });
   assert.equal(v.grade, 'good');
@@ -75,7 +75,7 @@ test('temper: not bluff-raising a weak hand after the flop is never flagged', ()
 });
 
 test('temper: nobody is held to an overbet', () => {
-  const spot = at((p) => p.street >= 1 && p.toCall === 0 && p.canRaise, 6);
+  const spot = at((p) => p.street >= 1 && p.toCall === 0 && p.canRaise && p.opponents === 1, 6); // heads-up: multiway, an overbet with a draw is a "not a habit" play (R7)
   const { L, pot } = spot;
   const half = Math.max(L.minTo, Math.round(pot / 2));
   const huge = Math.min(L.maxTo, Math.round(2.2 * pot));

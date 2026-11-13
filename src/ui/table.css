@@ -2355,3 +2355,7 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 @container stage (max-width: 1199px) { #replay-head .rh-date { display: none; } }
 @container stage (max-width: 999px) { #replay-head .rh-nav { display: none; } }
 @media (min-width: 901px) { #actions { min-height: 156px; } #actions > .myhand { min-height: 25px; } }
+
+/* QA K5: the reference bet the coach holds you to */
+.ref-tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line-2); font: 500 10px/1.5 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--slate); vertical-align: 1px; }
+#review .rv-note { color: var(--slate); }

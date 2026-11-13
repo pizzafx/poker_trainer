@@ -23,10 +23,26 @@ export const CATEGORIES = {
 };
 
 const pct = (x) => `${Math.round(100 * x)}%`;
+// "Bet $30 (81% pot)" -> "Bet $30", for use inside a parenthesis (QA C5)
+const bare = (o) => o.label.replace(/\s*\([^)]*\)\s*$/, '');
+
+// R7 ("not a habit to build"): one line on why, per kind of play
+const HABIT_WHY = {
+  raiseCaller: 'A raise into a bettor and a caller is usually called by better.',
+  drawRaise: 'A raise into a bettor and a caller is usually called by better.',
+  passiveLead: 'One pair is rarely best when a passive player leads into a crowd.',
+  drawStation: 'A bet with a draw into a player who does not fold wins only when it hits.',
+  drawOverbet: 'An overbet with a draw into several players.',
+  foldsBetter: 'A big bet here mostly folds better hands and gets called by the best ones.',
+};
 
 function kind(a) {
   return a.type === 'raise' ? 'raise' : a.type;
 }
+
+// A bet or raise is a bluff only with a weak pair or worse and no real draw (STRAT, QA K6): jacks under
+// a king are middle pair, played for value or protection, not bluffed.
+const bluffy = (d) => d.tier !== null && d.tier <= TIER.WEAK_PAIR && !(d.drawEquity >= 0.14);
 
 function categorise(d) {
   const v = d.verdict;
@@ -47,12 +63,12 @@ function categorise(d) {
   if (facing) {
     if (m === 'call' && b === 'fold') return weak && d.drawEquity >= 0.14 ? 'chase' : 'paidOff';
     if (m === 'fold') return b === 'raise' && weak ? 'missedBluff' : 'overFold';
-    if (m === 'raise') return weak ? 'badBluff' : d.tier >= TIER.TWO_PAIR ? 'other' : 'overplay';
+    if (m === 'raise') return bluffy(d) ? 'badBluff' : d.tier >= TIER.TWO_PAIR ? 'other' : 'overplay';
     if (m === 'call' && b === 'raise') return 'missedValue';
     return 'other';
   }
   if (m === 'check' && b === 'raise') return d.tier >= TIER.TOP_PAIR_WEAK ? 'missedValue' : 'missedBluff';
-  if (m === 'raise' && b === 'check') return weak ? 'badBluff' : 'overplay';
+  if (m === 'raise' && b === 'check') return bluffy(d) ? 'badBluff' : 'overplay';
   return 'other';
 }
 
@@ -127,15 +143,28 @@ const THEORY = {
 function goodHeadline(v, mine, best) {
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
   if (v.note === 'premium') return `${mine.label}: fine. (Raising with this hand is never a mistake.)`;
-  if (v.note === 'preSize') return `${mine.label}: fine. (${best.label} scores about the same; using one size with all your hands is the better habit.)`;
+  if (v.note === 'preSize') return `${mine.label}: fine. (${bare(best)} scores about the same; using one size with all your hands is the better habit.)`;
   if (v.note === 'semiBluff') return `${mine.label}: fine. (With a draw this good, betting is standard against players who can fold.)`;
   if (v.note === 'flatOk') return `${mine.label}: fine. (Re-raising also works here.)`;
   if (v.note === 'callAlso') return `${mine.label}: fine. (Calling also works here.)`;
   if (v.note === 'callOne3bet') return `${mine.label}: fine. (A re-raise from this kind of player is usually a big pair: calling once is fine, stacking off unimproved is not.)`;
   if (v.note === 'thinValue') {
     if (!v.thin) return `${mine.label}: fine.`;
-    return `${mine.label}: fine. ${v.thin.nick ? `Against ${v.thin.nick} a bet` : 'A bet'} of about ${v.thin.size} rates a little higher.`;
+    // K2/K3: the real figure, rounded as the table shows it; "a little" only below the yellow bar
+    const by = v.thin.small || !(v.thin.gain > 0) ? 'rates a little higher' : `does about $${v.thin.gain} better`;
+    return `${mine.label}: fine. (${v.thin.nick ? `Against ${v.thin.nick}, a bet` : 'A bet'} of about ${v.thin.size} ${by}.)`;
   }
+  if (v.note === 'mwHabit') return `${mine.label}: scores higher against these opponents; not a habit to build. ${HABIT_WHY[v.habit] || ''}`.trim();
+  if (v.note === 'mwCheck') {
+    const m = v.mw || {};
+    return `${mine.label}: fine. (A bet of about $${m.to ?? bare(best).replace(/^\D+/, '')} does about $${Math.max(0, m.gain || 0)} better here. With ${m.players || 'several'} players in, a check is defensible; a bet is the more profitable habit.)`;
+  }
+  if (v.note === 'mwDraw') return `${mine.label}: fine. (With a draw and several players in, checking or calling is standard; ${bare(best).toLowerCase()} scores higher against these opponents.)`;
+  if (v.note === 'mwSize') return `${mine.label}: fine. (A bigger bet rates higher, but with several players in and this hand, a small bet is reasonable.)`;
+  if (v.note === 'tinyPot') return `${mine.label}: fine. (A bet rates a little higher, but in a pot this small it is not worth a flag.)`;
+  if (v.note === 'foldsBetter') return `${mine.label}: fine. (A bet here mostly folds the better hands; checking is the habit to keep.)`;
+  if (v.note === 'passiveFold') return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`;
+  if (v.note === 'unclear') return `${mine.label}: fine. (The best play here changes with small differences in how these players play, so it is not graded.)`;
   if (v.note === 'checkOOP') return `${mine.label}: fine. (With several players or the preflop raiser still to act behind you, checking one pair is standard.)`;
   if (v.note === 'sizeCheck') return `${mine.label}: fine. (A bet of up to three-quarters of the pot rates about the same.)`;
   if (v.note === 'callPrice') return `${mine.label}: fine. (Folding rates a little higher, but this call can only cost its price; later decisions are graded when you make them.)`;
@@ -145,11 +174,11 @@ function goodHeadline(v, mine, best) {
   if (v.note === 'preFold') return `${mine.label}: fine.`;
   if (v.note === 'sizeOk') return `${mine.label}: fine. (A bigger bet scores a little higher, but this is a real value size.)`;
   if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A bluff scores higher against these bots; not enough to rely on at a real table.)`;
-  if (v.note === 'fragile') return `${mine.label}: fine. (${best.label} scores higher, but not once the opponents are a little looser or tighter than assumed.)`;
-  if (v.mine !== v.best) return `${mine.label}: fine. (${best.label} rates about the same.)`;
+  if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} scores higher, but not under every reasonable read of these players.)`;
+  if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} rates about the same.)`;
   const rivals = v.options.filter((o, i) => i !== v.best && o.close);
   if (!rivals.length) return `${mine.label}: the best play here.`;
-  return `${mine.label}: good. (${rivals.length === 1 ? rivals[0].label + ' is' : 'Other options are'} too close to call.)`;
+  return `${mine.label}: good. (${rivals.length === 1 ? bare(rivals[0]) + ' is' : 'Other options are'} too close to call.)`;
 }
 
 // What a flagged play cost, as shown: the gap between the two options' values in whole dollars,
@@ -178,15 +207,23 @@ export function explain(d) {
   }
   const category = categorise(d);
   const cost = shownCost(v);
+  const m = kind(mine);
+  const b = kind(best);
   const word = v.grade === 'blunder' ? 'Blunder' : 'Mistake';
-  const headline = `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${best.label.toLowerCase()}.`;
+  const ref = v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
+  const headline = `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}.`;
   const reasons = [];
   const r1 = readLine(d);
   if (r1) reasons.push(r1);
   const r2 = rangeLine(d);
   if (r2) reasons.push(r2);
-  if (d.street !== STREET.PRE && d.opponents >= 3 && d.tier <= TIER.OVERPAIR_TPTK) {
-    reasons.push(`There are ${d.opponents} opponents still in. With that many players someone usually has a real hand, so bluffs work less and one pair is worth less.`);
+  const multiway = d.street !== STREET.PRE && d.opponents >= 2;
+  if (multiway && d.tier <= TIER.OVERPAIR_TPTK) {
+    reasons.push(
+      b === 'raise' && m !== 'raise'
+        ? `With ${d.opponents + 1} players in, someone usually has a piece and calls, so a made hand gets paid; pick a size you are happy to have called by a better hand.`
+        : `There are ${d.opponents} opponents still in. With that many players someone usually has a real hand, so bluffs work less and one pair is worth less.`,
+    );
   }
   if (d.street === STREET.PRE) {
     const where = d.position;
@@ -197,12 +234,15 @@ export function explain(d) {
   // The "theory would call" note only applies when the hand is strong enough that theory would.
   let theory = THEORY[category];
   if (category === 'paidOff' && (d.tier === null || d.tier < TIER.TOP_PAIR_GOOD)) theory = null;
+  if (category === 'overplay' && m === 'raise' && d.toCall > 0) {
+    theory = 'Why theory disagrees: a raise here is meant to get called by worse or to fold out better. These players fold the hands you beat and continue with the ones that beat you, so the raise mostly gets called by better. Calling keeps their worse hands and bluffs in.';
+  }
   // "A routine fold against a balanced range" is only true of one-pair hands.
   if (category === 'overFold' && d.tier !== null && d.tier > TIER.OVERPAIR_TPTK) theory = null;
   // "A good hand should simply bet" is for top pair with a good kicker or better, and the pot-control
   // sentence is wrong while a regular, who does attack weakness, is still in the hand.
   if (category === 'missedValue') {
-    if (d.tier === null || d.tier < TIER.TOP_PAIR_GOOD) theory = null;
+    if (d.tier === null || d.tier < TIER.TOP_PAIR_GOOD || (multiway && d.tier <= TIER.OVERPAIR_TPTK)) theory = null; // R11
     else if (d.regularIn) theory = 'Why theory disagrees: against players who call too wide and rarely bluff, a good hand should simply bet.';
   }
   return { category, headline, reasons, theory, cost };

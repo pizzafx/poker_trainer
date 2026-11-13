@@ -9,6 +9,7 @@ import { TYPE_IDS } from '../src/bots/profiles.js';
 import { HandBelief, newRead } from '../src/trainer/belief.js';
 import { judgeDecision } from '../src/trainer/judge.js';
 import { Session } from '../src/trainer/session.js';
+import { gradeAll, envFor, matches } from './gradeall.js';
 import { SESSION, HAND, GAME_LINE } from './config.js';
 
 console.log(GAME_LINE + '\n');
@@ -21,7 +22,7 @@ function readFor(type, conf = 0.85) {
 
 // Plays a scripted hand: hero in seat 0, opponents typed as given. `script` is a list of
 // [seat, action] pairs; opponents' actions are fed to the belief tracker as observations.
-function runSpot({ name, types, stacks, button, hole, board, script, expect }) {
+function runSpot({ name, types, stacks, button, hole, board, script, expect, grades }) {
   const rng = makeRng(42);
   const n = types.length + 1;
   // Fix the board by stacking the deck: deal fixed hole cards and then control draws.
@@ -59,10 +60,23 @@ function runSpot({ name, types, stacks, button, hole, board, script, expect }) {
     }
   }
   if (s.toAct !== 0) throw new Error(`${name}: hero is not to act at the end of the script`);
-  const v = judgeDecision(s, 0, belief, null, { samples: 1500, seed: 5 });
+  const opts = { samples: 1500, seed: 5 };
+  const v = judgeDecision(s, 0, belief, null, opts);
   const best = v.options[v.best];
-  const line = v.options.map((o) => `${o.label} ${o.ev >= 0 ? '+' : ''}${o.ev.toFixed(1)}`).join(' | ');
-  const ok = expect(best, v);
+  let line = v.options.map((o) => `${o.label} ${o.ev >= 0 ? '+' : ''}${o.ev.toFixed(1)}`).join(' | ');
+  let ok = expect ? expect(best, v) : true;
+  // `grades`: what the coach says about each option (accept: graded good; note: carries that note;
+  // neverBest: never shown as the best play)
+  if (grades) {
+    const rows = gradeAll(s, v, opts, envFor(belief, reads));
+    const hit = (tok) => rows.filter((r) => matches(tok, r.o, s, v.pot));
+    const bad = [];
+    for (const tok of grades.accept || []) for (const r of hit(tok)) if (r.v.grade !== 'good') bad.push(`${r.o.label} ${r.v.grade}`);
+    for (const [tok, note] of Object.entries(grades.note || {})) for (const r of hit(tok)) if (r.v.note !== note) bad.push(`${r.o.label} note ${r.v.note || 'none'}`);
+    for (const tok of grades.neverBest || []) for (const r of hit(tok)) if (r.best) bad.push(`${r.o.label} shown as best`);
+    line = rows.map((r) => `${r.o.label} ${r.o.ev.toFixed(1)} ${r.v.grade === 'good' ? (r.best ? 'BEST' : r.v.note || 'ok') : r.v.grade}`).join(' | ') + (bad.length ? `\n      problems: ${bad.join('; ')}` : '');
+    ok = ok && !bad.length;
+  }
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}\n      best: ${best.label}   [${line}]`);
   return ok;
 }
@@ -95,16 +109,17 @@ for (const [type, want] of [['nit', 'fold'], ['station', 'fold'], ['maniac', 'ca
 
 for (const [type, want] of [['station', 'bet'], ['nit', 'check']]) {
   spot({
-    // vs the nit: with POOL's P1v2 (Nov 2026) the nit folds better one-pair hands to big river bets, and a
-    // 77%-pot bet scores above checking. Reported, not asserted, until STRAT rules on it.
-    name: `River: checked to hero with top pair weak kicker vs ${type} who called two streets -> ${want === 'bet' ? 'bet' : 'check (under review since P1v2; reported)'}`,
+    // vs the nit (STRAT's ruling, Nov 2026): checking is good, a small value bet is fine, and a big bet
+    // (it wins by folding better kings) is never shown as best and carries the "not a habit" note.
+    // The judge's EVs are printed for information only.
+    name: `River: checked to hero with top pair weak kicker vs ${type} who called two streets -> ${want === 'bet' ? 'bet' : 'check good, big bets noted'}`,
     types: [type],
     button: 0,
     hole: 'Kd 9d',
     board: 'Kh 7c 2s 4h 8d',
     script: [[0, R(12)], [1, C], [1, X], [0, R(15)], [1, C], [1, X], [0, R(35)], [1, C], [1, X]],
-    // Against the nit, checking must be at least as good as any bet, give or take noise.
-    expect: (b) => (want === 'bet' ? b.type === 'raise' : true),
+    expect: want === 'bet' ? (b) => b.type === 'raise' : null,
+    grades: want === 'bet' ? null : { accept: ['check', 'bet:0.3-0.55'], note: { 'bet:0.75-2': 'mwHabit' }, neverBest: ['bet:0.75-2'] },
   });
 }
 

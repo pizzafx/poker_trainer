@@ -118,6 +118,9 @@ function decisionRng(seedK, seat, street, count) {
   return makeRng(h);
 }
 
+// The trainee's stand-in in the play-outs; a scenario can swap it (set for one judgement at a time).
+let heroP = HERO_PROFILE;
+
 function playOut(st, hero, prof, seedK, heat, shift) {
   let tex = null;
   let texLen = -1;
@@ -128,7 +131,7 @@ function playOut(st, hero, prof, seedK, heat, shift) {
     const ctx = buildContext(st);
     let P;
     if (seat === hero) {
-      P = HERO_PROFILE;
+      P = heroP;
       ctx.villain = villainFor(st, ctx, hero, prof);
     } else {
       P = prof[seat];
@@ -163,8 +166,12 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   const baseStack = s.stacks[hero];
   const rngS = makeRng(seed * 7919 + 13);
   const prof = new Array(s.n).fill(null);
+  // After the flop, each sample's dealt hands, so the free "ranges stronger / weaker" scenarios can
+  // count later, only if a flag needs them, how many opponents beat the trainee (MATH_MULTIWAY 2b).
+  const dealtCombos = s.board.length >= 3 ? new Uint16Array(N * opps.length) : null;
   let n = 0;
   let guard = 0;
+  heroP = opts.heroProfile || HERO_PROFILE;
   while (n < N && guard++ < N * 4) {
     used.fill(0);
     for (const c of s.hole[hero]) used[c] = 1;
@@ -179,6 +186,7 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
         if (!used[a] && !used[b]) {
           used[a] = used[b] = 1;
           base.hole[opps[j]] = [a, b];
+          if (dealtCombos) dealtCombos[n * opps.length + j] = d.combo;
           prof[opps[j]] = PROFILES[TYPE_IDS[d.type]];
           break;
         }
@@ -291,7 +299,8 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     street: s.street,
   };
   // The per-run results, kept out of JSON (reports, storage) but available to pairedGap below.
-  Object.defineProperty(verdict, 'runs', { value: { res, n }, enumerable: false });
+  const sample = dealtCombos ? { combos: dealtCombos, opps: opps.length, hole: s.hole[hero], board: s.board.slice(), beats: null } : null;
+  Object.defineProperty(verdict, 'runs', { value: { res, n, sample }, enumerable: false });
   return verdict;
 }
 
@@ -309,6 +318,32 @@ export function pairedGap(v, a, b) {
   }
   const mean = sum / Math.max(1, n);
   return { mean, se: Math.sqrt(Math.max(0, sq / Math.max(1, n) - mean * mean) / Math.max(1, n)) };
+}
+
+// Option values with each sample weighted by k^(opponents who beat the trainee in it): k = 2 reads
+// every range as twice as strong as the belief says, k = 0.5 as half. Free (no new play-outs).
+export function tiltedEvs(v, k) {
+  if (!v.runs || !v.runs.sample) return v.options.map((o) => o.ev);
+  const { res, n, sample } = v.runs;
+  if (!sample.beats) {
+    // how many opponents hold a better hand than the trainee right now, per sample (counted once)
+    const mine = handFeatures(sample.hole, sample.board).score;
+    sample.beats = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      let c = 0;
+      for (let j = 0; j < sample.opps; j++) if (handFeatures(COMBOS[sample.combos[i * sample.opps + j]], sample.board).score > mine) c++;
+      sample.beats[i] = c;
+    }
+  }
+  const beats = sample.beats;
+  let W = 0;
+  const e = new Array(res.length).fill(0);
+  for (let i = 0; i < n; i++) {
+    const w = k ** beats[i];
+    W += w;
+    for (let c = 0; c < res.length; c++) e[c] += w * res[c][i];
+  }
+  return e.map((x) => x / Math.max(1e-9, W));
 }
 
 // Re-marks which options are too close to the best one to tell apart (after a guardrail has

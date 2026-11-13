@@ -223,7 +223,7 @@ const aheadP = (x, now) => (x < 0.05 ? `almost never ahead${now}` : x > 0.95 ? `
 const r5 = (x) => Math.round(Math.max(0, Math.min(1, x)) * 20);
 const LINE8A = 'Close. The price is right for a call, but the bets still to come take most of that back. Nothing here is graded.';
 const LINE8B = 'Close. A raise with another player in the pot is usually a strong hand. Calling and folding are both reasonable; nothing here is graded.';
-const LINE9 = "Bigger bets score higher here because the coach's opponents call almost any size. Real ones often do not. Use half to three-quarters of the pot; sizes are not graded in this spot.";
+const LINE9 = "Bigger bets score higher only because the coach's opponents call almost any size; real ones often do not. Use half to three-quarters of the pot; sizes are not graded here.";
 
 function anchorLine(d) {
   const v = d.verdict;
@@ -260,6 +260,16 @@ function anchorLine(d) {
     const called = mine.W !== null && mine.W !== undefined ? `when called you are ${aheadP(mine.W, now)}` : 'you are almost never ahead when called';
     const folds = mine.F < 0.05 ? 'almost no one folds' : `everyone folds only ${p5(mine.F).replace('about ', '')} of the time`;
     line = `This scores higher against these opponents, but ${called} and ${folds}; it needs ${p5(mine.alpha).replace('about ', '')}. Not a habit to build.`;
+  } else if (ref !== mine && ref.type === 'raise' && mine.type === 'raise' && v.grade !== 'good' && ref.F !== undefined && mine.F !== undefined) {
+    // a size flagged against another size: what the size changes
+    const $ = (o) => `$${o.to - (d.currentBet || 0)}`;
+    if (ref.to > mine.to) {
+      line = made && ref.W !== null
+        ? `At ${$(ref)} you are still ${aheadP(ref.W, now)} when called, and these players still call: the bigger ${kw} earns more.`
+        : `At ${$(ref)} everyone folds ${p5(ref.F).replace('about ', 'about ')} of the time, against ${p5(mine.F).replace('about ', '')} at ${$(mine)}: the bigger ${kw} works better here.`;
+    } else {
+      line = `At ${$(mine)} everyone folds ${p5(mine.F)} of the time, against ${p5(ref.F).replace('about ', '')} at ${$(ref)}: the bigger ${kw} folds out the worse hands you want to keep in.`;
+    }
   } else if (ref !== mine && ref.type === 'raise' && v.grade !== 'good' && (mine.type !== 'raise' || ref.to !== mine.to)) {
     const b = bet(ref);
     line = `${d.toCall > 0 ? `A raise to $${ref.to}` : `A bet of $${ref.to - (d.currentBet || 0)}`}: ${b[0].toLowerCase()}${b.slice(1)}`;
@@ -280,16 +290,20 @@ function anchorLine(d) {
     const b = bet(ref);
     line = `A bet of $${ref.to - (d.currentBet || 0)}: ${b[0].toLowerCase()}${b.slice(1)}`;
   }
-  if (!line) return null;
-  // the optional clauses (MATH_BASELINE_SPEC 4)
-  const post = d.villain && d.villain.picture && d.villain.picture.post;
-  if (post) {
-    let top = 0;
-    for (let k = 1; k < post.length; k++) if (post[k] > post[top]) top = k;
-    if (post[top] < 0.5) line += ' You have not seen much of these players yet. Take the play that works against anyone.';
-    else if (['tag', 'lag'].includes(TYPE_IDS[top])) line += ` ${d.villain.nick} is a solid player: do not count on the loose calls or the missing bluffs you get from the others.`;
-  }
   return line;
+}
+
+// The optional clauses (MATH_BASELINE_SPEC 4), kept apart from the line so a phone can leave them out
+// (the line itself should fit two lines at 375 px).
+function anchorExtra(d) {
+  if (!anchorLine(d)) return null;
+  const post = d.villain && d.villain.picture && d.villain.picture.post;
+  if (!post) return null;
+  let top = 0;
+  for (let k = 1; k < post.length; k++) if (post[k] > post[top]) top = k;
+  if (post[top] < 0.5) return 'You have not seen much of these players yet. Take the play that works against anyone.';
+  if (['tag', 'lag'].includes(TYPE_IDS[top])) return `${d.villain.nick} is a solid player: do not count on the loose calls or the missing bluffs you get from the others.`;
+  return null;
 }
 
 // What a flagged play cost, as shown: the gap between the two options' values in whole dollars,
@@ -316,6 +330,7 @@ export function explain(d) {
       tip: v.tip ? v.tip.text : null, // "Tip: ..." under a fine verdict
       tipKind: v.tip ? v.tip.kind : null,
       anchor: anchorLine(d),
+      anchorExtra: anchorExtra(d),
     };
   }
   const category = categorise(d);
@@ -360,5 +375,5 @@ export function explain(d) {
     if (d.tier === null || d.tier < TIER.TOP_PAIR_GOOD || (multiway && d.tier <= TIER.OVERPAIR_TPTK)) theory = null; // R11
     else if (d.regularIn) theory = 'Why theory disagrees: against players who call too wide and rarely bluff, a good hand should simply bet.';
   }
-  return { category, headline, reasons, theory, cost, anchor: anchorLine(d) };
+  return { category, headline, reasons, theory, cost, anchor: anchorLine(d), anchorExtra: anchorExtra(d) };
 }

@@ -201,8 +201,10 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     if (!mw) return null;
     if (ctx.toCall > 0 && onePair) return passiveLead ? 'passiveLead' : 'raiseCaller';
     if (ctx.toCall > 0 && draw) return 'drawRaise';
-    if (draw && live.some((i) => readAs(i, ['station']))) return 'drawStation';
-    if (draw && betFrac(o) > 1.05) return 'drawOverbet';
+    // a bet size the anchors support (enough folds, or the draw's own equity) is exempt (CEO, Nov 2026: F04)
+    const supported = () => v.anchors && anchorStatus(o, v, hf, opp) === 'works';
+    if (draw && live.some((i) => readAs(i, ['station'])) && !supported()) return 'drawStation';
+    if (draw && betFrac(o) > 1.05 && !supported()) return 'drawOverbet';
     return null;
   };
   if (!pre) {

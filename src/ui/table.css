@@ -2363,3 +2363,4 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 /* MATH's anchors: the coach's estimate */
 .anchor-line { margin: 6px 0 0; color: var(--text); font-size: 13.5px; line-height: 1.45; }
 .anchor-line .label { display: block; margin-bottom: 2px; font: 500 10.5px/1.2 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate); }
+@media (max-width: 600px) { .anchor-line .anchor-extra { display: none; } } /* phones: the line only (MATH: two lines at 375) */

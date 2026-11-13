@@ -413,26 +413,19 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
   if (opp + 1 < 6 && v.loss <= 3 * baseBar) runs.push(judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, samples: half, heroProfile: THIN_HERO }));
   const scen = [v.options.map((o) => o.ev), ...runs.filter((r) => r.options.length === v.options.length).map((r) => r.options.map((o) => o.ev))];
   if (v.runs && v.runs.sample) scen.push(tiltedEvs(v, 2), tiltedEvs(v, 0.5));
-  const usable = (o, i) => i !== v.mine && !habitOf(o) && allowed(o);
-  // Every alternative is tried, not only the base best (STRAT, QA M2b): the flag names the one that
-  // beats your play by its bar in every scenario with the most to spare.
-  let pick = -1;
-  let pickMargin = -Infinity;
-  let pickGap = null;
-  v.options.forEach((o, a) => {
-    if (!usable(o, a)) return;
-    const barA = small * (o.type === mine.type ? 1.6 : 1);
-    const g = pairedGap(v, a, v.mine);
-    if (!(g.mean > 2.2 * g.se)) return;
-    let m = Infinity;
-    for (const e of scen) m = Math.min(m, e[a] - e[v.mine] - barA);
-    if (m >= 0 && m > pickMargin) {
-      pick = a;
-      pickMargin = m;
-      pickGap = g;
-    }
+  const usable = v.options.map((o, i) => i !== v.mine && !habitOf(o) && allowed(o));
+  const gaps = v.options.map((o, a) => (usable[a] ? pairedGap(v, a, v.mine) : null));
+  const r = robustVerdict(scen, v.mine, {
+    usable,
+    bar: (a) => small * (v.options[a].type === mine.type ? 1.6 : 1),
+    significant: (a) => gaps[a].mean > 2.2 * gaps[a].se,
+    kind: (a) => (v.options[a].type === 'raise' ? 'raise' : v.options[a].type),
+    small,
+    notHabit: v.options.map((o) => !habitOf(o)),
   });
-  if (pick >= 0) {
+  if (r.pick >= 0) {
+    const pick = r.pick;
+    const pickGap = gaps[pick];
     if (pick !== v.best) {
       const RANK = { good: 0, mistake: 1, blunder: 2 };
       const sameK = v.options[pick].type === mine.type;
@@ -447,33 +440,50 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
     }
     return;
   }
-  // No single option beats it everywhere, but it trails whichever option is best in each scenario by
-  // 1.5 bars or more (the maximum of noisy estimates runs high): yellow, naming no one option (MATH).
-  let dom = Infinity;
-  for (const e of scen) {
-    let mx = -Infinity;
-    v.options.forEach((o, i) => {
-      if (usable(o, i)) mx = Math.max(mx, e[i]);
-    });
-    dom = Math.min(dom, mx - e[v.mine]);
-  }
-  if (dom >= 1.5 * small) {
+  if (r.dominated) {
     v.grade = 'mistake';
-    v.dominated = Math.round(dom);
+    v.dominated = r.dominated;
     v.ref = null;
     return;
   }
-  // Otherwise not graded; "unclear" when the best kind of play changes between scenarios.
-  const kind = (o) => (o.type === 'raise' ? 'raise' : o.type);
+  return pass(r.unclear ? 'unclear' : 'fragile');
+}
+
+// The scenario test's decision, on a table of option values per scenario (`scen[k][i]`): pure, so it
+// can be tested on made-up tables.
+//  - pick: the alternative that beats `mine` by its bar in every scenario with the most to spare
+//    (and passes the base significance test), or -1;
+//  - else dominated: when `mine` trails each scenario's best usable option by 1.5 bars (`small`) or
+//    more, the smallest such shortfall, rounded (a yellow flag naming no option; MATH, Nov 2026);
+//  - else unclear: whether the best kind of play (not counting "not a habit" plays) changes between
+//    scenarios.
+export function robustVerdict(scen, mine, { usable, bar, significant, kind, small, notHabit }) {
+  let pick = -1;
+  let pickMargin = -Infinity;
+  for (let a = 0; a < usable.length; a++) {
+    if (!usable[a] || !significant(a)) continue;
+    let m = Infinity;
+    for (const e of scen) m = Math.min(m, e[a] - e[mine] - bar(a));
+    if (m >= 0 && m > pickMargin) {
+      pick = a;
+      pickMargin = m;
+    }
+  }
+  if (pick >= 0) return { pick };
+  let dom = Infinity;
+  for (const e of scen) {
+    let mx = -Infinity;
+    for (let i = 0; i < usable.length; i++) if (usable[i]) mx = Math.max(mx, e[i]);
+    dom = Math.min(dom, mx - e[mine]);
+  }
+  if (dom >= 1.5 * small) return { pick: -1, dominated: Math.round(dom) };
   const kinds = new Set();
   for (const e of scen) {
     let b = -1;
-    v.options.forEach((o, i) => {
-      if (!habitOf(o) && (b < 0 || e[i] > e[b])) b = i;
-    });
-    kinds.add(kind(v.options[b]));
+    for (let i = 0; i < e.length; i++) if (notHabit[i] && (b < 0 || e[i] > e[b])) b = i;
+    kinds.add(kind(b));
   }
-  return pass(kinds.size > 1 ? 'unclear' : 'fragile');
+  return { pick: -1, unclear: kinds.size > 1 };
 }
 
 // "Thin value" stand-in for the trainee in the play-outs (MATH_MULTIWAY 2b): bets thinner, never slowplays.

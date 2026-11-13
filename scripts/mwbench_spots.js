@@ -113,7 +113,10 @@ export const EXPECT = {
   F10: { accept: ['call'], softFlag: ['raise'], noGrade: true },
   F11: { accept: ['call', 'raise'], flag: ['fold'], note: { raise: 'mwHabit' }, neverBest: ['raise'] }, // owner: R7 note, never flagged; fold flagged (draw above the price)
   // R12 now tries every alternative (STRAT, QA M2b): the raises trail the call by the bar in every
-  // scenario, so they are flagged (as the live pro would); fold and call stay ungraded.
+  // scenario, so they are flagged (as the live pro would); fold and call stay ungraded. These flags
+  // depend on the app's narrower "calls tighter" scenario (calling thresholds +0.05 only); MATH's
+  // prototype also raises the never-fold floor, and there the $135 raise is a coin flip at the bar.
+  // MATH (Nov 2026): keep the narrower scenario; do not widen it without re-checking F12.
   F12: { accept: ['fold', 'call'], flag: ['raise:2-5'] },
   F13: { accept: ['bet:0.45-1.05'], flag: ['check'] },       // †
   F14: { accept: ['check'] },

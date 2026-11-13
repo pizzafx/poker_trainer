@@ -5,7 +5,7 @@ import { STREET, legal } from '../src/engine/game.js';
 import { handFeatures, TIER } from '../src/engine/features.js';
 import { POS } from '../src/bots/policy.js';
 import { judgeDecision } from '../src/trainer/judge.js';
-import { limpOutsideTipFor } from '../src/trainer/grade.js';
+import { limpOutsideTipFor, robustVerdict } from '../src/trainer/grade.js';
 import { build, gradeAll } from '../scripts/gradeall.js';
 
 // STRAT: a call before the river with top pair or better and a draw is yellow at most, at any size.
@@ -73,4 +73,20 @@ test('a vetoed limp tip on an outside-Standard hand becomes the "usually a fold"
   assert.equal(plain.text, 'K7o is outside the Standard range from early position; most players fold it here.');
   assert.match(limpOutsideTipFor(v(6, 0.5), ctx, 'K7o', 'early').text, /Here folding was about \$6 better\.$/);
   assert.equal(limpOutsideTipFor(v(1, 2), ctx, 'AKo', 'early'), null, 'inside the Standard range: no tip');
+});
+
+// MATH (Nov 2026): a play no single option beats everywhere, but which trails each scenario's best by
+// 1.5 bars or more, is a yellow flag naming no option; at 1.4 bars it is not graded.
+test('scenario test: the no-named-option flag needs 1.5 bars in every scenario', () => {
+  // options: 0 mine (a call), 1 fold, 2 raise; the best alternates between fold and raise
+  const opts = (scen) => robustVerdict(scen, 0, { usable: [false, true, true], bar: () => 9, significant: () => true, kind: (i) => ['call', 'fold', 'raise'][i], small: 9, notHabit: [true, true, true] });
+  const fires = opts([[0, 14, 0], [0, 0, 14], [0, 14, 0]]); // trails the best by 14 = 1.56 bars each time
+  assert.equal(fires.pick, -1);
+  assert.equal(fires.dominated, 14);
+  const quiet = opts([[0, 12.6, 0], [0, 0, 12.6], [0, 12.6, 0]]); // 1.4 bars
+  assert.equal(quiet.dominated, undefined);
+  assert.equal(quiet.unclear, true, 'the best kind changes: not graded');
+  // and one option beating it by the bar everywhere is named instead
+  const named = opts([[0, 10, 20], [0, 9.5, 12], [0, 11, 9.2]]);
+  assert.equal(named.pick, 1);
 });

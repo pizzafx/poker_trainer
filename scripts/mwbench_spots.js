@@ -104,7 +104,9 @@ export const EXPECT = {
   F01: { accept: ['check', 'bet:0.3-0.8'] },                 // R1 (3-way, K9 not goodTP)
   F02: { accept: ['bet:0.45-1.05'], flag: ['check'] },       // 4-way check → R1 makes it a note: see note †
   F03: { accept: ['bet:0.45-1.05'], flag: ['check'] },       // †
-  F04: { accept: ['check', 'bet:0.3-0.6'] },                 // R4
+  // CEO/STRAT (Nov 2026): a draw bet up to the pot whose folds beat its need by 2 points is exempt from
+  // the "not a habit" note ($15: 30% against 25%); $25 (34% against 35%) and bigger keep it.
+  F04: { accept: ['check', 'bet:0.3-0.6'], note: { 'bet:0.5-1.6': 'mwHabit' } },                 // R4
   F05: { accept: ['check', 'bet:0.3-0.4'] },
   F06: { accept: ['check'] },
   F07: { accept: ['bet:0.6-1.6'], flag: ['check'] },          // set: not onePair, R1 does not apply
@@ -123,6 +125,7 @@ export const EXPECT = {
   F15: { accept: ['raise:2.5-5.5'], flag: ['call'], maxGrade: { call: 'mistake' } }, // owner: call is yellow
   T01: { accept: ['check', 'bet:0.3-0.6'] },                 // R1, R3
   T02: { accept: ['bet:0.6-1.05'], flag: ['check'] },        // 3-way goodTP IP pfr: R1 exception
+  // owner's ruling: every bet keeps the note, supported or not (STRAT's condition on the F04 exemption)
   T03: { accept: ['check', 'bet'], note: { bet: 'mwHabit' }, neverBest: ['bet'], noGrade: true }, // owner: R7 note, never flagged; MATH: do not grade
   T04: { accept: ['bet:0.6-1.05'], flag: ['check'] },        // two pair: R1 does not apply; R8? pot 4.3bb → see ‡
   T05: { accept: ['call', 'fold', 'raise'], note: { raise: 'mwHabit' }, neverBest: ['raise'] }, // owner: R7 note, never flagged; R5b

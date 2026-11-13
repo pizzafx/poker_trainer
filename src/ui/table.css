@@ -2364,3 +2364,71 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 .anchor-line { margin: 6px 0 0; color: var(--text); font-size: 13.5px; line-height: 1.45; }
 .anchor-line .label { display: block; margin-bottom: 2px; font: 500 10.5px/1.2 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate); }
 @media (max-width: 600px) { .anchor-line .anchor-extra { display: none; } } /* phones: the line only (MATH: two lines at 375) */
+
+/* ================= "Your game": Game and My ranges tabs (marketing/RANGES_HANDOFF.md) ================= */
+#modal-box .sheet-x { display: none; }
+#modal-box .mtabs { display: flex; gap: 18px; margin: 4px 0 14px; border-bottom: 1px solid var(--line); }
+#modal-box .mtabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; min-height: 40px; padding: 8px 2px 9px; color: var(--slate); font-weight: 600; font-size: 15px; display: inline-flex; align-items: center; gap: 8px; }
+#modal-box .mtabs button.on { color: var(--chalk); border-bottom-color: var(--signal); }
+#modal-box .mt-badge { font: 500 11px/1 var(--mono); padding: 3px 6px; border-radius: 6px; color: var(--warn); background: var(--warn-wash); }
+#modal-box .mt-badge.hidden { display: none; }
+#modal-box .gm-body { display: grid; gap: 12px; }
+#modal-box .row-toggle { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); cursor: pointer; }
+#modal-box .row-toggle .rt-text { flex: 1; display: grid; gap: 2px; }
+#modal-box .row-toggle b { color: var(--chalk); font-weight: 600; font-size: 14.5px; }
+#modal-box .row-toggle .rt-sub { font-size: 13px; color: var(--slate); }
+#modal-box .row-toggle .rt-off { font-size: 13px; color: var(--warn); }
+#modal-box .rg-groups2 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+#modal-box .rg-groups2 button { display: grid; gap: 4px; justify-items: center; min-height: 0; padding: 8px 4px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); font-weight: 600; font-size: 13px; line-height: 1.1; }
+#modal-box .rg-groups2 button small { font: 500 12px/1 var(--mono); color: var(--slate); }
+#modal-box .rg-groups2 button small i { font-style: normal; color: var(--warn); }
+#modal-box .rg-groups2 button.on { border-color: var(--signal); background: var(--signal-wash); color: var(--signal); }
+#modal-box .rg-groups2 button.on small { color: var(--chalk); }
+#modal-box .rg-modebar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#modal-box .rg-modebar .rg-mode-note { margin: 0; }
+#modal-box .rg-cell { position: relative; }
+#modal-box .rg-cell.x::after { content: ""; position: absolute; right: 2px; top: 2px; width: 5px; height: 5px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 1.5px var(--signal); }
+#modal-box .rg-legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 0; font-size: 12.5px; color: var(--slate); }
+#modal-box .rg-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--panel-2); border: 1px solid var(--line); }
+#modal-box .rg-legend i.lg-on { background: var(--signal); border-color: var(--signal); }
+#modal-box .rg-legend i.lg-x { background: var(--signal); border-color: var(--signal); position: relative; }
+#modal-box .rg-legend i.lg-x::after { content: ""; position: absolute; right: -2px; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: var(--warn); }
+#modal-box .rg-foot { align-items: center; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+#modal-box .rg-foot small { margin-right: auto; color: var(--slate); font-size: 13.5px; }
+#modal-box .rg-foot small b { color: var(--chalk); font-weight: 600; }
+.link-btn.edit-ranges { min-height: 0; padding: 0; border: 0; background: none; color: var(--signal); font: inherit; font-weight: 600; cursor: pointer; }
+#log .hdiv .link-btn.edit-ranges { font-size: 12.5px; }
+
+/* phones: "Your game" is a full-screen sheet, the footer pinned to the bottom, the whole grid on one screen */
+@media (max-width: 600px) {
+  #modal-box.game-modal { position: fixed; inset: 0; width: 100%; max-width: none; height: 100%; max-height: none; border-radius: 0; border: 0; padding: 14px 16px 0; display: flex; flex-direction: column; overflow: hidden; }
+  #modal-box.game-modal h1 { font-size: 21px; margin: 2px 44px 0 0; }
+  #modal-box.game-modal .sheet-x { display: grid; place-items: center; position: absolute; right: 10px; top: 8px; width: 40px; height: 40px; min-height: 0; padding: 0; border: 0; border-radius: 10px; background: none; color: var(--slate); font-size: 18px; }
+  #modal-box.game-modal .mtabs { margin: 6px 0 10px; flex: none; }
+  #modal-box.game-modal #gm-game { flex: 1; overflow-y: auto; padding-bottom: 12px; }
+  #modal-box.game-modal #gm-ranges:not(.hidden) { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  #modal-box.game-modal .gm-body { flex: 1; overflow-y: auto; gap: 9px; align-content: start; }
+  #modal-box.game-modal .row-toggle { padding: 8px 10px; }
+  #modal-box.game-modal .row-toggle .rt-sub, #modal-box.game-modal .rg-mode-note, #modal-box.game-modal .rg-hint { display: none; }
+  #modal-box.game-modal .rg-groups2 { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 84px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  #modal-box.game-modal .rg-groups2::-webkit-scrollbar { display: none; }
+  #modal-box.game-modal .rg-bar { flex-wrap: wrap; gap: 6px; }
+  #modal-box.game-modal .rg-grid { max-width: none; }
+  #modal-box.game-modal .rg-foot { flex: none; margin: 0 -16px; padding: 8px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--panel); }
+  #modal-box.game-modal .rg-foot small { flex: 1 1 100%; margin: 0 0 4px; font-size: 12.5px; }
+  #modal-box.game-modal .rg-foot #rg-cancel { display: none; }
+  #modal-box.game-modal .rg-foot button { flex: 1; }
+  #modal-box.game-modal .settings-foot { position: sticky; bottom: 0; background: var(--panel); padding-bottom: 10px; }
+}
+#modal-box .gm-body .rg-grid { width: 100%; justify-self: center; }
+/* desktop: My ranges keeps its footer in view (the body scrolls if it must) */
+@media (min-width: 601px) {
+  #modal-box.game-modal.on-ranges { display: flex; flex-direction: column; overflow: hidden; }
+  #modal-box.game-modal.on-ranges #gm-ranges { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  #modal-box.game-modal.on-ranges .gm-body { flex: 1; min-height: 0; overflow-y: auto; }
+  #modal-box.game-modal .gm-body .rg-grid { max-width: 360px; }
+}
+@media (min-width: 601px) {
+  #modal-box.game-modal { max-height: calc(100vh - 32px); }
+  #modal-box.game-modal .gm-body .rg-grid { max-width: 330px; }
+}

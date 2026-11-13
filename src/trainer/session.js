@@ -439,7 +439,7 @@ export class Session {
     }
     h.summary = { net: r.net[HERO], showdown: r.showdown };
     this.results.push(r.net[HERO]);
-    if (this.onHandEnd && !this.quiet) this.onHandEnd(this.foldingOut ? { kind: 'skip', session: this.id, no: this.handNo } : this.handRecord());
+    if (this.onHandEnd && !this.quiet) this.onHandEnd(this.foldingOut ? { kind: 'skip', session: this.id, no: this.handNo, position: positionName(this.hand.state, HERO) } : this.handRecord());
   }
 
   // Everything the hand history and the replayer need about the hand just finished, as plain data.

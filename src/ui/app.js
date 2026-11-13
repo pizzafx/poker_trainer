@@ -11,7 +11,7 @@ import { DRILLS } from '../trainer/drills.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
 import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '../trainer/dispute.js';
-import { RANGE_GROUPS, presetRanges, presetRaised, shareOf, previousStandard } from '../trainer/ranges.js';
+import { RANGE_GROUPS, presetRanges, presetRaised, shareOf, previousStandard, groupOf } from '../trainer/ranges.js';
 import { equityVsRange } from '../trainer/equity.js';
 import { BUILD, HASHES } from '../trainer/version.js';
 import { keepHand, saveSession, loadSession, clearSession, listHands, clearHands } from './store.js';
@@ -628,7 +628,10 @@ function renderActions() {
   }
 }
 
-const tipLine = (d, cls = 'tip-line') => (d.tip ? `<p class="${cls}"><b class="tip-label">Tip:</b> ${esc(d.tip)}</p>` : '');
+const tipLine = (d, cls = 'tip-line') =>
+  d.tip
+    ? `<p class="${cls}"><b class="tip-label">Tip:</b> ${esc(d.tip)}${d.tipKind === 'wideOpen' && d.position ? ` <button type="button" class="link-btn edit-ranges" data-edit-ranges="${groupOf(d.position)}">Edit ranges for ${esc(d.position)} ›</button>` : ''}</p>`
+    : '';
 // The coach's note on a fine verdict, without the "X: fine." it starts with (QA K1: the review shows it
 // under the fine row, as the strip and the panel do).
 function noteText(d) {
@@ -1103,6 +1106,7 @@ function renderRanges() {
 let logFrames = null; // { rec, frames } for links from the last hand into the replayer
 function renderLog() {
   const el = $('log');
+  if (!sess) return; // no table in this tab (open in another one)
   const h = sess.hand;
   if (!h) return;
   const s = h.state;
@@ -1617,6 +1621,7 @@ function openModal(html) {
   const fresh = $('modal').classList.contains('hidden');
   if (fresh) modalOpener = document.activeElement;
   box.innerHTML = html;
+  box.classList.remove('game-modal', 'on-ranges');
   const h = box.querySelector('h1, h2');
   if (h) {
     h.id = 'modal-title';
@@ -1648,12 +1653,24 @@ $('modal').addEventListener('click', (e) => {
   if (e.target === $('modal') && sess) closeModal();
 });
 
-function settingsModal() {
+// "Your game": two tabs, Game (stakes and table; changing them starts a new session) and My ranges
+// (the hands you play from each seat; applies from the next hand). marketing/RANGES_HANDOFF.md.
+// openGameModal({ tab: 'ranges', group }) opens My ranges on that seat group.
+function settingsModal(opts = {}) {
+  return openGameModal(opts);
+}
+function openGameModal({ tab = 'game', group = null } = {}) {
   const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
   const seg = (id, items, cur) => `<div class="seg" role="radiogroup" data-for="${id}">${items.map(([v, l]) => `<button type="button" role="radio" data-v="${v}" aria-checked="${v === cur}" class="${v === cur ? 'on' : ''}">${l}</button>`).join('')}</div><input type="hidden" id="${id}" value="${cur}">`;
   const toggle = (id, on, label) => `<label class="trow" for="${id}"><span>${label}</span><input id="${id}" type="checkbox" class="toggle" ${on ? 'checked' : ''}></label>`;
   openModal(`
+    <button type="button" class="sheet-x" id="gm-x" aria-label="Close">✕</button>
     <h1>Your game</h1>
+    <div class="mtabs" role="tablist" aria-label="Your game">
+      <button type="button" role="tab" id="gm-tab-game" aria-controls="gm-game">Game</button>
+      <button type="button" role="tab" id="gm-tab-ranges" aria-controls="gm-ranges">My ranges <span class="mt-badge" id="gm-badge"></span></button>
+    </div>
+    <div id="gm-game" role="tabpanel" aria-labelledby="gm-tab-game">
     <div class="field"><span>Where do you play?</span>${seg('s-mode', [['casino', 'Casino'], ['home', 'Home game']], settings.mode)}</div>
     <div id="casino-fields">
       <div class="field"><span>Stakes</span>${seg('s-game', Object.keys(GAMES).map((g) => [g, '$' + g.replace('/', '/$')]), settings.game)}</div>
@@ -1675,8 +1692,6 @@ function settingsModal() {
         <label class="field"><span>Who's at the table</span><select id="s-table" class="input">${Object.entries(TABLES).map(([k, t]) => opt(k, t.label, settings.table)).join('')}</select></label>
       </div>
       <label class="field"><span>Feedback</span><select id="s-fb" class="input">${opt('now', 'Right after each decision', settings.feedback)}${opt('after', 'When the hand is over', settings.feedback)}</select></label>
-      ${toggle('s-only', settings.onlyRange, "Only deal me hands I'd play")}
-      <button type="button" class="link-btn" id="s-edit-ranges">Edit my ranges</button>
       ${toggle('s-ranges', settings.rangesLive, 'Show ranges during the hand')}
       ${toggle('s-reads', settings.reads, "Show the coach's reads on seats")}
       <label class="field"><span>Opponent speed</span><select id="s-speed" class="input">${opt('800', 'Slow', String(settings.speed))}${opt('450', 'Normal', String(settings.speed))}${opt('150', 'Fast', String(settings.speed))}</select></label>
@@ -1685,7 +1700,24 @@ function settingsModal() {
       <small>Changing these starts a new session.</small>
       <button id="s-close" class="quiet">Close</button>
       <button class="primary" id="s-start">Start new session</button>
-    </div>`);
+    </div>
+    </div>
+    <div id="gm-ranges" role="tabpanel" aria-labelledby="gm-tab-ranges" class="hidden"></div>`);
+  $('modal-box').classList.add('game-modal');
+  const ranges = rangesPane(group);
+  const showTab2 = (which) => {
+    for (const [k, pane] of [['game', 'gm-game'], ['ranges', 'gm-ranges']]) {
+      const on = k === which;
+      $('gm-tab-' + k).classList.toggle('on', on);
+      $('gm-tab-' + k).setAttribute('aria-selected', on);
+      $(pane).classList.toggle('hidden', !on);
+    }
+    $('modal-box').classList.toggle('on-ranges', which === 'ranges');
+  };
+  $('gm-tab-game').onclick = () => showTab2('game');
+  $('gm-tab-ranges').onclick = () => showTab2('ranges');
+  $('gm-x').onclick = () => closeModal(); // discards an unsaved range draft, as Cancel does
+  showTab2(tab);
   // Segmented choices write to their hidden input and fire "change" like the old selects did.
   document.querySelectorAll('#modal-box .seg').forEach((g) => {
     g.addEventListener('click', (e) => {
@@ -1704,11 +1736,6 @@ function settingsModal() {
     settings.feedback = $('s-fb').value;
     settings.reads = $('s-reads').checked;
     settings.rangesLive = $('s-ranges').checked;
-    settings.onlyRange = $('s-only').checked;
-    if (sess) {
-      sess.heroRanges = settings.onlyRange ? settings.ranges : null;
-      sess.heroRangesRaised = settings.onlyRange ? settings.rangesRaised : null;
-    }
     settings.speed = +$('s-speed').value;
   };
   const homeTotal = () => [...document.querySelectorAll('.h-count')].reduce((a, el) => a + Math.max(0, Math.floor(+el.value || 0)), 0);
@@ -1796,48 +1823,62 @@ function settingsModal() {
     closeModal();
     render();
   };
-  $('s-edit-ranges').onclick = () => {
-    read();
-    saveSettings();
-    rangesModal(() => settingsModal());
-  };
 }
 
-// Your own starting-hand ranges, one per seat group: tap or drag across the chart to add or
-// remove hands. Hands outside the range for your seat are folded for you (checked when free).
-function rangesModal(back = closeModal) {
-  // Two ranges per seat group: first in (folded or limped to you) and facing a raise.
-  const draft = { first: JSON.parse(JSON.stringify(settings.ranges)), raised: JSON.parse(JSON.stringify(settings.rangesRaised)) };
-  let group = 'early';
+// My ranges: your own starting-hand ranges, one per seat group, first in and facing a raise. Tap or
+// drag across the chart to add or remove hands. Hands outside your range for the seat are folded for
+// you when the toggle is on. A draft until Done; Cancel, the close button or Escape discard it.
+function rangesPane(startGroup) {
+  const draft = { first: JSON.parse(JSON.stringify(settings.ranges)), raised: JSON.parse(JSON.stringify(settings.rangesRaised)), only: settings.onlyRange };
+  let group = startGroup && RANGE_GROUPS.some(([g]) => g === startGroup) ? startGroup : 'early';
   let mode = 'first';
+  const stdOf = (m) => (m === 'first' ? presetRanges : presetRaised)('standard');
+  const looser = (m, g) => draft[m][g].filter((n) => !stdOf(m)[g].includes(n)).length;
+  const badge = () => {
+    let n = 0;
+    for (const [g] of RANGE_GROUPS) n += looser('first', g) + looser('raised', g);
+    $('gm-badge').textContent = n ? `+${n}` : '';
+    $('gm-badge').classList.toggle('hidden', !n);
+  };
+  const pane = $('gm-ranges');
   const draw = () => {
     const cur = draft[mode];
+    const std = stdOf(mode)[group];
     const sel = new Set(cur[group]);
-    const cells = GRID.map((row) => row.map(({ name }) => `<button type="button" class="rg-cell${sel.has(name) ? ' on' : ''}" data-name="${name}" aria-pressed="${sel.has(name)}">${name}</button>`).join('')).join('');
-    openModal(`
-      <h1>Your ranges</h1>
-      <p class="sub">Hands outside your range for the seat are folded for you, and the next hand is dealt.</p>
-      <div class="type-chips rg-groups" role="tablist">${RANGE_GROUPS.map(([g, label, seats]) => `<button type="button" class="chip${g === group ? ' on' : ''}" role="tab" aria-selected="${g === group}" data-group="${g}" title="${seats}">${label}</button>`).join('')}</div>
-      <div class="seg rg-mode" role="radiogroup" aria-label="When"><button type="button" role="radio" data-mode="first" aria-checked="${mode === 'first'}" class="${mode === 'first' ? 'on' : ''}">First in</button><button type="button" role="radio" data-mode="raised" aria-checked="${mode === 'raised'}" class="${mode === 'raised' ? 'on' : ''}">Facing a raise</button></div>
-      <p class="hint rg-mode-note">${mode === 'first' ? 'When it is folded or limped to you.' : 'When someone has already raised before it gets to you.'}</p>
-      <div class="rg-bar"><span class="rg-share" id="rg-share"></span>
-        <span class="rg-presets">${['tight', 'standard', 'loose'].map((p) => `<button type="button" class="chip" data-preset="${p}">${p[0].toUpperCase() + p.slice(1)}</button>`).join('')}</span></div>
-      <div class="rg-grid" id="rg-grid">${cells}</div>
-      <p class="hint rg-hint">Suited hands above the diagonal, offsuit below, pairs on it. Tap a hand, or drag across several.</p>
-      <div class="modal-actions players-foot">
-        <button id="rg-reset" class="quiet">Reset all to standard</button>
+    const cells = GRID.map((row) => row.map(({ name }) => `<button type="button" class="rg-cell${sel.has(name) ? ' on' : ''}${sel.has(name) && !std.includes(name) ? ' x' : ''}" data-name="${name}" aria-pressed="${sel.has(name)}">${name}</button>`).join('')).join('');
+    pane.innerHTML = `
+      <div class="gm-body">
+        <label class="row-toggle" for="rg-only"><span class="rt-text"><b>Fold hands outside my ranges</b><span class="rt-sub">Those hands are skipped and the next one is dealt.</span>${draft.only ? '' : '<span class="rt-off">Your ranges are saved, but nothing is folded for you until this is on.</span>'}</span><input id="rg-only" type="checkbox" class="toggle" ${draft.only ? 'checked' : ''}></label>
+        <div class="rg-groups2" role="tablist" aria-label="Seat">${RANGE_GROUPS.map(([g, label, seats]) => {
+          const x = looser(mode, g);
+          return `<button type="button" role="tab" aria-selected="${g === group}" class="${g === group ? 'on' : ''}" data-group="${g}" title="${seats}">${label}<small>${Math.round(shareOf(cur[g]) * 100)}%${x ? ` <i>+${x}</i>` : ''}</small></button>`;
+        }).join('')}</div>
+        <div class="rg-modebar"><div class="seg rg-mode" role="radiogroup" aria-label="When"><button type="button" role="radio" data-mode="first" aria-checked="${mode === 'first'}" class="${mode === 'first' ? 'on' : ''}">First in</button><button type="button" role="radio" data-mode="raised" aria-checked="${mode === 'raised'}" class="${mode === 'raised' ? 'on' : ''}">Facing a raise</button></div>
+          <p class="hint rg-mode-note">${mode === 'first' ? 'When it is folded or limped to you.' : 'When someone has already raised before it gets to you.'}</p></div>
+        <div class="rg-bar"><span class="rg-share" id="rg-share"></span>
+          <span class="rg-presets">${['tight', 'standard', 'loose'].map((pr) => `<button type="button" class="chip" data-preset="${pr}">${pr[0].toUpperCase() + pr.slice(1)}</button>`).join('')}</span></div>
+        <div class="rg-grid" id="rg-grid">${cells}</div>
+        <p class="rg-legend"><span><i class="lg-on"></i>You play it</span><span><i class="lg-off"></i>You fold it</span><span><i class="lg-x"></i>Standard folds it</span></p>
+        <p class="hint rg-hint">Suited hands above the diagonal, offsuit below, pairs on it. Tap a hand, or drag across several.</p>
+      </div>
+      <div class="modal-actions rg-foot">
+        <small><b>Applies from the next hand.</b> Your session carries on.</small>
+        <button id="rg-reset" class="quiet">Reset all to Standard</button>
         <button id="rg-cancel" class="quiet">Cancel</button>
         <button class="primary" id="rg-done">Done</button>
-      </div>`);
-    const std = (mode === 'first' ? presetRanges : presetRaised)('standard')[group];
+      </div>`;
     const share = () => {
       const extra = cur[group].filter((n) => !std.includes(n)).length;
       $('rg-share').innerHTML = `<b>${Math.round(shareOf(cur[group]) * 100)}%</b> of hands${extra ? ` · <span class="rg-extra">${extra} hand${extra === 1 ? '' : 's'} looser than Standard</span>` : ''}`;
+      const btn = pane.querySelector(`[data-group="${group}"] small`);
+      if (btn) btn.innerHTML = `${Math.round(shareOf(cur[group]) * 100)}%${extra ? ` <i>+${extra}</i>` : ''}`;
+      badge();
     };
     share();
     const grid = $('rg-grid');
     const setCell = (el, on) => {
       el.classList.toggle('on', on);
+      el.classList.toggle('x', on && !std.includes(el.dataset.name));
       el.setAttribute('aria-pressed', on);
       const set = new Set(cur[group]);
       if (on) set.add(el.dataset.name);
@@ -1847,25 +1888,29 @@ function rangesModal(back = closeModal) {
     };
     // Drag to paint: the first cell decides whether the drag adds or removes hands.
     let paint = null;
-    grid.addEventListener('pointerdown', (e) => {
-      const el = e.target.closest('.rg-cell');
+    grid.addEventListener('pointerdown', (ev) => {
+      const el = ev.target.closest('.rg-cell');
       if (!el) return;
-      e.preventDefault();
+      ev.preventDefault();
       paint = !el.classList.contains('on');
       setCell(el, paint);
     });
-    grid.addEventListener('pointermove', (e) => {
+    grid.addEventListener('pointermove', (ev) => {
       if (paint === null) return;
-      const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('.rg-cell');
+      const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.rg-cell');
       if (el && el.classList.contains('on') !== paint) setCell(el, paint);
     });
     const stop = () => (paint = null);
     window.addEventListener('pointerup', stop, { once: true });
     grid.addEventListener('pointerup', stop);
     grid.addEventListener('pointercancel', stop);
-    $('modal-box').querySelectorAll('[data-group]').forEach((b) => (b.onclick = () => { group = b.dataset.group; draw(); }));
-    $('modal-box').querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => { mode = b.dataset.mode; draw(); }));
-    $('modal-box').querySelectorAll('[data-preset]').forEach((b) => (b.onclick = () => {
+    $('rg-only').onchange = () => {
+      draft.only = $('rg-only').checked;
+      draw();
+    };
+    pane.querySelectorAll('[data-group]').forEach((b) => (b.onclick = () => { group = b.dataset.group; draw(); }));
+    pane.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => { mode = b.dataset.mode; draw(); }));
+    pane.querySelectorAll('[data-preset]').forEach((b) => (b.onclick = () => {
       cur[group] = (mode === 'first' ? presetRanges : presetRaised)(b.dataset.preset)[group];
       draw();
     }));
@@ -1874,19 +1919,26 @@ function rangesModal(back = closeModal) {
       draft.raised = presetRaised('standard');
       draw();
     };
-    $('rg-cancel').onclick = () => back();
+    $('rg-cancel').onclick = () => closeModal();
     $('rg-done').onclick = () => {
+      // from the next hand; the session carries on (the hand in progress is not affected)
       settings.ranges = draft.first;
       settings.rangesRaised = draft.raised;
+      settings.onlyRange = draft.only;
       saveSettings();
       if (sess) {
         sess.heroRanges = settings.onlyRange ? settings.ranges : null;
         sess.heroRangesRaised = settings.onlyRange ? settings.rangesRaised : null;
       }
-      back();
+      closeModal();
     };
   };
   draw();
+  return { draw };
+}
+// (kept for older links)
+function rangesModal() {
+  openGameModal({ tab: 'ranges' });
 }
 
 // First visit only. The coach strip shows one line on how this works until "Got it" or the
@@ -2334,6 +2386,14 @@ $('btn-players').onclick = () => playersModal();
 $('btn-review').onclick = () => sess && reviewModal();
 $('btn-history').onclick = () => openHistory();
 $('btn-settings').onclick = () => settingsModal();
+// "Edit my ranges ›" (Hand log) and "Edit ranges for CO ›" (the outside-Standard tip): My ranges on that seat
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-edit-ranges]');
+  if (!b || !sess) return;
+  e.preventDefault();
+  e.stopPropagation();
+  openGameModal({ tab: 'ranges', group: b.dataset.editRanges });
+});
 
 
 // =====================================================================================
@@ -2823,15 +2883,18 @@ function openSummary(rec) {
 const playedHand = (r) => r.history.some((e) => e.seat === HERO && (e.type === 'call' || e.type === 'raise' || e.type === 'bet'));
 // Folded-for-you dividers, one per run of consecutive hands (QA X6): a hand a reload dropped is
 // not stored, so it breaks the run rather than being counted inside it.
-function foldedRuns(skips, dash, tail = '') {
+function foldedRuns(skips, dash, tail = '', link = false) {
   const nos = skips.map((x) => x.no).sort((a, b) => a - b);
+  const posOf = new Map(skips.map((x) => [x.no, x.position]));
   const out = [];
   let start = 0;
   for (let k = 1; k <= nos.length; k++) {
     if (k < nos.length && nos[k] === nos[k - 1] + 1) continue;
     const a = nos[start];
     const b = nos[k - 1];
-    out.push(`<div class="hdiv">${a === b ? `Hand ${a} folded for you` : `Hands ${a}${dash}${b} folded for you`}${tail}</div>`);
+    const pos = posOf.get(b); // the most recent hand of the run
+    const go = link && pos ? ` · <button type="button" class="link-btn edit-ranges" data-edit-ranges="${groupOf(pos)}">Edit my ranges ›</button>` : '';
+    out.push(`<div class="hdiv"><span>${a === b ? `Hand ${a} folded for you` : `Hands ${a}${dash}${b} folded for you`}${tail}${go}</span></div>`);
     start = k;
   }
   return out.reverse(); // the lists run newest first
@@ -3111,7 +3174,7 @@ function earlierHtml() {
   };
   const flush = () => {
     if (!skips.length) return;
-    rows.push(...foldedRuns(skips, '–'));
+    rows.push(...foldedRuns(skips, '–', '', true));
     skips = [];
   };
   for (const r of [...tonight].reverse()) {

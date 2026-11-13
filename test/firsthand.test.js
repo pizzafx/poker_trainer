@@ -37,7 +37,7 @@ test('first hand: later skips still count', () => {
     if (sess.handNo > before + 1) {
       sawSkip = true;
       assert.ok(sess.news.some((n) => /Skipped \d+ hand/.test(n)), 'later skips are reported');
-      assert.equal(sess.results.length, sess.handNo - 1, 'and counted');
+      assert.equal(sess.results.length, sess.handNo - (sess.hand.over ? 0 : 1), 'and counted (a walk is already over)');
     }
   }
   assert.ok(sawSkip);

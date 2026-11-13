@@ -81,7 +81,7 @@ const DEFS = {
     sizeTell: 0.8,
     limpTrap: 0.25,
     callRaise: 0.07,
-    callElastic: 0.7,
+    callElastic: 0.5, // POOL A5, Nov 2026: was 0.7
     limpCall: 1.1,
     threeBet: 0.011,
     callThreeBet: 0.03,
@@ -123,7 +123,7 @@ const DEFS = {
     openLimp: 0.85,
     sizeTell: 0.55,
     callRaise: 0.2,
-    callElastic: 0.45,
+    callElastic: 0.3, // POOL A5, Nov 2026: was 0.45
     limpCall: 0.9,
     threeBet: 0.013,
     callThreeBet: 0.05,
@@ -157,8 +157,8 @@ const DEFS = {
     overLimp: 1,
     sizeTell: 0.6,
     limpTrap: 0.15,
-    callRaise: 0.34,
-    callElastic: 0.25,
+    callRaise: 0.31, // POOL A6, Nov 2026: was 0.34
+    callElastic: 0.1, // POOL A5, Nov 2026: was 0.25
     callCrowd: 0.15,
     limpCall: 0.9,
     threeBet: 0.011,
@@ -206,7 +206,7 @@ const DEFS = {
     openSize: 5,
     sizeTell: 0.3,
     callRaise: 0.48,
-    callElastic: 0.15,
+    callElastic: 0.05, // POOL A5, Nov 2026: was 0.15
     callCrowd: 0.15,
     limpCall: 0.95,
     threeBet: 0.014,
@@ -299,7 +299,7 @@ const DEFS = {
     share: 0.04,
     vpip: [0.17, 0.22, 0.39, 0.34, 0.44],
     pfr: [0.17, 0.22, 0.39, 0.29, 0.1],
-    isoFactor: 0.9,
+    isoFactor: 0.8, // POOL A3, Nov 2026: was 0.9
     openLimp: 0,
     overLimp: 0.1,
     openSize: 4,
@@ -345,7 +345,7 @@ const DEFS = {
     share: 0.15,
     vpip: [0.15, 0.2, 0.34, 0.22, 0.3],
     pfr: [0.13, 0.18, 0.3, 0.15, 0.1],
-    isoFactor: 1.0,
+    isoFactor: 0.8, // POOL A3, Nov 2026: was 1.0
     openLimp: 0.02,
     overLimp: 0.4,
     openSize: 5,
@@ -353,8 +353,8 @@ const DEFS = {
     limpTrap: 0,
     callRaise: 0.13,
     callElastic: 0.8,
-    threeBet: 0.03,
-    threeBetBluff: 0.12,
+    threeBet: 0.022, // POOL A4, Nov 2026: was 0.03
+    threeBetBluff: 0.05, // POOL A4, Nov 2026: was 0.12
     callThreeBet: 0.14,
     fourBet: 0.012,
     fourBetBluff: 0.03,
@@ -387,7 +387,7 @@ const DEFS = {
     share: 0.04,
     vpip: [0.24, 0.3, 0.48, 0.3, 0.38],
     pfr: [0.19, 0.25, 0.4, 0.22, 0.15],
-    isoFactor: 1.15,
+    isoFactor: 0.9, // POOL A3, Nov 2026: was 1.15
     openLimp: 0.02,
     overLimp: 0.3,
     openSize: 5,
@@ -396,8 +396,8 @@ const DEFS = {
     callRaise: 0.14,
     callElastic: 0.6,
     threeBet: 0.04,
-    threeBetBluff: 0.3,
-    callThreeBet: 0.16,
+    threeBetBluff: 0.15, // POOL A4, Nov 2026: was 0.3
+    callThreeBet: 0.2, // POOL A8, Nov 2026: was 0.16
     fourBet: 0.016,
     fourBetBluff: 0.12,
     stackOff: 0.03,

@@ -408,8 +408,7 @@ function renderTable() {
       const pc = Math.round(top.p * 100);
       if (top.p >= 0.45) {
         const lvl = top.p >= 0.75 ? 3 : top.p >= 0.6 ? 2 : 1;
-        const word = shortType(top.id);
-        const label = lvl === 3 ? word : lvl === 2 ? `Likely ${word === 'ABC' ? word : word.toLowerCase()}` : `${word}?`;
+        const label = readGuess(top);
         read = `<div class="read ${lvl >= 2 ? 'firm' : ''}"><i class="conf c${lvl}"></i>${esc(label)}</div>`;
       }
     }
@@ -647,6 +646,15 @@ const noteLine = (d, cls) => {
   const n = noteText(d);
   return n ? `<p class="${cls}">${esc(n)}</p>` : '';
 };
+// The coach's read in words, the same everywhere (seat, player card, review): "Nit", "Likely nit",
+// "Nit?", or "Too early to say" below 45%.
+const readLevel = (top) => (top.p >= 0.75 ? 3 : top.p >= 0.6 ? 2 : top.p >= 0.45 ? 1 : 0);
+function readGuess(top) {
+  const word = shortType(top.id);
+  if (top.p >= 0.75) return word;
+  if (top.p >= 0.6) return `Likely ${word === 'ABC' ? word : word.toLowerCase()}`;
+  return top.p >= 0.45 ? `${word}?` : 'Too early to say';
+}
 // The read in a review is the one the coach had at the decision; say so, and what it is now when
 // it has moved on (STRAT, QA C4).
 function readThen(d, r) {
@@ -659,10 +667,8 @@ function readThen(d, r) {
   for (let t2 = 1; t2 < post.length; t2++) if (post[t2] > post[then]) then = t2;
   const nowTop = sess.readOf(vil.seat).ranked[0];
   if (nowTop.id !== TYPE_IDS[then]) {
-    const word = shortType(nowTop.id);
-    const lvl = nowTop.p >= 0.75 ? 3 : nowTop.p >= 0.6 ? 2 : nowTop.p >= 0.45 ? 1 : 0;
-    const guess = lvl === 3 ? word : lvl === 2 ? `Likely ${word === 'ABC' ? word : word.toLowerCase()}` : `${word}?`;
-    out = out.replace(/\.$/, '') + ` — now: ${guess}${/[?.]$/.test(guess) ? '' : '.'}`;
+    const guess = readGuess(nowTop);
+    out = out.replace(/\.$/, '') + ` — now: ${guess === 'Too early to say' ? 'too early to say' : guess}${/[?.]$/.test(guess) ? '' : '.'}`;
   }
   return out;
 }
@@ -1238,9 +1244,8 @@ function openReview(stored = false) {
     const p = sess.seats[vSeat];
     const r = sess.readOf(vSeat);
     const top = r.ranked[0];
-    const lvl = top.p >= 0.75 ? 3 : top.p >= 0.6 ? 2 : top.p >= 0.45 ? 1 : 0;
-    const word = shortType(top.id);
-    const guess = lvl === 3 ? word : lvl === 2 ? `Likely ${word === 'ABC' ? word : word.toLowerCase()}` : lvl === 1 ? `${word}?` : 'Too early to say';
+    const guess = readGuess(top);
+    const lvl = readLevel(top);
     card = `<article class="pc" style="--h:${p.hue ?? 160}"><div class="pc-head"><div class="big-avatar" style="--h:${p.hue ?? 160}">${avatarArt(p)}</div><div><div class="pc-name">${esc(p.nick)}</div><div class="pc-sub"><span class="label">${r.notes.hands} hands watched</span></div></div></div>
       <p class="pc-look">${esc(p.look)}.</p>
       <div class="pc-read"><span class="label">Coach's read</span><div class="pc-guess">${esc(guess)}<span class="conf">${[1, 2, 3].map((k) => `<i class="${k <= lvl ? 'on' : ''}"></i>`).join('')}</span></div>
@@ -1978,10 +1983,8 @@ function playerModal(seat) {
         .join('')
     : '<div class="empty">No showdowns seen yet.</div>';
   const top = r.ranked[0];
-  const lvl = top.p >= 0.75 ? 3 : top.p >= 0.6 ? 2 : top.p >= 0.45 ? 1 : 0;
-  // Same wording as the read on the seat: "Nit", "Likely nit", "Nit?".
-  const word = shortType(top.id);
-  const guess = lvl === 3 ? word : lvl === 2 ? `Likely ${word === 'ABC' ? word : word.toLowerCase()}` : lvl === 1 ? `${word}?` : 'Too early to say';
+  const guess = readGuess(top);
+  const lvl = readLevel(top);
   openModal(`
     <div class="pc" style="--h:${p.hue ?? 160}">
       <div class="pc-head"><div class="big-avatar" style="--h:${p.hue ?? 160}">${avatarArt(p)}</div>

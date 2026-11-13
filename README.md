@@ -28,7 +28,7 @@ There are two ways to play:
 
 [![The table on the turn: your two cards, the board, the session placard in the corner, the coach's one-line verdict on your last play, your options, and the coach panel](docs/table.webp)](https://pizzafx.github.io/poker_trainer/)
 
-New here? The app has an **FAQ** (button in the header, or [`faq.html`](faq.html)) written
+New here? The app has an **FAQ** (under More (⋯) in the header, or Menu on a phone, or [`faq.html`](faq.html)) written
 for poker players: how decisions are graded, what the colours mean, and how far to trust it.
 
 ## Why not just study GTO?
@@ -58,7 +58,7 @@ cd poker_trainer
 ./start.sh
 ```
 
-Then open http://localhost:5173 and press **Play now** (or go straight to
+Then open http://localhost:5173 and press **Deal me in** (or go straight to
 http://localhost:5173/play.html).
 
 `start.sh` (macOS and Linux) uses the Node.js on your machine if it is version 18 or newer.
@@ -106,7 +106,7 @@ Hands deal on automatically while your play is green. Anything flagged stops the
 opens the coach's review of the hand, with the flagged play open: what it cost, what the
 opponent's range looks like, and what each option was worth.
 
-![The hand review: the result and what the mistake cost, the run-out, each decision with the flagged raise opened, the coach's estimate, every option's value, and the opponent's card](docs/review.webp)
+![The hand review: the result and what the mistake cost, the run-out, each decision with the flagged check opened, the coach's estimate, the read at the time, every option's value, and the opponent's card](docs/review.webp)
 
 <p>
   <img src="docs/player.webp" alt="A player's card: the coach's read, how often they put money in and what that means, and every showdown with how they played it" width="58%">

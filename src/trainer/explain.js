@@ -236,7 +236,7 @@ const aheadP = (x, now) => (x < 0.05 ? `almost never ahead${now}` : x > 0.95 ? `
 const foldsP = (x, only = false) => (x < 0.05 ? 'almost no one folds' : x > 0.95 ? 'nearly everyone folds' : `everyone folds ${only ? 'only ' : ''}${often(x)}`);
 const LINE8A = 'Close. The price is right for a call, but the bets still to come take most of that back. Nothing here is graded.';
 const LINE8B = 'Close. A raise with another player in the pot is usually a strong hand. Calling and folding are both reasonable; nothing here is graded.';
-const LINE9 = "Bigger bets score higher only because the coach's opponents call almost any size; real ones often do not. Use half to three-quarters of the pot; sizes are not graded here.";
+const LINE9 = 'Bigger bets score higher only because these opponents call any size; real players often fold. Use half to three-quarters of the pot; sizes are not graded.';
 
 export function anchorLine(d) {
   const v = d.verdict;
@@ -271,8 +271,11 @@ export function anchorLine(d) {
   };
   let line = null;
   if (v.line === '5') {
-    const called = mine.W !== null && mine.W !== undefined ? `when called you are ${aheadP(mine.W, now)}` : 'you are almost never ahead when called';
-    line = `This scores higher against these opponents, but ${called} and ${foldsP(mine.F, true)}; it needs ${share(mine.alpha, false)}. Not a habit to build.`;
+    // the pro's shorter wording (Nov 2026): three lines at 375 px, about 150 characters
+    const W = mine.W;
+    const called = W === null || W === undefined || W < 0.05 ? 'You are almost never ahead when called' : W > 0.95 ? `When called you are almost always ahead${now}` : `When called you are ahead${now} ${share(W)}`;
+    const folds = mine.F < 0.05 ? 'almost no one folds' : mine.F > 0.95 ? 'nearly everyone folds' : `everyone folds only ${share(mine.F)}`;
+    line = `Scores higher against these opponents only. ${called} and ${folds}; it needs ${share(mine.alpha, false)}. Not a habit.`;
   } else if (ref !== mine && ref.type === 'raise' && mine.type === 'raise' && v.grade !== 'good' && ref.F !== undefined && mine.F !== undefined) {
     // a size flagged against another size: what the size changes
     const $ = (o) => `$${o.to - (d.currentBet || 0)}`;

@@ -274,11 +274,11 @@ function renderStats() {
   const wrap = $('placard-wrap');
   if (drill) {
     const res = `${drill.clean} of ${drill.tried} right`;
-    wrap.innerHTML = `<button type="button" id="placard" class="placard" aria-label="${esc(`Drill: ${leakName(drill.cat)}. ${res}. Mistakes cost ${money(drill.cost)}. Opens Leak review.`)}">
+    wrap.innerHTML = `<button type="button" id="placard" class="placard drill" aria-label="${esc(`Drill: ${leakName(drill.cat)}. ${res}. Mistakes cost ${money(drill.cost)}. Opens Leak review.`)}">
       <span class="pl-top">Drill · <b>${esc(leakName(drill.cat))}</b></span>
       <span class="pl-res"><b>${drill.clean}</b><small>of ${drill.tried} right</small></span>
       <span class="pl-sub full">Mistakes cost <b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b></span>
-      <span class="pl-sub short">${res} · <b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b></span></button>
+      <span class="pl-sub short">Drill · ${res} · <b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b></span></button>
       <button type="button" class="drill-exit" id="drill-exit">Exit drill</button>`;
     fitPlacard();
     return;
@@ -784,7 +784,8 @@ function stripHtml(show, { worst, prev }) {
   const v = show.verdict;
   const g = v.grade;
   const mine = v.options[v.mine];
-  const word = g === 'good' ? (v.mine === v.best ? 'best play' : 'fine') : g;
+  const tipping = g === 'good' && !!show.tipKind;
+  const word = g === 'good' ? (v.mine === v.best && !tipping ? 'best play' : 'fine') : g; // with a tip it is "fine", as the headline says (QA Z3)
   const cost = g === 'good' ? 0 : shownCost(v);
   const tipFn = g === 'good' && show.tipKind ? STRIP_TIP[show.tipKind] : null;
   const tip = g === 'good' && show.tipKind ? (tipFn && v.tip ? tipFn(v.tip) : 'Tip') : '';
@@ -793,7 +794,7 @@ function stripHtml(show, { worst, prev }) {
   const st = worst ? `Worst<span class="st-x"> · ${esc(show.streetName)}</span>` : esc(show.streetName);
   const go = g !== 'good' ? 'Why ›' : tip || note ? '›' : 'Details ›';
   return `<button type="button" class="${cls}" id="toast-open"><span class="st">${st}</span><span class="vmark ${g}" aria-hidden="true">${MARK[g]}</span>
-    <span class="main"><span class="act">${esc(mine.label)}</span><span class="rest"><span class="gw"> · <span class="g">${word}</span></span>${cost ? ` <span class="cost">−$${cost}</span>` : ''}${tip ? ` <span class="gw2">·</span> <span class="tipx">${esc(tip)}</span>` : ''}${note ? ` · <span class="tipx">note</span>` : ''}</span></span>
+    <span class="main"><span class="act">${esc(mine.label.replace(/\s*\([^)]*\)\s*$/, ''))}</span><span class="rest"><span class="gw"> · <span class="g">${word}</span></span>${cost ? ` <span class="cost">−$${cost}</span>` : ''}${tip ? ` <span class="gw2">·</span> <span class="tipx">${esc(tip)}</span>` : ''}${note ? ` · <span class="tipx">note</span>` : ''}</span></span>
     <span class="go">${go}</span></button>`;
 }
 function renderToast() {
@@ -859,7 +860,10 @@ function showTab(tab) {
     $(pane).classList.toggle('hidden', tab !== name);
   }
   if (RP && document.body.classList.contains('replaying')) return renderReplay();
-  if (tab === 'log') $('log').scrollTop = $('log').scrollHeight;
+  if (tab === 'log') {
+    renderLog();
+    $('log').scrollTop = $('log').scrollHeight;
+  }
   if (tab === 'range') renderRanges();
 }
 
@@ -1079,7 +1083,19 @@ function renderLog() {
   });
   el.innerHTML = `<p class="label hl-label">${over ? 'Last hand' : 'This hand'}</p>${card}${drill ? '' : earlierHtml()}`;
   el.querySelectorAll('[data-frame]').forEach((b) => (b.onclick = () => openReplay(rec, { from: 'table', frame: +b.dataset.frame, list: tonightHands() })));
-  el.querySelectorAll('[data-why]').forEach((b) => (b.onclick = (e) => { e.stopPropagation(); showTab('coach'); }));
+  el.querySelectorAll('[data-why]').forEach((b) => (b.onclick = (e) => {
+    e.stopPropagation();
+    showTab('coach');
+    // the Coach tab lists this hand's verdicts newest first
+    const cards = $('feedback').querySelectorAll(':scope > .fb');
+    const card = cards[cards.length - 1 - +b.dataset.why];
+    if (card) {
+      card.scrollIntoView({ block: 'start' });
+      card.classList.remove('flash');
+      void card.offsetWidth;
+      card.classList.add('flash');
+    }
+  }));
   el.querySelectorAll('[data-hl]').forEach((b) => (b.onclick = () => (b.dataset.hl === 'summary' ? openReview() : openReplay(rec, { from: 'table', list: tonightHands() }))));
   el.querySelectorAll('[data-key]').forEach((b) => (b.onclick = () => openReplay((tonight || []).find((r) => r.key === +b.dataset.key), { from: 'table', list: tonightHands() })));
   el.querySelectorAll('[data-lf]').forEach((b) => (b.onclick = () => { logFilter = b.dataset.lf; renderLog(); }));
@@ -2523,7 +2539,7 @@ function renderReplayHead() {
     <button type="button" class="rh-back m-only" data-rh="history">‹ History</button>
     <span class="rh-pill">Hand <b>${rec.no}</b></span>
     <span class="rh-pill d-only">${signed(net)}</span>
-    <span class="rh-pill d-only">$${rec.sb}/$${rec.bb}${rec.sitting && rec.sitting.home ? ' home game' : ''} · ${when.toLocaleDateString([], { weekday: 'short' })} ${when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+    <span class="rh-pill rh-date d-only">$${rec.sb}/$${rec.bb}${rec.sitting && rec.sitting.home ? ' home game' : ''} · ${when.toLocaleDateString([], { weekday: 'short' })} ${when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
     <div class="seg rh-switch" role="radiogroup" aria-label="View"><button type="button" role="radio" aria-checked="false" data-rh="summary">Summary</button><button type="button" role="radio" aria-checked="true" class="on" data-rh="replay">Replay</button></div>
     <label class="rh-all d-only"><input type="checkbox" id="rh-all" class="toggle" ${RP.showAll ? 'checked' : ''}> Show all cards</label>
     <span class="rh-nav d-only">${prev ? `<button type="button" class="link-btn" data-rh="prev">‹ Hand ${prev.no}</button>` : ''}${next ? `<button type="button" class="link-btn" data-rh="next">Hand ${next.no} ›</button>` : ''}</span>
@@ -2919,7 +2935,7 @@ function refreshTonight() {
   if (!id || drill) return;
   listHands().then((all) => {
     tonight = (all || []).filter((r) => r.session === id);
-    if (currentTab === 'log' && !RP) renderLog();
+    if (!RP) renderLog(); // drawn now even if the tab is closed (QA Z4)
   });
 }
 
@@ -3030,7 +3046,7 @@ function earlierHtml() {
   const fn = logFilter === 'flagged' ? flaggedFn : logFilter === 'played' ? playedFn : () => true;
   const rows = [];
   let skips = [];
-  const evs = logFilter === 'all' ? [...logEvents].reverse() : [];
+  const evs = logFilter === 'all' ? logEvents.map((e, k) => ({ ...e, k })).sort((a, b) => b.hand - a.hand || a.k - b.k) : [];
   let ei = 0;
   const eventsAfter = (no) => {
     while (ei < evs.length && evs[ei].hand > no) rows.push(`<div class="hl-ev">${esc(evs[ei++].text)}</div>`);
@@ -3042,7 +3058,14 @@ function earlierHtml() {
   };
   for (const r of [...tonight].reverse()) {
     if (r.kind === 'skip') {
-      if (logFilter === 'all') skips.push(r);
+      if (logFilter === 'all') {
+        if (ei < evs.length && evs[ei].hand > r.no) {
+          // an event came after these folded hands: it goes above them
+          flush();
+          eventsAfter(r.no);
+        }
+        skips.push(r);
+      }
       continue;
     }
     if (!fn(r) || !shown(r)) continue;

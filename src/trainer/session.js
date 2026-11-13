@@ -171,7 +171,11 @@ export class Session {
 
   startHand() {
     this.news = this.handNo === 0 ? [] : this.shuffleSeats();
-    if (this.heat > 0.5) this.news.push('The table has noticed how often you are betting and raising: expect lighter calls.');
+    // Said once as the table's read of you crosses 0.5, and again only after it has dropped below 0.4 (QA Z1).
+    if (this.heat > 0.5 && !this.heatNoted) {
+      this.news.push('The table has noticed how often you are betting and raising: expect lighter calls.');
+      this.heatNoted = true;
+    } else if (this.heat < 0.4) this.heatNoted = false;
     this.handNo++;
     this.button = (this.button + 1) % this.n;
     const utg = (this.button + 3) % this.n;
@@ -681,6 +685,8 @@ export class Session {
     }
     this.quiet = quiet;
     if (first && skipped) {
+      // nothing that happened before the first hand you see is news (QA Z5: no seat changes or NEW tags)
+      this.news = [];
       this.handNo = 1;
       this.hand.no = 1;
       const head = this.hand.log.find((e) => e.kind === 'head');

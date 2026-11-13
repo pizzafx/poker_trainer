@@ -2345,3 +2345,13 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 /* touch: filter chips are tap targets too (QA Y3) */
 @media (max-width: 900px), (pointer: coarse) { #log .hl-earlier .chips .chip { min-height: 36px; } }
 #feedback .rp-card .bars { grid-template-columns: minmax(0, 1fr); }
+
+/* QA Z6 */
+.placard.compact.drill .pl-res { display: none; }
+@media (max-width: 900px), (pointer: coarse) { #log .hl-v .hl-why { min-height: 24px; padding: 4px 6px; margin: -4px -6px; } }
+#feedback .fb.flash { animation: fb-flash 1.2s ease-out; }
+@keyframes fb-flash { from { box-shadow: 0 0 0 2px var(--signal); } to { box-shadow: 0 0 0 2px transparent; } }
+@media (prefers-reduced-motion: reduce) { #feedback .fb.flash { animation: none; outline: 2px solid var(--signal); } }
+@container stage (max-width: 1199px) { #replay-head .rh-date { display: none; } }
+@container stage (max-width: 999px) { #replay-head .rh-nav { display: none; } }
+@media (min-width: 901px) { #actions { min-height: 156px; } #actions > .myhand { min-height: 25px; } }

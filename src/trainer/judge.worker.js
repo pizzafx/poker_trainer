@@ -6,10 +6,27 @@ import { HandBelief } from './belief.js';
 import { applyOverrides } from '../bots/profiles.js';
 import { BUILD } from './version.js';
 
+async function staleModules(hashes) {
+  const stale = [];
+  try {
+    for (const [path, want] of Object.entries(hashes)) {
+      const res = await fetch(new URL(`../../${path}`, self.location.href), { cache: 'force-cache' });
+      const buf = await res.arrayBuffer();
+      const hex = [...new Uint8Array(await crypto.subtle.digest('SHA-256', buf))].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 10);
+      if (hex !== want) stale.push(path);
+    }
+  } catch {
+    stale.push('unreadable');
+  }
+  return stale;
+}
+
 self.onmessage = (e) => {
   const m = e.data;
   if (m.type === 'hello') {
-    self.postMessage({ type: 'hello', build: BUILD });
+    // Which of our modules differ from the page's? Read each from the cache it was loaded from
+    // and hash it the way scripts/stamp.js does (first 10 hex of SHA-256).
+    staleModules(m.hashes || {}).then((stale) => self.postMessage({ type: 'hello', build: BUILD, stale }));
   } else if (m.type === 'tuning') {
     applyOverrides(m.overrides);
   } else if (m.type === 'grade') {

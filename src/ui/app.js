@@ -13,8 +13,9 @@ import { presets, defaultRaise } from './presets.js';
 import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '../trainer/dispute.js';
 import { RANGE_GROUPS, presetRanges, presetRaised, shareOf, previousStandard } from '../trainer/ranges.js';
 import { equityVsRange } from '../trainer/equity.js';
-import { BUILD } from '../trainer/version.js';
-import { keepHand, saveSession, loadSession, clearSession } from './store.js';
+import { BUILD, HASHES } from '../trainer/version.js';
+import { keepHand, saveSession, loadSession, clearSession, listHands, clearHands } from './store.js';
+import { framesOf } from '../trainer/replay.js';
 
 const $ = (id) => document.getElementById(id);
 const HERO = 0;
@@ -121,7 +122,8 @@ const judge = {
     this.worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'hello') {
-        this.ready = m.build === BUILD;
+        // ready only when the worker's modules are byte for byte the page's (W2)
+        this.ready = m.build === BUILD && !(m.stale && m.stale.length);
         if (this.ready) this.tune();
         else this.stop();
         return;
@@ -133,7 +135,7 @@ const judge = {
       else w.reject(new Error(m.error));
     };
     this.worker.onerror = () => this.stop();
-    this.worker.postMessage({ type: 'hello' });
+    this.worker.postMessage({ type: 'hello', hashes: HASHES });
   },
   stop() {
     this.ready = false;
@@ -145,10 +147,21 @@ const judge = {
   tune() {
     if (this.worker && this.ready) this.worker.postMessage({ type: 'tuning', overrides });
   },
+  // A grade the worker has not answered within 20 seconds is made on the page instead (W3).
+  slowNoted: false,
   grade(job) {
     const id = this.next++;
     return new Promise((resolve, reject) => {
-      this.waiting.set(id, { resolve, reject });
+      const timeout = setTimeout(() => {
+        if (!this.waiting.has(id)) return;
+        this.waiting.delete(id);
+        if (!this.slowNoted) {
+          this.slowNoted = true;
+          console.warn('The judge worker took more than 20 s; grading on the page instead.');
+        }
+        reject(new Error('timeout'));
+      }, 20000);
+      this.waiting.set(id, { resolve: (v) => { clearTimeout(timeout); resolve(v); }, reject: (e) => { clearTimeout(timeout); reject(e); } });
       this.worker.postMessage({ type: 'grade', id, job });
     });
   },
@@ -328,13 +341,15 @@ function renderTable() {
     if (p.nick.length > 11) cls.push('long');
     if (i === HERO) cls.push('hero');
     if (s.folded[i]) cls.push('folded');
-    if (!over && s.toAct === i) cls.push('acting');
+    if (!over && s.toAct === i && !h.replay) cls.push('acting');
+    if (h.actor === i) cls.push('acted');
     if (over && s.result.won[i] > 0) cls.push('winner');
     if (p.steaming) cls.push('steaming');
     if (over && s.result.showdown && !s.folded[i] && i !== HERO) cls.push('shown');
     let cards = '';
     if (i === HERO) cards = holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('');
-    else if (!s.folded[i]) cards = over && s.result.showdown ? holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('') : backHtml() + backHtml();
+    else if (!s.folded[i]) cards = over && s.result.showdown ? holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('') : h.showAll ? `<span class="unseen">${holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('')}</span>` : backHtml() + backHtml();
+    else if (h.showAll && s.hole[i]) cards = `<span class="unseen">${holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('')}</span>`;
     let read = '';
     if (i !== HERO && settings.reads) {
       const r = sess.readOf(i);
@@ -361,7 +376,7 @@ function renderTable() {
       <div class="cards">${cards}</div>
       <div class="avatar${vp ? ' has-vpip' : ''}" style="--h:${p.hue ?? 160}${vp ? `;--v:${vp.pct};--vc:${vp.color}` : ''}">${i === HERO ? '' : avatarArt(p)}${badge}${p.steaming ? '<span class="steam-dot" title="On tilt"></span>' : ''}</div>
       <div class="plate">${i === HERO && isBtn ? '<div class="dealer mine" title="You are on the button">D</div>' : ''}<div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>
-      <div class="stack">${money(stack)}</div>${read}</div>${i === HERO ? madeHand() : ''}${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP <span class="num">${vp.pct}%</span></b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vpipVerdict(vp.pct)}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${p.steaming ? '<div class="tilt">Tilt</div>' : ''}${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
+      <div class="stack">${money(stack)}${h.raiser === i ? '<span class="raiser-tag">Raiser</span>' : ''}</div>${read}</div>${i === HERO ? madeHand() : ''}${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP <span class="num">${vp.pct}%</span></b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vpipVerdict(vp.pct)}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${p.steaming ? '<div class="tilt">Tilt</div>' : ''}${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
     if (isBtn && i !== HERO) {
       const dx = 50 + G.dealer[0] * Math.cos(ang + 0.2);
       const dy = G.cy + G.dealer[1] * Math.sin(ang + 0.2);
@@ -727,6 +742,7 @@ function showTab(tab) {
     $('tab-' + name).classList.toggle('on', tab === name);
     $(pane).classList.toggle('hidden', tab !== name);
   }
+  if (RP && document.body.classList.contains('replaying')) return renderReplay();
   if (tab === 'log') $('log').scrollTop = $('log').scrollHeight;
   if (tab === 'range') renderRanges();
 }
@@ -796,7 +812,7 @@ function renderRanges() {
     const actor = lastBy(['call', 'check']);
     rangeSeat = aggressor >= 0 ? aggressor : actor >= 0 ? actor : live[0];
   }
-  if (rangeStreet !== 'now' && !h.rangeSnaps[rangeStreet]) rangeStreet = 'now';
+  if (h.replay || (rangeStreet !== 'now' && !h.rangeSnaps[rangeStreet])) rangeStreet = 'now';
   const g = sess.rangeGrid(rangeSeat, rangeStreet);
   const who = live.map((i) => `<button class="chip ${i === rangeSeat ? 'on' : ''}" data-seat="${i}">${esc(sess.seats[i].nick)}</button>`).join('');
   const steps = STREET_TABS.map((label, st) => `<button class="chip ${rangeStreet === st ? 'on' : ''}" data-street="${st}" ${h.rangeSnaps[st] ? '' : 'disabled'}>${label}</button>`).join('') +
@@ -836,7 +852,7 @@ function renderRanges() {
         const likely = c.fill >= 0.99 ? 'as likely as any hand in their range' : `about ${Math.max(1, Math.round(c.fill * 100))}% as likely as their likeliest hand`;
         const vsTip = a === null ? '' : post ? `; you beat ${Math.round(a * 100)}% of these` : `; you win about ${Math.round(a * 100)}% against these`;
         const tip = on ? `${GRID[i][j].name}: ${likely}${post && c.kind >= 0 ? ', mostly ' + KINDS[c.kind][0].toLowerCase() : ''}${vsTip}` : `${GRID[i][j].name}: not in range`;
-        const me = GRID[i][j].k === mine ? ' me' : '';
+        const me = (GRID[i][j].k === mine ? ' me' : '') + (h.replay && h.showAll && s.hole[rangeSeat] && GRID[i][j].k === classOf(s.hole[rangeSeat][0], s.hole[rangeSeat][1]) ? ' real' : '');
         if (!acted) {
           cells += `<div class="rc off${me}" title="${GRID[i][j].name}: possible, like every hand, until they act">${GRID[i][j].name}</div>`;
           continue;
@@ -878,8 +894,16 @@ function renderRanges() {
     const modes = canVs ? `<div class="chips modes"><span class="label">Colour</span><button class="chip ${showVs ? 'on' : ''}" data-mode="vs">Ahead or behind you</button><button class="chip ${showVs ? '' : 'on'}" data-mode="kind">What they have</button></div>` : '';
     const grad = `background:linear-gradient(90deg, rgb(${vsRgb(0)}), rgb(${vsRgb(0.5)}), rgb(${vsRgb(1)}))`;
     const vsLegend = `<div class="legend vs-legend"><span>${post ? 'It beats you' : 'You win less'}</span><i class="lg-grad" style="${grad}"></i><span>${post ? 'You beat it' : 'You win more'}</span><span>Brighter = more likely</span><span><i class="lg-me"></i>Your hand</span></div>`;
-    const label = rangeStreet === 'now' ? (h.over ? 'at the end of the hand' : 'right now') : `after the ${STREET_TABS[rangeStreet].toLowerCase()} betting`;
+    const label = rangeStreet === 'now' ? (h.over ? 'at the end of the hand' : h.replay ? 'at this point in the hand' : 'right now') : `after the ${STREET_TABS[rangeStreet].toLowerCase()} betting`;
+    // "Show all cards" in the replayer: the hand they really held, outlined, never a re-grade
+    const real = h.replay && h.showAll && s.hole[rangeSeat] ? classOf(s.hole[rangeSeat][0], s.hole[rangeSeat][1]) : -1;
+    const realBox = real >= 0 ? (() => {
+      const c = g.cells[real];
+      const where = c.fill >= 0.45 ? 'one of the hands the coach had as likely' : c.fill >= 0.12 ? 'a hand the coach gave them only some of the time' : c.fill > 0.015 ? 'a long shot in the range the coach drew' : 'outside the range the coach drew';
+      return `<div class="what-had"><b>What ${esc(sess.seats[rangeSeat].nick)} had: ${cardsInline(holeOrder(s.hole[rangeSeat]))}</b><p>That was ${where}. One hand proves little. Judge the decision by the range, not the card.</p></div>`;
+    })() : '';
     el.innerHTML = `
+      ${h.replay && PHONE.matches ? `<label class="trow rp-all-phone"><span>Show all cards</span><input type="checkbox" class="toggle" data-showall ${h.showAll ? 'checked' : ''}></label>` : ''}
       <div class="chips">${who}</div>
       ${acted ? beats : ''}
       <div class="chips">${steps}</div>
@@ -887,21 +911,34 @@ function renderRanges() {
       ${acted ? modes : `<div class="unacted-note"><b>${esc(sess.seats[rangeSeat].nick)} hasn't acted yet${s.history.some((e) => e.seat === rangeSeat) ? ' (only the forced blind so far)' : ''}.</b> Any two cards are still possible, so there is no range to show. It fills in as soon as they ${s.history.some((e) => e.seat === rangeSeat) ? 'make a choice' : 'act'}.</div>`}
       <div class="rgrid${acted ? '' : ' unacted'}">${cells}</div>
       ${acted ? (showVs ? vsLegend : mix) : ''}
+      ${realBox}
+      ${h.replay ? '<p class="hint" style="text-align:left">Drawn from the read the coach had at the time, not from what they turned out to hold.</p>' : ''}
       <p class="hint" style="text-align:left">${basis} Suited hands are above the diagonal, offsuit below, pairs on it. This is the coach's estimate from how they have played, not their actual cards.</p>`;
   }
-  el.querySelectorAll('[data-seat]').forEach((b) => (b.onclick = () => { rangeSeat = +b.dataset.seat; renderRanges(); }));
-  el.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => { rangeMode = b.dataset.mode; renderRanges(); }));
+  const again = () => (RP && document.body.classList.contains('replaying') ? renderReplay() : renderRanges());
+  el.querySelectorAll('[data-showall]').forEach((b) => (b.onchange = () => { if (RP) { RP.showAll = b.checked; renderReplay(); } }));
+  el.querySelectorAll('[data-seat]').forEach((b) => (b.onclick = () => { rangeSeat = +b.dataset.seat; again(); }));
+  el.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => { rangeMode = b.dataset.mode; again(); }));
   el.querySelectorAll('[data-street]').forEach((b) => (b.onclick = () => { rangeStreet = b.dataset.street === 'now' ? 'now' : +b.dataset.street; renderRanges(); }));
 }
 
 function renderLog() {
   const el = $('log');
   const lines = [...pastLog, ...sess.hand.log];
-  el.innerHTML = lines.map((l) => `<div class="ln ${l.kind}${l.seat === HERO && l.kind === 'act' ? ' me' : ''}">${esc(l.text)}</div>`).join('');
+  const replayable = (l) => l.kind === 'head' && !drill && (pastLog.includes(l) || sess.hand.over);
+  el.innerHTML = lines.map((l) => `<div class="ln ${l.kind}${l.seat === HERO && l.kind === 'act' ? ' me' : ''}">${esc(l.text)}${replayable(l) ? ` <button type="button" class="link-btn ln-replay" data-replay-no="${esc(l.text.replace(/\D+/g, ''))}">Replay ›</button>` : ''}</div>`).join('');
+  el.querySelectorAll('[data-replay-no]').forEach((b) => (b.onclick = async () => {
+    const no = +b.dataset.replayNo;
+    const all = (await listHands()) || [];
+    const mine = all.filter((r) => r.kind === 'hand' && r.session === sess.id);
+    const rec = mine.find((r) => r.no === no) || (lastRecord && lastRecord.no === no ? lastRecord : null);
+    if (rec) openReplay(rec, { from: 'table', list: mine });
+  }));
   el.scrollTop = el.scrollHeight;
 }
 
 function render() {
+  if (RP && document.body.classList.contains('replaying')) return renderReplay();
   renderStats();
   renderTable();
   renderActions();
@@ -929,9 +966,11 @@ function actionNoun(o) {
   return o.type;
 }
 
-function openReview() {
+function openReview(stored = false) {
   const h = sess.hand;
-  if (!h || !h.over || drill) return;
+  if (!h || !h.over || (drill && !stored)) return;
+  // the record this review is of (a kept hand, or the hand just played at the table)
+  const rec = stored ? RP.rec : lastRecord && lastRecord.no === (h.label || h.no) && lastRecord.session === sess.id ? lastRecord : null;
   const s = h.state;
   const ds = h.decisions;
   const flagged = ds.filter((d) => d.verdict.grade !== 'good');
@@ -957,7 +996,8 @@ function openReview() {
     const v = d.verdict;
     const mine = v.options[v.mine];
     const head = `<span class="label">${STREET_LABEL[d.street] || d.streetName}</span><span class="vmark ${d.verdict.grade}">${MARK[v.grade]}</span><span class="what">${esc(mine ? mine.label : '')}</span><span class="grade ${v.grade}">${GRADE_WORD[v.grade]}</span>`;
-    if (v.grade === 'good') return `<div class="rv-step">${head}</div>${tipLine(d, 'tip-line rv-tip')}`;
+    const link = rec ? `<button type="button" class="link-btn rv-replay" data-replay-dec="${ds.indexOf(d)}">▶ replay</button>` : '';
+    if (v.grade === 'good') return `<div class="rv-step">${head}${link}</div>${tipLine(d, 'tip-line rv-tip')}`;
     const evs = v.options.map((o) => o.ev);
     const lo = Math.min(...evs, 0);
     const hi = Math.max(...evs, 0);
@@ -965,7 +1005,7 @@ function openReview() {
     const bars = v.options.map((o, i) => `<div class="bar ${i === v.best ? 'best' : ''} ${i === v.mine ? 'yours' : ''}"><span>${esc(o.label)}</span><span class="track"><i style="--w:${width(o.ev)}%"></i></span><span class="mono">${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</span></div>`).join('');
     const eq = d.villain && d.villain.picture && d.villain.picture.equity !== null && d.villain.picture.equity !== undefined ? d.villain.picture.equity : null;
     const duo = eq !== null && d.toCall > 0 ? `<div class="duo"><div class="stat"><span class="label">You beat</span><b>${Math.round(eq * 100)}%</b></div><div class="stat"><span class="label">You needed</span><b>${Math.round(d.odds * 100)}%</b></div></div>` : '';
-    return `<details class="rv-flag ${v.grade}" ${d === firstFlag ? 'open' : ''}><summary class="rv-step">${head}</summary>
+    return `<details class="rv-flag ${v.grade}" ${d === firstFlag ? 'open' : ''}><summary class="rv-step">${head}${link}</summary>
       <div class="rv-body">
         <h2>${esc(d.headline)}</h2>
         ${d.reasons.map((r) => `<p class="why">${esc(r)}</p>`).join('')}
@@ -996,24 +1036,61 @@ function openReview() {
   }
   const el = $('review');
   el.innerHTML = `<div class="rv-wrap">
-    <div class="rv-head"><p class="label signal">Hand ${h.no || sess.handNo} · the coach's review</p><h1>${result} ${costLine}</h1></div>
+    <div class="rv-head">${rec ? '<div class="seg rh-switch" role="radiogroup" aria-label="View"><button type="button" role="radio" aria-checked="true" class="on">Summary</button><button type="button" role="radio" aria-checked="false" id="rv-to-replay">Replay</button></div>' : ''}<p class="label signal">Hand ${h.label || h.no || sess.handNo} · the coach's review</p><h1>${result} ${costLine}</h1></div>
     ${runout}
     <div class="rv-cols"><div class="rv-steps">${rows || '<p class="sub">You made no decisions this hand.</p>'}</div>
       <aside>${card}<div class="rv-tiles"><div class="stat"><span class="label">This hand</span><b class="${net > 0 ? 'pos' : net < 0 ? 'neg' : ''}">${signed(net)}</b></div><div class="stat"><span class="label">Mistakes cost</span><b>${money(cost)}</b></div></div></aside></div>
   </div>
-  <div class="rv-bar"><div><p>The table stops on a flagged play so you can read why.</p><button type="button" id="rv-leaks">Leak review</button><button type="button" class="primary" id="rv-next">${drill ? 'Next spot' : 'Next hand'}<kbd>Space</kbd></button></div></div>`;
+  <div class="rv-bar"><div>${stored
+    ? `<p>Hand ${h.label} from your history.</p><button type="button" id="rv-replay">Replay this hand</button><button type="button" class="primary" id="rv-back">${RP.from === 'history' ? 'Back to history' : 'Back to the table'}</button>`
+    : `<p>The table stops on a flagged play so you can read why.</p>${rec ? '<button type="button" id="rv-replay"><span class="d-only">Replay this hand</span><span class="m-only">Replay</span></button>' : ''}<button type="button" id="rv-leaks">Leak review</button><button type="button" class="primary" id="rv-next">${drill ? 'Next spot' : 'Next hand'}<kbd>Space</kbd></button>`}</div></div>`;
   el.classList.remove('hidden');
   el.scrollTop = 0;
   document.body.classList.add('reviewing');
-  $('rv-next').onclick = () => nextHand();
-  $('rv-leaks').onclick = () => reviewModal();
-  el.querySelectorAll('[data-range]').forEach((b) => (b.onclick = () => { closeReview(); rangeSeat = +b.dataset.range; openSide('range'); }));
+  const from = stored ? RP.from : 'review';
+  if (stored) {
+    $('rv-back').onclick = () => closeReview();
+  } else {
+    $('rv-next').onclick = () => nextHand();
+    $('rv-leaks').onclick = () => reviewModal();
+  }
+  if (rec) {
+    const replayAt = (dec) => openReplay(rec, { from, decision: dec, list: stored ? RP.list : null });
+    if ($('rv-replay')) $('rv-replay').onclick = () => replayAt(undefined);
+    if ($('rv-to-replay')) $('rv-to-replay').onclick = () => replayAt(undefined);
+    el.querySelectorAll('[data-replay-dec]').forEach((b) => (b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); replayAt(+b.dataset.replayDec); }));
+  }
+  el.querySelectorAll('[data-range]').forEach((b) => (b.onclick = () => {
+    if (stored) {
+      const dec = ds.findIndex((d) => d.villain && d.villain.seat === +b.dataset.range);
+      openReplay(rec, { from, decision: dec, list: RP.list });
+      rangeSeat = +b.dataset.range;
+      return showTab('range');
+    }
+    closeReview();
+    rangeSeat = +b.dataset.range;
+    openSide('range');
+  }));
   el.querySelectorAll('[data-drill]').forEach((b) => (b.onclick = () => { closeReview(); startDrill(b.dataset.drill); }));
-  el.querySelectorAll('[data-dispute]').forEach((b) => (b.onclick = () => { const d = sess.decisions.find((x) => x.id === +b.dataset.dispute); if (d) disputeModal(d); }));
+  el.querySelectorAll('[data-dispute]').forEach((b) => (b.onclick = () => { const d = (stored ? rec.decisions : liveSessOr().decisions).find((x) => x.id === +b.dataset.dispute); if (d) disputeModal(d); }));
 }
-function closeReview() {
+const liveSessOr = () => liveSess || sess;
+function hideReview() {
   $('review').classList.add('hidden');
   document.body.classList.remove('reviewing');
+}
+function closeReview() {
+  hideReview();
+  if (RP && RP.summary) {
+    const from = RP.from;
+    RP = null;
+    liveSess = null;
+    document.body.classList.remove('replaying');
+    if (from === 'history') return openHistory();
+    render();
+    if (sess.status() === 'bot') advance();
+    else if (sess.status() === 'over') scheduleAuto();
+  }
 }
 
 // ---------------------------------------------------------------- flow
@@ -1052,14 +1129,22 @@ function scheduleAuto() {
 }
 
 let thinking = false; // a decision is being graded in the worker
+let gradeTurn = 0; // bumped whenever the table changes under a pending grade (W1)
+function dropPendingGrade() {
+  gradeTurn++;
+  if (!thinking) return;
+  thinking = false;
+  $('actions')?.classList.remove('busy');
+}
 async function act(action) {
-  if (sess.status() !== 'hero' || thinking) return;
+  if (RP || sess.status() !== 'hero' || thinking) return;
   endHint();
   let d;
   if (judge.ready) {
     const here = sess;
     const hand = sess.hand;
     const step = hand.state.history.length;
+    const turn = ++gradeTurn;
     thinking = true;
     renderToast();
     renderActions();
@@ -1069,8 +1154,9 @@ async function act(action) {
     } catch {
       verdict = null; // graded here instead, below
     }
+    // A new session, hand or drill started meanwhile: this decision no longer applies.
+    if (turn !== gradeTurn) return;
     thinking = false;
-    // A new session or drill started meanwhile: this decision no longer applies.
     if (sess !== here || sess.hand !== hand || hand.state.history.length !== step) return render();
     d = verdict ? sess.heroCommit(action, verdict) : sess.heroAct(action);
   } else d = sess.heroAct(action);
@@ -1090,6 +1176,8 @@ async function act(action) {
 }
 
 function nextHand() {
+  dropPendingGrade();
+  if (RP || document.body.classList.contains('in-history')) return;
   if (sess.status() !== 'over') return;
   closeReview();
   if (drill) return nextSpot();
@@ -1103,6 +1191,7 @@ function nextHand() {
 // Fast-forwards the table: plays hands in an instant (yours are played for you and do not
 // count toward your results) so you sit down with something observed about everyone.
 function quickSim(hands = 40) {
+  dropPendingGrade();
   if (!sess || drill) return;
   clearTimeout(timer);
   sess.quickSim(hands);
@@ -1113,6 +1202,7 @@ function quickSim(hands = 40) {
 }
 
 function startDrill(cat) {
+  dropPendingGrade();
   clearTimeout(timer);
   closeModal();
   if (!drill) mainSess = sess;
@@ -1133,6 +1223,7 @@ function nextSpot() {
 }
 
 function exitDrill() {
+  dropPendingGrade();
   drill = null;
   sess = mainSess;
   mainSess = null;
@@ -1145,24 +1236,69 @@ function exitDrill() {
 // so a reload carries on from the next hand.
 let kept = true; // did the last save work? (if not, leaving asks first)
 let saving = null;
+// Only one tab plays the table and writes the save and the hand store (R1). Another tab says so
+// and offers to take over; the tab it was taken from stops writing and says so too.
+let owner = !('locks' in navigator); // without Web Locks, every tab is its own owner, as before
+function holdTable(steal = false) {
+  return new Promise((resolve) => {
+    navigator.locks
+      .request('gto-table', steal ? { steal: true } : { ifAvailable: true }, (lock) => {
+        if (!lock) return resolve(false);
+        owner = true;
+        resolve(true);
+        return new Promise(() => {}); // held for as long as this page is open
+      })
+      .catch(() => {
+        // another tab took the table
+        owner = false;
+        elsewhere('taken');
+      });
+  });
+}
+function elsewhere(why) {
+  clearTimeout(timer);
+  dropPendingGrade();
+  let el = $('elsewhere');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'elsewhere';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    document.body.append(el);
+  }
+  el.innerHTML = `<div class="ew-box"><h1>${why === 'taken' ? 'This table is now open in another tab' : 'This table is open in another tab'}</h1>
+    <p class="sub">${why === 'taken' ? 'Nothing more is saved from this tab.' : 'Play it there, or carry on here: the other tab stops saving.'}</p>
+    <button type="button" class="primary" id="ew-here">Use it here</button></div>`;
+  el.classList.remove('hidden');
+  $('ew-here').onclick = async () => {
+    await holdTable(true);
+    location.reload();
+  };
+}
+
 function keepPlaying(s) {
   s.onHandEnd = (rec) => {
-    keepHand(rec);
+    if (!owner) return;
+    if (rec.kind === 'hand') lastRecord = rec;
+    keepHand(rec).then((key) => {
+      if (key && rec === lastRecord) lastRecord = { ...rec, key };
+    });
     if (saving) return;
     saving = setTimeout(async () => {
       saving = null;
-      kept = await saveSession(s.toSaved());
+      if (owner) kept = await saveSession(s.toSaved());
     }, 0);
   };
 }
 
 function newSession() {
+  dropPendingGrade();
   clearTimeout(timer);
   drill = null;
   mainSess = null;
   sess = new Session(sessionOpts());
   keepPlaying(sess);
-  clearSession();
+  if (owner) clearSession();
   pastLog = [];
   sess.startPlayable();
   advance();
@@ -1170,6 +1306,8 @@ function newSession() {
 
 // After a reload: the saved session if there is one, from the next hand; otherwise a new one.
 async function resumeOrNew() {
+  dropPendingGrade();
+  if (!owner && !(await holdTable())) return elsewhere('open');
   const saved = await loadSession();
   if (!saved) return newSession();
   try {
@@ -1198,6 +1336,15 @@ document.addEventListener('keydown', (e) => {
     closeReview();
     return;
   }
+  if (e.key === 'Escape' && SIDE_OVER.matches && !document.body.classList.contains('side-closed') && !RP) {
+    document.body.classList.add('side-closed');
+    return;
+  }
+  if (document.body.classList.contains('in-history')) {
+    if (e.key === 'Escape') closeHistory();
+    return;
+  }
+  if (RP && document.body.classList.contains('replaying')) return replayKey(e);
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
   // A focused button, link or seat (other than the action buttons) keeps its own keys: Enter and
   // Space always, and the letter shortcuts too when it was reached with Tab. A button that merely
@@ -1780,6 +1927,12 @@ $('tab-range').onclick = () => showTab('range');
 // closed there, and closes when the window is narrowed into that range; it opens again on request.
 const SIDE_OVER = matchMedia('(max-width: 1180px)');
 if (SIDE_OVER.matches) document.body.classList.add('side-closed');
+// N5: where the panel covers the table, a click on the table (outside the panel) closes it.
+document.addEventListener('pointerdown', (e) => {
+  if (!SIDE_OVER.matches || document.body.classList.contains('side-closed') || RP) return;
+  if ($('side').contains(e.target) || $('btn-side').contains(e.target) || !$('stage').contains(e.target)) return;
+  document.body.classList.add('side-closed');
+});
 SIDE_OVER.addEventListener('change', () => {
   if (SIDE_OVER.matches) document.body.classList.add('side-closed');
 });
@@ -1796,7 +1949,7 @@ function fitTable() {
     stage.style.removeProperty('--fit-h');
     return;
   }
-  const key = stage.clientWidth + 'x' + stage.clientHeight;
+  const key = stage.offsetWidth + 'x' + stage.offsetHeight; // outer size: a scrollbar coming and going does not reset it
   if (key !== fitKey) {
     fitKey = key;
     fitDock = 0;
@@ -1885,7 +2038,615 @@ $('btn-sim').onclick = () => {
 };
 $('btn-players').onclick = () => playersModal();
 $('btn-review').onclick = () => sess && reviewModal();
+$('btn-history').onclick = () => openHistory();
 $('btn-settings').onclick = () => settingsModal();
+
+
+// =====================================================================================
+// Hand history and replayer (marketing/REPLAYER_HANDOFF.md). The replayer is a mode of this
+// page: the live session pauses, and the table, the Ranges tab and the review draw a recorded
+// hand instead. They do it through a stand-in for the session (`replaySession`) that answers
+// the same questions from the record and the current step. Verdicts are the stored ones, never
+// recomputed.
+// =====================================================================================
+const NUM_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'];
+const SD_LABEL = ['Preflop', 'Flop', 'Turn', 'River', 'Showdown'];
+let RP = null; // { rec, frames, i, from, showAll, list }
+let lastRecord = null; // the hand just finished at the table, for "Replay this hand"
+let liveSess = null; // the live session while the replayer stands in for it
+
+// card names in running text: "K♠ 7♣ 2♣"
+const frameText = () => (cs) => cs.map((c) => RANKS[c >> 2] + SUIT_SYM[c & 3]).join(' ');
+
+function replaySession(rec, i) {
+  const f = RP.frames[i];
+  const over = f.kind === 'end';
+  const seats = rec.seats.map((p) => ({ nick: p.nick, hero: p.hero, hue: p.hue, lookId: p.lookId, look: p.look, steaming: p.steaming, notes: { hands: 0, vpip: 0, pfr: 0, ...(p.notes || {}), showdowns: [] } }));
+  // end-of-street ranges up to this step (the Ranges tab's "street by street" line)
+  const snaps = {};
+  for (let k = 0; k < i; k++) {
+    const g = RP.frames[k];
+    const nx = RP.frames[k + 1];
+    if (nx && nx.kind === 'street' && g.kind !== 'street') snaps[g.street] = g.ranges;
+  }
+  if (over && rec.board.length >= 3) snaps[3] = f.ranges;
+  // who raised last before the flop, while still in (the RAISER tag, from the flop on)
+  let raiser = -1;
+  if (f.street >= 1) {
+    for (const e of f.state.history) if (e.street === 0 && e.type === 'raise') raiser = e.seat;
+    if (raiser >= 0 && f.state.folded[raiser]) raiser = -1;
+  }
+  const readOf = (seat) => {
+    const p = f.reads[seat];
+    if (!p) return null;
+    const ranked = TYPE_IDS.map((id, t) => ({ id, name: PROFILES[id].name, p: p[t] })).sort((a, b) => b.p - a.p);
+    return { ranked, notes: seats[seat].notes, look: seats[seat].look, steaming: seats[seat].steaming };
+  };
+  return {
+    replay: true,
+    seats,
+    handNo: rec.no,
+    news: [],
+    decisions: rec.decisions,
+    game: { sb: rec.sb, bb: rec.bb },
+    lineup: rec.sitting && rec.sitting.home ? [] : null,
+    hand: {
+      no: `r${rec.session}-${rec.no}`,
+      label: rec.no,
+      replay: true,
+      state: f.state,
+      over,
+      log: rec.log,
+      decisions: rec.decisions,
+      rangeSnaps: snaps,
+      summary: { net: rec.result.net[HERO], showdown: rec.result.showdown },
+      actor: f.kind === 'action' || (f.kind === 'folds' && f.count === 1) ? f.seat : -1,
+      raiser,
+      showAll: RP.showAll,
+    },
+    status: () => 'replay',
+    heroInHand: () => false,
+    readOf,
+    rangeGrid: (seat, street = 'now') => (street === 'now' ? f.ranges[seat] || null : snaps[street] ? snaps[street][seat] || null : null),
+    review: () => ({ judged: 0, flagged: 0, lost: 0, list: [], hands: rec.no, net: 0 }),
+  };
+}
+
+// Run a live drawing function against the replayed hand.
+function asReplay(fn) {
+  const live = sess;
+  sess = replaySession(RP.rec, RP.i);
+  try {
+    return fn();
+  } finally {
+    sess = live;
+  }
+}
+
+function openReplay(rec, opts = {}) {
+  if (!rec) return;
+  if (!RP) liveSess = sess;
+  clearTimeout(timer);
+  hideReview();
+  const frames = framesOf(rec);
+  let i = 0;
+  if (opts.decision !== undefined && opts.decision >= 0) i = Math.max(0, frames.findIndex((f) => f.decision === opts.decision));
+  else {
+    const flagged = rec.decisions.findIndex((d) => d.verdict.grade !== 'good');
+    if (flagged >= 0) i = Math.max(0, frames.findIndex((f) => f.decision === flagged));
+  }
+  RP = { rec, frames, i, from: opts.from || (RP && RP.from) || 'table', showAll: false, list: opts.list || (RP && RP.list) || null };
+  document.body.classList.add('replaying');
+  $('history').classList.add('hidden');
+  document.body.classList.remove('in-history');
+  shownBoard = 99; // no deal animation while stepping
+  document.body.classList.remove('side-closed');
+  renderReplay();
+  $('rp-fwd')?.focus({ preventScroll: true });
+}
+
+function closeReplay(to) {
+  if (!RP) return;
+  const from = to || RP.from;
+  RP = null;
+  liveSess = null;
+  document.body.classList.remove('replaying');
+  shownBoard = 0;
+  rangeHand = null;
+  if (from === 'history') return openHistory();
+  render();
+  if (from === 'review' && sess.hand && sess.hand.over) openReview();
+  else if (sess.status() === 'bot') advance();
+  else if (sess.status() === 'over') scheduleAuto();
+}
+
+function go(i) {
+  if (!RP) return;
+  RP.i = Math.max(0, Math.min(RP.frames.length - 1, i));
+  renderReplay();
+}
+const decisionFrames = () => RP.frames.map((f, k) => (f.decision >= 0 ? k : -1)).filter((k) => k >= 0);
+function goDecision(dir) {
+  const ds = decisionFrames();
+  const k = dir > 0 ? ds.find((x) => x > RP.i) : [...ds].reverse().find((x) => x < RP.i);
+  if (k !== undefined) go(k);
+}
+function goStreet(dir) {
+  const fs = RP.frames;
+  const cur = fs[RP.i].street;
+  if (dir > 0) {
+    const k = fs.findIndex((f, j) => j > RP.i && f.street > cur);
+    go(k >= 0 ? k : fs.length - 1);
+  } else {
+    const start = fs.findIndex((f) => f.street === cur);
+    if (start < RP.i) return go(start);
+    const prev = fs.findIndex((f) => f.street === cur - 1);
+    go(prev >= 0 ? prev : 0);
+  }
+}
+
+function renderReplay() {
+  if (!RP) return;
+  asReplay(() => {
+    renderTable();
+    if (currentTab === 'range') renderRanges();
+  });
+  renderReplayHead();
+  renderReplayDock();
+  renderReplayCoach();
+  renderReplayLog();
+}
+
+function actorName(rec, seat) {
+  return seat === HERO ? 'You' : rec.seats[seat].nick;
+}
+
+// The action in words: "You call $125 more.", "Ball Cap raises to $185."
+function actionWords(rec, f) {
+  const cards = frameText(f);
+  if (f.kind === 'blinds') return 'Blinds are in.';
+  if (f.kind === 'folds') {
+    if (f.count === 1) return `${actorName(rec, f.seat)} folds.`;
+    const toYou = f.state.toAct === HERO;
+    return `${NUM_WORDS[f.count] || f.count} folds${toYou ? ' to you' : ''}.`;
+  }
+  if (f.kind === 'street') {
+    const b = f.state.board;
+    const fresh = b.length === 3 ? b : b.slice(-1);
+    return `${SD_LABEL[f.street]}: ${cards(fresh)}.`;
+  }
+  if (f.kind === 'end') {
+    const wins = rec.log.filter((e) => e.kind === 'win').map((e) => e.text);
+    return rec.result.showdown ? 'Showdown.' : `${wins[0] || 'The hand is over'}.`;
+  }
+  const e = f.action;
+  const who = actorName(rec, f.seat);
+  const me = f.seat === HERO;
+  const allIn = e.allIn || f.state.allIn[f.seat] ? ' (all-in)' : '';
+  if (e.type === 'fold') return `${who} fold${me ? '' : 's'}.`;
+  if (e.type === 'check') return `${who} check${me ? '' : 's'}.`;
+  if (e.type === 'call') return `${who} call${me ? '' : 's'} $${e.amount}${me ? ' more' : ''}${allIn}.`;
+  if (e.type === 'bet') return `${who} bet${me ? '' : 's'} $${e.to}${allIn}.`;
+  return `${who} raise${me ? '' : 's'} to $${e.to}${allIn}.`;
+}
+
+// One line under it: at your decision the spot as you faced it; at a street, who is in; else what comes next.
+function actionSub(rec, f, k) {
+  const s = f.state;
+  const live = () => s.folded.filter((x) => !x).length;
+  if (f.kind === 'street') return `${NUM_WORDS[live()] || live()} players.`;
+  if (f.kind === 'blinds') return s.straddleAmt ? `${actorName(rec, s.straddleSeat)} straddles to $${s.straddleAmt}.` : `${NUM_WORDS[s.n] || s.n} players at the table.`;
+  if (f.kind === 'end') {
+    const shows = rec.log.filter((e) => e.kind === 'show' || e.kind === 'win').map((e) => e.text);
+    return shows.join('. ') + (shows.length ? '.' : '');
+  }
+  if (f.decision >= 0 && f.before) {
+    const b = f.before;
+    if (b.currentBet > b.bet[HERO]) {
+      // the last bet or raise you faced
+      for (let j = b.history.length - 1; j >= 0; j--) {
+        const e = b.history[j];
+        if (e.street !== b.street) break;
+        if (e.type === 'raise' || e.type === 'bet') {
+          const mine = b.bet[HERO] > 0 && e.seat !== HERO ? ` your $${b.bet[HERO]}` : '';
+          return `${actorName(rec, e.seat)} ${e.type === 'bet' ? 'bet' : `raised${mine} to`} $${e.to}.`;
+        }
+        if (e.type === 'bb' || e.type === 'straddle') return `$${b.currentBet} to call${b.street === 0 ? ', nobody has raised' : ''}.`;
+      }
+      return `$${b.currentBet - b.bet[HERO]} to call.`;
+    }
+    return b.street === 0 ? 'Nobody has raised.' : 'Checked to you.';
+  }
+  const nx = RP.frames[k + 1];
+  if (nx && nx.kind === 'street') return f.street === 0 ? 'That closes the betting before the flop.' : `That closes the action on the ${SD_LABEL[f.street].toLowerCase()}.`;
+  if (s.toAct >= 0) return `${actorName(rec, s.toAct)} to act.`;
+  return '';
+}
+
+function figures(rec, f) {
+  const at = f.decision >= 0 && f.before ? f.before : f.state;
+  const bb = rec.bb;
+  const pot = f.kind === 'end' ? (f.state.result ? f.state.result.pot : potSize(f.state)) : potSize(at);
+  const out = [['Pot', money(pot), '']];
+  if (f.kind === 'end') return out;
+  const toCall = at.currentBet - at.bet[HERO];
+  if (f.decision >= 0 && toCall > 0 && !at.folded[HERO]) {
+    const call = Math.min(toCall, at.stacks[HERO]);
+    out.push(['To call', money(call), `win 1 in ${((pot + call) / call).toFixed(1)}`]);
+  }
+  if (!at.folded[HERO]) {
+    let other = 0;
+    for (let j = 0; j < at.n; j++) if (j !== HERO && !at.folded[j]) other = Math.max(other, at.stacks[j] + at.bet[j]);
+    const eff = Math.min(at.stacks[HERO] + at.bet[HERO], other);
+    out.push(['Effective', `${Math.round(eff / bb)} bb`, money(eff)]);
+    if (at.board.length >= 3) out.push([PHONE.matches ? 'Stack:pot' : 'Stack to pot', (eff / Math.max(1, pot)).toFixed(1), '']);
+  }
+  return out;
+}
+
+function renderReplayHead() {
+  const rec = RP.rec;
+  const net = rec.result.net[HERO];
+  const when = new Date(rec.at);
+  const list = RP.list || [];
+  const at = list.findIndex((r) => r.key === rec.key);
+  const prev = at > 0 ? list[at - 1] : null;
+  const next = at >= 0 && at < list.length - 1 ? list[at + 1] : null;
+  $('replay-head').innerHTML = `
+    <button type="button" class="rh-back m-only" data-rh="history">‹ History</button>
+    <span class="rh-pill">Hand <b>${rec.no}</b></span>
+    <span class="rh-pill d-only">${signed(net)}</span>
+    <span class="rh-pill d-only">$${rec.sb}/$${rec.bb}${rec.sitting && rec.sitting.home ? ' home game' : ''} · ${when.toLocaleDateString([], { weekday: 'short' })} ${when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+    <div class="seg rh-switch" role="radiogroup" aria-label="View"><button type="button" role="radio" aria-checked="false" data-rh="summary">Summary</button><button type="button" role="radio" aria-checked="true" class="on" data-rh="replay">Replay</button></div>
+    <label class="rh-all d-only"><input type="checkbox" id="rh-all" class="toggle" ${RP.showAll ? 'checked' : ''}> Show all cards</label>
+    <span class="rh-nav d-only">${prev ? `<button type="button" class="link-btn" data-rh="prev">‹ Hand ${prev.no}</button>` : ''}${next ? `<button type="button" class="link-btn" data-rh="next">Hand ${next.no} ›</button>` : ''}</span>
+    <button type="button" class="d-only" data-rh="history">All hands</button>
+    <button type="button" class="d-only" data-rh="table">Back to the table</button>`;
+  $('replay-head').querySelectorAll('[data-rh]').forEach((b) => (b.onclick = () => {
+    const w = b.dataset.rh;
+    if (w === 'summary') return openSummary(rec);
+    if (w === 'history') return closeReplay('history');
+    if (w === 'table') return closeReplay('table');
+    if (w === 'prev' && prev) return openReplay(prev);
+    if (w === 'next' && next) return openReplay(next);
+  }));
+  const all = $('rh-all');
+  if (all) all.onchange = () => {
+    RP.showAll = all.checked;
+    renderReplay();
+  };
+}
+
+function renderReplayDock() {
+  const rec = RP.rec;
+  const f = RP.frames[RP.i];
+  const k = RP.i;
+  const d = f.decision >= 0 ? rec.decisions[f.decision] : null;
+  const mark = d ? `<span class="vmark ${d.verdict.grade}">${MARK[d.verdict.grade]}</span>` : '';
+  const total = RP.frames.length;
+  const figs = figures(rec, f).map(([l, v, sub]) => `<div class="fig"><span class="label">${l}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ''}</div>`).join('');
+  // timeline: one segment per street, a dot per step
+  const segs = [0, 1, 2, 3, 4].map((st) => {
+    const dots = RP.frames.map((g, j) => [g, j]).filter(([g]) => (g.kind === 'end' ? 4 : g.street) === st);
+    if (!dots.length && st > 0) return '';
+    const html = dots.map(([g, j]) => {
+      const dd = g.decision >= 0 ? rec.decisions[g.decision] : null;
+      const facing = g.kind === 'action' && g.seat !== HERO && (g.action.type === 'bet' || g.action.type === 'raise') && !g.state.folded[HERO];
+      const cls = ['dot', dd ? `me ${dd.verdict.grade}${dd.tipKind ? ' tip' : ''}` : '', facing ? 'facing' : '', j < k ? 'past' : '', j === k ? 'now' : ''].filter(Boolean).join(' ');
+      return `<button type="button" class="${cls}" data-go="${j}" aria-label="${esc(actionWords(rec, g))}" title="${esc(actionWords(rec, g))}"></button>`;
+    }).join('');
+    const first = dots.length ? dots[0][1] : -1;
+    return `<div class="seg-st${st === (f.kind === 'end' ? 4 : f.street) ? ' cur' : ''}"><div class="dots">${html}</div><button type="button" class="st-name" data-go="${first}">${PHONE.matches ? ['Pre', 'Flop', 'Turn', 'River', 'SD'][st] : SD_LABEL[st]}</button></div>`;
+  }).join('');
+  const ds = decisionFrames();
+  const hasPrev = ds.some((x) => x < k);
+  const hasNext = ds.some((x) => x > k);
+  $('replay-dock').innerHTML = `
+    <div class="rd-what">
+      <p class="label">${SD_LABEL[f.kind === 'end' ? 4 : f.street]} · step ${k + 1} of ${total}</p>
+      <p class="rd-action">${mark}${esc(actionWords(rec, f))}</p>
+      <p class="rd-sub">${esc(actionSub(rec, f, k))}</p>
+    </div>
+    <div class="rd-figs">${figs}</div>
+    <div class="rd-controls">
+      <button type="button" class="rd-btn" id="rp-first" title="Your previous decision (Shift+←)" aria-label="Your previous decision" ${hasPrev ? '' : 'disabled'}>⏮</button>
+      <button type="button" class="rd-btn" id="rp-back" title="Back one action (←)" ${k > 0 ? '' : 'disabled'}>◀ Back</button>
+      <button type="button" class="rd-btn primary" id="rp-fwd" title="Forward one action (→)" ${k < total - 1 ? '' : 'disabled'}>Forward ▶</button>
+      <button type="button" class="rd-btn" id="rp-last" title="Your next decision (Shift+→)" aria-label="Your next decision" ${hasNext ? '' : 'disabled'}>⏭</button>
+    </div>
+    <div class="rd-timeline">${segs}</div>
+    <p class="rd-keys d-only"><kbd>←</kbd><kbd>→</kbd> action · <kbd>↑</kbd><kbd>↓</kbd> street · <kbd>Shift</kbd>+<kbd>→</kbd> your next decision</p>`;
+  $('rp-back').onclick = () => go(k - 1);
+  $('rp-fwd').onclick = () => go(k + 1);
+  $('rp-first').onclick = () => goDecision(-1);
+  $('rp-last').onclick = () => goDecision(1);
+  $('replay-dock').querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => +b.dataset.go >= 0 && go(+b.dataset.go)));
+}
+
+// The flagged-verdict block, as in the review (shared with the review rows).
+function flagBlock(d) {
+  const v = d.verdict;
+  const evs = v.options.map((o) => o.ev);
+  const lo = Math.min(...evs, 0);
+  const hi = Math.max(...evs, 0);
+  const width = (ev) => Math.max(4, Math.round(((ev - lo) / Math.max(1e-9, hi - lo)) * 100));
+  const bars = v.options.map((o, i) => `<div class="bar ${i === v.best ? 'best' : ''} ${i === v.mine ? 'yours' : ''}"><span>${esc(o.label)}</span><span class="track"><i style="--w:${width(o.ev)}%"></i></span><span class="mono">${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</span></div>`).join('');
+  const eq = d.villain && d.villain.picture && d.villain.picture.equity !== null && d.villain.picture.equity !== undefined ? d.villain.picture.equity : null;
+  const duo = eq !== null && d.toCall > 0 ? `<div class="duo"><div class="stat"><span class="label">You beat</span><b>${Math.round(eq * 100)}%</b></div><div class="stat"><span class="label">You needed</span><b>${Math.round(d.odds * 100)}%</b></div></div>` : '';
+  return `<h2>${esc(d.headline)}</h2>
+    ${d.reasons.map((r) => `<p class="why">${esc(r)}</p>`).join('')}
+    <p class="label">What each option is worth, on average</p>
+    <div class="bars">${bars}</div>
+    ${duo}
+    ${d.theory ? `<details class="rv-theory"><summary>Why theory disagrees ›</summary><p>${esc(d.theory)}</p></details>` : ''}`;
+}
+
+function renderReplayCoach() {
+  const rec = RP.rec;
+  const f = RP.frames[RP.i];
+  const el = $('feedback');
+  let html = '';
+  const ds = decisionFrames();
+  const ahead = ds.find((x) => x > RP.i);
+  if (f.decision >= 0) {
+    const d = rec.decisions[f.decision];
+    const v = d.verdict;
+    const mine = v.options[v.mine];
+    const head = `<div class="rp-card-head"><span class="vmark ${v.grade}">${MARK[v.grade]}</span><div><b>${esc(mine ? mine.label : '')}</b><small>${esc(actionSub(rec, f, RP.i))}</small></div><span class="grade ${v.grade}">${GRADE_WORD[v.grade]}</span></div>`;
+    if (v.grade !== 'good') {
+      html = `<div class="rp-card ${v.grade}">${head}<div class="rv-body">${flagBlock(d)}
+        <div class="rv-acts">${d.villain ? `<button type="button" class="btn small" data-rseat="${d.villain.seat}">See ${esc(d.villain.nick)}'s range</button>` : ''}${d.category && DRILLS[d.category] ? `<button type="button" class="btn small" data-drill="${d.category}">Drill this leak</button>` : ''}${d.snapshot ? '<button type="button" class="btn small quiet" data-rdispute="1">Disagree?</button>' : ''}</div></div></div>`;
+    } else if (d.tip) {
+      html = `<div class="rp-card tip">${head}<div class="rv-body"><h2>${esc(d.headline)}</h2>${tipLine(d)}</div></div>`;
+    } else {
+      html = `<div class="rp-card">${head}<div class="rv-body">${fbCard(d, false).replace('<div class="fb good">', '<div class="fb good rp-fine">')}</div></div>`;
+    }
+  } else if ((f.kind === 'action' || (f.kind === 'folds' && f.count === 1)) && f.seat !== HERO) {
+    const p = rec.seats[f.seat];
+    const r = asReplay(() => sess.readOf(f.seat));
+    const top = r ? r.ranked[0] : null;
+    const sure = top && top.p >= 0.75 ? 'almost certainly' : top && top.p >= 0.6 ? 'probably' : top && top.p >= 0.45 ? 'might be' : null;
+    const moved = f.kind === 'action' && (f.action.type === 'bet' || f.action.type === 'raise');
+    html = `<div class="rp-opp"><div class="big-avatar" style="--h:${p.hue ?? 160}">${avatarArt(p)}</div><div><b>${esc(p.nick)}</b> <span class="badge pos">${positionName(f.state, f.seat)}</span>
+      <p>${sure ? `Coach's read then: ${sure} a ${esc(top.name.toLowerCase())}.` : "Coach's read then: none yet."}</p>
+      ${moved ? `<button type="button" class="link-btn" data-rseat="${f.seat}">How ${esc(p.nick)}'s range changed with this ›</button>` : ''}</div></div>`;
+  } else {
+    html = `<p class="sub">${esc(actionWords(rec, f))} ${esc(actionSub(rec, f, RP.i))}</p>`;
+  }
+  if (ahead !== undefined) {
+    const nd = rec.decisions[RP.frames[ahead].decision];
+    const lbl = nd && nd.verdict.options[nd.verdict.mine] ? nd.verdict.options[nd.verdict.mine].label.toLowerCase() : 'your next decision';
+    html += `<button type="button" class="link-btn rp-skip" data-go="${ahead}">Skip to your next decision: ${esc(lbl)} ›</button>`;
+  }
+  el.innerHTML = html;
+  el.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => go(+b.dataset.go)));
+  el.querySelectorAll('[data-rseat]').forEach((b) => (b.onclick = () => { rangeSeat = +b.dataset.rseat; showTab('range'); }));
+  el.querySelectorAll('[data-drill]').forEach((b) => (b.onclick = () => { closeReplay('table'); startDrill(b.dataset.drill); }));
+  el.querySelectorAll('[data-rdispute]').forEach((b) => (b.onclick = () => disputeModal(rec.decisions[f.decision])));
+}
+
+// The hand log up to this step, the current line marked; each action line goes to its step.
+function renderReplayLog() {
+  const rec = RP.rec;
+  const f = RP.frames[RP.i];
+  const acts = f.state.history.filter((e) => !['sb', 'bb', 'straddle'].includes(e.type)).length;
+  const boards = f.state.board.length === 0 ? 0 : f.state.board.length === 3 ? 1 : f.state.board.length === 4 ? 2 : 3;
+  const actFrame = []; // act index -> frame
+  RP.frames.forEach((g, j) => {
+    const n = g.state.history.filter((e) => !['sb', 'bb', 'straddle'].includes(e.type)).length;
+    if (actFrame[n - 1] === undefined && n > 0) actFrame[n - 1] = j;
+  });
+  let a = 0;
+  let b = 0;
+  const lines = [];
+  let after = 0;
+  for (const l of rec.log) {
+    let show = true;
+    let me = false;
+    let jump = -1;
+    if (l.kind === 'act') {
+      show = a < acts;
+      me = show && a === acts - 1 && (f.kind === 'action' || f.kind === 'folds');
+      jump = actFrame[a] ?? -1;
+      if (!show) after++;
+      a++;
+    } else if (l.kind === 'board') {
+      show = b < boards || f.kind === 'end';
+      b++;
+    } else if (l.kind === 'show' || l.kind === 'win' || l.kind === 'note') show = f.kind === 'end';
+    if (!show) continue;
+    const mark = l.kind === 'act' && l.seat === HERO ? (() => {
+      const nth = rec.log.filter((x, xi) => x.kind === 'act' && x.seat === HERO && xi <= rec.log.indexOf(l)).length - 1;
+      const d = rec.decisions[nth];
+      return d ? `<span class="vmark ${d.verdict.grade}">${MARK[d.verdict.grade]}</span>` : '';
+    })() : '';
+    lines.push(`<div class="ln ${l.kind}${l.seat === HERO && l.kind === 'act' ? ' me' : ''}${me ? ' cur' : ''}"${jump >= 0 ? ` data-go="${jump}" role="button" tabindex="0"` : ''}>${mark}${esc(l.text)}</div>`);
+  }
+  if (after) lines.push(`<p class="hint">${after} more action${after === 1 ? '' : 's'} after this point.</p>`);
+  $('log').innerHTML = lines.join('');
+  $('log').querySelectorAll('[data-go]').forEach((el) => (el.onclick = () => go(+el.dataset.go)));
+}
+
+function replayKey(e) {
+  const k = e.key;
+  if (k === 'Escape') return closeReplay();
+  if (e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') return;
+  if (k === 'ArrowRight' || k === 'ArrowLeft') {
+    e.preventDefault();
+    if (e.shiftKey) goDecision(k === 'ArrowRight' ? 1 : -1);
+    else go(RP.i + (k === 'ArrowRight' ? 1 : -1));
+  } else if (k === 'ArrowUp' || k === 'ArrowDown') {
+    e.preventDefault();
+    goStreet(k === 'ArrowDown' ? 1 : -1);
+  } else if (k === 'Home') {
+    e.preventDefault();
+    go(0);
+  } else if (k === 'End') {
+    e.preventDefault();
+    go(RP.frames.length - 1);
+  }
+}
+
+// ---- the hand's Summary view: today's review, for any kept hand ----
+function openSummary(rec) {
+  if (!rec) return;
+  const from = RP ? RP.from : 'history';
+  const list = RP ? RP.list : null;
+  // draw the review against the end of the recorded hand
+  RP = RP || { rec, frames: framesOf(rec), i: 0, from, showAll: false, list };
+  RP.rec = rec;
+  RP.frames = framesOf(rec);
+  RP.i = RP.frames.length - 1;
+  RP.summary = true;
+  document.body.classList.remove('replaying');
+  asReplay(() => openReview(true));
+}
+
+// ---- hand history list ----
+const histFilters = [
+  ['all', 'All', () => true],
+  ['flagged', 'Flagged', (r) => r.decisions.some((d) => d.verdict.grade !== 'good')],
+  ['tips', 'Tips', (r) => r.decisions.some((d) => d.tipKind) && !r.decisions.some((d) => d.verdict.grade !== 'good')],
+  ['played', 'Played', (r) => r.history.some((e) => e.seat === HERO && e.street === 0 && (e.type === 'call' || e.type === 'raise'))],
+  ['folded', 'Folded before the flop', (r) => r.result.folded[HERO] && !r.history.some((e) => e.seat === HERO && e.street > 0)],
+];
+let histFilter = 'all';
+let histCache = null;
+
+async function openHistory() {
+  RP = null;
+  liveSess = null;
+  document.body.classList.remove('replaying');
+  render();
+  hideReview();
+  RP = null;
+  clearTimeout(timer);
+  const el = $('history');
+  el.classList.remove('hidden');
+  document.body.classList.add('in-history');
+  el.innerHTML = '<div class="hist-wrap"><p class="sub">Loading…</p></div>';
+  const all = await listHands();
+  histCache = all;
+  drawHistory();
+}
+
+function closeHistory() {
+  $('history').classList.add('hidden');
+  document.body.classList.remove('in-history');
+  render();
+  if (sess.status() === 'bot') advance();
+  else if (sess.status() === 'over') scheduleAuto();
+}
+
+function handMarker(r) {
+  const flagged = r.decisions.filter((d) => d.verdict.grade !== 'good');
+  if (flagged.length) {
+    const worst = flagged.some((d) => d.verdict.grade === 'blunder') ? 'blunder' : 'mistake';
+    const cost = flagged.reduce((a, d) => a + (d.cost || 0), 0);
+    const word = flagged.length > 1 ? `${flagged.length} flagged` : worst === 'blunder' ? 'Blunder' : 'Mistake';
+    return `<span class="hm ${worst}"><span class="vmark ${worst}">${MARK[worst]}</span>${word} · ${money(cost)}</span>`;
+  }
+  if (r.decisions.some((d) => d.tipKind)) return '<span class="hm tip">Tip</span>';
+  return `<span class="hm good"><span class="vmark good">${MARK.good}</span>${r.decisions.length > 1 ? 'All fine' : 'Fine'}</span>`;
+}
+
+function handStory(r) {
+  const heroFolded = r.result.folded[HERO];
+  const net = r.result.net[HERO];
+  if (r.result.showdown && !heroFolded) {
+    const others = r.seats.map((p, i) => i).filter((i) => i !== HERO && !r.result.folded[i]);
+    return `Showdown against ${others.map((i) => r.seats[i].nick).join(', ')}`;
+  }
+  if (heroFolded) {
+    const st = r.history.filter((e) => e.seat === HERO && e.type === 'fold').map((e) => e.street)[0];
+    if (st === 0) return r.history.some((e) => e.seat === HERO && e.street === 0 && e.type !== 'fold' && !['sb', 'bb', 'straddle'].includes(e.type)) ? 'Played, then folded before the flop' : 'You folded';
+    return `Folded on the ${SD_LABEL[st].toLowerCase()}`;
+  }
+  return net > 0 ? `Won when the others folded${r.board.length ? ` on the ${SD_LABEL[r.board.length >= 5 ? 3 : r.board.length === 4 ? 2 : 1].toLowerCase()}` : ''}` : 'Hand over';
+}
+
+function drawHistory() {
+  const el = $('history');
+  const all = histCache;
+  if (!all) {
+    el.innerHTML = `<div class="hist-wrap"><h1>Hand history</h1><p class="sub">Hands could not be kept on this device (storage is unavailable).</p><button type="button" id="h-close">Back to the table</button></div>`;
+    $('h-close').onclick = closeHistory;
+    return;
+  }
+  const hands = all.filter((r) => r.kind === 'hand');
+  const counts = Object.fromEntries(histFilters.map(([k, , fn]) => [k, hands.filter(fn).length]));
+  const fn = histFilters.find(([k]) => k === histFilter)[2];
+  // newest first, grouped by sitting
+  const items = [...all].reverse();
+  const groups = [];
+  for (const r of items) {
+    let g = groups[groups.length - 1];
+    if (!g || g.session !== r.session) groups.push((g = { session: r.session, rows: [], kept: 0, folded: 0, sitting: null }));
+    if (r.kind === 'hand') {
+      g.kept++;
+      g.sitting = g.sitting || r.sitting;
+    } else g.folded++;
+    g.rows.push(r);
+  }
+  const today = new Date().toDateString();
+  const rowHtml = (r) => {
+    const net = r.result.net[HERO];
+    const pos = positionOf(r);
+    return `<button type="button" class="hrow${r.decisions.length === 0 || (r.result.folded[HERO] && r.decisions.length <= 1 && !r.decisions.some((d) => d.verdict.grade !== 'good')) ? ' quiet' : ''}" data-key="${r.key}">
+      <span class="hr-no">Hand <b>${r.no}</b></span><span class="hr-cards">${cardsInline(holeOrder(r.hole[HERO]))}</span><span class="badge pos">${pos}</span>
+      <span class="hr-board">${r.board.length ? cardsInline(r.board) : '<i>no flop</i>'}</span>
+      <span class="hr-story">${esc(handStory(r))}</span>${handMarker(r)}<span class="hr-net">${net === 0 ? '$0' : signed(net)}</span><span class="hr-go" aria-hidden="true">›</span></button>`;
+  };
+  const body = groups.map((g) => {
+    const when = g.sitting ? new Date(g.sitting.at) : null;
+    const label = when ? `${when.toDateString() === today ? 'Today' : when.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' })} · $${g.sitting.sb}/$${g.sitting.bb}${g.sitting.home ? ' home game' : ''}` : 'Earlier';
+    const rows = [];
+    let skipRun = [];
+    const flush = () => {
+      if (!skipRun.length) return;
+      const nos = skipRun.map((x) => x.no).sort((a, b) => a - b);
+      rows.push(`<div class="hdiv">${nos.length === 1 ? `Hand ${nos[0]} folded for you` : `Hands ${nos[0]} to ${nos[nos.length - 1]} folded for you`} (outside your ranges)</div>`);
+      skipRun = [];
+    };
+    for (const r of g.rows) {
+      if (r.kind === 'skip') {
+        if (histFilter === 'all') skipRun.push(r);
+        continue;
+      }
+      if (!fn(r)) continue;
+      flush();
+      rows.push(rowHtml(r));
+    }
+    flush();
+    if (!rows.length) return '';
+    return `<section class="hgroup"><div class="hg-head"><span class="label">${esc(label)}</span><span class="label">${g.kept} kept${g.folded ? ` · ${g.folded} folded for you` : ''}</span></div>${rows.join('')}</section>`;
+  }).join('');
+  el.innerHTML = `<div class="hist-wrap">
+    <div class="hist-top"><h1>Hand history</h1><button type="button" class="quiet" id="h-close">Back to the table</button></div>
+    <p class="sub">Your last 100 hands, kept on this device. Open one to step through it.</p>
+    <div class="chips hist-filters" role="tablist">${histFilters.map(([k, label]) => `<button type="button" class="chip${k === histFilter ? ' on' : ''}" role="tab" aria-selected="${k === histFilter}" data-f="${k}">${label} <span class="num">${counts[k]}</span></button>`).join('')}</div>
+    ${hands.length ? body || '<p class="empty-line">No hands match.</p>' : '<p class="empty-line">No hands yet. Every hand you play is kept here.</p>'}
+    <p class="hist-foot">Hands folded for you are counted, not kept. Older hands drop off as new ones come in. <button type="button" class="link-btn" id="h-clear">Clear history</button></p>
+  </div>`;
+  $('h-close').onclick = closeHistory;
+  el.querySelectorAll('[data-f]').forEach((b) => (b.onclick = () => { histFilter = b.dataset.f; drawHistory(); }));
+  const ordered = hands; // oldest first, for Hand N-1 / N+1
+  el.querySelectorAll('[data-key]').forEach((b) => (b.onclick = () => {
+    const rec = hands.find((r) => r.key === +b.dataset.key);
+    openReplay(rec, { from: 'history', list: ordered });
+  }));
+  $('h-clear').onclick = async () => {
+    if (!confirm('Clear your hand history on this device? This cannot be undone.')) return;
+    await clearHands();
+    histCache = await listHands();
+    drawHistory();
+  };
+  el.scrollTop = 0;
+}
+
+function positionOf(rec) {
+  return rec.position || '';
+}
 
 // Handle for debugging from the browser console.
 window.trainer = { get session() { return sess; }, settings, act, nextHand, get workerReady() { return judge.ready; } };

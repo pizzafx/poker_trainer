@@ -446,6 +446,7 @@ export class Session {
       sitting: { at: this.startedAt, sb: this.game.sb, bb: this.game.bb, home: !!this.lineup },
       at: Date.now(),
       no: h.no,
+      position: positionName(s, HERO),
       n: s.n,
       button: s.button,
       sb: s.sbAmt,
@@ -453,7 +454,7 @@ export class Session {
       straddle: s.straddleAmt,
       rake: s.rake,
       startStacks: s.startStacks.slice(),
-      seats: this.seats.map((p, i) => ({ nick: p.nick, hero: !!p.hero, lookId: p.lookId || null, hue: p.hue ?? null, look: p.look || null, read: p.hero ? null : Array.from(p.read.handStart) })),
+      seats: this.seats.map((p, i) => ({ nick: p.nick, hero: !!p.hero, lookId: p.lookId || null, hue: p.hue ?? null, look: p.look || null, read: p.hero ? null : Array.from(p.read.handStart), notes: p.hero ? null : { hands: p.notes.hands, vpip: p.notes.vpip, pfr: p.notes.pfr }, steaming: !!p.steaming })),
       hole: s.hole.map((c) => c.slice()),
       board: s.board.slice(),
       history: s.history.map((e) => ({ ...e })),
@@ -650,17 +651,32 @@ export class Session {
     this.started = true;
     const quiet = this.quiet;
     if (first) this.quiet = true; // hands folded before the first one you play are not counted
+    const filter = !!(this.heroRanges || this.skipBelow > 0);
+    const forget = () => {
+      const me = this.seats[HERO];
+      me.stack = this.heroBuy;
+      this.invested = this.heroBuy;
+      this.results = [];
+    };
     this.startHand();
-    while ((this.heroRanges || this.skipBelow > 0) && !this.hand.over && (this.heroRanges ? this.outOfRange() : this.isJunk()) && skipped < 60) {
+    while (skipped < 60) {
+      if (this.hand.over) {
+        // A hand that ends before the trainee acts (a walk) while the session is starting does not
+        // count either; later ones are ordinary hands.
+        if (!first) break;
+        forget();
+        skipped++;
+        this.startHand();
+        continue;
+      }
+      if (!filter || !(this.heroRanges ? this.outOfRange() : this.isJunk())) {
+        if (first && this.hand.over) continue; // it ended while the players before you acted
+        break;
+      }
       news.push(...this.news);
       this.foldOut();
       skipped++;
-      if (first) {
-        const me = this.seats[HERO];
-        me.stack = this.heroBuy;
-        this.invested = this.heroBuy;
-        this.results = [];
-      }
+      if (first) forget();
       this.startHand();
     }
     this.quiet = quiet;

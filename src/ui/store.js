@@ -16,7 +16,15 @@ function open() {
         db.createObjectStore('hands', { keyPath: 'key', autoIncrement: true });
         db.createObjectStore('session');
       };
-      req.onsuccess = () => resolve(req.result);
+      req.onsuccess = () => {
+        const db = req.result;
+        // another tab wants to upgrade or delete the store: let it
+        db.onversionchange = () => {
+          db.close();
+          opening = null;
+        };
+        resolve(db);
+      };
       req.onerror = () => reject(req.error);
       req.onblocked = () => reject(new Error('blocked'));
     });
@@ -42,7 +50,7 @@ export async function keepHand(rec) {
     const db = await open();
     const tx = db.transaction('hands', 'readwrite');
     const st = tx.objectStore('hands');
-    st.add(rec);
+    const key = await result(st.add(rec));
     const all = await result(st.getAll());
     const hands = all.filter((r) => r.kind === 'hand');
     if (hands.length > KEEP) {
@@ -50,7 +58,7 @@ export async function keepHand(rec) {
       for (const r of all) if (r.key < cut) st.delete(r.key);
     }
     await done(tx);
-    return true;
+    return key;
   } catch {
     return false;
   }
@@ -89,13 +97,17 @@ export async function saveSession(saved) {
   }
 }
 
+// Never hold up the start of the page for long: no answer within 1.5 seconds means no session.
 export async function loadSession() {
-  try {
-    const db = await open();
-    return (await result(db.transaction('session').objectStore('session').get('current'))) || null;
-  } catch {
-    return null;
-  }
+  const read = (async () => {
+    try {
+      const db = await open();
+      return (await result(db.transaction('session').objectStore('session').get('current'))) || null;
+    } catch {
+      return null;
+    }
+  })();
+  return Promise.race([read, new Promise((resolve) => setTimeout(() => resolve(null), 1500))]);
 }
 
 export async function clearSession() {

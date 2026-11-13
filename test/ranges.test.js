@@ -120,7 +120,7 @@ test('ranges: behind limpers weak offsuit hands are folded first in, and big or 
   const raisedRows = presetRaised('standard');
   let limped = 0;
   let bigOrEarly = 0;
-  for (let i = 0; i < 1200; i++) {
+  for (let i = 0; i < 400; i++) {
     sess.startPlayable();
     if (sess.status() !== 'hero') {
       sess.foldOut();

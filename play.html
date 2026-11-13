@@ -16,7 +16,7 @@
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/space-grotesk-var.woff2?v=86547af457" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="src/ui/fonts.css?v=5248ca3c98">
-<link rel="stylesheet" href="src/ui/table.css?v=8008334787">
+<link rel="stylesheet" href="src/ui/table.css?v=2ad6d9e8f2">
 </head>
 <body>
 <!-- Drawn avatars, one symbol per look (assets/avatars/sprite.svg, inlined so <use href="#av-id"> works). -->
@@ -43,6 +43,7 @@
     <summary aria-label="Menu"><i aria-hidden="true"></i>Menu</summary>
     <div class="top-actions">
       <button id="btn-side"><span class="d-only">Coach &amp; log</span><span class="m-only">Coach &amp; hand log</span></button>
+      <button id="btn-history">Hand history<small class="m-only">Step back through any of your last 100 hands</small></button>
       <button id="btn-review">Leak review<small class="m-only">Where your money is going, biggest leak first</small></button>
       <button id="btn-players">Players<small class="m-only">Who they are and how they play; change anything</small></button>
       <button id="btn-settings">Settings</button>
@@ -54,6 +55,7 @@
 </header>
 <main>
   <section id="stage">
+    <div id="replay-head"></div>
     <div id="sim-wrap">
       <button id="btn-sim" class="fresh">Quick sim</button>
       <div id="sim-tip"><b>Skip the getting-to-know-you phase.</b> Plays 40 hands in about a second so you sit down already knowing something about every player. Your results in those hands do not count. Hover over a seat afterwards to see what you picked up.</div>
@@ -65,6 +67,7 @@
       </div>
       <div id="seats"></div>
     </div>
+    <div id="replay-dock"></div>
     <div id="bottom">
       <div id="bottom-left">
         <div id="news"></div>
@@ -87,6 +90,7 @@
   </aside>
 </main>
 <div id="review" class="hidden" role="dialog" aria-label="Hand review"></div>
+<div id="history" class="hidden" role="dialog" aria-label="Hand history"></div>
 <div id="modal" class="hidden"><div id="modal-box" role="dialog" aria-modal="true" tabindex="-1"></div></div>
 <script type="importmap">
 {
@@ -106,18 +110,18 @@
   "./src/trainer/explain.js": "./src/trainer/explain.js?v=8b5b877691",
   "./src/trainer/grade.js": "./src/trainer/grade.js?v=6431ef044e",
   "./src/trainer/judge.js": "./src/trainer/judge.js?v=4ecf0c2045",
-  "./src/trainer/judge.worker.js": "./src/trainer/judge.worker.js?v=9f40e57117",
+  "./src/trainer/judge.worker.js": "./src/trainer/judge.worker.js?v=c1f8a3fcae",
   "./src/trainer/players.js": "./src/trainer/players.js?v=2931eb63b5",
   "./src/trainer/ranges.js": "./src/trainer/ranges.js?v=6851e13a19",
-  "./src/trainer/replay.js": "./src/trainer/replay.js?v=d9b363e293",
-  "./src/trainer/session.js": "./src/trainer/session.js?v=dde1b5f74b",
+  "./src/trainer/replay.js": "./src/trainer/replay.js?v=d37afee312",
+  "./src/trainer/session.js": "./src/trainer/session.js?v=19e255f9b2",
   "./src/trainer/tuning.js": "./src/trainer/tuning.js?v=ac5d58551d",
-  "./src/trainer/version.js": "./src/trainer/version.js?v=54af5e0da2",
+  "./src/trainer/version.js": "./src/trainer/version.js?v=67ca6883e4",
   "./src/ui/presets.js": "./src/ui/presets.js?v=93a71646d7",
-  "./src/ui/store.js": "./src/ui/store.js?v=0a1352eff4"
+  "./src/ui/store.js": "./src/ui/store.js?v=78c7440b74"
  }
 }
 </script>
-<script type="module" src="src/ui/app.js?v=d1e4f75981"></script>
+<script type="module" src="src/ui/app.js?v=31fdf2dc22"></script>
 </body>
 </html>

@@ -41,7 +41,8 @@ const put = (p, text) => {
   all.sort();
   const h = createHash('sha256');
   for (const f of all) h.update(f).update(readFileSync(join(root, f)));
-  put('src/trainer/version.js', `// Written by scripts/stamp.js: a build id over every module under src/.\nexport const BUILD = '${h.digest('hex').slice(0, 12)}';\n`);
+  const map = Object.fromEntries(all.map((f) => [f, hash(f)]));
+  put('src/trainer/version.js', `// Written by scripts/stamp.js: a build id over every module under src/, and each module's hash\n// (the judge worker checks the modules it loaded against these).\nexport const BUILD = '${h.digest('hex').slice(0, 12)}';\nexport const HASHES = ${JSON.stringify(map, null, 1)};\n`);
 }
 
 // 1. fonts.css points at the font files with their versions.

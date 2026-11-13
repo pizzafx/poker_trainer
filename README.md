@@ -26,7 +26,7 @@ There are two ways to play:
 - **Home game.** Your own blinds and buy-in, and you choose who sits down: three maniacs, two
   nits and a total beginner, say. No rake, everyone rebuys, and nobody leaves.
 
-[![The table on the turn: your two cards, the board, two opponents still in, the coach's verdict on your last play and your options](docs/table.webp)](https://pizzafx.github.io/poker_trainer/)
+[![The table on the turn: your two cards, the board, the session placard in the corner, the coach's one-line verdict on your last play, your options, and the coach panel](docs/table.webp)](https://pizzafx.github.io/poker_trainer/)
 
 New here? The app has an **FAQ** (button in the header, or [`faq.html`](faq.html)) written
 for poker players: how decisions are graded, what the colours mean, and how far to trust it.
@@ -90,11 +90,23 @@ Click any opponent to see what you have observed about them.
    flagged as a mistake (yellow) or blunder (red), with the cost in dollars, what the
    opponent's range looks like, and why theory disagrees.
 
+A flag has to hold up, not just win on average. The coach re-checks it with the opponents
+calling a little looser and a little tighter, and with their ranges read stronger and weaker;
+if your play is only worse under some of those, it is not graded. Pots with several players
+have their own rules: checking one pair or a draw into a crowd is usually a note, not a flag
+(it can still be yellow when it gives up a lot), and plays that only score well against these
+particular opponents, like raising a draw into a bettor and a caller, are left green with a
+"not a habit to build" note. Under most flags and notes, **the coach's estimate** says in one
+line what the play needed and what it got: "this bet needs everyone to fold about 45% of the
+time; they fold about 15%", or "when called you are ahead about 80% and need 45%".
+
+The grading runs in the background, so the table never freezes while the coach is thinking.
+
 Hands deal on automatically while your play is green. Anything flagged stops the table and
 opens the coach's review of the hand, with the flagged play open: what it cost, what the
 opponent's range looks like, and what each option was worth.
 
-![The hand review: the result and what the mistake cost, the run-out, each decision with the flagged check opened and every option's value, and the opponent's card](docs/review.webp)
+![The hand review: the result and what the mistake cost, the run-out, each decision with the flagged raise opened, the coach's estimate, every option's value, and the opponent's card](docs/review.webp)
 
 <p>
   <img src="docs/player.webp" alt="A player's card: the coach's read, how often they put money in and what that means, and every showdown with how they played it" width="58%">
@@ -105,6 +117,15 @@ opponent's range looks like, and what each option was worth.
 *Click or tap a player for their card: the coach's read, how often they put money in, and
 every hand they have shown. On a phone the table turns into a tall oval with the buttons
 under your thumb.*
+
+## Step back through any hand
+
+![The replayer on the turn of a flagged hand: the board and the bets at that step, your raise marked as a blunder, the numbers at that moment, the street-by-street step bar, and the coach's verdict with its estimate in the panel](docs/replayer.webp)
+
+Your last 100 hands are kept in your browser. Open **Hand history** (or "Replay" from any
+review) and step through a hand action by action, with the pot, the price and the coach's
+verdict at each of your decisions, the opponents' ranges as they stood at that moment, and
+"Show all cards" to see what everyone held.
 
 ## See the range
 
@@ -139,10 +160,28 @@ start getting called lighter.
 
 ## Features
 
-- **Coach strip** under the table with the verdict on your last play, and a side panel with
-  the full reasoning and the numbers behind it. On a wide screen, drag the panel's left edge
-  (or focus it and use the arrow keys) to widen it and read the range chart bigger; the table
-  shrinks to make room. Double-click the edge to reset.
+- **My ranges.** Set the hands you open from each seat and the hands you play against a raise,
+  starting from Tight, Standard or Loose or painting your own on the hand chart; with "Fold hands
+  outside my ranges" on, everything else is folded for you. Each seat shows how much looser than
+  Standard you are, with an amber dot on every hand Standard folds. Changes apply from the next
+  hand, and your session carries on. Open it from "Your game and ranges", or from any "Edit my
+  ranges" link in the Hand log or under a tip.
+
+  <img src="docs/myranges.webp" alt="The My ranges tab: the fold-outside-my-ranges toggle, a button per seat with its share and how many hands looser than Standard, first in or facing a raise, the share line with the Tight, Standard and Loose presets, and the hand chart with amber dots on hands Standard folds" width="560">
+- **Coach strip** under the table: one line with your last play and its grade ("✓ Raise to
+  $15 · fine", "! Call $25 · mistake −$12"). Tap it for the full reasoning in the side panel,
+  with the numbers behind it. On a wide screen, drag the panel's left edge (or focus it and use
+  the arrow keys) to widen it and read the range chart bigger; the table shrinks to make room.
+  Double-click the edge to reset.
+- **Hand history and replayer.** Your last 100 hands, kept in your browser, filterable by
+  flagged, played and folded. Step through any of them action by action with the coach's
+  verdicts and the ranges at each step, or "Show all cards".
+- **Hand log.** The current hand street by street in the side panel, with each of your
+  decisions and its grade; earlier hands from tonight open in the replayer.
+- **Session carries on after a reload.** Close the tab or reload mid-session and the table picks
+  up at the next hand. One browser tab owns the table at a time; another tab offers to take over.
+- **Session placard** on the corner of the table: the session result, the hand number, and what
+  mistakes have cost. Click it for Leak review.
 - **Range view.** The Ranges tab draws an opponent's likely hands on the 13x13 hand chart and
   updates as the hand goes on, so you can watch a range narrow street by street. It leads
   with how you stand against that range (your equity before the flop, the share you beat
@@ -154,6 +193,9 @@ start getting called lighter.
 - **Leak review.** Mistakes are grouped into types (paying off, bluffing callers, missed
   value, sizing, preflop too loose or too passive, and more), ranked by cost, and tracked
   across sessions in your browser.
+- **Tips, not flags, for habits.** Limping first in, opening a hand outside the Standard range
+  for your seat, and re-raising with a hand that is mostly a bluff get a green tip rather than a
+  flag. They add up under "Habits the coach noted" in Leak review.
 - **Disagree?** Think the coach got a flagged play wrong? The button on the verdict makes a
   report of the hand (cards, action, the coach's reads, every option's numbers, and once the
   hand is over what everyone held) with what you would have done and why. Copy it into a
@@ -161,7 +203,8 @@ start getting called lighter.
   account). Nothing is sent from the page itself.
 - **Drill mode.** Pick a leak and the trainer deals only that kind of spot, one after
   another, playing the earlier streets for you. One decision, one verdict, next spot.
-- **Home game mode.** Pick it under Settings → Mode. Set whole-dollar blinds and a buy-in,
+- **Home game mode.** Pick it in "Your game and ranges": Game → Where do you play? → Home game.
+  Set whole-dollar blinds and a buy-in,
   then say how many of each player type to seat (one to eight opponents). You know who is
   coming but not which seat is which. Includes a "total beginner" type that only appears
   in home games.
@@ -174,14 +217,14 @@ start getting called lighter.
   by default, plus a stepped structure with a jackpot drop, a flat drop, or none). None of it is
   needed to start: the table deals you in on sensible defaults.
 - **Quick sim.** Plays 40 hands in an instant so you start with something observed about
-  every player. Hover over a seat to see it.
-- **Works on a phone.** Below 600px wide the table turns into a tall oval, the action
-  buttons sit at the bottom of the screen, and the coach panel opens below the table, so
-  nothing covers it. A tap on a player opens their card.
-- **Your own ranges.** With "Only deal me hands I'd play" on (Settings), hands outside your
-  starting-hand ranges are folded for you, so you spend your time on decisions that matter.
-  There is a range per seat for when you are first in and one for facing a raise: start from
-  tight, standard or loose, or paint your own on the hand chart.
+  every player. It is on the placard before your first hand, and under "More" in the header.
+- **Works on a phone.** Below 900px wide the header folds into a Menu and the coach panel moves
+  below the table, so nothing covers it. On a phone-sized screen (600px and narrower) the table
+  becomes a tall oval and Fold, Call and Raise stay pinned to the bottom of the screen. A tap on
+  a player opens their card; "Your game and ranges" opens as a full-screen sheet.
+- **Bet sizes in dollars.** Before the flop the size chips show dollar amounts (the rule, "3x
+  the big blind plus one for each limper", is in the tooltip), and the last chip is always
+  "All-in", with the exact amount and whom it covers in its tooltip.
 - **Your hand in words.** From the flop on, the trainer names what you hold above the bet
   slider: "Pair of Sevens", "Two Pair, Kings and Sevens", "Queen high", plus any draw.
 - **VPIP at a glance.** Once you have watched a player for eight hands, a ring around their
@@ -200,21 +243,26 @@ Read this before taking the advice to a real table.
 
 - **Only preflop tendencies are measured.** The one tracked sample of these games found
   about 35% of hands played, 6% raised preflop, four players to the flop, and limpers
-  calling a raise 56% of the time. The opponents match the raising and limp-calling numbers
-  and run a little tighter overall (about 32% played, three to three and a half per flop). Nothing after the
-  flop has been measured at these stakes, so every postflop number in
-  `src/bots/profiles.js` is an assumption in the direction coaches agree on.
+  calling a raise 56% of the time. The opponents match it: about 35% of hands played,
+  7% raised, and three and a half players per flop. Nothing after the flop has been measured at these
+  stakes, so every postflop number in `src/bots/profiles.js` is expert judgement in the
+  direction coaches agree on. Some of it has been checked against a three-player solver on the
+  river and turn, none of it against live hand data.
 - **The opponents are easier to beat than real players.** A player who blindly follows the
-  top-rated option wins roughly five to ten times what a strong live player makes. Trust the direction
+  top-rated option wins about two to four times what a strong live player makes: about 60 big
+  blinds per 100 hands here, against 15 to 30 for a strong player in a real game. Trust the direction
   of the advice (value-bet more, pay off less, isolate limpers) more than the dollar
   figures.
 - **Guardrails limit what gets flagged.** You are never marked down for declining a
-  bluff-raise or a re-raise bluff, for not betting more than the pot, or for betting 60% of
-  the pot when a bigger bet scored higher. A bluff you pass up is only flagged against
-  players who can fold, and only by a wide margin. Preflop folds are only flagged with a
-  hand in the top third. And every flag is dropped if it does not survive the opponents
-  being a little looser or tighter than assumed. Those plays can score well against bots
-  and lose money against people.
+  bluff-raise or a re-raise bluff, or for not betting more than the pot. With one pair the
+  reference bet is the best one up to three-quarters of the pot, and with several players in a
+  bet of 45% of the pot or more is never "too small". A bluff you pass up is only flagged
+  against players who can fold, and only by a wide margin. Preflop folds are only flagged
+  with hands in the Tight preset for your seat. A check before the river is never red (except a
+  turn check with two pair or better that closes the action), and checking one pair or a draw
+  into several players is yellow at most, and only when it gives up a lot. When a play is waved
+  through, the note says how much more the alternative scored. Those plays can score well
+  against bots and lose money against people.
 - **The numbers are estimates.** Options marked ≈ in the numbers table are too close to
   call.
 
@@ -226,8 +274,9 @@ The full research, with sources and a list of what could not be found, is in
 Everything the trainer believes can be inspected from the command line:
 
 ```bash
-npm test                        # engine: hand ranking, betting, side pots, rake
+npm test                        # engine, grading rules, ranges, replayer, solver fixture
 node scripts/spots.js           # the judge on 13 set-piece spots with known answers
+node scripts/mwbench.js         # the coach on 26 multiway spots, against their expected grades
 node scripts/calibrate.js       # stats that emerge from bot-vs-bot play, per player type
 node scripts/audit.js 11 150    # hand histories behind the costliest verdicts
 node scripts/selfplay.js        # win rate of a player who blindly follows the judge
@@ -235,6 +284,10 @@ node scripts/exploit.js         # where that player's profit comes from
 node scripts/noise.js 3000      # how repeatable the judge's numbers are
 node scripts/flagrate.js        # how often a sensible player gets flagged, and for what
 ```
+
+`npm test` also runs the solver fixture tests: the balanced opponents checked against a
+three-player river equilibrium. They print their numbers and are marked as known gaps (they do
+not fail the run) until the opponents' overcalls are tightened.
 
 Before committing a change to the site, run `node scripts/stamp.js`: it versions every asset URL
 so browsers fetch a new version as a whole (the tests fail if you forget).
@@ -273,7 +326,6 @@ Font License 1.1, not MIT; their licence texts are beside them.
 
 - separate player pools and opening sizes by stake (today the same players sit at every stake)
 - raise size as a tell (the small "click-back" raise from a passive player)
-- step-through replay of flagged hands
 - type in a real hand from last night and get the coach's view
 - your own session stats with target ranges
 - straddle options matching the room

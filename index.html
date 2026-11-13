@@ -77,7 +77,7 @@
   .beat span { color: var(--slate); font-size: 14.5px; line-height: 1.4; }
   .illus { font-size: 12.5px; color: var(--slate-dim); margin-top: 10px; }
 
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 44px; }
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 44px; }
   .step { padding: 20px; border-radius: var(--r-l); background: var(--night); border: 1px solid var(--line); }
   .step .label { color: var(--signal); }
   .step h3 { margin-top: 14px; } .step p { margin-top: 8px; font-size: 15.5px; color: var(--slate); }
@@ -114,6 +114,7 @@
     @keyframes write { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   }
 
+  @media (max-width: 1100px) { .steps { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 900px) {
     section { padding: 60px 0; }
     .hero-grid { grid-template-columns: 1fr; gap: 44px; padding: 18px 0 56px; }
@@ -247,15 +248,16 @@
       <p class="label signal eyebrow">Practice, with a point</p>
       <h2>Find the leak. Drill it until it stops costing you.</h2>
       <div class="steps">
-        <div class="step"><span class="label">01</span><h3>Play hands</h3><p>A full table, your stakes, at your pace. The coach only stops the game when a play clearly loses money.</p></div>
+        <div class="step"><span class="label">01</span><h3>Play hands</h3><p>A full table, your stakes, at your pace. The coach only stops the game when a play clearly loses money. Reload or close the tab and the session carries on.</p></div>
         <div class="step"><span class="label">02</span><h3>See where the money goes</h3><p>Leak review groups your mistakes by type and ranks them by what they cost, biggest first.</p></div>
         <div class="step"><span class="label">03</span><h3>Drill the worst one</h3><p>Pick a leak and the trainer deals you only that kind of spot, one after another.</p></div>
+        <div class="step"><span class="label">04</span><h3>Replay any hand</h3><p>Your last 100 hands are kept. Step through one action by action, with the coach's verdict and their ranges at each step.</p></div>
       </div>
 
       <div class="tune">
         <div>
           <h2>Your game plays differently? Change it.</h2>
-          <p class="lede">Casino tables from $1/$3 to $3/$5 with the rake taken out, or a home game with your own stakes and line-up. Every number behind every player type is on a slider, in plain words, with the original value next to it.</p>
+          <p class="lede">Casino tables from $1/$3 to $3/$5 with the rake taken out, or a home game with your own stakes and line-up. Every number behind every player type is on a slider, in plain words, with the original value next to it. Set the hands you play from each seat in My ranges, and the rest are folded for you.</p>
         </div>
         <!-- The calling station's shipped values on the Players screen. -->
         <div aria-hidden="true">

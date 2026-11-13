@@ -85,8 +85,11 @@
     <a href="#reads">How do reads work?</a>
     <a href="#theory">What is "why theory disagrees"?</a>
     <a href="#approx">What does ≈ mean?</a>
+    <a href="#estimate">What is "the coach's estimate"?</a>
+    <a href="#multiway">Why is checking into a crowd only a note?</a>
     <a href="#bigger">Why does it want a bigger bet?</a>
     <a href="#howlong">How long before a read counts?</a>
+    <a href="#replay">Can I go back over a hand?</a>
     <a href="#opponents">Who am I playing against?</a>
     <a href="#source">Where do their tendencies come from?</a>
     <a href="#trust">How much should I trust it?</a>
@@ -94,7 +97,8 @@
     <a href="#change">My game plays differently. Can I change it?</a>
     <a href="#drill">What is drill mode?</a>
     <a href="#home">What is home game mode?</a>
-    <a href="#skip">Why were hands skipped?</a>
+    <a href="#skip">Why were hands folded for me?</a>
+    <a href="#reload">What happens if I reload or close the tab?</a>
     <a href="#other">Tournaments? Online? Other games?</a>
     <a href="#data">Where does my data go?</a>
   </div></details>
@@ -136,12 +140,13 @@
     <tr><td><span class="dot" style="background:var(--warn)"></span>Yellow</td><td>Mistake</td><td>It gives up at least 3 big blinds and at least 10% of the pot compared with the best option.</td></tr>
     <tr><td><span class="dot" style="background:var(--bad)"></span>Red</td><td>Blunder</td><td>It gives up at least 8 big blinds and at least 20% of the pot.</td></tr>
   </table>
-  <p>On top of that, the gap has to be well clear of the simulation's margin of error, and it has to survive a stress test (see <a href="#bots">below</a>). Choosing a different bet size needs a bigger gap before it is flagged and is never red; a bet of 60% of the pot or more is never called too small. Folding before the flop is only flagged with a hand in the top third, and never worse than a mistake.</p>
+  <p>On top of that, the gap has to be well clear of the simulation's margin of error, and it has to hold up when the opponents are made to call a little looser and a little tighter and their ranges are read a little stronger and weaker (see <a href="#bots">below</a>). If your play is only worse under some of those versions, it is not graded. Choosing a different bet size needs a bigger gap before it is flagged and is never red; with one pair you are compared with bets up to three-quarters of the pot, and with several players in, a bet of 45% of the pot or more is never called too small. Folding before the flop is only flagged with a hand in the Tight range for your seat, and never worse than a mistake.</p>
+  <p>Grading runs in the background, so the table never freezes while the coach is thinking.</p>
   <p>The table keeps dealing while you are green. A yellow or red play stops it so you can read why.</p>
 
   <h3 id="cost">What does "costs about $40" mean?</h3>
   <p>It is the difference in <strong>average</strong> result between what you did and the best option, over thousands of play-outs. It is not what you won or lost on this hand. If calling loses $40 on average and folding loses nothing, the call "costs about $40" whether or not you happened to hit your card this time.</p>
-  <p>"Mistakes cost" in the header adds those up for the session. It is your decisions with the luck taken out. Read it as a direction (is it shrinking from session to session?) more than as exact dollars, because the opponents are easier to beat than real people.</p>
+  <p>"Mistakes cost" on the session placard, in the corner of the table, adds those up for the session. It is your decisions with the luck taken out. Read it as a direction (is it shrinking from session to session?) more than as exact dollars, because the opponents are easier to beat than real people.</p>
 
   <h3 id="won">I won the pot. Why was it a blunder?</h3>
   <p>Because the grade is about the decision, not the outcome. Calling a nit's river raise with one pair is a losing play even on the night he turns over a missed draw. The reverse is true as well: you will see a green tick on hands where you got stacked, because getting the money in was right and the cards fell badly. This is the hardest habit to build at a real table, and it is the main thing the trainer is for.</p>
@@ -153,7 +158,7 @@
   <h3 id="rangeview">Can I see the range it is using?</h3>
   <p>Yes. The <strong>Ranges</strong> tab in the side panel draws an opponent's likely hands on the standard 13 by 13 chart: pairs on the diagonal, suited hands above, offsuit below. Brighter means more likely. It updates with every action, and the street buttons let you step back and watch the range narrow from preflop to the river.</p>
   <p>The number at the top is the one to learn from: how much of that range your hand beats right now, and how that has moved street by street. Seeing "you are behind almost all of it" against a nit who just raised, or "you are ahead of most of it" against a maniac who bets everything, is the habit this trainer is trying to build. You can colour the chart by what each hand has become on this board, or by whether you are ahead of it.</p>
-  <p>It is the coach's estimate, built from how the player has acted and what kind of player they seem to be. It is not their actual cards. Early in a session, before there is a read, it blends what every type of player would hold, so it starts wide. If you would rather test yourself first, Settings can hide it until the hand is over.</p>
+  <p>It is the coach's estimate, built from how the player has acted and what kind of player they seem to be. It is not their actual cards. Early in a session, before there is a read, it blends what every type of player would hold, so it starts wide. If you would rather test yourself first, turn off "Show ranges during the hand" in <strong>Your game and ranges</strong>.</p>
 
   <h3 id="reads">How do reads work?</h3>
   <p>Every opponent has a hidden style. What you see is what you would see live:</p>
@@ -171,11 +176,20 @@
   <h3 id="approx">What does ≈ mean in "Show the numbers"?</h3>
   <p>The values are estimates from a simulation, not exact answers. An option marked ≈ is within the margin of error of the best one: on another run it could come out on top. Treat those as equal. Clear-cut decisions almost always come out the same way; close ones can swap places, which is why close ones are never flagged.</p>
 
+  <h3 id="estimate">What is "the coach's estimate"?</h3>
+  <p>Under most flags and notes is one line that says what your play needed and what it got. For a bet: "this bet needs everyone to fold about 45% of the time; they fold about 15%". For a call or a value bet: "when called you are ahead about 80% and need 45%". It is the quickest way to see why a play won or lost, and the habit to take to a real table: what does this need, and is it getting it?</p>
+
+  <h3 id="multiway">Why is checking into a crowd only a note?</h3>
+  <p>Pots with several players have their own rules. Checking one pair or a draw into two or three opponents is usually reasonable at these stakes, so it gets a note rather than a flag; it can still be yellow when it gives up a lot, and a turn check with two pair or better that closes the action can be red. Some plays score well only against these particular opponents, such as raising a draw into a bettor and a caller. Those stay green with a "not a habit to build" note, because real players punish them.</p>
+
   <h3 id="bigger">Why does it so often want a bigger bet?</h3>
-  <p>Because the most reliable way to win at these stakes is to charge people who call too much, and most players bet too small with their good hands. You are only ever compared with bets up to the size of the pot, and a bet of 60% of the pot or more is never marked as too small.</p>
+  <p>Because the most reliable way to win at these stakes is to charge people who call too much, and most players bet too small with their good hands. You are only ever compared with bets up to the size of the pot (up to three-quarters of it with one pair), and in a pot with several players a bet of 45% of the pot or more is never marked as too small.</p>
 
   <h3 id="howlong">How many hands before a read means anything?</h3>
   <p>About 30 hands separates the extremes: you will know the nit from the gambler. Telling neighbours apart, such as a solid regular from a tricky one, takes much longer. If you want to skip the wait, the <strong>Quick sim</strong> button plays 40 hands in an instant so you start with something observed about everyone; your results in those hands do not count.</p>
+
+  <h3 id="replay">Can I go back over a hand?</h3>
+  <p>Yes. Your last 100 hands are kept in your browser. <strong>Hand history</strong> in the header lists them, and you can filter to flagged hands. Open one, or press "Replay" in any hand review, and step through it action by action: the pot and the price at each step, the coach's verdict at each of your decisions, the opponents' ranges as they stood at that moment, and "Show all cards" to see what everyone held. The <strong>Hand log</strong> in the side panel shows the current hand street by street, and earlier hands from tonight open in the replayer.</p>
 
   <h2>The opponents</h2>
 
@@ -197,8 +211,8 @@
   <h3 id="source">Where do their tendencies come from?</h3>
   <p>From research into how these games are played, and an honest gap in that research.</p>
   <ul>
-    <li><strong>Before the flop there is real data.</strong> The one tracked sample of low-stakes live play found about 35% of hands played, 6% raised, four players seeing the average flop, and limpers calling a raise a little over half the time. The opponents here match the raising and limp-calling numbers closely and run a little tighter overall (about 32% of hands played and three to three and a half players per flop).</li>
-    <li><strong>After the flop there is none.</strong> Nobody has published how often live low-stakes players fold to a bet of each size, or how often their river raises are bluffs. What exists is strong agreement among coaches about the direction: they call too much, bluff rivers too little, and their raises are real. The opponents follow that direction; the exact numbers are assumptions.</li>
+    <li><strong>Before the flop there is real data.</strong> The one tracked sample of low-stakes live play found about 35% of hands played, 6% raised, four players seeing the average flop, and limpers calling a raise a little over half the time. The opponents here match it closely: about 35% of hands played, 7% raised, and three and a half players per flop.</li>
+    <li><strong>After the flop there is none.</strong> Nobody has published how often live low-stakes players fold to a bet of each size, or how often their river raises are bluffs. What exists is strong agreement among coaches about the direction: they call too much, bluff rivers too little, and their raises are real. The opponents follow that direction; the exact numbers are expert judgement. Some have been checked against a three-player solver on the river and turn, none against live hand data.</li>
   </ul>
   <p>The full report, with every source and a list of what could not be found, is in the project's <code>reports</code> folder.</p>
 
@@ -208,7 +222,7 @@
   <div class="box green"><strong>Trust most:</strong> fold one pair to a passive player's raise. Value-bet more often and bigger against players who call. Stop bluffing people who do not fold. Raise big over limpers. Stop calling raises with hands that are dominated. These rest on the strongest evidence and on what coaches agree about.</div>
   <div class="box"><strong>Trust the direction, not the dollars:</strong> the size of each "costs about $X". The opponents are easier to beat than real people, so the figures run high.</div>
   <div class="box red"><strong>Trust least:</strong> any advice to bluff, and any advice in very deep-stacked or very large pots. These depend most on the assumed numbers.</div>
-  <p>One number to keep in mind: a player who blindly took the simulation's top-rated option on every hand would win somewhere around five to ten times what a strong live player really makes. That gap is the measure of how much easier these opponents are than the real thing. Use the trainer to build habits, not to estimate your hourly rate.</p>
+  <p>One number to keep in mind: a player who blindly took the simulation's top-rated option on every hand would win about two to four times what a strong live player really makes: about 60 big blinds per 100 hands here, against 15 to 30 for a strong player in a real $1/$3 or $2/$5 game. That gap is the measure of how much easier these opponents are than the real thing. Use the trainer to build habits, not to estimate your hourly rate.</p>
 
   <h3 id="bots">Is it saying I should never bluff-raise?</h3>
   <p>No. Bluff-raising is sometimes right at these stakes: against a regular who bets the flop with everything and gives up when raised, or with a big draw that can also get there. It is just right far less often than in theory, because most of the pool does not bet without a hand and does not fold one once they have it.</p>
@@ -223,13 +237,14 @@
     <li><strong>Overbets.</strong> Whatever you hold, you are compared with the best bet up to the size of the pot, so you are never marked down for not shoving.</li>
     <li><strong>Bluffs you pass up.</strong> Checking a weak hand is never flagged against players read as unable to fold (stations, gamblers, maniacs). Against players who can fold it is flagged only when betting was better by a wide margin, wider still on the river, and never in red.</li>
     <li><strong>Re-raise bluffs before the flop.</strong> You are not marked down for declining to 3-bet a hand that is not a real value hand.</li>
-    <li><strong>The stress test.</strong> Every flag is re-run with the opponents made a little looser and a little tighter than assumed. If the flag disappears either way, it is dropped.</li>
+    <li><strong>Other versions of the opponents.</strong> Every flag is re-checked with the opponents calling a little looser and a little tighter, and with their ranges read a little stronger and weaker. If your play is only worse under some of those versions, it is not graded.</li>
+    <li><strong>Checks before the river.</strong> A check before the river is never red, except a turn check with two pair or better that closes the action.</li>
   </ul>
   <p>So read a green tick with a note like "a raise scored higher against these bots" as: fine play, and here is something to think about, not something to copy at the casino tomorrow.</p>
 
   <h3 id="change">My game plays differently. Can I change it?</h3>
   <p>Yes. The <strong>Players</strong> button opens sliders for each type: how many hands they play and raise, how often they bluff, the weakest hand they call a river bet with, the hand they never fold, how often they chase draws, and how common the type is. If the stations in your room fold more than these do, move the slider. Changes are saved in your browser.</p>
-  <p>In <strong>Settings</strong> you can also pick the table: typical, aggressive, conservative, or loose and passive. It is the same cast in a different mix.</p>
+  <p>In <strong>Your game and ranges</strong> you can also pick the table: typical, aggressive, conservative, or loose and passive. It is the same cast in a different mix.</p>
 
   <h2>Modes and settings</h2>
 
@@ -239,14 +254,18 @@
   <h3 id="home">What is home game mode?</h3>
   <p>Your own stakes and your own cast. Set the blinds and buy-in, then choose how many of each type sit down: three maniacs, two nits and a total beginner, say. There is no rake, everyone rebuys, and nobody leaves. You know who is coming, but you still have to work out which seat is which.</p>
 
-  <h3 id="skip">Why were hands skipped?</h3>
-  <p>By default the bottom 15% of starting hands (eight-three offsuit and friends) are folded for you, so your time goes on decisions that matter. Those hands still count: you pay your blinds, the button moves, and you keep learning about the table from the hands you sit out. You can turn this off in Settings.</p>
+  <h3 id="skip">Why were hands folded for me?</h3>
+  <p>Hands outside your ranges are folded for you, so your time goes on decisions that matter. Those hands still count: you pay your blinds, the button moves, and you keep learning about the table from the hands you sit out. The Hand log shows them as "Hands 12–15 folded for you".</p>
+  <p>Your ranges are in <strong>Your game and ranges → My ranges</strong>. There is one per seat for when you are first in and one for facing a raise. Start from Tight, Standard or Loose, or paint your own on the hand chart; each seat shows how much looser than Standard you are, with an amber dot on every hand Standard folds. You get there from any "Edit my ranges" link too, in the Hand log or under a tip. Turn off "Fold hands outside my ranges" to play every hand.</p>
+
+  <h3 id="reload">What happens if I reload or close the tab?</h3>
+  <p>The session carries on. The table picks up at the next hand with the same players, stacks and reads. Only one browser tab runs the table at a time; open it in a second tab and that tab offers to take over.</p>
 
   <h3 id="other">Does it cover tournaments, online play or other games?</h3>
-  <p>No. It is built for live, full-ring, low-stakes cash games: deep-ish stacks, raked pots, lots of limping, opponents you can see. Tournament stack sizes and payout pressure change the right play, and online pools are tighter and more aggressive. The default rake is a typical 10% capped rake; buy-ins follow common card-room ranges. Other rake structures are in Settings.</p>
+  <p>No. It is built for live, full-ring, low-stakes cash games: deep-ish stacks, raked pots, lots of limping, opponents you can see. Tournament stack sizes and payout pressure change the right play, and online pools are tighter and more aggressive. The default rake is a typical 10% capped rake; buy-ins follow common card-room ranges. Other rake structures are in <strong>Your game and ranges</strong>.</p>
 
   <h3 id="data">Where does my data go?</h3>
-  <p>Nowhere. Everything runs on your own computer in your browser. Your settings, your tracked leaks and any changes you make to the players are stored in that browser only. Clearing the browser's site data resets them.</p>
+  <p>Nowhere. Everything runs on your own computer in your browser. Your settings, your ranges, your tracked leaks, your last 100 hands, the session in progress and any changes you make to the players are stored in that browser only. Clearing the browser's site data resets them.</p>
 
   <p style="margin-top:36px"><a href="play.html">← Back to the table</a></p>
 </div>

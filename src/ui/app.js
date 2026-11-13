@@ -662,7 +662,7 @@ function readThen(d, r) {
     const word = shortType(nowTop.id);
     const lvl = nowTop.p >= 0.75 ? 3 : nowTop.p >= 0.6 ? 2 : nowTop.p >= 0.45 ? 1 : 0;
     const guess = lvl === 3 ? word : lvl === 2 ? `Likely ${word === 'ABC' ? word : word.toLowerCase()}` : `${word}?`;
-    out = out.replace(/\.$/, '') + ` — now: ${guess}.`;
+    out = out.replace(/\.$/, '') + ` — now: ${guess}${/[?.]$/.test(guess) ? '' : '.'}`;
   }
   return out;
 }

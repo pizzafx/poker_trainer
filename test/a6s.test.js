@@ -70,11 +70,11 @@ test('A6s: checking weak top pair on the turn is green, with a note naming the s
   assert.ok(bestBefore.type === 'raise', `the judge prefers a bet (${bestBefore.label})`);
   assert.ok(flaggedBefore, 'the raw verdict flags the check, so the rule is what turns it green');
   assert.equal(v.grade, 'good');
-  assert.equal(v.note, 'thinValue');
+  // three-way: the multiway rule (R1) carries it since QA M3, naming the caller as the A6s note did
+  assert.equal(v.note, 'mwCheck');
   assert.ok(v.thin, 'a smaller bet rates higher, so there is a note');
   assert.equal(v.thin.nick, 'Jeans');
   assert.ok(v.thin.to - s.currentBet <= 0.75 * v.pot + 0.5, `quoted bet $${v.thin.to} is at most 75% of the $${v.pot} pot`);
-  // QA K2/K3: in parentheses, a comma after the name, and the real figure once it reaches the yellow bar
-  assert.match(out.headline, /^Check: fine\. \(Against Jeans, a bet of about (a third|half|three-quarters) of the pot (rates a little higher|does about \$\d+ better)\.\)$/);
+  assert.match(out.headline, /^Check: fine\. \(Against Jeans, a bet of about \$\d+ does about \$\d+ better here\. With 3 players in, a check is defensible; a bet is the more profitable habit\.\)$/);
   assert.equal(out.cost, 0);
 });

@@ -19,7 +19,7 @@ export const CATEGORIES = {
   prePassive: 'Preflop: limping or calling when raising makes more',
   preRaise: 'Preflop: raising when calling or folding does better',
   chase: 'Chasing: calling with a draw at the wrong price',
-  other: 'Other',
+  other: 'Strong hands: raising when calling or folding did better',
 };
 
 const pct = (x) => `${Math.round(100 * x)}%`;
@@ -154,10 +154,12 @@ function goodHeadline(v, mine, best) {
     const by = v.thin.small || !(v.thin.gain > 0) ? 'rates a little higher' : `does about $${v.thin.gain} better`;
     return `${mine.label}: fine. (${v.thin.nick ? `Against ${v.thin.nick}, a bet` : 'A bet'} of about ${v.thin.size} ${by}.)`;
   }
-  if (v.note === 'mwHabit') return `${mine.label}: scores higher against these opponents; not a habit to build. ${HABIT_WHY[v.habit] || ''}`.trim();
+  // "scores higher" only when it does; within the yellow bar but lower, "close to the best play" (QA M1)
+  if (v.note === 'mwHabit') return `${mine.label}: fine. (${v.habitHigher ? 'It scores higher against these opponents' : 'It is close to the best play here'}; not a habit to build.${HABIT_WHY[v.habit] ? ' ' + HABIT_WHY[v.habit] : ''})`;
   if (v.note === 'mwCheck') {
     const m = v.mw || {};
-    return `${mine.label}: fine. (A bet of about $${m.to ?? bare(best).replace(/^\D+/, '')} does about $${Math.max(0, m.gain || 0)} better here. With ${m.players || 'several'} players in, a check is defensible; a bet is the more profitable habit.)`;
+    const who = v.thin && v.thin.nick ? `Against ${v.thin.nick}, a bet` : 'A bet';
+    return `${mine.label}: fine. (${who} of about $${m.to ?? bare(best).replace(/^\D+/, '')} does about $${Math.max(0, m.gain || 0)} better here. With ${m.players || 'several'} players in, a check is defensible; a bet is the more profitable habit.)`;
   }
   if (v.note === 'mwDraw') return `${mine.label}: fine. (With a draw and several players in, checking or calling is standard; ${bare(best).toLowerCase()} scores higher against these opponents.)`;
   if (v.note === 'mwSize') return `${mine.label}: fine. (A bigger bet rates higher, but with several players in and this hand, a small bet is reasonable.)`;
@@ -178,7 +180,7 @@ function goodHeadline(v, mine, best) {
   if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} rates about the same.)`;
   const rivals = v.options.filter((o, i) => i !== v.best && o.close);
   if (!rivals.length) return `${mine.label}: the best play here.`;
-  return `${mine.label}: good. (${rivals.length === 1 ? bare(rivals[0]) + ' is' : 'Other options are'} too close to call.)`;
+  return `${mine.label}: good. (${rivals.length === 1 ? bare(rivals[0]) + ' rates' : 'Other options rate'} about the same.)`;
 }
 
 // What a flagged play cost, as shown: the gap between the two options' values in whole dollars,
@@ -210,7 +212,7 @@ export function explain(d) {
   const m = kind(mine);
   const b = kind(best);
   const word = v.grade === 'blunder' ? 'Blunder' : 'Mistake';
-  const ref = v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
+  const ref = v.ref === 'noRaise' ? `${best.label.toLowerCase()} (the best play that is not a raise)` : v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
   const headline = `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}.`;
   const reasons = [];
   const r1 = readLine(d);

@@ -817,7 +817,7 @@ function stripHtml(show, { worst, prev }) {
   const g = v.grade;
   const mine = v.options[v.mine];
   const tipping = g === 'good' && !!show.tipKind;
-  const word = g === 'good' ? (v.mine === v.best && !tipping ? 'best play' : 'fine') : g; // with a tip it is "fine", as the headline says (QA Z3)
+  const word = g === 'good' ? (v.mine === v.best && !tipping && !v.note ? 'best play' : 'fine') : g; // with a tip or a note it is "fine", as the headline says (QA Z3, M4)
   const cost = g === 'good' ? 0 : shownCost(v);
   const tipFn = g === 'good' && show.tipKind ? STRIP_TIP[show.tipKind] : null;
   const tip = g === 'good' && show.tipKind ? (tipFn && v.tip ? tipFn(v.tip) : 'Tip') : '';
@@ -2083,19 +2083,20 @@ function reviewModal() {
       // player who never bets top pair into a crowd would see nothing.
       const noted = (note) => sess.decisions.filter((d) => d.verdict.note === note);
       const mwRows = [];
+      const times = (n) => `${n} time${n === 1 ? '' : 's'} this session`;
       const chk = noted('mwCheck');
       if (chk.length >= 3) {
         const gains = chk.map((d) => (d.verdict.mw && d.verdict.mw.gain) || 0).filter((g) => g > 0);
         const avg = gains.length ? Math.round(gains.reduce((a, g) => a + g, 0) / gains.length) : 0;
-        mwRows.push(`You checked one pair in multiway pots ${chk.length} times; a bet rated higher ${gains.length} time${gains.length === 1 ? '' : 's'}${avg ? ` (about $${avg} each)` : ''}`);
+        mwRows.push([`Checked one pair in a multiway pot (a bet rated higher ${gains.length} time${gains.length === 1 ? '' : 's'}${avg ? `, about $${avg} each` : ''})`, times(chk.length)]);
       }
       const drw = noted('mwDraw');
-      if (drw.length >= 3) mwRows.push(`You checked or called a draw in multiway pots ${drw.length} times where a bet or raise rated higher`);
+      if (drw.length >= 3) mwRows.push(['Checked or called a draw in a multiway pot where a bet or raise rated higher', times(drw.length)]);
       const hab = noted('mwHabit');
-      if (hab.length >= 3) mwRows.push(`You made a play that scores against these opponents but is not a habit to build ${hab.length} times`);
+      if (hab.length >= 3) mwRows.push(['Made a play that scores about as high or higher here, but is not a habit to build', times(hab.length)]);
       if (!rows.length && !mwRows.length) return '';
       return `<h3>Habits the coach noted</h3><p class="sub">Not mistakes: plays that are fine here but usually give a little away. The tip under each verdict says why.</p>
-        <div class="leak-list">${rows.map((k) => `<div class="leak-row"><div class="lr-main"><span class="lr-name">${esc(HABITS[k])}</span><span class="lr-count">${habits[k] || 0} time${habits[k] === 1 ? '' : 's'} in all${here[k] ? `, ${here[k]} this session` : ''}</span></div></div>`).join('')}${mwRows.map((r) => `<div class="leak-row"><div class="lr-main"><span class="lr-name">${esc(r)}</span><span class="lr-count">this session</span></div></div>`).join('')}</div>`;
+        <div class="leak-list">${rows.map((k) => `<div class="leak-row"><div class="lr-main"><span class="lr-name">${esc(HABITS[k])}</span><span class="lr-count">${habits[k] || 0} time${habits[k] === 1 ? '' : 's'} in all${here[k] ? `, ${here[k]} this session` : ''}</span></div></div>`).join('')}${mwRows.map(([name, count]) => `<div class="leak-row"><div class="lr-main"><span class="lr-name">${esc(name)}</span><span class="lr-count">${count}</span></div></div>`).join('')}</div>`;
     })()}
     ${all.length || rev.list.length ? `
     ${all.length ? `<h3>Your leaks, all sessions</h3><div class="leak-list">${allHtml}</div>` : ''}

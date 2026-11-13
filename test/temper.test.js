@@ -133,11 +133,20 @@ test('temper: checking a strong hand before the river is never red', () => {
 });
 
 test('temper: checking weak top pair or a weaker pair before the river is never flagged', () => {
-  const spot = at((p) => p.street >= 1 && p.street < STREET.RIVER && p.toCall === 0 && p.canRaise && p.tier >= TIER.WEAK_PAIR && p.tier <= TIER.TOP_PAIR_WEAK, 13);
+  // heads-up: multiway the R1 note carries it (next test)
+  const spot = at((p) => p.street >= 1 && p.street < STREET.RIVER && p.toCall === 0 && p.canRaise && p.tier >= TIER.WEAK_PAIR && p.tier <= TIER.TOP_PAIR_WEAK && p.opponents === 1, 13);
   const to = Math.max(spot.L.minTo, Math.round(spot.pot / 2));
   const v = run(spot, verdict(spot, [['check', 0, 0], ['raise', to, 30 * smallOf(spot)]], 0, 1), { type: 'check' });
   assert.equal(v.grade, 'good');
   assert.equal(v.note, 'thinValue');
+});
+
+test('temper: multiway, a one-pair check before the river is the R1 note, ahead of the older rules (QA M3)', () => {
+  const spot = at((p) => p.street >= 1 && p.street < STREET.RIVER && p.toCall === 0 && p.canRaise && p.tier >= TIER.WEAK_PAIR && p.tier <= TIER.TOP_PAIR_WEAK && p.opponents >= 2, 13);
+  const to = Math.max(spot.L.minTo, Math.round(spot.pot / 2));
+  const v = run(spot, verdict(spot, [['check', 0, 0], ['raise', to, 30 * smallOf(spot)]], 0, 1), { type: 'check' });
+  assert.equal(v.grade, 'good');
+  assert.equal(v.note, 'mwCheck');
 });
 
 test('temper: a call is graded on its price, not on money lost later', () => {

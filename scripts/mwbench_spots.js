@@ -123,8 +123,12 @@ export const EXPECT = {
   T05: { accept: ['call', 'fold', 'raise'], note: { raise: 'mwHabit' }, neverBest: ['raise'] }, // owner: R7 note, never flagged; R5b
   R01: { accept: ['bet:0.3-0.8'], flag: ['check'], maxGrade: { check: 'mistake' }, quote: 'bet:0.74' }, // owner: check yellow; R3 quotes $90, $60 good
   R02: { accept: ['check'] },
-  R03: { accept: ['call', 'fold'], softFlag: ['raise'], note: { raise: 'mwHabit' }, neverBest: ['raise'], noGrade: true }, // R5b, R7; v2 do-not-grade
+  // CEO, 13 Nov 2026 (QA M1): R7 waives only plays within the yellow bar of the best other option. The
+  // $100 raise (+$3 over the call) keeps the note; the shove ($64 below the call) is graded, red.
+  R03: { accept: ['call', 'fold', 'raise:2-3'], note: { 'raise:2-3': 'mwHabit' }, neverBest: ['raise'], flag: ['raise:6-7'] }, // R5b, R7
   R04: { accept: ['bet:0.3-0.4'], softFlag: ['check'] },     // river cap: never red
   R05: { accept: ['check', 'bet:0.3-0.8'], noGrade: true },  // R8; v2 do-not-grade
-  X01: { accept: ['fold', 'call'], note: { raise: 'mwHabit' }, neverBest: ['raise'], noGrade: true }, // R6 required; raise discouraged by note only
+  // The raises are $62-65 below folding, so no "not a habit" waiver (QA M1); the scenario test leaves
+  // them ungraded, as MATH's do-not-grade list says.
+  X01: { accept: ['fold', 'call'], neverBest: ['raise'], noGrade: true }, // R6 required
 };

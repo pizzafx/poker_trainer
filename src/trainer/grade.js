@@ -206,23 +206,30 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
       return b;
     };
     const h = habitOf(mine);
-    if (h) {
-      // graded good, never flagged, never labelled best; the headline carries the note
-      v.grade = 'good';
-      v.note = 'mwHabit';
-      v.habit = h;
-      v.loss = 0;
-      v.se = 0;
-      const b = bestOther();
-      if (b >= 0) {
-        v.best = b;
-        v.sameKind = v.options[b].type === mine.type;
+    const ref = h ? bestOther() : -1;
+    // Graded good, never flagged, never labelled best, with the note, only when the play scores at
+    // least as well as the best other option less the yellow bar (CEO, Nov 2026: the ruling covers
+    // plays the judge rates near the top, never real losses). Otherwise it is graded as usual against
+    // the best option that is not one of these plays.
+    if (h && ref >= 0) {
+      const sameK = v.options[ref].type === mine.type;
+      const bar = small * (sameK ? 1.6 : 1);
+      if (mine.ev >= v.options[ref].ev - bar) {
+        v.grade = 'good';
+        v.note = 'mwHabit';
+        v.habit = h;
+        v.habitHigher = mine.ev >= v.options[ref].ev; // "scores higher" only when it does
+        v.loss = 0;
+        v.se = 0;
+        v.best = ref;
+        v.sameKind = sameK;
         refreshClose(v);
+        return;
       }
-      return;
+      if (regrade((o) => !habitOf(o))) return;
     }
     // ...and never the reference when the trainee chose something else
-    if (habitOf(best())) {
+    if (!h && habitOf(best())) {
       if (v.grade === 'good') {
         v.best = bestOther();
         v.sameKind = v.options[v.best].type === mine.type;
@@ -249,7 +256,7 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
     if (isRaise(mine) && ctx.raises >= 1 && premium >= 0.96 && best().type === 'call') return pass('callAlso');
     // A re-raise with a hand outside the top few percent is a bluff: compare with the best
     // option that is not a raise.
-    if (ctx.raises >= 1 && isRaise(best()) && premium < 0.94 && regrade((o) => !isRaise(o), 'preBluff')) return;
+    if (ctx.raises >= 1 && isRaise(best()) && premium < 0.94 && regrade((o) => !isRaise(o), 'preBluff', 'noRaise')) return;
     // The opener calling one re-raise: jacks or better, ace-king and ace-queen suited are never
     // red; queens or better and ace-king are fine unless the re-raiser is read as a nit.
     if (mine.type === 'call' && ctx.iRaised && ctx.raises === 2 && ['AA', 'KK', 'QQ', 'JJ', 'AKs', 'AKo', 'AQs'].includes(name)) {
@@ -282,7 +289,7 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
   // STRAT's interim river rule: the check is fine (and a big bet carries the note, above).
   if (foldsBetter && mine.type === 'check') return pass('foldsBetter');
   // 1. Declining to bluff-raise is never a mistake: compare with the best non-raise.
-  if (ctx.toCall > 0 && isRaise(best()) && !isRaise(mine) && weak && regrade((o) => !isRaise(o), 'bluffRaise')) return;
+  if (ctx.toCall > 0 && isRaise(best()) && !isRaise(mine) && weak && regrade((o) => !isRaise(o), 'bluffRaise', 'noRaise')) return;
   // R5. Declining to raise with one pair facing a bet is never flagged.
   if (ctx.toCall > 0 && onePair && mine.type === 'call' && isRaise(best())) return pass(null);
   // R5b. Facing a passive player's lead with a caller in, a call with one pair is never flagged;
@@ -308,14 +315,6 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
   if (v.pot < 6 * bb && tier <= TIER.OVERPAIR_TPTK && (mine.type === 'check' || mine.type === 'call') && isRaise(best())) return pass('tinyPot');
   // R4. Draws multiway are never flagged for checking or calling.
   if (mw && draw && (mine.type === 'check' || mine.type === 'call') && isRaise(best())) return pass('mwDraw');
-  // 3. Checking a pair no better than top pair with a weak kicker before the river is never
-  //    flagged: it gets a note naming the bet (at most 75% of the pot) that rates higher
-  //    (PRO_SPOT_A6s).
-  if (!river && ctx.toCall === 0 && mine.type === 'check' && tier >= TIER.WEAK_PAIR && tier <= TIER.TOP_PAIR_WEAK) {
-    pass('thinValue');
-    v.thin = thinValue(v, s, env, small);
-    return;
-  }
   // R1 exceptions: three-way with top pair good kicker or better, in position, as the preflop
   // raiser; four-way or more with that hand on a two-tone or connected board, in position or as the
   // preflop raiser (protection matters most there). Otherwise a multiway one-pair check is a note.
@@ -327,19 +326,30 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
   const r1Exception = (opp === 2 && goodTP && ctx.inPosition && pfr && !behind.preflopRaiser) || fourWayException;
   // ...and the four-way case is yellow at most, on every street (STRAT, Nov 2026)
   if (fourWayException && mine.type === 'check' && isRaise(best())) capYellow();
-  // 4. Checking one pair before the river out of position to three or more players, or with
-  //    the preflop raiser still to act behind, is never flagged (PRO review, item 4).
-  if (!river && ctx.toCall === 0 && mine.type === 'check' && onePair && !r1Exception) {
-    if (behind.count >= 3 || behind.preflopRaiser) return pass('checkOOP');
-  }
   // R1. One-pair checks multiway are notes, except as above; on the river, yellow at most instead.
+  //     In multiway pots this comes before the older thin-value and out-of-position passes below
+  //     (QA M3), which then only apply heads-up.
   if (mw && onePair && mine.type === 'check' && isRaise(best())) {
     if (river) capYellow();
     else if (!r1Exception) {
       pass('mwCheck');
       v.mw = { to: best().to, gain: Math.round(best().ev) - Math.round(mine.ev), players: opp + 1 };
+      v.thin = thinValue(v, s, env, small); // who the bet would get called by, as the A6s note says
       return;
     }
+  }
+  // 3. Checking a pair no better than top pair with a weak kicker before the river is never
+  //    flagged: it gets a note naming the bet (at most 75% of the pot) that rates higher
+  //    (PRO_SPOT_A6s).
+  if (!river && ctx.toCall === 0 && mine.type === 'check' && tier >= TIER.WEAK_PAIR && tier <= TIER.TOP_PAIR_WEAK && !(mw && isRaise(best()))) {
+    pass('thinValue');
+    v.thin = thinValue(v, s, env, small);
+    return;
+  }
+  // 4. Checking one pair before the river out of position to three or more players, or with
+  //    the preflop raiser still to act behind, is never flagged (PRO review, item 4).
+  if (!river && ctx.toCall === 0 && mine.type === 'check' && onePair && !r1Exception) {
+    if (behind.count >= 3 || behind.preflopRaiser) return pass('checkOOP');
   }
   // 5. Checks with top pair, good kicker or better before the river are measured against bets
   //    of at most 75% of the pot (and are never red, below). Multiway with two pair or better the

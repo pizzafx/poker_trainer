@@ -55,7 +55,7 @@ export function openTipFor(v, ctx, name, group) {
   const where = SEAT_WORDS[group];
   const usual = group === 'button' || group === 'sb' ? 'most players fold it here' : 'most players open it only from later seats';
   const cost = -g.mean > 2.2 * g.se ? Math.round(v.options[fold].ev) - Math.round(mine.ev) : 0;
-  return { kind: 'wideOpen', text: `${name} is outside the Standard range from ${where}; ${usual}.${cost > 0 ? ` Here folding was about $${cost} better.` : ''}` };
+  return { kind: 'wideOpen', where, text: `${name} is outside the Standard range from ${where}; ${usual}.${cost > 0 ? ` Here folding was about $${cost} better.` : ''}` };
 }
 
 // A soft note on a re-raise of a single raise with a hand outside the Standard facing-a-raise range

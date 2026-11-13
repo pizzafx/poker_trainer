@@ -60,13 +60,21 @@ export function replayHand(rec) {
     }
     applyAction(s, action, rng);
     if (seat !== HERO && action.type === 'raise') snap(seat);
+    let next = null;
     if (s.board.length > seen) {
-      // the street's betting ended: everyone's range as it stood, then the new cards
+      // the street's betting ended: everyone's range as it stood (this step, and the street's
+      // snapshot), then the same ranges against the new cards for the steps that follow (QA X5:
+      // a flop table shows the flop's line, not the preflop equity)
       snapAll();
       seen = s.board.length;
+      const ended = { ...grids };
       belief.setBoard(s.board);
+      snapAll();
+      next = { ...grids };
+      for (const seat of Object.keys(ended)) grids[seat] = ended[seat];
     }
-    steps.push({ index: k, action: e, state: cloneState(s), before, ranges: { ...grids }, reads: readsNow(), board: s.board.length });
+    steps.push({ index: k, action: e, state: cloneState(s), before, ranges: { ...grids }, next, reads: readsNow(), board: s.board.length });
+    if (next) Object.assign(grids, next);
   }
   return { steps, final: s };
 }
@@ -126,7 +134,7 @@ export function framesOf(rec) {
         const state = cloneState(st.state);
         state.board = state.board.slice(0, len);
         if (len < st.board) state.toAct = -1;
-        frames.push({ kind: 'street', street: streetOf(len), state, ranges: st.ranges, reads: st.reads });
+        frames.push({ kind: 'street', street: streetOf(len), state, ranges: st.next || st.ranges, reads: st.reads });
       }
     }
   }

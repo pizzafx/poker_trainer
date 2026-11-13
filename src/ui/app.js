@@ -6,7 +6,7 @@ import { evaluate } from '../engine/evaluator.js';
 import { handFeatures } from '../engine/features.js';
 import { PROFILES, TYPE_IDS, baseDef, currentDef, applyOverrides } from '../bots/profiles.js';
 import { CONTROLS } from '../trainer/tuning.js';
-import { CATEGORIES } from '../trainer/explain.js';
+import { CATEGORIES, shownCost } from '../trainer/explain.js';
 import { DRILLS } from '../trainer/drills.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
@@ -265,23 +265,73 @@ const cardsInline = (cs) => `<span class="cards-inline">${cs.map((c) => cardHtml
 
 // ---------------------------------------------------------------- rendering
 
+// The session placard on the table's top-left corner (marketing/HEADER_HANDOFF.md section 1): the
+// figures the header pills used to show. Full when it clears every seat, else a one-line pill;
+// decided by measuring after each layout (fitPlacard), not by the window's width.
+const plural = (n, one, many = one + 's') => (n === 1 ? one : many);
 function renderStats() {
   const g = sess.game;
+  const wrap = $('placard-wrap');
   if (drill) {
-    $('stats').innerHTML = `
-      <span class="drill-chip">Drill<b>${esc(leakName(drill.cat))}</b></span>
-      <button type="button" class="drill-exit" id="drill-exit">Exit drill</button>
-      <span>Good plays<b class="${drill.clean === drill.tried ? 'pos' : ''}">${drill.clean}</b> of ${drill.tried}</span>
-      <span>Mistakes cost<b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b></span>`;
+    const res = `${drill.clean} of ${drill.tried} right`;
+    wrap.innerHTML = `<button type="button" id="placard" class="placard" aria-label="${esc(`Drill: ${leakName(drill.cat)}. ${res}. Mistakes cost ${money(drill.cost)}. Opens Leak review.`)}">
+      <span class="pl-top">Drill · <b>${esc(leakName(drill.cat))}</b></span>
+      <span class="pl-res"><b>${drill.clean}</b><small>of ${drill.tried} right</small></span>
+      <span class="pl-sub full">Mistakes cost <b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b></span>
+      <span class="pl-sub short">${res} · <b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b></span></button>
+      <button type="button" class="drill-exit" id="drill-exit">Exit drill</button>`;
+    fitPlacard();
+    return;
+  }
+  const stakes = `$${g.sb}/$${g.bb}${sess.lineup ? ' home game' : ' No-limit'}`;
+  if (!sess.results.length && !sess.decisions.length) {
+    // before the first hand is over: nothing to show yet, and Quick sim lives here
+    wrap.innerHTML = `<div id="placard" class="placard fresh"><span class="pl-top">${esc(stakes)} · hand <b>${sess.handNo}</b></span>
+      <span class="pl-sub full">New session. Nothing to show yet.</span>
+      <span class="pl-sub short">New session</span>
+      <button type="button" id="btn-sim" class="pl-sim" title="Plays 40 hands in about a second so you sit down already knowing something about every player. Your results in those hands do not count.">Quick sim · 40 hands</button></div>`;
+    fitPlacard();
     return;
   }
   const net = sess.heroNet();
   const rev = sess.review();
-  $('stats').innerHTML = `
-    <span>$${g.sb}/$${g.bb}${sess.lineup ? ' home game' : ''} · hand<b>${sess.handNo}</b></span>
-    <span class="sess-pill"><i class="lbl">Session</i><b class="${net >= 0 ? 'pos' : 'neg'}">${signed(net)}</b></span>
-    <span>Mistakes cost<b class="${rev.lost > 0 ? 'neg' : ''}">${money(rev.lost)}</b></span>
-    <span>Flagged<b>${rev.flagged}</b> of ${rev.judged}</span>`;
+  const cls = net > 0 ? 'pos' : net < 0 ? 'neg' : '';
+  const said = `Session: ${net > 0 ? 'up ' : net < 0 ? 'down ' : 'even, '}${money(Math.abs(net))} after ${sess.handNo} ${plural(sess.handNo, 'hand')}. Mistakes cost ${money(rev.lost)}; ${rev.flagged} of ${rev.judged} ${plural(rev.judged, 'decision')} flagged. Opens Leak review.`;
+  wrap.innerHTML = `<button type="button" id="placard" class="placard" aria-label="${esc(said)}" title="Your session so far · opens Leak review">
+    <span class="pl-top">${esc(stakes)} · hand <b>${sess.handNo}</b></span>
+    <span class="pl-res"><b class="${cls}">${net === 0 ? '$0' : signed(net).replace('-', '−')}</b><small>session</small></span>
+    <span class="pl-sub full">Mistakes cost <b class="${rev.lost > 0 ? 'neg' : ''}">${money(rev.lost)}</b> · flagged <b>${rev.flagged}</b> of ${rev.judged}</span>
+    <span class="pl-sub short">hand ${sess.handNo} · <b class="${rev.flagged ? 'neg' : ''}">${rev.flagged}</b> flagged</span></button>`;
+  fitPlacard();
+}
+// Full size only where its box clears every seat (8px to spare); otherwise the pill. Phones: always
+// the pill. Where even the pill would touch a seat (the narrowest table areas), the table moves
+// down by just that much. Seats are measured as they would sit without that move, so the
+// decision is the same each time it is made.
+let placardRoom = 0;
+function fitPlacard() {
+  const el = $('placard');
+  const table = $('table');
+  let room = 0;
+  if (el && !(RP && document.body.classList.contains('replaying'))) {
+    const parts = [];
+    for (const part of document.querySelectorAll('#seats .seat .avatar, #seats .seat .plate, #seats .seat .cards')) {
+      const b = part.getBoundingClientRect();
+      if (b.width) parts.push({ left: b.left, right: b.right, top: b.top - placardRoom, bottom: b.bottom - placardRoom });
+    }
+    const hits = (a) => parts.filter((b) => a.left - 8 < b.right && b.left < a.right + 8 && a.top - 8 < b.bottom && b.top < a.bottom + 8);
+    el.classList.remove('compact');
+    if (NARROW.matches || hits(el.getBoundingClientRect()).length) {
+      el.classList.add('compact');
+      const a = el.getBoundingClientRect();
+      for (const b of hits(a)) room = Math.max(room, Math.ceil(a.bottom + 8 - b.top));
+    }
+  }
+  if (room === placardRoom) return;
+  placardRoom = room;
+  table.style.marginTop = '';
+  if (room) table.style.marginTop = parseFloat(getComputedStyle(table).marginTop) + room + 'px';
+  fitTable();
 }
 
 // In a drill your earlier decisions in the hand were played for you: say what they were.
@@ -376,7 +426,7 @@ function renderTable() {
     seatsHtml += `<div class="${cls.join(' ')}" style="left:${x}%;top:${y}%" data-seat="${i}"${i === HERO ? '' : ' role="button" tabindex="0"'}>
       <div class="cards">${cards}</div>
       <div class="avatar${vp ? ' has-vpip' : ''}" style="--h:${p.hue ?? 160}${vp ? `;--v:${vp.pct};--vc:${vp.color}` : ''}">${i === HERO ? '' : avatarArt(p)}${badge}${p.steaming ? '<span class="steam-dot" title="On tilt"></span>' : ''}</div>
-      <div class="plate">${i === HERO && isBtn ? '<div class="dealer mine" title="You are on the button">D</div>' : ''}<div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>
+      <div class="plate">${i === HERO && isBtn ? '<div class="dealer mine" title="You are on the button">D</div>' : ''}<div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>${i !== HERO && !drill && newSeats.get(i) === h.no ? '<span class="new-tag" title="New player this hand">NEW</span>' : ''}
       <div class="stack">${money(stack)}${h.raiser === i ? '<span class="raiser-tag">Raiser</span>' : ''}</div>${read}</div>${i === HERO ? madeHand() : ''}${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP <span class="num">${vp.pct}%</span></b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vpipVerdict(vp.pct)}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${p.steaming ? '<div class="tilt">Tilt</div>' : ''}${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
     if (isBtn && i !== HERO) {
       const dx = 50 + G.dealer[0] * Math.cos(ang + 0.2);
@@ -416,8 +466,6 @@ function renderTable() {
     el.classList.add('bump');
     shownPot = potNow;
   }
-  const tapHint = tapHintPending && sess.hand.over ? `${TOUCH.matches || PHONE.matches ? 'Tap' : 'Click'} any player to see what you've noticed about them.` : '';
-  $('news').title = $('news').textContent = drill ? (sess.hand.over ? '' : `Drill: ${DRILLS[drill.cat].what}. ${heroStory()}`) : tapHint || sess.news.join('  ').replace('Hover over a player to see', TOUCH.matches ? 'Tap a player to see' : 'Hover over a player to see');
 }
 
 // What a player's VPIP says, in words: the hover box on the pill and the player card share it.
@@ -518,9 +566,19 @@ function renderActions() {
       raiseStep = s.history.length;
     }
     const verb = s.currentBet === 0 ? 'Bet' : 'Raise to';
-    // On a phone the long all-in label becomes "Max"; the full words stay in the tooltip.
-    const short = (l) => (!PHONE.matches ? l : l === 'Put them all-in' || l === 'All-in' ? 'Max' : l.replace(' of stacks', ' stack'));
-    const pre = L.canRaise ? presets(L, s).map(([l, v]) => `<button data-to="${v}" title="${l === 'Put them all-in' ? 'Put them all-in: ' : ''}$${v}">${short(l)}</button>`).join('') : '';
+    // Every chip is one short word or amount; the exact amount, and whom an all-in covers, are in
+    // the title and the accessible name ("All-in: $158 puts Jersey all in").
+    const short = (l) => (!PHONE.matches ? l : l.replace(' of stacks', ' stack'));
+    const chipTitle = (l, v, title, seat) =>
+      l === 'All-in' ? (seat >= 0 ? `All-in: $${v} puts ${sess.seats[seat].nick} all in` : `All-in: $${v}, your whole stack`) : title ? `${title}: $${v}` : `$${v}`;
+    const pre = L.canRaise
+      ? presets(L, s)
+          .map(([l, v, title, seat]) => {
+            const t = esc(chipTitle(l, v, title, seat));
+            return `<button data-to="${v}" title="${t}" aria-label="${t}">${short(l)}</button>`;
+          })
+          .join('')
+      : '';
     const need = L.callAmt ? Math.round((100 * L.callAmt) / (L.pot + L.callAmt)) : 0;
     const sizeNote = (to) => (s.currentBet > 0 ? `${(to / s.currentBet).toFixed(1)}× the bet` : `${Math.round((100 * to) / Math.max(1, L.pot))}% of the pot`);
     el.innerHTML = `${myHand()}
@@ -687,6 +745,57 @@ function renderFeedback() {
   el.innerHTML = [...h.decisions].reverse().map((d) => fbCard(d, false)).join('');
 }
 
+// ---- table events (HEADER_HANDOFF Addendum A2): no news line on the table. Each event becomes a
+// quiet line in the Hand log; a new player also gets a NEW tag on their seat for one hand; the two
+// worth a glance (Quick sim done, the table reading you) take the strip once, before your first play.
+let newsSeen = null;
+let newsTaken = 0;
+let stripEvent = null; // { hand, text, go }
+let logEvents = []; // { hand, text }: what happened before that hand was dealt
+const newSeats = new Map(); // seat -> the hand it is new in
+function takeNews() {
+  if (drill || !sess.hand) return;
+  if (sess.news !== newsSeen) {
+    newsSeen = sess.news;
+    newsTaken = 0;
+  }
+  const no = sess.hand.no;
+  for (const n of sess.news.slice(newsTaken)) {
+    if (/^Skipped \d+ hand/.test(n)) continue; // the Hand log's "folded for you" divider says it
+    const back = /^Welcome back: your session carries on at hand (\d+)/.exec(n);
+    const text = back ? `Session resumed at hand ${back[1]}` : n.replace('Hover over a player to see', TOUCH.matches ? 'Tap a player to see' : 'Hover over a player to see');
+    if (/^Fast-forwarded/.test(n)) stripEvent = { hand: no, text };
+    if (/^The table has noticed/.test(n)) stripEvent = { hand: no, text: "Table's onto you: expect more calls", go: true };
+    const seat = /leaves\. New player in seat (\d+)/.exec(n);
+    if (seat) newSeats.set(+seat[1] - 1, no);
+    logEvents.push({ hand: no, text });
+  }
+  newsTaken = sess.news.length;
+}
+
+// ---- the coach strip (HEADER_HANDOFF Addendum A1): one 44px line built from the verdict's own
+// fields. The full headline, reasons and tips stay in the Coach tab and the review.
+const STRIP_TIP = {
+  limp: (t) => `Tip: raise to $${t.to} instead of limping`,
+  wideOpen: (t) => `Tip: usually a fold from ${t.where}`,
+  junk3bet: () => 'Tip: too weak to re-raise; call or fold',
+};
+function stripHtml(show, { worst, prev }) {
+  const v = show.verdict;
+  const g = v.grade;
+  const mine = v.options[v.mine];
+  const word = g === 'good' ? (v.mine === v.best ? 'best play' : 'fine') : g;
+  const cost = g === 'good' ? 0 : shownCost(v);
+  const tipFn = g === 'good' && show.tipKind ? STRIP_TIP[show.tipKind] : null;
+  const tip = g === 'good' && show.tipKind ? (tipFn && v.tip ? tipFn(v.tip) : 'Tip') : '';
+  const note = g === 'good' && !tip && v.note ? 'note' : '';
+  const cls = ['cs', g === 'mistake' ? 'warn' : g === 'blunder' ? 'bad' : '', tip ? 'tip' : '', note ? 'note' : '', prev ? 'prev' : ''].filter(Boolean).join(' ');
+  const st = worst ? `Worst<span class="st-x"> · ${esc(show.streetName)}</span>` : esc(show.streetName);
+  const go = g !== 'good' ? 'Why ›' : tip || note ? '›' : 'Details ›';
+  return `<button type="button" class="${cls}" id="toast-open"><span class="st">${st}</span><span class="vmark ${g}" aria-hidden="true">${MARK[g]}</span>
+    <span class="main"><span class="act">${esc(mine.label)}</span><span class="rest"><span class="gw"> · <span class="g">${word}</span></span>${cost ? ` <span class="cost">−$${cost}</span>` : ''}${tip ? ` <span class="gw2">·</span> <span class="tipx">${esc(tip)}</span>` : ''}${note ? ` · <span class="tipx">note</span>` : ''}</span></span>
+    <span class="go">${go}</span></button>`;
+}
 function renderToast() {
   const h = sess.hand;
   const el = $('toast');
@@ -702,15 +811,26 @@ function renderToast() {
     return;
   }
   if (thinking) {
-    el.innerHTML = '<div class="toast quiet thinking" role="status"><span class="t-main">The coach is working it out…</span></div>';
+    el.innerHTML = '<div class="cs quiet thinking" role="status"><span class="spin" aria-hidden="true"></span><span class="main">Checking…</span></div>';
     return;
   }
-  if (!d) {
-    el.innerHTML = '';
+  if (!d || d.verdict.mine < 0) {
+    const ev = !drill && stripEvent && stripEvent.hand === h.no ? stripEvent : null;
+    if (ev) {
+      el.innerHTML = `<button type="button" class="cs quiet ev" id="toast-open"><span class="main">${esc(ev.text)}</span><span class="go">›</span></button>`;
+      $('toast-open').onclick = () => openSide('log');
+      return;
+    }
+    if (drill && !h.over) {
+      const t = `Drill: ${DRILLS[drill.cat].what}. ${heroStory()}`;
+      el.innerHTML = `<div class="cs quiet" title="${esc(t)}"><span class="main">${esc(t)}</span></div>`;
+      return;
+    }
+    el.innerHTML = '<div class="cs empty"><span class="main">Nothing to grade yet this hand</span></div>';
     return;
   }
   if (settings.feedback === 'after' && !h.over) {
-    el.innerHTML = '<div class="toast quiet"><span class="t-main">Feedback is held until the hand ends.</span></div>';
+    el.innerHTML = '<div class="cs quiet"><span class="main">Graded when the hand ends</span></div>';
     return;
   }
   // When the hand is over, surface the worst play of the hand rather than the last one.
@@ -721,12 +841,7 @@ function renderToast() {
     }
   }
   const pending = !h.over && sess.status() === 'hero';
-  const tag = h.over && h.decisions.length > 1 ? `Biggest miss · ${show.streetName}` : `Your last play · ${show.streetName}`;
-  const tagText = h.over && show.verdict.grade === 'good' ? `This hand · ${show.streetName}` : tag;
-  const icon = { good: '✓', mistake: '!', blunder: '✕' }[show.verdict.grade];
-  el.innerHTML = `<button type="button" class="toast ${show.verdict.grade}${pending ? ' prev' : ''}" id="toast-open">
-    <span class="t-icon">${icon}</span><span class="t-tag">${tagText}</span>
-    <span class="t-main">${esc(show.headline)}</span>${show.tip ? `<span class="t-tip"><b class="tip-label">Tip:</b> ${esc(show.tip)}</span>` : ''}<span class="t-more">${show.verdict.grade === 'good' ? 'Details' : 'Why?'} ›</span></button>`;
+  el.innerHTML = stripHtml(show, { worst: h.over && show.verdict.grade !== 'good' && h.decisions.length > 1, prev: pending });
   $('toast-open').onclick = () => (REVIEW_V2 && h.over && !drill ? openReview() : openSide('coach'));
 }
 
@@ -767,6 +882,7 @@ const KINDS = [
 ];
 const STREET_TABS = ['Preflop', 'Flop', 'Turn', 'River'];
 let rangeSeat = -1;
+let rangeFocus = ''; // the step the opponent was last chosen for (QA X5)
 let rangeStreet = 'now';
 let rangeHand = -1;
 let rangeMode = 'vs'; // colour by whether you beat it ('vs', the default) or by what they hold ('kind'); kept for the session
@@ -799,23 +915,40 @@ function renderRanges() {
   const live = [];
   for (let i = 1; i < s.n; i++) if (!s.folded[i]) live.push(i);
   if (!live.length) for (let i = 1; i < s.n; i++) live.push(i);
-  if (!live.includes(rangeSeat)) {
+  // In the replayer an opponent who put money in and has since folded keeps a chip, "· folded",
+  // showing their range as it stood when they folded (REPLAYER_HANDOFF 5.3).
+  const gone = h.replay ? [...Array(s.n).keys()].filter((i) => i !== HERO && s.folded[i] && !live.includes(i) && s.history.some((e) => e.seat === i && ['call', 'bet', 'raise'].includes(e.type))) : [];
+  const chipsFor = [...live, ...gone];
+  const lastBy = (types) => {
+    for (let k = s.history.length - 1; k >= 0; k--) {
+      const e = s.history[k];
+      if (types.includes(e.type) && live.includes(e.seat)) return e.seat;
+    }
+    return -1;
+  };
+  // At each of your decisions the chart starts on the player you faced (the one the Coach tab's
+  // "See X's range" names); a choice made at that step stays until the next decision.
+  const stepKey = `${h.no}|${s.history.length}`;
+  if (rangeFocus !== stepKey) {
+    let faced = -1;
+    if (h.replay) {
+      const f = RP && RP.frames[RP.i];
+      const d = f && f.kind === 'action' && f.seat === HERO && f.decision >= 0 ? h.decisions[f.decision] : null;
+      if (d && d.villain) faced = d.villain.seat;
+    } else if (!h.over && s.toAct === HERO) faced = lastBy(['bet', 'raise']);
+    if (faced >= 0 && chipsFor.includes(faced)) rangeSeat = faced;
+    rangeFocus = stepKey;
+  }
+  if (!chipsFor.includes(rangeSeat)) {
     // Default to whoever bet or raised last, else whoever last made a choice (so there is a
     // range to show), else the first player still in.
-    const lastBy = (types) => {
-      for (let k = s.history.length - 1; k >= 0; k--) {
-        const e = s.history[k];
-        if (types.includes(e.type) && live.includes(e.seat)) return e.seat;
-      }
-      return -1;
-    };
     const aggressor = lastBy(['bet', 'raise']);
     const actor = lastBy(['call', 'check']);
     rangeSeat = aggressor >= 0 ? aggressor : actor >= 0 ? actor : live[0];
   }
   if (h.replay || (rangeStreet !== 'now' && !h.rangeSnaps[rangeStreet])) rangeStreet = 'now';
   const g = sess.rangeGrid(rangeSeat, rangeStreet);
-  const who = live.map((i) => `<button class="chip ${i === rangeSeat ? 'on' : ''}" data-seat="${i}">${esc(sess.seats[i].nick)}</button>`).join('');
+  const who = chipsFor.map((i) => `<button class="chip ${i === rangeSeat ? 'on' : ''}" data-seat="${i}">${esc(sess.seats[i].nick)}${s.folded[i] && gone.includes(i) ? ' · folded' : ''}</button>`).join('');
   const steps = STREET_TABS.map((label, st) => `<button class="chip ${rangeStreet === st ? 'on' : ''}" data-street="${st}" ${h.rangeSnaps[st] ? '' : 'disabled'}>${label}</button>`).join('') +
     `<button class="chip ${rangeStreet === 'now' ? 'on' : ''}" data-street="now">${h.over ? 'End' : 'Now'}</button>`;
   if (!g) {
@@ -956,9 +1089,10 @@ const tonightHands = () => (tonight || []).filter((r) => r.kind === 'hand');
 
 function render() {
   if (RP && document.body.classList.contains('replaying')) return renderReplay();
-  renderStats();
+  takeNews();
   renderTable();
   renderActions();
+  renderStats(); // after the seats and the dock: the placard measures itself against the seats
   renderFeedback();
   renderToast();
   renderRanges();
@@ -1059,7 +1193,7 @@ function openReview(stored = false) {
       <aside>${card}<div class="rv-tiles"><div class="stat"><span class="label">This hand</span><b class="${net > 0 ? 'pos' : net < 0 ? 'neg' : ''}">${signed(net)}</b></div><div class="stat"><span class="label">Mistakes cost</span><b>${money(cost)}</b></div></div></aside></div>
   </div>
   <div class="rv-bar"><div>${stored
-    ? `<p>Hand ${h.label} from your history.</p><button type="button" id="rv-replay">Replay this hand</button><button type="button" class="primary" id="rv-back">${RP.from === 'history' ? 'Back to history' : 'Back to the table'}</button>`
+    ? `<p>Hand ${h.label} from your history.</p><button type="button" id="rv-replay"><span class="d-only">Replay this hand</span><span class="m-only">Replay</span></button><button type="button" class="primary" id="rv-back">${RP.from === 'history' ? 'Back to history' : 'Back to the table'}</button>`
     : `<p>The table stops on a flagged play so you can read why.</p>${rec ? '<button type="button" id="rv-replay"><span class="d-only">Replay this hand</span><span class="m-only">Replay</span></button>' : ''}<button type="button" id="rv-leaks">Leak review</button><button type="button" class="primary" id="rv-next">${drill ? 'Next spot' : 'Next hand'}<kbd>Space</kbd></button>`}</div></div>`;
   el.classList.remove('hidden');
   el.scrollTop = 0;
@@ -1193,6 +1327,9 @@ async function act(action) {
     scheduleAuto();
     return;
   }
+  // QA X2: the table stays paused while you look back; closing the history or the replayer
+  // carries on from here.
+  if (RP || document.body.classList.contains('in-history')) return;
   advance();
 }
 
@@ -1202,9 +1339,11 @@ function nextHand() {
   if (sess.status() !== 'over') return;
   closeReview();
   if (drill) return nextSpot();
-  tapHintPending = false; // shown once, at the end of the first hand
+  const tapHint = tapHintPending;
+  tapHintPending = false; // shown once, as the second hand starts
   pastLog = [...pastLog, ...sess.hand.log].slice(-120);
   sess.startPlayable();
+  if (tapHint) stripEvent = { hand: sess.hand.no, text: `${TOUCH.matches || PHONE.matches ? 'Tap' : 'Click'} any player to see what you've noticed about them.` };
   raiseTo = 0;
   advance();
 }
@@ -1276,6 +1415,7 @@ function holdTable(steal = false) {
       });
   });
 }
+let blockKeys = null;
 function elsewhere(why) {
   clearTimeout(timer);
   dropPendingGrade();
@@ -1291,6 +1431,25 @@ function elsewhere(why) {
     <p class="sub">${why === 'taken' ? 'Nothing more is saved from this tab.' : 'Play it there, or carry on here: the other tab stops saving.'}</p>
     <button type="button" class="primary" id="ew-here">Use it here</button></div>`;
   el.classList.remove('hidden');
+  // Modal for real (QA X3): everything behind it is inert, so no click, focus or key reaches the
+  // table, the replayer or the history, and focus moves to the one thing you can do here.
+  for (const c of document.body.children) if (c !== el) c.inert = true;
+  if (!blockKeys) {
+    blockKeys = (e) => {
+      if (!$('elsewhere') || $('elsewhere').classList.contains('hidden')) return;
+      if ($('elsewhere').contains(e.target) && (e.key === 'Enter' || e.key === ' ' || e.key === 'Tab')) {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          $('ew-here').focus();
+        }
+        return;
+      }
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+    window.addEventListener('keydown', blockKeys, true);
+  }
+  $('ew-here').focus();
   $('ew-here').onclick = async () => {
     await holdTable(true);
     location.reload();
@@ -1323,6 +1482,9 @@ function newSession() {
   if (owner) clearSession();
   pastLog = [];
   tonight = [];
+  logEvents = [];
+  newSeats.clear();
+  stripEvent = null;
   sess.startPlayable();
   advance();
 }
@@ -1924,23 +2086,59 @@ $('seats').addEventListener('keydown', (e) => {
     playerModal(+el.dataset.seat);
   }
 });
-// The drill's way out sits in the header, so it is there whether or not the last play was flagged.
-$('stats').addEventListener('click', (e) => {
-  if (e.target.closest('#drill-exit') && drill) exitDrill();
+// The placard: a click opens Leak review; in a drill its way out sits beside it; before the first
+// hand it holds Quick sim.
+$('placard-wrap').addEventListener('click', (e) => {
+  if (e.target.closest('#drill-exit')) return drill && exitDrill();
+  if (e.target.closest('#btn-sim')) return quickSim();
+  if (e.target.closest('button#placard') && sess) reviewModal();
 });
+// The panel toggle shows as pressed while the panel is open.
+{
+  const sync = () => {
+    const open = !document.body.classList.contains('side-closed');
+    $('btn-side').setAttribute('aria-pressed', open);
+    $('btn-side').classList.toggle('pressed', open);
+  };
+  new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  sync();
+}
+// "More" (desktop): Quick sim and FAQ. Closes on Escape, a click outside, or a choice.
+{
+  const btn = $('btn-more');
+  const menu = $('more-menu');
+  const show = (on) => {
+    menu.classList.toggle('hidden', !on);
+    btn.setAttribute('aria-expanded', on);
+    btn.classList.toggle('pressed', on);
+  };
+  btn.onclick = () => show(menu.classList.contains('hidden'));
+  menu.addEventListener('click', () => show(false));
+  $('btn-sim-more').onclick = () => quickSim();
+  document.addEventListener('click', (e) => {
+    if (!menu.classList.contains('hidden') && !btn.contains(e.target) && !menu.contains(e.target)) show(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !menu.classList.contains('hidden')) {
+      show(false);
+      btn.focus();
+      e.stopImmediatePropagation();
+    }
+  }, true);
+}
 $('btn-side').onclick = () => (document.body.classList.contains('side-closed') ? openSide() : document.body.classList.add('side-closed'));
 PHONE.addEventListener('change', () => sess && render());
 // The header menu: on a phone a sheet behind "Menu" that closes after any choice or a tap
 // elsewhere; from 601px always open, so the buttons sit in the header row as before.
 const menuEl = $('menu');
-const syncMenu = () => (menuEl.open = !PHONE.matches);
+const syncMenu = () => (menuEl.open = !NARROW.matches);
 syncMenu();
-PHONE.addEventListener('change', syncMenu);
+NARROW.addEventListener('change', syncMenu);
 menuEl.querySelector('.top-actions').addEventListener('click', () => {
-  if (PHONE.matches) menuEl.open = false;
+  if (NARROW.matches) menuEl.open = false;
 });
 document.addEventListener('click', (e) => {
-  if (PHONE.matches && menuEl.open && !menuEl.contains(e.target)) menuEl.open = false;
+  if (NARROW.matches && menuEl.open && !menuEl.contains(e.target)) menuEl.open = false;
 });
 $('btn-sim-menu').onclick = () => quickSim();
 $('side-close').onclick = () => document.body.classList.add('side-closed');
@@ -1985,7 +2183,10 @@ function fitTable() {
   stage.style.setProperty('--fit-h', Math.max(0, Math.floor(avail)) + 'px');
 }
 {
-  const ro = new ResizeObserver(fitTable);
+  const ro = new ResizeObserver(() => {
+    fitTable();
+    fitPlacard();
+  });
   ro.observe($('stage'));
   ro.observe($('bottom'));
   FIT.addEventListener('change', fitTable);
@@ -2056,10 +2257,6 @@ function setSide(w) {
   addEventListener('resize', applySide);
   applySide();
 }
-$('btn-sim').onclick = () => {
-  $('btn-sim').classList.remove('fresh'); // stop drawing attention once it has been used
-  quickSim();
-};
 $('btn-players').onclick = () => playersModal();
 $('btn-review').onclick = () => sess && reviewModal();
 $('btn-history').onclick = () => openHistory();
@@ -2131,7 +2328,12 @@ function replaySession(rec, i) {
     status: () => 'replay',
     heroInHand: () => false,
     readOf,
-    rangeGrid: (seat, street = 'now') => (street === 'now' ? f.ranges[seat] || null : snaps[street] ? snaps[street][seat] || null : null),
+    rangeGrid: (seat, street = 'now') => {
+      if (street !== 'now') return snaps[street] ? snaps[street][seat] || null : null;
+      if (!f.state.folded[seat]) return f.ranges[seat] || null;
+      for (let k = i; k >= 0; k--) if (!RP.frames[k].state.folded[seat]) return RP.frames[k].ranges[seat] || null;
+      return null;
+    },
     review: () => ({ judged: 0, flagged: 0, lost: 0, list: [], hands: rec.no, net: 0 }),
   };
 }
@@ -2250,7 +2452,7 @@ function actionWords(rec, f) {
   const allIn = e.allIn || f.state.allIn[f.seat] ? ' (all-in)' : '';
   if (e.type === 'fold') return `${who} fold${me ? '' : 's'}.`;
   if (e.type === 'check') return `${who} check${me ? '' : 's'}.`;
-  if (e.type === 'call') return `${who} call${me ? '' : 's'} $${e.amount}${me ? ' more' : ''}${allIn}.`;
+  if (e.type === 'call') return `${who} call${me ? '' : 's'} $${e.amount}${e.to > e.amount ? ' more' : ''}${allIn}.`;
   if (e.type === 'bet') return `${who} bet${me ? '' : 's'} $${e.to}${allIn}.`;
   return `${who} raise${me ? '' : 's'} to $${e.to}${allIn}.`;
 }
@@ -2543,11 +2745,28 @@ function openSummary(rec) {
 }
 
 // ---- hand history list ----
+// "Played": you put money in voluntarily, on any street (QA X7: a BB check that bets the river counts).
+const playedHand = (r) => r.history.some((e) => e.seat === HERO && (e.type === 'call' || e.type === 'raise' || e.type === 'bet'));
+// Folded-for-you dividers, one per run of consecutive hands (QA X6): a hand a reload dropped is
+// not stored, so it breaks the run rather than being counted inside it.
+function foldedRuns(skips, dash, tail = '') {
+  const nos = skips.map((x) => x.no).sort((a, b) => a - b);
+  const out = [];
+  let start = 0;
+  for (let k = 1; k <= nos.length; k++) {
+    if (k < nos.length && nos[k] === nos[k - 1] + 1) continue;
+    const a = nos[start];
+    const b = nos[k - 1];
+    out.push(`<div class="hdiv">${a === b ? `Hand ${a} folded for you` : `Hands ${a}${dash}${b} folded for you`}${tail}</div>`);
+    start = k;
+  }
+  return out.reverse(); // the lists run newest first
+}
 const histFilters = [
   ['all', 'All', () => true],
   ['flagged', 'Flagged', (r) => r.decisions.some((d) => d.verdict.grade !== 'good')],
   ['tips', 'Tips', (r) => r.decisions.some((d) => d.tipKind) && !r.decisions.some((d) => d.verdict.grade !== 'good')],
-  ['played', 'Played', (r) => r.history.some((e) => e.seat === HERO && e.street === 0 && (e.type === 'call' || e.type === 'raise'))],
+  ['played', 'Played', playedHand],
   ['folded', 'Folded before the flop', (r) => r.result.folded[HERO] && !r.history.some((e) => e.seat === HERO && e.street > 0)],
 ];
 let histFilter = 'all';
@@ -2633,7 +2852,7 @@ function drawHistory() {
     const net = r.result.net[HERO];
     const pos = positionOf(r);
     return `<button type="button" class="hrow${r.decisions.length === 0 || (r.result.folded[HERO] && r.decisions.length <= 1 && !r.decisions.some((d) => d.verdict.grade !== 'good')) ? ' quiet' : ''}" data-key="${r.key}">
-      <span class="hr-no">Hand <b>${r.no}</b></span><span class="hr-cards">${cardsInline(holeOrder(r.hole[HERO]))}</span><span class="badge pos">${pos}</span>
+      <span class="hr-no" data-pos="${pos ? ` · ${pos}` : ''}">Hand <b>${r.no}</b></span><span class="hr-cards">${cardsInline(holeOrder(r.hole[HERO]))}</span><span class="badge pos">${pos}</span>
       <span class="hr-board">${r.board.length ? cardsInline(r.board) : '<i>no flop</i>'}</span>
       <span class="hr-story">${esc(handStory(r))}</span>${handMarker(r)}<span class="hr-net">${net === 0 ? '$0' : signed(net)}</span><span class="hr-go" aria-hidden="true">›</span></button>`;
   };
@@ -2644,8 +2863,7 @@ function drawHistory() {
     let skipRun = [];
     const flush = () => {
       if (!skipRun.length) return;
-      const nos = skipRun.map((x) => x.no).sort((a, b) => a - b);
-      rows.push(`<div class="hdiv">${nos.length === 1 ? `Hand ${nos[0]} folded for you` : `Hands ${nos[0]} to ${nos[nos.length - 1]} folded for you`} (outside your ranges)</div>`);
+      rows.push(...foldedRuns(skipRun, ' to ', ' (outside your ranges)'));
       skipRun = [];
     };
     for (const r of g.rows) {
@@ -2708,8 +2926,11 @@ function refreshTonight() {
 const POSTS = new Set(['sb', 'bb', 'straddle']);
 const bbOf = (x, bb) => {
   const v = x / bb;
-  return Number.isInteger(v) ? v : Math.round(v * 10) / 10;
+  return v >= 10 ? Math.round(v) : Math.round(v * 10) / 10;
 };
+// "Ad Qh" in the engine's showdown lines, with suit symbols as everywhere else
+const SUIT_OF = { s: '♠', h: '♥', d: '♦', c: '♣' };
+const suitText = (t) => t.replace(/\b([2-9TJQKA])([shdc])\b/g, (m, r, su) => r + SUIT_OF[su]);
 
 // p: { s, seats, decisions, bb, no, position, over, net, shows, live, pending, links, current }
 function handCardHtml(p) {
@@ -2768,7 +2989,7 @@ function handCardHtml(p) {
     }
     if (e.allIn || (s.allIn && s.allIn[e.seat] && !H.slice(k + 1).some((x) => x.seat === e.seat))) text += ' <small>all-in</small>';
     const d = me ? decisions[heroN++] : null;
-    lines[e.street].push({ html: `<span class="hl-t">${text}</span>${me ? verdictOf(d) : ''}`, me, grade: d ? d.verdict.grade : null, quiet: e.type === 'fold' && !me, facing: facing.has(k), idx: k });
+    lines[e.street].push({ html: `<span class="hl-t">${text}</span>`, vhtml: me ? verdictOf(d) : '', me, grade: d ? d.verdict.grade : null, quiet: e.type === 'fold' && !me, facing: facing.has(k), idx: k });
   }
   // your action while the coach is checking it
   if (p.pending && p.live) {
@@ -2782,19 +3003,20 @@ function handCardHtml(p) {
   const lineHtml = (l) => {
     const link = p.links && l.idx !== undefined && !l.pending && !l.next ? p.links(l.idx) : null;
     const cls = ['hl-ln', l.quiet ? 'quiet' : '', l.me ? `me ${l.grade || ''}` : '', l.facing ? 'facing' : '', l.next ? 'next' : '', l.pending ? 'pending' : '', p.current !== undefined && l.idx === p.current ? 'cur' : ''].filter(Boolean).join(' ');
-    return link !== null && link !== undefined
-      ? `<button type="button" class="${cls}" data-frame="${link}"><i class="hl-dot"></i>${l.html}</button>`
-      : `<div class="${cls}"><i class="hl-dot"></i>${l.html}</div>`;
+    const v = l.vhtml || '';
+    if (link === null || link === undefined) return `<div class="${cls}"><i class="hl-dot"></i>${l.html}${v}</div>`;
+    if (!v.includes('data-why')) return `<button type="button" class="${cls}" data-frame="${link}"><i class="hl-dot"></i>${l.html}${v}</button>`;
+    return `<div class="${cls} split"><button type="button" class="hl-go" data-frame="${link}"><i class="hl-dot"></i>${l.html}</button>${v}</div>`;
   };
   const streets = [0, 1, 2, 3]
     .filter((st) => st === 0 || s.board.length >= [0, 3, 4, 5][st])
     .map((st) => `<div class="hl-st"><div class="hl-head"><span class="label">${SD_LABEL[st]}</span>${st ? cardsInline(streetCards(st)) : ''}<span class="hl-pot">pot $${potAt[st] ?? running}</span></div>${lines[st].map(lineHtml).join('')}</div>`)
     .join('');
-  const show = p.over && p.shows && p.shows.length ? `<div class="hl-st"><div class="hl-head"><span class="label">${p.showdown ? 'Showdown' : 'Result'}</span></div>${p.shows.map((t) => `<div class="hl-ln quiet"><i class="hl-dot"></i><span class="hl-t">${esc(t)}</span></div>`).join('')}<div class="hl-ln result"><span class="hl-t">${p.net > 0 ? 'You win' : p.net < 0 ? 'You lose' : 'You break even'}</span><b class="mono">${p.net === 0 ? '$0' : signed(p.net)}</b></div></div>` : '';
+  const show = p.over && p.shows && p.shows.length ? `<div class="hl-st"><div class="hl-head"><span class="label">${p.showdown ? 'Showdown' : 'Result'}</span></div>${p.shows.map((t) => `<div class="hl-ln quiet"><i class="hl-dot"></i><span class="hl-t">${esc(suitText(t))}</span></div>`).join('')}<div class="hl-ln result"><span class="hl-t">Your result</span><b class="mono">${p.net === 0 ? '$0' : signed(p.net).replace('-', '−')}</b></div></div>` : '';
   const flagged = decisions.filter((d) => d.verdict.grade !== 'good');
   const sub = p.live || !p.over
     ? `$${s.sbAmt}/$${bb} · you ${p.live ? 'have' : 'had'} ${money(s.stacks[HERO])}`
-    : `Hand over · ${flagged.length ? `${flagged.length} ${flagged.some((d) => d.verdict.grade === 'blunder') ? `blunder${flagged.length > 1 ? 's' : ''}` : `mistake${flagged.length > 1 ? 's' : ''}`}` : decisions.length ? 'every decision fine' : 'no decisions'}`;
+    : `Hand over · ${flagged.length ? `${flagged.length} flagged · ${money(flagged.reduce((a, d) => a + d.cost, 0))}` : decisions.length ? 'every decision fine' : 'no decisions'}`;
   return `<div class="hl-card"><div class="hl-top">${cardsInline(holeOrder(s.hole[HERO]))}<div><b>Hand ${p.no}${p.position ? ` · ${p.position}` : ''}</b><small>${sub}</small></div>${p.live ? '<span class="hl-live">Live</span>' : ''}</div>${streets}${show}${p.actions || ''}</div>`;
 }
 
@@ -2804,14 +3026,18 @@ function earlierHtml() {
   const shown = (r) => !(sess.hand && sess.hand.over && r.no === sess.hand.no);
   const hands = tonight.filter((r) => r.kind === 'hand' && shown(r));
   const flaggedFn = (r) => r.decisions.some((d) => d.verdict.grade !== 'good');
-  const playedFn = (r) => r.history.some((e) => e.seat === HERO && (e.type === 'call' || e.type === 'raise' || e.type === 'bet'));
+  const playedFn = playedHand;
   const fn = logFilter === 'flagged' ? flaggedFn : logFilter === 'played' ? playedFn : () => true;
   const rows = [];
   let skips = [];
+  const evs = logFilter === 'all' ? [...logEvents].reverse() : [];
+  let ei = 0;
+  const eventsAfter = (no) => {
+    while (ei < evs.length && evs[ei].hand > no) rows.push(`<div class="hl-ev">${esc(evs[ei++].text)}</div>`);
+  };
   const flush = () => {
     if (!skips.length) return;
-    const nos = skips.map((x) => x.no).sort((a, b) => a - b);
-    rows.push(`<div class="hdiv">${nos.length === 1 ? `Hand ${nos[0]} folded for you` : `Hands ${nos[0]}–${nos[nos.length - 1]} folded for you`}</div>`);
+    rows.push(...foldedRuns(skips, '–'));
     skips = [];
   };
   for (const r of [...tonight].reverse()) {
@@ -2821,10 +3047,12 @@ function earlierHtml() {
     }
     if (!fn(r) || !shown(r)) continue;
     flush();
+    eventsAfter(r.no);
     const net = r.result.net[HERO];
     rows.push(`<button type="button" class="hl-row" data-key="${r.key}">${cardsInline(holeOrder(r.hole[HERO]))}<span class="hr-a"><span>Hand <b>${r.no}</b> · ${esc(r.position || '')}</span><b class="mono">${net === 0 ? '$0' : signed(net)}</b></span><span class="hr-b">${r.board.length ? cardsInline(r.board) : '<i>no flop</i>'}${handMarker(r)}</span></button>`);
   }
   flush();
+  eventsAfter(-1);
   const counts = { all: hands.length, flagged: hands.filter(flaggedFn).length, played: hands.filter(playedFn).length };
   return `<div class="hl-earlier"><div class="hl-ehead"><span class="label">Earlier tonight</span><button type="button" class="link-btn" data-allhands>All hands ›</button></div>
     <div class="chips">${[['all', 'All'], ['flagged', 'Flagged'], ['played', 'Played']].map(([k, l]) => `<button type="button" class="chip${logFilter === k ? ' on' : ''}" data-lf="${k}">${l} <span class="num">${counts[k]}</span></button>`).join('')}</div>

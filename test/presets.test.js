@@ -60,3 +60,22 @@ test('bet presets: short biggest opponent preflop does not preselect the shove',
   assert.ok(d < allIn, `default ${d}`);
   assert.equal(d, 9);
 });
+
+test('bet presets: preflop opens are dollar amounts, and the last chip is always "All-in" (owner, Nov 2026)', () => {
+  let opens = 0;
+  for (const { s, L } of raiseSpots(800, 99)) {
+    const p = presets(L, s);
+    const last = p[p.length - 1];
+    assert.equal(last[0], 'All-in');
+    for (const [l, v, title] of p.slice(0, -1)) {
+      assert.ok(l.length <= 11, `label "${l}" is short`);
+      if (s.street === 0 && s.raises === 0) {
+        opens++;
+        assert.equal(l, `$${v}`);
+        assert.match(title, /^\dx the big blind/);
+      }
+    }
+    if (last[3] >= 0) assert.ok(last[3] !== s.toAct && !s.folded[last[3]], 'the all-in names a live opponent');
+  }
+  assert.ok(opens > 50, `${opens} opening chips checked`);
+});

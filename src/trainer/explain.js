@@ -278,7 +278,7 @@ export function anchorLine(d) {
     const nowS = river ? '' : ' now';
     const called = W === null || W === undefined || W < 0.05 ? 'Called, you are almost never ahead' : W > 0.95 ? `Called, you are almost always ahead${nowS}` : `Called, you are ahead${nowS} ${share(W)}`;
     const folds = mine.F < 0.05 ? 'almost no one folds' : mine.F > 0.95 ? 'nearly everyone folds' : `everyone folds ${share(mine.F)}`;
-    // the middle sentence alone when the headline above already says "not a habit to build" (CEO)
+    // the middle sentence alone when the headline above already says "not a habit to build"
     const mid = `${called}; ${folds}, and it needs ${share(mine.alpha, false)}.`;
     line = v.note === 'mwHabit' ? mid : `Scores higher only against these opponents. ${mid} Not a habit.`;
   } else if (ref !== mine && ref.type === 'raise' && mine.type === 'raise' && v.grade !== 'good' && ref.F !== undefined && mine.F !== undefined) {

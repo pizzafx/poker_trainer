@@ -265,7 +265,7 @@ const cardsInline = (cs) => `<span class="cards-inline">${cs.map((c) => cardHtml
 
 // ---------------------------------------------------------------- rendering
 
-// The session placard on the table's top-left corner (marketing/HEADER_HANDOFF.md section 1): the
+// The session placard on the table's top-left corner (header design, section 1): the
 // figures the header pills used to show. Full when it clears every seat, else a one-line pill;
 // decided by measuring after each layout (fitPlacard), not by the window's width.
 const plural = (n, one, many = one + 's') => (n === 1 ? one : many);
@@ -788,7 +788,7 @@ function renderFeedback() {
   el.innerHTML = [...h.decisions].reverse().map((d) => fbCard(d, false)).join('');
 }
 
-// ---- table events (HEADER_HANDOFF Addendum A2): no news line on the table. Each event becomes a
+// ---- table events (header design, A2): no news line on the table. Each event becomes a
 // quiet line in the Hand log; a new player also gets a NEW tag on their seat for one hand; the two
 // worth a glance (Quick sim done, the table reading you) take the strip once, before your first play.
 let newsSeen = null;
@@ -816,7 +816,7 @@ function takeNews() {
   newsTaken = sess.news.length;
 }
 
-// ---- the coach strip (HEADER_HANDOFF Addendum A1): one 44px line built from the verdict's own
+// ---- the coach strip (header design, A1): one 44px line built from the verdict's own
 // fields. The full headline, reasons and tips stay in the Coach tab and the review.
 const STRIP_TIP = {
   limp: (t) => `Tip: raise to $${t.to} instead of limping`,
@@ -963,7 +963,7 @@ function renderRanges() {
   for (let i = 1; i < s.n; i++) if (!s.folded[i]) live.push(i);
   if (!live.length) for (let i = 1; i < s.n; i++) live.push(i);
   // In the replayer an opponent who put money in and has since folded keeps a chip, "· folded",
-  // showing their range as it stood when they folded (REPLAYER_HANDOFF 5.3).
+  // showing their range as it stood when they folded (replayer design, 5.3).
   const gone = h.replay ? [...Array(s.n).keys()].filter((i) => i !== HERO && s.folded[i] && !live.includes(i) && s.history.some((e) => e.seat === i && ['call', 'bet', 'raise'].includes(e.type))) : [];
   const chipsFor = [...live, ...gone];
   const lastBy = (types) => {
@@ -1654,7 +1654,7 @@ $('modal').addEventListener('click', (e) => {
 });
 
 // "Your game": two tabs, Game (stakes and table; changing them starts a new session) and My ranges
-// (the hands you play from each seat; applies from the next hand). marketing/RANGES_HANDOFF.md.
+// (the hands you play from each seat; applies from the next hand).
 // openGameModal({ tab: 'ranges', group }) opens My ranges on that seat group.
 function settingsModal(opts = {}) {
   return openGameModal(opts);
@@ -2397,7 +2397,7 @@ document.addEventListener('click', (e) => {
 
 
 // =====================================================================================
-// Hand history and replayer (marketing/REPLAYER_HANDOFF.md). The replayer is a mode of this
+// Hand history and replayer. The replayer is a mode of this
 // page: the live session pauses, and the table, the Ranges tab and the review draw a recorded
 // hand instead. They do it through a stand-in for the session (`replaySession`) that answers
 // the same questions from the record and the current step. Verdicts are the stored ones, never
@@ -3044,7 +3044,7 @@ function positionOf(rec) {
 }
 
 
-// ---- the Hand log tab (REPLAYER_HANDOFF.md section 7): "This hand" as a readable story with your
+// ---- the Hand log tab: "This hand" as a readable story with your
 // verdicts on it, then "Earlier tonight", one row per hand, each a way into the replayer. The
 // replayer's own log tab uses the same card, so a hand reads the same live and in replay.
 let pendingAction = null; // your action while the coach grades it (shown as "coach is checking…")

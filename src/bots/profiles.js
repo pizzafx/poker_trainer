@@ -58,13 +58,18 @@ const BASE = {
   float: 0.06, // flop call in position with nothing
   raiseValue: [0.8, 0.82, 0.88], // minimum strength to raise
   raiseBluff: [0.03, 0.02, 0.004], // chance to raise as a bluff
-  // --- multiway (POOL_FINAL_HANDOFF, Nov 2026; defaults keep the old behaviour) ---
+  // --- multiway (POOL, Nov 2026; defaults keep the old behaviour) ---
   mwSteps: null, // taper of the multiway call penalty: the k-th extra player behind or caller in adds mwSteps[min(k, len-1)]
   mwCap: 1, // cap on the mwSteps sum
   mwBehind: 0, // linear per-player penalties for types with no taper (station, whale, maniac): per player still to act behind
   mwCaller: 0, // ...and per caller already in
   mwCallTighten: 0.5, // share of mwTighten applied to calls
-  mwRiverCaller: 0, // extra river penalty per caller already in
+  mwRiverCaller: 0, // extra river penalty per caller already in (superseded by mwOvercall; 0 everywhere)
+  // Overcall (POOL, owner-approved 13 Nov 2026): facing a bet AND a call, two ranges have
+  // shown strength, so one pair folds more. Added to the call threshold per caller already in, by
+  // street [flop, turn, river], outside penaltyCap and floorCap, and it lifts the never-fold floor.
+  mwOvercall: [0, 0, 0],
+  ocSize: 0, // the overcall term scales with (bet/pot / 0.5) ^ ocSize; the station only
   mwRaiseCut: null, // multiway cut on bluff-raises (null: mwBluffCut)
   mwTrap3: null, // out-of-position multiway trap rates with strong hands: [raiser behind, I am the raiser, other]
   mwPassiveValue: 0, // value-threshold increase per extra opponent for turn and river bets
@@ -86,6 +91,7 @@ const BASE = {
 
 const DEFS = {
   nit: {
+    mwOvercall: [0, 0.06, 0.07], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Tight-passive nit',
     blurb: 'Waits for big hands. Limps a lot, rarely raises, and when the money goes in he has it.',
     share: 0.13,
@@ -137,6 +143,7 @@ const DEFS = {
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   abc: {
+    mwOvercall: [0, 0.05, 0.07], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Straightforward recreational',
     blurb: 'Plays his cards face up: bets when he hits, gives up when he misses, limps along a lot.',
     share: 0.315, // POOL share, Nov 2026: was 0.235
@@ -176,6 +183,8 @@ const DEFS = {
     leadBluffMult: 0.25, // POOL M, Nov 2026 (was the shared default)
   },
   station: {
+    mwOvercall: [0, 0.03, 0.13], // POOL overcall, owner-approved 13 Nov 2026
+    ocSize: 0.25, // POOL overcall: a pot-sized overcall hits harder than a half-pot one
     name: 'Loose-passive calling station',
     blurb: 'Sees a lot of flops and hates folding a pair or a draw. Rarely raises without a big hand.',
     share: 0.22, // POOL share, Nov 2026: was 0.3
@@ -229,9 +238,9 @@ const DEFS = {
     leadIntoRaiser: 0.08, // POOL M, Nov 2026 (was the shared default)
     ledRaiseRespect: 0.15, // POOL M, Nov 2026 (was the shared default)
     leadBluffMult: 0.25, // POOL M, Nov 2026 (was the shared default)
-    mwRiverCaller: 0.02, // POOL M, Nov 2026 (was the shared default)
   },
   whale: {
+    mwOvercall: [0, 0.02, 0.13], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Gambler',
     blurb: 'Here to play pots. Any two cards, calls far too much, and fires off the odd wild bluff.',
     share: 0.06,
@@ -287,9 +296,9 @@ const DEFS = {
     leadIntoRaiser: 0.06, // POOL M, Nov 2026 (was the shared default)
     ledRaiseRespect: 0.1, // POOL M, Nov 2026 (was the shared default)
     leadBluffMult: 0.5, // POOL M, Nov 2026 (was the shared default)
-    mwRiverCaller: 0.02, // POOL M, Nov 2026 (was the shared default)
   },
   maniac: {
+    mwOvercall: [0, 0.07, 0.15], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Loose-aggressive maniac',
     blurb: 'Raises and barrels constantly with a huge range. Big bets mean much less from him.',
     share: 0.035,
@@ -342,6 +351,7 @@ const DEFS = {
     mwCaller: 0.01, // POOL M, Nov 2026 (was the shared default)
   },
   gto: {
+    mwOvercall: [0, 0.28, 0.25], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Solver-style player',
     blurb: 'Small opens, small range-bets, balanced bluffs and bluff-catches by the chart, whoever he is up against.',
     share: 0.04,
@@ -393,6 +403,7 @@ const DEFS = {
     mwTrap3: [0.4, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
   },
   tag: {
+    mwOvercall: [0, 0.07, 0.1], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Solid regular',
     blurb: 'Tight-aggressive grinder. Raises his good hands, isolates limpers, folds when a passive player wakes up.',
     share: 0.15,
@@ -442,6 +453,7 @@ const DEFS = {
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   lag: {
+    mwOvercall: [0, 0.1, 0.09], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Tricky aggressive regular',
     blurb: 'Plays many hands in position and applies pressure, but picks his spots better than the maniac.',
     share: 0.04,
@@ -490,6 +502,7 @@ const DEFS = {
     mwTrap3: [0.5, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
   },
   beginner: {
+    mwOvercall: [0, 0.08, 0.12], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Total beginner',
     blurb: 'Still learning. Plays most hands, limps, bets small, calls with any piece of the board, and gets scared off by big bets.',
     share: 0, // never dealt into the casino pool; you seat them in a home game
@@ -557,6 +570,8 @@ const HERO_DEF = {
   exploit: true,
   overLimp: 0.5,
   raiseBluff: [0.04, 0.025, 0.006],
+  // The overcall term is an opponent tendency (POOL); the stand-in was not part of it.
+  mwOvercall: [0, 0, 0],
 };
 
 export const TYPE_IDS = Object.keys(DEFS);
@@ -625,6 +640,13 @@ export function applyOverrides(all) {
   }
 }
 export const HERO_PROFILE = finish('hero', HERO_DEF);
+
+// The theory baseline: never dealt and not one of the read types (not in TYPE_IDS). It starts as a
+// copy of the solver-style type and is where SOLVER's equilibrium retunes go, so the dealt 'gto'
+// can stay a population type. Not wired into grading yet; MATH's anchors and the balanced-field
+// test are meant to point here later.
+const BASELINE_DEF = { ...DEFS.gto, name: 'Theory baseline', share: 0 };
+export const BASELINE_PROFILE = finish('baseline', BASELINE_DEF);
 
 // Each real player is their own version of a type: a bit looser or tighter, more or less
 // aggressive, more or less sticky. The trainee's reads and the judge only ever know the

@@ -1,4 +1,4 @@
-// The owner's disputed hand (notes/PRO_SPOT_A6s.md): button A♠6♠, board 2♥ T♣ A♥ 8♦, three-way
+// The owner's disputed hand: button A♠6♠, board 2♥ T♣ A♥ 8♦, three-way
 // against a solid regular (who led the flop for the pot and checked the turn) and a station.
 // Checking the turn with top pair and a weak kicker is never flagged; it gets a green note that
 // quotes a bet of at most three-quarters of the pot and names the station.

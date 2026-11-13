@@ -44,7 +44,7 @@ export const RAKES = {
 // How many run-outs the judge plays at a decision. Early streets have more left to happen, so they
 // need more to pin down. With six players or more in the hand, 70%: there most close one-pair and draw
 // decisions are notes, so what is left to flag is large, and each run-out costs the most (QA timed up
-// to 5.4 s per flagged decision; CEO, Nov 2026: about 3 s at most).
+// to 5.4 s per flagged decision; Nov 2026: about 3 s at most).
 export function samplesFor(base, s) {
   let players = 0;
   for (let i = 0; i < s.n; i++) if (!s.folded[i]) players++;

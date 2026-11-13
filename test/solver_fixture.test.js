@@ -1,12 +1,13 @@
-// SOLVER's three-way river equilibrium fixture (test/fixtures/solver_rivers.json, from
-// notes/SOLVER_BASELINES.md, our own data) against the engine's balanced ("gto") field: every
+// SOLVER's three-way river equilibrium fixture (test/fixtures/solver_rivers.json, our own solver
+// runs) against the engine's balanced ("gto") field: every
 // opponent read as the solver-style type. Three checks from SOLVER's gate (section 5.3):
 //   1. field fold-through F within 10 points of the equilibrium band, at each size;
 //   2. one pair facing a bet and a call (overcall) folds more than facing the bet alone, and at
 //      least 75% of the time;
 //   3. a one-pair value bet's EV is flat, within the yellow bar, from half pot to 1.5x pot.
-// KNOWN GAPS until POOL's overcall work lands: these are `todo` tests. They print their numbers and
-// report a miss without failing the suite.
+// Checks 2 and 3 pass since POOL's overcall term (13 Nov 2026) and guard it. Check 1 is still a known
+// gap (half-pot and the R04 shove fold too little): a `todo` test that prints its numbers and reports
+// a miss without failing the suite. SOLVER's other retunes go to the never-dealt baseline profile.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -29,7 +30,7 @@ const balanced = (id) => {
 };
 const sizesOf = (id) => Object.keys(FIX[id]).map((k) => +k.slice(1));
 
-test('solver fixture: balanced-field fold-through F against the equilibrium (known gap until POOL overcalls)', { todo: 'report only' }, (t) => {
+test('solver fixture: balanced-field fold-through F against the equilibrium (known gap: half pot folds too little)', { todo: 'report only' }, (t) => {
   const misses = [];
   for (const id of Object.keys(FIX)) {
     const { s, belief } = balanced(id);
@@ -82,7 +83,7 @@ function topPairFolds(id, b) {
   return { first, closer, n, alone: fa / Math.max(1, n), over: fo / Math.max(1, n) };
 }
 
-test('solver fixture: one pair folds more facing a bet and a call, and at least 75% (known gap until POOL overcalls)', { todo: 'report only' }, (t) => {
+test('solver fixture: one pair folds more facing a bet and a call, and at least 75%', (t) => {
   const misses = [];
   for (const id of Object.keys(FIX)) {
     for (const b of sizesOf(id)) {
@@ -96,7 +97,7 @@ test('solver fixture: one pair folds more facing a bet and a call, and at least 
   assert.deepEqual(misses, []);
 });
 
-test('solver fixture: a one-pair value bet is flat from half pot to 1.5x pot (R01; known gap)', { todo: 'report only' }, (t) => {
+test('solver fixture: a one-pair value bet is flat from half pot to 1.5x pot (R01)', (t) => {
   const { s, belief } = balanced('R01');
   const evs = sizesOf('R01').map((b) => {
     const v = judgeDecision(s, 0, belief, { type: 'raise', to: b }, { samples: 2000, seed: 5 });

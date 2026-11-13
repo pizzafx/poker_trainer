@@ -249,7 +249,7 @@ Read this before taking the advice to a real table.
   direction coaches agree on. Some of it has been checked against a three-player solver on the
   river and turn, none of it against live hand data.
 - **The opponents are easier to beat than real players.** A player who blindly follows the
-  top-rated option wins about two to four times what a strong live player makes: about 60 big
+  top-rated option wins about two to four times what a strong live player makes: about 55 big
   blinds per 100 hands here, against 15 to 30 for a strong player in a real game. Trust the direction
   of the advice (value-bet more, pay off less, isolate limpers) more than the dollar
   figures.
@@ -286,8 +286,10 @@ node scripts/flagrate.js        # how often a sensible player gets flagged, and 
 ```
 
 `npm test` also runs the solver fixture tests: the balanced opponents checked against a
-three-player river equilibrium. They print their numbers and are marked as known gaps (they do
-not fail the run) until the opponents' overcalls are tightened.
+three-player river equilibrium. One pair folding more against a bet and a call, and a one-pair
+value bet scoring about the same from half pot to 1.5 times the pot, are real tests. How often the
+field folds to a half-pot bet is still too low; that check prints its numbers and is marked as a
+known gap, so it does not fail the run.
 
 Before committing a change to the site, run `node scripts/stamp.js`: it versions every asset URL
 so browsers fetch a new version as a whole (the tests fail if you forget).

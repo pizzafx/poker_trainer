@@ -1,5 +1,5 @@
 /* Game Theory Optional: shared design system for the landing page and the FAQ (index.html, faq.html).
-   Lifted from the brand mock-ups (marketing/mockups/gto.css) minus the mock-up-only rule. The fonts
+   Lifted from the brand mock-ups minus the mock-up-only rule. The fonts
    are self-hosted (src/ui/fonts.css). The table (play.html) uses table.css, which carries the same
    palette as tokens. */
 

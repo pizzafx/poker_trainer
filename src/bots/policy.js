@@ -417,6 +417,13 @@ export function postflopPolicy(ctx, P, f) {
   } else mw = P.mwBehind * (ctx.toActBehind || 0) + P.mwCaller * (ctx.callersIn || 0);
   // M7c: river overcalls behind a bet and a call need a real hand; M7b: raised after leading this street.
   if (st === 2 && ctx.callersIn > 0) mw += P.mwRiverCaller * ctx.callersIn;
+  // Overcall (POOL, 13 Nov 2026): per caller already in, by street, outside both caps and lifting the
+  // never-fold floor. ocSize scales it with the bet against the pot before the bet and the calls.
+  let oc = 0;
+  if (ctx.callersIn > 0 && P.mwOvercall && P.mwOvercall[st]) {
+    const ocBf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall * (1 + ctx.callersIn));
+    oc = P.mwOvercall[st] * ctx.callersIn * (P.ocSize ? Math.pow(Math.max(0.25, ocBf) / 0.5, P.ocSize) : 1);
+  }
   if (facingRaise && ctx.iBetThisStreet) mw += P.ledRaiseRespect;
   const respect = respectFor(P, ctx, st);
   // Pot-committed: when the call is small next to the pot, the dollar amount stops mattering.
@@ -432,6 +439,7 @@ export function postflopPolicy(ctx, P, f) {
       P.penaltyCap,
       (committed ? 0 : P.absSens * Math.max(0, Math.log2(ctx.toCall / (P.absFrom * ctx.bb)))) + P.mwTighten * extra * P.mwCallTighten + mw,
     ) +
+    oc +
     (facingRaise ? P.raiseRespect[st] * (committed ? 0.5 : 1) : 0) +
     (ctx.raises >= 3 ? 0.08 : 0) +
     respect +
@@ -444,7 +452,7 @@ export function postflopPolicy(ctx, P, f) {
   const betFrac = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall);
   callThr = Math.min(
     callThr,
-    P.neverFold + respect + (facingRaise ? 0.1 : 0) + (ctx.raises >= 3 ? 0.08 : 0) + (ctx.shift || 0) + Math.min(P.floorCap, P.overFold * Math.max(0, Math.log2(betFrac)) + 0.5 * mw),
+    P.neverFold + respect + (facingRaise ? 0.1 : 0) + (ctx.raises >= 3 ? 0.08 : 0) + (ctx.shift || 0) + Math.min(P.floorCap, P.overFold * Math.max(0, Math.log2(betFrac)) + 0.5 * mw) + oc,
   );
   const raiseThr = P.raiseValue[st] + (facingRaise ? 0.07 : 0) + Math.max(0, respect) * 0.5;
 

@@ -12,7 +12,7 @@ test('ranges: presets are about the right width and nest tight < standard < loos
   const t = presetRanges('tight');
   const s = presetRanges('standard');
   const l = presetRanges('loose');
-  // Standard is hand-written now (notes/STRAT_RANGES.md, with the live pro's edits)
+  // Standard is hand-written now (STRAT's ranges, with the live pro's edits)
   const want = { early: 0.122, middle: 0.176, cutoff: 0.252, button: 0.351, sb: 0.273, bb: PRESETS.standard.bb };
   for (const [g] of RANGE_GROUPS) {
     assert.ok(Math.abs(shareOf(s[g]) - want[g]) < 0.005, `standard ${g}: ${shareOf(s[g])}`);

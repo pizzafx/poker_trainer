@@ -51,7 +51,7 @@ export function topShare(share) {
   return out;
 }
 
-// Standard first in, written out by hand (notes/STRAT_RANGES.md 1b with the live pro's edits,
+// Standard first in, written out by hand (STRAT's ranges 1b with the live pro's edits,
 // Nov 2026): every pair, the better suited hands, offsuit hands only from late position. All
 // raise-or-fold. The big blind's "first in" only matters when the pot is limped to it (it checks),
 // so it keeps the wide generated list.
@@ -118,7 +118,7 @@ export const PRESETS_RAISED = {
     sb: '99+ AJs+ KQs AQo+',
     bb: '55+ A9s+ KTs+ QTs+ JTs T9s AJo+ KQo',
   },
-  // notes/STRAT_RANGES.md 1e with the live pro's edit (no AJo on the button), Nov 2026
+  // STRAT's ranges 1e with the live pro's edit (no AJo on the button), Nov 2026
   standard: {
     early: '77+ AQs+ AKo',
     middle: '66+ AJs+ KQs AQo+',

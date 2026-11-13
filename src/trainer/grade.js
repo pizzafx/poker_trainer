@@ -201,7 +201,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     if (!mw) return null;
     if (ctx.toCall > 0 && onePair) return passiveLead ? 'passiveLead' : 'raiseCaller';
     if (ctx.toCall > 0 && draw) return 'drawRaise';
-    // A draw bet up to the pot that the anchors count as working is exempt (CEO, F04, with STRAT's
+    // A draw bet up to the pot that the anchors count as working is exempt (F04, with STRAT's
     // conditions): folds within 5 points of what it needs, or the draw's own equity covering it, the
     // same rule as anchorStatus for draws. Overbets keep the note.
     const supported = () => o.F !== undefined && betFrac(o) <= 1.05 && (o.F >= o.alpha - 0.05 || hf.drawEquity >= (o.need ?? 1 / (opp + 1)));
@@ -220,7 +220,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     const h = habitOf(mine);
     const ref = h ? bestOther() : -1;
     // Graded good, never flagged, never labelled best, with the note, only when the play scores at
-    // least as well as the best other option less the yellow bar (CEO, Nov 2026: the ruling covers
+    // least as well as the best other option less the yellow bar (Nov 2026: the ruling covers
     // plays the judge rates near the top, never real losses). Otherwise it is graded as usual against
     // the best option that is not one of these plays.
     if (h && ref >= 0) {

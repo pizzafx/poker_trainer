@@ -10,7 +10,7 @@
   --warn: #f2b04a;
   --bad: #f0685f;
   --stack: #f3f0e8;
-  /* brand palette (marketing ENG_HANDOFF 2.2) */
+  /* brand palette */
   --night: #0d1513;
   --panel-3: #22332e;
   --line-2: #3b5249;
@@ -1345,7 +1345,7 @@ a.brand:hover { color: var(--accent); }
 
 
 /* ================= brand overhaul, part 1: phone layout and first run =================
-   From marketing's ENG_HANDOFF (part 1). Layout only; colours are recoloured in part 2.
+   From the brand design (part 1). Layout only; colours are recoloured in part 2.
    Desktop (601px and up) keeps today's header and table; the shared pieces (folded seats, the
    first-visit hint, the Settings dialog) apply at every width. */
 
@@ -1477,7 +1477,7 @@ input.toggle:checked::after { left: 21px; background: var(--accent); }
 
 /* ================= brand overhaul, part 2: the table in the new look =================
    Colours come from the brand palette tokens in :root. These rules give the pieces their
-   brand roles (ENG_HANDOFF 2.2 to 2.5); later rules win over the older blocks above. */
+   brand roles; later rules win over the older blocks above. */
 
 body { background: radial-gradient(1200px 700px at 38% 30%, var(--c-15251f) 0%, transparent 60%), var(--night); }
 :focus-visible { outline-color: var(--signal); }
@@ -1938,7 +1938,7 @@ body:has(#modal:not(.hidden)) .seat .tip, body:has(#modal:not(.hidden)) .vpip-ti
 #actions.busy .act-row button { pointer-events: none; opacity: 0.55; }
 .toast.thinking .t-main { color: var(--slate); font-weight: 400; }
 
-/* ================= hand history and replayer (marketing/REPLAYER_HANDOFF.md) ================= */
+/* ================= hand history and replayer ================= */
 #replay-head, #replay-dock { display: none; }
 body.replaying #replay-head { display: flex; }
 body.replaying #replay-dock { display: grid; }
@@ -2125,7 +2125,7 @@ body.replaying #ranges .chips:has([data-street]) { display: none; }
 #elsewhere h1 { margin: 0 0 8px; font: 700 22px/1.25 var(--display); color: var(--chalk); }
 #elsewhere .sub { color: var(--slate); margin: 0 0 16px; }
 
-/* ---- the Hand log tab (REPLAYER_HANDOFF.md section 7) ---- */
+/* ---- the Hand log tab ---- */
 #log .hl-label { margin: 0 0 8px; font: 500 11px/1.2 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--signal); }
 #log .label { font: 500 11px/1.2 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--slate); }
 #log .hl-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
@@ -2191,7 +2191,7 @@ body.replaying #ranges .chips:has([data-street]) { display: none; }
 @media (max-width: 900px) { #log .hl-ln { min-height: 36px; } }
 
 
-/* ================= header v3 and the session placard (marketing/HEADER_HANDOFF.md) ================= */
+/* ================= header v3 and the session placard ================= */
 #top .grow { flex: 1; }
 #stats { display: none; }
 .top-actions .vsep { width: 1px; height: 22px; background: var(--line-2); margin: 0 4px; align-self: center; }
@@ -2365,7 +2365,7 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 .anchor-line .label { display: block; margin-bottom: 2px; font: 500 10.5px/1.2 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate); }
 @media (max-width: 600px) { .anchor-line .anchor-extra { display: none; } } /* phones: the line only (MATH: two lines at 375) */
 
-/* ================= "Your game": Game and My ranges tabs (marketing/RANGES_HANDOFF.md) ================= */
+/* ================= "Your game": Game and My ranges tabs ================= */
 #modal-box .sheet-x { display: none; }
 #modal-box .mtabs { display: flex; gap: 18px; margin: 4px 0 14px; border-bottom: 1px solid var(--line); }
 #modal-box .mtabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; min-height: 40px; padding: 8px 2px 9px; color: var(--slate); font-weight: 600; font-size: 15px; display: inline-flex; align-items: center; gap: 8px; }

@@ -116,6 +116,7 @@ export function gradeDecision(s, belief, action, judgeOpts, env) {
 // (FINAL, Nov 2026), R1-R11; the scenario test at the end is MATH_MULTIWAY 2b.
 export function temper(v, s, ctx, action, judgeOpts, env) {
   if (v.mine < 0) return;
+  v.small = Math.max(3 * s.bbAmt, 0.1 * v.pot); // the yellow bar, for the notes' copy
   const pre = s.street === STREET.PRE;
   const hf = pre ? null : handFeatures(s.hole[HERO], s.board);
   const weak = hf && hf.tier <= TIER.MIDDLE_PAIR;
@@ -374,7 +375,8 @@ export function temper(v, s, ctx, action, judgeOpts, env) {
     if (ctx.toCall > 0) {
       if (mw && bigger && mine.to >= 2.5 * s.currentBet - 0.5) return pass('sizeOk');
     } else {
-      if (bigger && betFrac(mine) >= (mw ? 0.45 : 0.6)) return pass('sizeOk');
+      // multiway on the river with one pair the floor is 30% of the pot (STRAT, Nov 2026: R01's $40)
+      if (bigger && betFrac(mine) >= (mw ? (river && onePair ? 0.3 : 0.45) : 0.6)) return pass('sizeOk');
       if (mw && bigger && tier < TIER.TOP_PAIR_GOOD) return pass('mwSize');
     }
     capYellow();

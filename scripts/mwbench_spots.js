@@ -126,9 +126,8 @@ export const EXPECT = {
   T03: { accept: ['check', 'bet'], note: { bet: 'mwHabit' }, neverBest: ['bet'], noGrade: true }, // owner: R7 note, never flagged; MATH: do not grade
   T04: { accept: ['bet:0.6-1.05'], flag: ['check'] },        // two pair: R1 does not apply; R8? pot 4.3bb → see ‡
   T05: { accept: ['call', 'fold', 'raise'], note: { raise: 'mwHabit' }, neverBest: ['raise'] }, // owner: R7 note, never flagged; R5b
-  // $40 (33% of the pot) is below R2's 45% floor with top pair good kicker: yellow at most, now that R12
-  // names $90, which beats it in every scenario.
-  R01: { accept: ['bet:0.45-0.8'], flag: ['check'], maxGrade: { check: 'mistake', 'bet:0.3-0.44': 'mistake' }, quote: 'bet:0.74' }, // owner: check yellow; R3 quotes $90, $60 good
+  // On the river with one pair the multiway sizing floor is 30% of the pot (STRAT, Nov 2026): $40 is good.
+  R01: { accept: ['bet:0.3-0.8'], flag: ['check'], maxGrade: { check: 'mistake' }, quote: 'bet:0.74' }, // owner: check yellow; R3 quotes $90, $60 good
   R02: { accept: ['check'] },
   // CEO, 13 Nov 2026 (QA M1): R7 waives only plays within the yellow bar of the best other option. The
   // $100 raise (+$3 over the call) keeps the note; the shove ($64 below the call) is graded, red.

@@ -634,7 +634,7 @@ const tipLine = (d, cls = 'tip-line') => (d.tip ? `<p class="${cls}"><b class="t
 function noteText(d) {
   if (d.tip || !d.verdict.note || !d.headline) return '';
   const k = d.headline.indexOf(': ');
-  const body = (k >= 0 ? d.headline.slice(k + 2) : d.headline).replace(/^(fine|good)\.\s*/, '').replace(/^\((.*)\)$/, '$1');
+  const body = (k >= 0 ? d.headline.slice(k + 2) : d.headline).replace(/^(fine|good|not graded)\.\s*/, '').replace(/^\((.*)\)$/, '$1');
   return body;
 }
 const noteLine = (d, cls) => {
@@ -817,7 +817,7 @@ function stripHtml(show, { worst, prev }) {
   const g = v.grade;
   const mine = v.options[v.mine];
   const tipping = g === 'good' && !!show.tipKind;
-  const word = g === 'good' ? (v.mine === v.best && !tipping && !v.note ? 'best play' : 'fine') : g; // with a tip or a note it is "fine", as the headline says (QA Z3, M4)
+  const word = g === 'good' ? (v.note === 'unclear' ? 'not graded' : v.mine === v.best && !tipping && !v.note ? 'best play' : 'fine') : g; // with a tip or a note it is "fine", as the headline says (QA Z3, M4)
   const cost = g === 'good' ? 0 : shownCost(v);
   const tipFn = g === 'good' && show.tipKind ? STRIP_TIP[show.tipKind] : null;
   const tip = g === 'good' && show.tipKind ? (tipFn && v.tip ? tipFn(v.tip) : 'Tip') : '';
@@ -1194,7 +1194,7 @@ function openReview(stored = false) {
   const rows = ds.map((d) => {
     const v = d.verdict;
     const mine = v.options[v.mine];
-    const head = `<span class="label">${STREET_LABEL[d.street] || d.streetName}</span><span class="vmark ${d.verdict.grade}">${MARK[v.grade]}</span><span class="what">${esc(mine ? mine.label : '')}</span><span class="grade ${v.grade}">${GRADE_WORD[v.grade]}</span>`;
+    const head = `<span class="label">${STREET_LABEL[d.street] || d.streetName}</span><span class="vmark ${d.verdict.grade}">${MARK[v.grade]}</span><span class="what">${esc(mine ? mine.label : '')}</span><span class="grade ${v.grade}">${v.note === 'unclear' ? 'not graded' : GRADE_WORD[v.grade]}</span>`;
     const link = rec ? `<button type="button" class="link-btn rv-replay" data-replay-dec="${ds.indexOf(d)}">▶ replay</button>` : '';
     if (v.grade === 'good') return `<div class="rv-step">${head}${link}</div>${tipLine(d, 'tip-line rv-tip')}${noteLine(d, 'tip-line rv-tip rv-note')}`;
     const evs = v.options.map((o) => o.ev);
@@ -2683,7 +2683,7 @@ function renderReplayCoach() {
     const d = rec.decisions[f.decision];
     const v = d.verdict;
     const mine = v.options[v.mine];
-    const head = `<div class="rp-card-head"><span class="vmark ${v.grade}">${MARK[v.grade]}</span><div><b>${esc(mine ? mine.label : '')}</b><small>${esc(actionSub(rec, f, RP.i))}</small></div><span class="grade ${v.grade}">${GRADE_WORD[v.grade]}</span></div>`;
+    const head = `<div class="rp-card-head"><span class="vmark ${v.grade}">${MARK[v.grade]}</span><div><b>${esc(mine ? mine.label : '')}</b><small>${esc(actionSub(rec, f, RP.i))}</small></div><span class="grade ${v.grade}">${v.note === 'unclear' ? 'not graded' : GRADE_WORD[v.grade]}</span></div>`;
     if (v.grade !== 'good') {
       html = `<div class="rp-card ${v.grade}">${head}<div class="rv-body">${flagBlock(d)}
         <div class="rv-acts">${d.villain ? `<button type="button" class="btn small" data-rseat="${d.villain.seat}">See ${esc(d.villain.nick)}'s range</button>` : ''}${d.category && DRILLS[d.category] ? `<button type="button" class="btn small" data-drill="${d.category}">Drill this leak</button>` : ''}${d.snapshot ? '<button type="button" class="btn small quiet" data-rdispute="1">Disagree?</button>' : ''}</div></div></div>`;
@@ -3017,7 +3017,7 @@ function handCardHtml(p) {
   const verdictOf = (d) => {
     if (!d) return '';
     const g = d.verdict.grade;
-    if (g === 'good') return `<span class="hl-v good"><span class="vmark good">${MARK.good}</span>${d.tipKind ? 'fine · tip' : 'fine'}</span>`;
+    if (g === 'good') return `<span class="hl-v good"><span class="vmark good">${MARK.good}</span>${d.verdict.note === 'unclear' ? 'not graded' : d.tipKind ? 'fine · tip' : 'fine'}</span>`;
     return `<span class="hl-v ${g}">${g === 'blunder' ? 'Blunder' : 'Mistake'} · ${money(d.cost)}${p.why ? ` <button type="button" class="link-btn hl-why" data-why="${decisions.indexOf(d)}">Why ›</button>` : ''}</span>`;
   };
   let heroN = 0;

@@ -140,10 +140,19 @@ const THEORY = {
   other: null,
 };
 
-function goodHeadline(v, mine, best) {
+// A note on a fine (or not graded) verdict never hides a gap above the yellow bar behind "a little",
+// "about the same" or "scores higher": it states the dollar figure, rounded as the bars show it
+// (STRAT, QA Q1, Nov 2026). `v.small` is the yellow bar the guardrails used.
+function goodHeadline(v, mine, best, d = {}) {
+  const gap = (o) => Math.max(0, Math.round(o.ev) - Math.round(mine.ev));
+  const bar = (o) => (v.small || 0) * (o.type === mine.type ? 1.6 : 1);
+  const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
+  // "scores about $X more", or the fallback wording when the gap is within the bar
+  const more = (o, within) => (gap(o) > bar(o) || !within ? (gap(o) > 0 ? `scores about $${gap(o)} more` : 'scores about the same') : within);
+  const who = d.opponents === 1 ? 'this player' : 'these players';
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
   if (v.note === 'premium') return `${mine.label}: fine. (Raising with this hand is never a mistake.)`;
-  if (v.note === 'preSize') return `${mine.label}: fine. (${bare(best)} scores about the same; using one size with all your hands is the better habit.)`;
+  if (v.note === 'preSize') return `${mine.label}: fine. (${bare(best)} ${more(best, 'scores about the same')}; using one size with all your hands is the better habit.)`;
   if (v.note === 'semiBluff') return `${mine.label}: fine. (With a draw this good, betting is standard against players who can fold.)`;
   if (v.note === 'flatOk') return `${mine.label}: fine. (Re-raising also works here.)`;
   if (v.note === 'callAlso') return `${mine.label}: fine. (Calling also works here.)`;
@@ -158,30 +167,45 @@ function goodHeadline(v, mine, best) {
   if (v.note === 'mwHabit') return `${mine.label}: fine. (${v.habitHigher ? 'It scores higher against these opponents; not a habit to build.' : 'It is close to the best here, but not a habit to build.'}${HABIT_WHY[v.habit] ? ' ' + HABIT_WHY[v.habit] : ''})`;
   if (v.note === 'mwCheck') {
     const m = v.mw || {};
-    const who = v.thin && v.thin.nick ? `Against ${v.thin.nick}, a bet` : 'A bet';
-    return `${mine.label}: fine. (${who} of about $${m.to ?? bare(best).replace(/^\D+/, '')} does about $${Math.max(0, m.gain || 0)} better here. With ${m.players || 'several'} players in, a check is defensible; a bet is the more profitable habit.)`;
+    const whoBet = v.thin && v.thin.nick ? `Against ${v.thin.nick}, a bet` : 'A bet';
+    return `${mine.label}: fine. (${whoBet} of about $${m.to ?? bare(best).replace(/^\D+/, '')} does about $${Math.max(0, m.gain || 0)} better here. With ${m.players || 'several'} players in, a check is defensible; a bet is the more profitable habit.)`;
   }
-  if (v.note === 'mwDraw') return `${mine.label}: fine. (With a draw and several players in, checking or calling is standard; ${bare(best).toLowerCase()} scores higher against these opponents.)`;
-  if (v.note === 'mwSize') return `${mine.label}: fine. (A bigger bet rates higher, but with several players in and this hand, a small bet is reasonable.)`;
-  if (v.note === 'tinyPot') return `${mine.label}: fine. (A bet rates a little higher, but in a pot this small it is not worth a flag.)`;
+  if (v.note === 'mwDraw') return `${mine.label}: fine. (With a draw and several players in, checking or calling is standard; ${bare(best).toLowerCase()} ${more(best)} against these opponents.)`;
+  if (v.note === 'mwSize') return `${mine.label}: fine. (A bigger bet ${more(top, 'rates a little higher')}, but with several players in and this hand, a small bet is reasonable.)`;
+  if (v.note === 'tinyPot') return `${mine.label}: fine. (A bet ${more(best, 'rates a little higher')}, but in a pot this small it is not worth a flag.)`;
   if (v.note === 'foldsBetter') return `${mine.label}: fine. (A bet here mostly folds the better hands; checking is the habit to keep.)`;
   if (v.note === 'passiveFold') return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`;
-  if (v.note === 'unclear') return `${mine.label}: fine. (The best play here changes with small differences in how these players play, so it is not graded.)`;
+  if (v.note === 'unclear') {
+    // labelled "not graded", not "fine"
+    const g = gap(best);
+    return `${mine.label}: not graded. ${g > 0 && best !== mine ? `${bare(best)} scores about $${g} more on our read; the` : 'The'} best play changes with small differences in how ${who} play${d.opponents === 1 ? 's' : ''}.`;
+  }
   if (v.note === 'checkOOP') return `${mine.label}: fine. (With several players or the preflop raiser still to act behind you, checking one pair is standard.)`;
-  if (v.note === 'sizeCheck') return `${mine.label}: fine. (A bet of up to three-quarters of the pot rates about the same.)`;
-  if (v.note === 'callPrice') return `${mine.label}: fine. (Folding rates a little higher, but this call can only cost its price; later decisions are graded when you make them.)`;
-  if (v.note === 'bluffRaise') return `${mine.label}: fine. (The simulation likes a bluff-raise here, but that only works on these bots; it is not a habit to build.)`;
-  if (v.note === 'overbet') return `${mine.label}: fine. (A bet bigger than the pot scores higher against these bots; a pot-sized bet or smaller is all you are held to.)`;
-  if (v.note === 'preBluff') return `${mine.label}: fine. (A re-raise bluff scores higher against these bots; it is not a habit to build.)`;
+  if (v.note === 'sizeCheck') return `${mine.label}: fine. (A bet of up to three-quarters of the pot ${more(best, 'rates about the same')}.)`;
+  if (v.note === 'callPrice') return `${mine.label}: fine. (Folding ${more(best, 'rates a little higher')}, but this call can only cost its price; later decisions are graded when you make them.)`;
+  if (v.note === 'bluffRaise') return `${mine.label}: fine. (A bluff-raise ${more(top)} against these bots, but that only works on bots; it is not a habit to build.)`;
+  if (v.note === 'overbet') return `${mine.label}: fine. (A bet bigger than the pot ${more(top)} against these bots; a pot-sized bet or smaller is all you are held to.)`;
+  if (v.note === 'preBluff') return `${mine.label}: fine. (A re-raise bluff ${more(top)} against these bots; it is not a habit to build.)`;
   if (v.note === 'preFold') return `${mine.label}: fine.`;
-  if (v.note === 'sizeOk') return `${mine.label}: fine. (A bigger bet scores a little higher, but this is a real value size.)`;
-  if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A bluff scores higher against these bots; not enough to rely on at a real table.)`;
-  if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} scores higher, but not under every reasonable read of these players.)`;
-  if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} rates about the same.)`;
+  if (v.note === 'sizeOk') {
+    // the range over the bigger sizes that score more, and why
+    const bigger = v.options.filter((o) => o.type === 'raise' && o.to > mine.to && gap(o) > 0).map(gap);
+    const lo = Math.min(...bigger);
+    const hi = Math.max(...bigger);
+    const frac = mine.to / Math.max(1, v.pot);
+    const size = frac < 0.42 ? 'a third of the pot' : frac < 0.62 ? 'half pot' : frac < 0.85 ? 'three-quarters of the pot' : 'a pot-sized bet';
+    const into = d.opponents >= 2 ? ` into ${NUM_WORDS[d.opponents] || d.opponents} players` : '';
+    if (!bigger.length) return `${mine.label}: fine. (This is a sound value size${into}.)`;
+    return `${mine.label}: fine. (Bigger bets score about ${lo === hi ? `$${lo}` : `$${lo}–${hi}`} more against these opponents, mostly because they call too often; ${size} is a sound value size${into}.)`;
+  }
+  if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A bluff ${more(top)} against these bots; not enough to rely on at a real table.)`;
+  if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read, so it is not graded.)`;
+  if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')}.)`;
   const rivals = v.options.filter((o, i) => i !== v.best && o.close);
   if (!rivals.length) return `${mine.label}: the best play here.`;
   return `${mine.label}: good. (${rivals.length === 1 ? bare(rivals[0]) + ' rates' : 'Other options rate'} about the same.)`;
 }
+const NUM_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
 
 // What a flagged play cost, as shown: the gap between the two options' values in whole dollars,
 // each rounded the way the numbers table and the bars show them, so the three always agree and
@@ -200,7 +224,7 @@ export function explain(d) {
   if (v.grade === 'good') {
     return {
       category: null,
-      headline: goodHeadline(v, mine, best),
+      headline: goodHeadline(v, mine, best, d),
       reasons: [],
       theory: null,
       cost: 0,

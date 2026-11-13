@@ -41,8 +41,23 @@ const put = (p, text) => {
   all.sort();
   const h = createHash('sha256');
   for (const f of all) h.update(f).update(readFileSync(join(root, f)));
-  const map = Object.fromEntries(all.map((f) => [f, hash(f)]));
-  put('src/trainer/version.js', `// Written by scripts/stamp.js: a build id over every module under src/, and each module's hash\n// (the judge worker checks the modules it loaded against these).\nexport const BUILD = '${h.digest('hex').slice(0, 12)}';\nexport const HASHES = ${JSON.stringify(map, null, 1)};\n`);
+  // Only the modules the worker itself imports (followed from judge.worker.js), not the page's own
+  // modules: a stale cached copy of a file the worker never loads must not switch it off. The worker
+  // file is loaded with ?v= and version.js is checked through BUILD, so neither is listed.
+  const workerDeps = new Set();
+  const follow = (file) => {
+    const src = readFileSync(join(root, file), 'utf8');
+    for (const m of src.matchAll(/(?:import|export)[^'"]*?from\s*['"](\.{1,2}\/[^'"]+)['"]/g)) {
+      const dep = join(file, '..', m[1]).replace(/\\/g, '/');
+      if (workerDeps.has(dep)) continue;
+      workerDeps.add(dep);
+      follow(dep);
+    }
+  };
+  follow('src/trainer/judge.worker.js');
+  workerDeps.delete('src/trainer/version.js');
+  const map = Object.fromEntries([...workerDeps].sort().map((f) => [f, hash(f)]));
+  put('src/trainer/version.js', `// Written by scripts/stamp.js: a build id over every module under src/, and the hash of each module\n// the judge worker imports (it checks the copies it loaded against these).\nexport const BUILD = '${h.digest('hex').slice(0, 12)}';\nexport const HASHES = ${JSON.stringify(map, null, 1)};\n`);
 }
 
 // 1. fonts.css points at the font files with their versions.

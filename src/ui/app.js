@@ -14,6 +14,7 @@ import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '..
 import { RANGE_GROUPS, presetRanges, presetRaised, shareOf, previousStandard } from '../trainer/ranges.js';
 import { equityVsRange } from '../trainer/equity.js';
 import { BUILD } from '../trainer/version.js';
+import { keepHand, saveSession, loadSession, clearSession } from './store.js';
 
 const $ = (id) => document.getElementById(id);
 const HERO = 0;
@@ -1140,13 +1141,49 @@ function exitDrill() {
   advance();
 }
 
+// Every hand you play is kept for the hand history, and the session is saved as each hand ends,
+// so a reload carries on from the next hand.
+let kept = true; // did the last save work? (if not, leaving asks first)
+let saving = null;
+function keepPlaying(s) {
+  s.onHandEnd = (rec) => {
+    keepHand(rec);
+    if (saving) return;
+    saving = setTimeout(async () => {
+      saving = null;
+      kept = await saveSession(s.toSaved());
+    }, 0);
+  };
+}
+
 function newSession() {
   clearTimeout(timer);
   drill = null;
   mainSess = null;
   sess = new Session(sessionOpts());
+  keepPlaying(sess);
+  clearSession();
   pastLog = [];
   sess.startPlayable();
+  advance();
+}
+
+// After a reload: the saved session if there is one, from the next hand; otherwise a new one.
+async function resumeOrNew() {
+  const saved = await loadSession();
+  if (!saved) return newSession();
+  try {
+    sess = Session.fromSaved(saved);
+  } catch {
+    return newSession();
+  }
+  const o = sessionOpts();
+  sess.heroRanges = o.heroRanges;
+  sess.heroRangesRaised = o.heroRangesRaised;
+  keepPlaying(sess);
+  pastLog = [];
+  sess.startPlayable();
+  sess.news.unshift(`Welcome back: your session carries on at hand ${sess.handNo}.`);
   advance();
 }
 
@@ -1880,10 +1917,13 @@ function demo(seed) {
 }
 
 const demoSeed = new URLSearchParams(location.search).get('demo');
-// The session lives only in this page: once you have played, ask before a reload or leaving throws it away.
+// The session is kept on this device between hands, so leaving costs at most the hand in play.
+// Only when that could not be kept, or a hand you have acted in is still going, ask first.
 addEventListener('beforeunload', (e) => {
   const s = mainSess || sess;
   if (demoSeed !== null || !s || !s.decisions.length) return;
+  const midHand = s.hand && !s.hand.over && s.hand.decisions.length > 0;
+  if (kept && !midHand) return;
   e.preventDefault();
   e.returnValue = '';
 });
@@ -1895,5 +1935,5 @@ else {
     saveSettings();
     startHints();
   }
-  newSession();
+  resumeOrNew();
 }

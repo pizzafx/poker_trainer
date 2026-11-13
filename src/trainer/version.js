@@ -1,2 +1,2 @@
 // Written by scripts/stamp.js: a build id over every module under src/.
-export const BUILD = '896add6ebd43';
+export const BUILD = '857a2e64f6a9';

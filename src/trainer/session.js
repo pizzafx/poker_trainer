@@ -88,6 +88,13 @@ export class Session {
     this.button = Math.floor(this.rng() * this.n);
     this.handNo = 0;
     this.started = false; // has a hand been dealt for the trainee to play yet?
+    this.id = `${Date.now().toString(36)}-${Math.floor(this.rng() * 1e9).toString(36)}`;
+    this.startedAt = Date.now();
+    // onHandEnd(record) is called as each hand ends (the page keeps them); `quiet` hands (quick sim,
+    // hands folded before the session starts) are not reported.
+    this.onHandEnd = null;
+    this.quiet = false;
+    this.foldingOut = false;
     this.hand = null;
     this.news = []; // table happenings between hands
     this.decisions = []; // every judged decision this session
@@ -278,6 +285,7 @@ export class Session {
     if (s.street === STREET.PRE) pol = preflopPolicy(ctx, P, classOf(s.hole[seat][0], s.hole[seat][1]));
     else pol = postflopPolicy(ctx, P, handFeatures(s.hole[seat], s.board, boardTexture(s.board)));
     const action = sampleAction(pol, this.rng);
+    if (ctx.heat) (h.heatAt ||= {})[s.history.length] = ctx.heat; // for replaying the reads later
     h.belief.observe(seat, ctx, action);
     const before = { ...s, button: s.button };
     applyAction(s, action, this.rng);
@@ -417,6 +425,69 @@ export class Session {
     }
     h.summary = { net: r.net[HERO], showdown: r.showdown };
     this.results.push(r.net[HERO]);
+    if (this.onHandEnd && !this.quiet) this.onHandEnd(this.foldingOut ? { kind: 'skip', session: this.id, no: this.handNo } : this.handRecord());
+  }
+
+  // Everything the hand history and the replayer need about the hand just finished, as plain data.
+  // Verdicts are kept as the coach gave them; ranges are rebuilt from the reads at the start of the
+  // hand by replaying the actions (see replay.js).
+  handRecord() {
+    const h = this.hand;
+    const s = h.state;
+    const r = s.result;
+    const strip = (d) => {
+      const { ctx, ...rest } = d;
+      return { ...rest, faced: { toCall: ctx.toCall, pot: ctx.pot, raises: ctx.raises, aggressor: ctx.aggressor } };
+    };
+    return {
+      kind: 'hand',
+      v: 1,
+      session: this.id,
+      sitting: { at: this.startedAt, sb: this.game.sb, bb: this.game.bb, home: !!this.lineup },
+      at: Date.now(),
+      no: h.no,
+      n: s.n,
+      button: s.button,
+      sb: s.sbAmt,
+      bb: s.bbAmt,
+      straddle: s.straddleAmt,
+      rake: s.rake,
+      startStacks: s.startStacks.slice(),
+      seats: this.seats.map((p, i) => ({ nick: p.nick, hero: !!p.hero, lookId: p.lookId || null, hue: p.hue ?? null, look: p.look || null, read: p.hero ? null : Array.from(p.read.handStart) })),
+      hole: s.hole.map((c) => c.slice()),
+      board: s.board.slice(),
+      history: s.history.map((e) => ({ ...e })),
+      log: h.log.map((e) => ({ ...e })),
+      decisions: h.decisions.map(strip),
+      heatAt: h.heatAt || null,
+      result: { net: r.net.slice(), won: r.won.slice(), rake: r.rake, showdown: r.showdown, folded: s.folded.slice() },
+    };
+  }
+
+  // ---- keeping a session across a reload ----
+  // A plain copy of the session between hands (no random-number generator, no hand in progress).
+  toSaved() {
+    const { rng, hand, onHandEnd, ...rest } = this;
+    // each profile's cache of tilted versions is rebuilt when needed
+    const seats = this.seats.map((p) => (p.profile ? { ...p, profile: { ...p.profile, tiltVersions: undefined } } : p));
+    // fine decisions keep what Leak review and the totals use; only flagged ones keep their report
+    const decisions = this.decisions.map((d) => {
+      const { ctx, snapshot, truth, ...keep } = d;
+      return d.verdict.grade === 'good' ? keep : { ...keep, snapshot, truth };
+    });
+    return { ...rest, seats, decisions, savedAt: Date.now() };
+  }
+
+  static fromSaved(o) {
+    const sess = Object.create(Session.prototype);
+    Object.assign(sess, o);
+    sess.rng = makeRng((Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) & 0x7fffffff);
+    sess.hand = null;
+    sess.onHandEnd = null;
+    sess.quiet = false;
+    sess.foldingOut = false;
+    sess.news = [];
+    return sess;
   }
 
   // Short description of how a player played the hand, for showdown notes.
@@ -551,6 +622,7 @@ export class Session {
 
   // Plays the hand out with the trainee checking when free and folding otherwise.
   foldOut() {
+    this.foldingOut = true;
     let guard = 0;
     while (this.status() !== 'over' && guard++ < 500) {
       if (this.status() === 'bot') {
@@ -564,6 +636,7 @@ export class Session {
       applyAction(s, action, this.rng);
       this.logAction(HERO, before, action, ctx);
     }
+    this.foldingOut = false;
   }
 
   // Starts the next hand worth playing: junk hands are folded for you and still count
@@ -575,6 +648,8 @@ export class Session {
     let skipped = 0;
     const first = !this.started;
     this.started = true;
+    const quiet = this.quiet;
+    if (first) this.quiet = true; // hands folded before the first one you play are not counted
     this.startHand();
     while ((this.heroRanges || this.skipBelow > 0) && !this.hand.over && (this.heroRanges ? this.outOfRange() : this.isJunk()) && skipped < 60) {
       news.push(...this.news);
@@ -588,6 +663,7 @@ export class Session {
       }
       this.startHand();
     }
+    this.quiet = quiet;
     if (first && skipped) {
       this.handNo = 1;
       this.hand.no = 1;
@@ -655,11 +731,14 @@ export class Session {
 
   // Plays some hands unattended so the table has history and reads before a drill starts.
   warmUp(hands) {
+    const quiet = this.quiet;
+    this.quiet = true; // not hands you played
     for (let h = 0; h < hands; h++) {
       this.freshStack();
       this.startHand();
       this.finishAuto();
     }
+    this.quiet = quiet;
   }
 
   // Fast-forward: play `hands` hands unattended to build up observations of the table, then

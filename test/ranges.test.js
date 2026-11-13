@@ -98,7 +98,8 @@ test('ranges: facing a raise at your first decision, only hands in that range re
   const sess = new Session({ seed: 21, samples: 20, heroRanges: all, heroRangesRaised: tight });
   let raised = 0;
   let unraised = 0;
-  for (let i = 0; i < 150; i++) {
+  // Until a few raised spots have come up (TT+/AK facing a raise is rare: about 1 deal in 60).
+  for (let i = 0; i < 600 && (raised < 3 || i < 150); i++) {
     sess.startPlayable();
     while (sess.status() === 'bot') sess.stepBot();
     if (sess.status() !== 'hero') continue;

@@ -129,6 +129,40 @@ export function buildContext(s, seat = s.toAct) {
   ctx.inPosition = behind === 0;
   ctx.aggressorBehind = aggBehind;
   ctx.spr = pot > 0 ? s.stacks[seat] / pot : 99;
+  // Multiway (POOL, Nov 2026): callers already in on this bet, players still to act behind me on it,
+  // whether I bet this street, whether anyone raised before the flop, and whether the board is wet
+  // (two of a suit or more, and three ranks inside one five-rank window).
+  let afterBet = false;
+  let callersIn = 0;
+  for (const h of s.history) {
+    if (h.street !== s.street) continue;
+    if (h.type === 'bet' || h.type === 'raise') {
+      afterBet = true;
+      callersIn = 0;
+    } else if (afterBet && h.type === 'call') callersIn++;
+  }
+  let toActBehind = 0;
+  for (let i = 0; i < n; i++) if (i !== seat && i !== s.lastRaiser && !s.folded[i] && !s.allIn[i] && !s.acted[i]) toActBehind++;
+  ctx.callersIn = callersIn;
+  ctx.iBetThisStreet = s.history.some((h) => h.street === s.street && h.seat === seat && (h.type === 'bet' || h.type === 'raise'));
+  ctx.preflopRaised = s.history.some((h) => h.street === STREET.PRE && h.type === 'raise');
+  {
+    const suits = [0, 0, 0, 0];
+    let mask = 0;
+    for (const c of s.board) {
+      suits[c & 3]++;
+      mask |= 1 << (c >> 2);
+    }
+    const ranks = ((mask << 1) | ((mask >> 12) & 1)) & 0x3fff; // aces count low too
+    let connected = 0;
+    for (let lo = 0; lo <= 9; lo++) {
+      let k = 0;
+      for (let i = 0; i < 5; i++) if (ranks & (1 << (lo + i))) k++;
+      if (k > connected) connected = k;
+    }
+    ctx.wet = Math.max(...suits) >= 2 && connected >= 3;
+  }
+  ctx.toActBehind = ctx.toCall > 0 ? toActBehind : 0;
   return ctx;
 }
 
@@ -207,7 +241,8 @@ export function preflopPolicy(ctx, P, cls) {
     raise = inTop(rp, width);
     if (rp > 0.99) raise *= 1 - P.limpTrap;
     const playWidth = P.vpip[ctx.pos] * (1 + 0.06 * ctx.limpers);
-    const enter = Math.max(raise, inTop(pp, playWidth), rp > 0.99 ? 1 : 0);
+    // A7 (POOL, Nov 2026): gamblers and beginners sometimes play any two cards; those hands limp.
+    const enter = Math.max(raise, inTop(pp, playWidth), rp > 0.99 ? 1 : 0, P.anyTwo);
     const limpShare = ctx.limpers ? P.overLimp : P.openLimp;
     // The small blind completes cheaply; the big blind checks for free.
     const cheap = ctx.pos === POS.SB ? Math.max(limpShare, 0.6) : limpShare;
@@ -223,6 +258,7 @@ export function preflopPolicy(ctx, P, cls) {
     if (ctx.iLimped) width *= P.limpCall;
     if (ctx.toCall >= 0.35 * (ctx.stack + ctx.myBet)) width = Math.min(width, P.stackOff * depth * 2);
     call = (1 - raise) * inTop(Math.max(pp, rp), width);
+    call = Math.max(call, 0.5 * P.anyTwo * (1 - raise)); // A7: and call one raise half as often
   } else {
     // Facing a 3-bet or more.
     const mix = 0.5 * (rp + pp);
@@ -331,18 +367,28 @@ export function postflopPolicy(ctx, P, f) {
   const out = { fold: 0, check: 0, call: 0, raise: 0, sizes: null };
 
   if (ctx.toCall === 0) {
-    const valueThr = P.valueBet[st] + P.mwTighten * extra + valueShiftFor(P, ctx);
+    // M7a: a passive player's bet into two or more on the turn or river, and any lead into the previous
+    // street's aggressor, needs a real hand.
+    const m7 = (st > 0 ? P.mwPassiveValue * extra : 0) + (ctx.aggressorBehind ? P.leadIntoRaiser : 0);
+    const valueThr = P.valueBet[st] + P.mwTighten * extra + valueShiftFor(P, ctx) + m7;
     let pValue = soft(S, valueThr, 0.035);
     if (f.tier >= TIER.STRONG) pValue *= 1 - P.slowplay * (st < 2 ? 1 : 0.25);
-    if (ctx.aggressorBehind) pValue *= P.donk;
+    // M5: strong hands trap out of position multiway, by where the preflop raiser sits; half as
+    // often on a wet board. Trapping only ever adds checks.
+    if (P.mwTrap3 && !ctx.inPosition && extra >= 1 && f.tier >= TIER.STRONG && st < 2) {
+      let rate = ctx.aggressorBehind ? P.mwTrap3[0] : ctx.initiative ? P.mwTrap3[1] : P.mwTrap3[2];
+      if (ctx.wet) rate *= 0.5;
+      pValue *= ctx.aggressorBehind ? Math.min(P.donk, 1 - rate) : 1 - rate;
+    } else if (ctx.aggressorBehind) pValue *= P.donk;
 
     let bluff;
     if (ctx.initiative) bluff = st === 0 ? P.cbet[Math.min(extra, 2)] : P.barrel[st - 1];
-    else if (ctx.aggressorBehind) bluff = P.stab[st] * 0.25;
+    else if (ctx.aggressorBehind) bluff = P.stab[st] * 0.25 * P.leadBluffMult; // M7d: passive players rarely bluff-lead into the raiser
     else if (ctx.prevChecked || ctx.inPosition) bluff = P.stab[st];
     else bluff = P.stab[st] * 0.5;
     if (st > 0 || !ctx.initiative) bluff *= Math.pow(1 - P.mwBluffCut, extra);
-    if (st < 2 && f.drawEquity >= 0.14) bluff = Math.max(bluff, P.semiBluff * (ctx.aggressorBehind ? 0.4 : 1));
+    // M3: semi-bluffs fall off multiway too, and gutshots (under a quarter of equity) at half the rate.
+    if (st < 2 && f.drawEquity >= 0.14) bluff = Math.max(bluff, P.semiBluff * (ctx.aggressorBehind ? 0.4 : 1) * Math.pow(1 - 0.5 * P.mwBluffCut, extra) * (f.drawEquity < 0.25 ? 0.5 : 1));
     // Hands with showdown value mostly check.
     if (f.tier >= TIER.TOP_PAIR_WEAK) bluff *= 0.12;
     else if (f.tier >= TIER.WEAK_PAIR) bluff *= 0.3;
@@ -362,6 +408,16 @@ export function postflopPolicy(ctx, P, f) {
 
   // Facing a bet or raise.
   const facingRaise = ctx.raises >= 2;
+  // M1: someone behind or already in may have it: a penalty per player, tapered for careful types.
+  const k = (ctx.toActBehind || 0) + (ctx.callersIn || 0);
+  let mw = 0;
+  if (P.mwSteps) {
+    for (let i = 0; i < k; i++) mw += P.mwSteps[Math.min(i, P.mwSteps.length - 1)];
+    mw = Math.min(mw, P.mwCap);
+  } else mw = P.mwBehind * (ctx.toActBehind || 0) + P.mwCaller * (ctx.callersIn || 0);
+  // M7c: river overcalls behind a bet and a call need a real hand; M7b: raised after leading this street.
+  if (st === 2 && ctx.callersIn > 0) mw += P.mwRiverCaller * ctx.callersIn;
+  if (facingRaise && ctx.iBetThisStreet) mw += P.ledRaiseRespect;
   const respect = respectFor(P, ctx, st);
   // Pot-committed: when the call is small next to the pot, the dollar amount stops mattering.
   const committed = ctx.odds < 0.25;
@@ -371,8 +427,11 @@ export function postflopPolicy(ctx, P, f) {
     P.callThr[st] +
     Math.min(P.sizeCap, P.sizeSens * (ctx.odds - 0.25)) +
     // The more real money a call costs, the more hand people want, whatever the pot odds.
-    (committed ? 0 : P.absSens * Math.max(0, Math.log2(ctx.toCall / (P.absFrom * ctx.bb)))) +
-    P.mwTighten * extra * 0.5 +
+    // Safeguard 1: the money term and the multiway terms are summed and capped, so they cannot stack into a cliff.
+    Math.min(
+      P.penaltyCap,
+      (committed ? 0 : P.absSens * Math.max(0, Math.log2(ctx.toCall / (P.absFrom * ctx.bb)))) + P.mwTighten * extra * P.mwCallTighten + mw,
+    ) +
     (facingRaise ? P.raiseRespect[st] * (committed ? 0.5 : 1) : 0) +
     (ctx.raises >= 3 ? 0.08 : 0) +
     respect +
@@ -385,7 +444,7 @@ export function postflopPolicy(ctx, P, f) {
   const betFrac = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall);
   callThr = Math.min(
     callThr,
-    P.neverFold + respect + (facingRaise ? 0.1 : 0) + (ctx.raises >= 3 ? 0.08 : 0) + (ctx.shift || 0) + P.overFold * Math.max(0, Math.log2(betFrac)),
+    P.neverFold + respect + (facingRaise ? 0.1 : 0) + (ctx.raises >= 3 ? 0.08 : 0) + (ctx.shift || 0) + Math.min(P.floorCap, P.overFold * Math.max(0, Math.log2(betFrac)) + 0.5 * mw),
   );
   const raiseThr = P.raiseValue[st] + (facingRaise ? 0.07 : 0) + Math.max(0, respect) * 0.5;
 
@@ -399,12 +458,13 @@ export function postflopPolicy(ctx, P, f) {
     const need = ctx.odds * P.chase;
     pCont = Math.max(pCont, soft(f.drawEquity, need, 0.03));
   }
-  if (st === 0 && ctx.inPosition && !facingRaise && ctx.odds <= 0.3) pCont = Math.max(pCont, P.float);
+  if (st === 0 && ctx.inPosition && !facingRaise && ctx.odds <= 0.3) pCont = Math.max(pCont, P.float * Math.pow(1 - P.mwBluffCut, extra)); // M4
   let pBluffRaise = 0;
   if (S < callThr) {
     pBluffRaise = P.raiseBluff[st];
     if (st < 2 && f.drawEquity >= 0.3) pBluffRaise = Math.max(pBluffRaise, P.raiseBluff[st] * 3 + P.semiBluff * 0.15);
     if (facingRaise) pBluffRaise *= 0.4;
+    pBluffRaise *= Math.pow(1 - (P.mwRaiseCut ?? P.mwBluffCut), extra); // M2
     // R1 (POOL, Nov 2026): big raises are value at these tables, so a bluff-raise that would put in
     // 40% of the stack or more (or all of it) is rare, except from a maniac.
     if (ctx.canRaise) {

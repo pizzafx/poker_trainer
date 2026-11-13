@@ -58,6 +58,22 @@ const BASE = {
   float: 0.06, // flop call in position with nothing
   raiseValue: [0.8, 0.82, 0.88], // minimum strength to raise
   raiseBluff: [0.03, 0.02, 0.004], // chance to raise as a bluff
+  // --- multiway (POOL_FINAL_HANDOFF, Nov 2026; defaults keep the old behaviour) ---
+  mwSteps: null, // taper of the multiway call penalty: the k-th extra player behind or caller in adds mwSteps[min(k, len-1)]
+  mwCap: 1, // cap on the mwSteps sum
+  mwBehind: 0, // linear per-player penalties for types with no taper (station, whale, maniac): per player still to act behind
+  mwCaller: 0, // ...and per caller already in
+  mwCallTighten: 0.5, // share of mwTighten applied to calls
+  mwRiverCaller: 0, // extra river penalty per caller already in
+  mwRaiseCut: null, // multiway cut on bluff-raises (null: mwBluffCut)
+  mwTrap3: null, // out-of-position multiway trap rates with strong hands: [raiser behind, I am the raiser, other]
+  mwPassiveValue: 0, // value-threshold increase per extra opponent for turn and river bets
+  leadIntoRaiser: 0, // value-threshold increase for any lead into the previous street's aggressor
+  ledRaiseRespect: 0, // call-threshold increase when raised after leading this street
+  leadBluffMult: 1, // multiplier on bluff-leads into the aggressor
+  penaltyCap: 0.14, // cap on (money term + multiway terms) in the call threshold (MATH safeguard 1)
+  floorCap: 0.08, // cap on (overFold term + multiway floor term) in the never-fold floor (safeguard 1)
+  anyTwo: 0, // A7: share of out-of-range hands that still limp or call one raise ('any two cards')
   jamBluffMult: 0.25, // R1: bluff-raises that would be all-in or 40%+ of the stack are this much as likely
   raiseRespect: [0.12, 0.17, 0.24], // extra strength needed to continue against a raise
   minRaise: 0.2, // share of raises that are small "click-backs"
@@ -73,7 +89,7 @@ const DEFS = {
     name: 'Tight-passive nit',
     blurb: 'Waits for big hands. Limps a lot, rarely raises, and when the money goes in he has it.',
     share: 0.13,
-    vpip: [0.12, 0.14, 0.17, 0.15, 0.2],
+    vpip: [0.15, 0.16, 0.18, 0.17, 0.22], // POOL A2, Nov 2026: was [0.12, 0.14, 0.17, 0.15, 0.2]
     pfr: [0.054, 0.063, 0.081, 0.036, 0.036],
     isoFactor: 0.6,
     openLimp: 0.9,
@@ -113,18 +129,23 @@ const DEFS = {
     sizeThin: [0.25, 0.5, 0.25, 0, 0],
     sizeBluff: [0.35, 0.45, 0.2, 0, 0],
     overFold: 0.05, // POOL P1v2, Nov 2026: was 0.03
+    mwSteps: [0.05, 0.03, 0.02], // POOL M, Nov 2026 (was the shared default)
+    mwCap: 0.1, // POOL M, Nov 2026 (was the shared default)
+    mwCallTighten: 0.25, // POOL M, Nov 2026 (was the shared default)
+    mwRaiseCut: 0.85, // POOL M, Nov 2026 (was the shared default)
+    mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   abc: {
     name: 'Straightforward recreational',
     blurb: 'Plays his cards face up: bets when he hits, gives up when he misses, limps along a lot.',
-    share: 0.235,
-    vpip: [0.26, 0.29, 0.34, 0.32, 0.38],
+    share: 0.315, // POOL share, Nov 2026: was 0.235
+    vpip: [0.41, 0.42, 0.44, 0.43, 0.48], // POOL A2, Nov 2026: was [0.26, 0.29, 0.34, 0.32, 0.38]
     pfr: [0.08, 0.096, 0.144, 0.064, 0.048],
     openLimp: 0.85,
     sizeTell: 0.55,
     callRaise: 0.2,
     callElastic: 0.3, // POOL A5, Nov 2026: was 0.45
-    limpCall: 0.9,
+    limpCall: 1.25, // POOL A2, Nov 2026: was 0.9
     threeBet: 0.013,
     callThreeBet: 0.05,
     stackOff: 0.012,
@@ -145,12 +166,19 @@ const DEFS = {
     minRaise: 0.3,
     absSens: 0.08,
     neverFold: 0.62, // POOL P1v2, Nov 2026 (was the shared default)
+    mwSteps: [0.02, 0.01], // POOL M, Nov 2026 (was the shared default)
+    mwCap: 0.04, // POOL M, Nov 2026 (was the shared default)
+    mwTrap3: [0.3, 0.05, 0.12], // POOL M, Nov 2026 (was the shared default)
+    mwPassiveValue: 0.08, // POOL M, Nov 2026 (was the shared default)
+    leadIntoRaiser: 0.08, // POOL M, Nov 2026 (was the shared default)
+    ledRaiseRespect: 0.15, // POOL M, Nov 2026 (was the shared default)
+    leadBluffMult: 0.25, // POOL M, Nov 2026 (was the shared default)
   },
   station: {
     name: 'Loose-passive calling station',
     blurb: 'Sees a lot of flops and hates folding a pair or a draw. Rarely raises without a big hand.',
-    share: 0.3,
-    vpip: [0.5, 0.53, 0.58, 0.55, 0.62],
+    share: 0.22, // POOL share, Nov 2026: was 0.3
+    vpip: [0.66, 0.67, 0.69, 0.68, 0.72], // POOL A2, Nov 2026: was [0.5, 0.53, 0.58, 0.55, 0.62]
     pfr: [0.035, 0.04, 0.055, 0.03, 0.025],
     isoFactor: 0.6,
     openLimp: 1,
@@ -160,7 +188,7 @@ const DEFS = {
     callRaise: 0.31, // POOL A6, Nov 2026: was 0.34
     callElastic: 0.1, // POOL A5, Nov 2026: was 0.25
     callCrowd: 0.15,
-    limpCall: 0.9,
+    limpCall: 1.15, // POOL A2, Nov 2026: was 0.9
     threeBet: 0.011,
     callThreeBet: 0.09,
     fourBet: 0.006,
@@ -193,6 +221,14 @@ const DEFS = {
     sizeBluff: [0.4, 0.4, 0.2, 0, 0],
     absFrom: 30, // POOL P1v2, Nov 2026: was 40
     overFold: 0.06, // POOL P1v2, Nov 2026: was 0.04
+    anyTwo: 0.05, // POOL A7, Nov 2026 (was the shared default)
+    mwBehind: 0.01, // POOL M, Nov 2026 (was the shared default)
+    mwCaller: 0.01, // POOL M, Nov 2026 (was the shared default)
+    mwPassiveValue: 0.08, // POOL M, Nov 2026 (was the shared default)
+    leadIntoRaiser: 0.08, // POOL M, Nov 2026 (was the shared default)
+    ledRaiseRespect: 0.15, // POOL M, Nov 2026 (was the shared default)
+    leadBluffMult: 0.25, // POOL M, Nov 2026 (was the shared default)
+    mwRiverCaller: 0.02, // POOL M, Nov 2026 (was the shared default)
   },
   whale: {
     name: 'Gambler',
@@ -243,6 +279,14 @@ const DEFS = {
     sizeBluff: [0.2, 0.3, 0.25, 0.15, 0.1],
     absFrom: 25, // POOL P1v2, Nov 2026: was 30
     overFold: 0.04,
+    anyTwo: 0.25, // POOL A7, Nov 2026 (was the shared default)
+    mwBehind: 0.005, // POOL M, Nov 2026 (was the shared default)
+    mwCaller: 0.005, // POOL M, Nov 2026 (was the shared default)
+    mwPassiveValue: 0.05, // POOL M, Nov 2026 (was the shared default)
+    leadIntoRaiser: 0.06, // POOL M, Nov 2026 (was the shared default)
+    ledRaiseRespect: 0.1, // POOL M, Nov 2026 (was the shared default)
+    leadBluffMult: 0.5, // POOL M, Nov 2026 (was the shared default)
+    mwRiverCaller: 0.02, // POOL M, Nov 2026 (was the shared default)
   },
   maniac: {
     name: 'Loose-aggressive maniac',
@@ -292,6 +336,9 @@ const DEFS = {
     sizeBluff: [0.05, 0.15, 0.3, 0.3, 0.2],
     overFold: 0.06,
     jamBluffMult: 0.6, // POOL R1, Nov 2026 (was the shared default)
+    anyTwo: 0.1, // POOL A7, Nov 2026 (was the shared default)
+    mwBehind: 0.015, // POOL M, Nov 2026 (was the shared default)
+    mwCaller: 0.01, // POOL M, Nov 2026 (was the shared default)
   },
   gto: {
     name: 'Solver-style player',
@@ -338,6 +385,11 @@ const DEFS = {
     sizeValue: [0.45, 0.1, 0.3, 0.05, 0.1],
     sizeThin: [0.45, 0.1, 0.3, 0.05, 0.1],
     sizeBluff: [0.45, 0.1, 0.3, 0.05, 0.1],
+    mwSteps: [0.04, 0.03, 0.02], // POOL M, Nov 2026 (was the shared default)
+    mwCap: 0.09, // POOL M, Nov 2026 (was the shared default)
+    mwCallTighten: 0.25, // POOL M, Nov 2026 (was the shared default)
+    mwRaiseCut: 0.6, // POOL M, Nov 2026 (was the shared default)
+    mwTrap3: [0.4, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
   },
   tag: {
     name: 'Solid regular',
@@ -379,7 +431,14 @@ const DEFS = {
     minRaise: 0.05,
     sizeValue: [0.05, 0.2, 0.45, 0.22, 0.08],
     sizeThin: [0.15, 0.4, 0.4, 0.05, 0],
-    sizeBluff: [0.1, 0.3, 0.4, 0.15, 0.05],
+    sizeBluff: [0.15, 0.4, 0.4, 0.05, 0], // POOL M, Nov 2026: was [0.1, 0.3, 0.4, 0.15, 0.05]
+    mwTighten: 0.05, // POOL M, Nov 2026 (was the shared default)
+    mwBluffCut: 0.7, // POOL M, Nov 2026 (was the shared default)
+    mwSteps: [0.05, 0.03, 0.02], // POOL M, Nov 2026 (was the shared default)
+    mwCap: 0.1, // POOL M, Nov 2026 (was the shared default)
+    mwCallTighten: 0.25, // POOL M, Nov 2026 (was the shared default)
+    mwRaiseCut: 0.85, // POOL M, Nov 2026 (was the shared default)
+    mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   lag: {
     name: 'Tricky aggressive regular',
@@ -420,7 +479,14 @@ const DEFS = {
     minRaise: 0.05,
     sizeValue: [0.05, 0.15, 0.4, 0.25, 0.15],
     sizeThin: [0.1, 0.35, 0.4, 0.1, 0.05],
-    sizeBluff: [0.05, 0.2, 0.4, 0.2, 0.15],
+    sizeBluff: [0.1, 0.35, 0.4, 0.1, 0.05], // POOL M, Nov 2026: was [0.05, 0.2, 0.4, 0.2, 0.15]
+    mwTighten: 0.04, // POOL M, Nov 2026 (was the shared default)
+    mwBluffCut: 0.6, // POOL M, Nov 2026 (was the shared default)
+    mwSteps: [0.04, 0.03, 0.02], // POOL M, Nov 2026 (was the shared default)
+    mwCap: 0.09, // POOL M, Nov 2026 (was the shared default)
+    mwCallTighten: 0.25, // POOL M, Nov 2026 (was the shared default)
+    mwRaiseCut: 0.75, // POOL M, Nov 2026 (was the shared default)
+    mwTrap3: [0.5, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
   },
   beginner: {
     name: 'Total beginner',
@@ -471,6 +537,13 @@ const DEFS = {
     sizeValue: [0.45, 0.3, 0.15, 0.05, 0.05],
     sizeThin: [0.6, 0.3, 0.1, 0, 0],
     sizeBluff: [0.5, 0.35, 0.15, 0, 0],
+    anyTwo: 0.25, // POOL A7, Nov 2026 (was the shared default)
+    mwSteps: [0.02, 0.01], // POOL M, Nov 2026 (was the shared default)
+    mwCap: 0.04, // POOL M, Nov 2026 (was the shared default)
+    mwPassiveValue: 0.08, // POOL M, Nov 2026 (was the shared default)
+    leadIntoRaiser: 0.08, // POOL M, Nov 2026 (was the shared default)
+    ledRaiseRespect: 0.15, // POOL M, Nov 2026 (was the shared default)
+    leadBluffMult: 0.25, // POOL M, Nov 2026 (was the shared default)
   },
 };
 

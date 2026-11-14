@@ -428,7 +428,9 @@ export function refreshClose(v) {
   v.options.forEach((o, i) => {
     if (i === v.best) return (o.close = true);
     const g = pairedGap(v, v.best, i);
-    o.close = g.mean < 2 * g.se;
+    // either side of the reference (QA-VERDICT N1: a signed gap marked every better option ≈), and never
+    // on an option that beats the reference by more than the bar, however noisy
+    o.close = Math.abs(g.mean) < 2 * g.se && !(v.small && -g.mean > v.small);
   });
 }
 

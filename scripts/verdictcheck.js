@@ -21,6 +21,7 @@ import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
 import { shownCost } from '../src/trainer/explain.js';
 import { disputeReport, disputeText } from '../src/trainer/dispute.js';
 import { presetRanges, groupOf } from '../src/trainer/ranges.js';
+import { pairedGap } from '../src/trainer/judge.js';
 
 const STANDARD = presetRanges('standard');
 const LOOSE = ['maniac', 'whale', 'lag'];
@@ -79,12 +80,17 @@ export const INVARIANTS = {
   'V14 a flag never names a reference that scores no better': (d, v, m, b) => v.grade !== 'good' && b.ev <= m.ev,
   'V15 no light-re-raise wording or junk tip for a value re-raise (TT+ AJo+ ATs+ KQo KJs+) of a loose opener': (d, v, m) => d.street === STREET.PRE && (/bluff|light re-raise/.test(d.headline || '') || d.tipKind === 'junk3bet') && m.type === 'raise' && VALUE_VS_LOOSE.has(classNames[classOf(d.hole[0], d.hole[1])]) && d.villain && (() => { const t = topRead(d, d.villain.nick); return t && t.p >= 0.5 && ['maniac', 'lag', 'whale', 'beginner'].includes(t.type); })(),
   // ---- the CEO's list ----
-  'C1 "scores higher" only when that play is the judge\'s best with no ≈ option': (d, v) => {
+  'C1 "scores higher" only when that play is the judge\'s best and clear of the reference': (d, v) => {
     const h = d.headline || '';
-    if (/It scores higher against these/.test(h)) return !(isTop(v, v.mine) && v.options.every((o, i) => i === v.mine || !o.close));
+    const clear = (i) => {
+      if (!isTop(v, i) || i === v.best) return false;
+      const g = pairedGap(v, i, v.best);
+      return g.mean > 2 * g.se || g.mean > v.small;
+    };
+    if (/It scores higher against these/.test(h)) return !clear(v.mine);
     if (/A light re-raise scores higher/.test(h)) {
       const tr = v.options.reduce((b, o, i) => (o.type === 'raise' && (b < 0 || o.ev > v.options[b].ev) ? i : b), -1);
-      return !(tr >= 0 && isTop(v, tr) && !v.options[tr].close);
+      return !(tr >= 0 && clear(tr));
     }
     return false;
   },
@@ -117,7 +123,32 @@ export const INVARIANTS = {
   'S1 R5b only on a lead or bet, never a raise of your own bet': (d, v) => v.rule === 'R5b' && d.ctx && (d.ctx.iBetThisStreet || d.ctx.raises > 1),
   'S2 no draw habit note or draw line unless there is a flush or straight draw': (d, v) => (/draw/i.test(v.habit || '') || /Your draw comes in/.test(d.anchor || '')) && !realDraw(d),
   'S3 "Do not bluff" never with a real draw of 25% or more': (d) => /Do not bluff/.test(d.anchor || '') && realDraw(d) && handFeatures(d.hole, d.board).drawEquity >= 0.25,
+  // ---- QA-VERDICT pass 2 ----
+  'N1 no ≈ on an option that beats the reference by more than the bar': (d, v) => v.options.some((o, i) => i !== v.best && o.close && o.ev - v.options[v.best].ev > v.small),
+  'N1b "light re-raise is close to the best" never over a re-raise above the bar': (d, v) => /light re-raise is close to the best/.test(d.headline || '') && (() => {
+    const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
+    const other = Math.max(...v.options.filter((o) => o.type !== 'raise').map((o) => o.ev));
+    return top.type === 'raise' && top.ev - other > v.small;
+  })(),
+  'N2 no range-based preflop tip with 3 or fewer players dealt in': (d) => ['limp', 'wideOpen', 'junk3bet', 'size3bet'].includes(d.tipKind) && d.snapshot && d.snapshot.seats.length <= 3,
+  'N3 a missed-bluff flag names a reference bet of at least 25% of the pot': (d, v, m, b) => v.grade !== 'good' && m.type === 'check' && b.type === 'raise' && d.toCall === 0 && b.to / Math.max(1, v.pot) < 0.25,
+  'N4 no "sound value size" pass with two pair or better': (d, v) => v.note === 'sizeOk' && d.tier >= TIER.TWO_PAIR,
+  'N4b sizing never red with two pair or better multiway': (d, v, m, b) => d.tier >= TIER.TWO_PAIR && d.opponents >= 2 && m.type === 'raise' && b.type === 'raise' && v.grade === 'blunder',
+  'N4c a 62-70% bet is "two-thirds", not "three-quarters"': (d, v, m) => /three-quarters of the pot is a sound/.test(d.headline || '') && m.type === 'raise' && m.to / Math.max(1, v.pot) < 0.705,
+  'N5 no fold or bluff estimate with two pair or better': (d) => d.tier >= TIER.TWO_PAIR && /breaks even on folds|Do not bluff|needs everyone to fold|needs more folds than you get/.test(d.anchor || ''),
+  'N5b no "needs everyone to fold almost never"': (d) => /fold almost never/.test(d.anchor || ''),
 };
+
+// Checks on the opponent model rather than the coach: counted and printed, not failing the run
+// until the model work lands (POOL).
+export const MODEL_CHECKS = {
+  'N3b bets under 10% of the pot fold everyone at most 15%': (d, v) => d.street !== STREET.PRE && d.toCall === 0 && v.options.some((o) => o.type === 'raise' && o.F !== undefined && o.to / Math.max(1, v.pot) < 0.1 && o.F > 0.15),
+};
+export function checkModel(d) {
+  const v = d.verdict;
+  if (!v || v.mine < 0) return [];
+  return Object.entries(MODEL_CHECKS).filter(([, f]) => { try { return f(d, v); } catch { return false; } }).map(([k]) => k);
+}
 
 export function checkRecord(d) {
   const v = d.verdict;
@@ -211,6 +242,7 @@ export function runConfig(cfg) {
       : { game: cfg.game || '1/2', table: cfg.table || 'typical', samples, seed: cfg.seed, seats: cfg.seats || 9 },
   );
   const violations = [];
+  const modelHits = [];
   let decisions = 0;
   for (let h = 0; h < (cfg.hands || 60); h++) {
     sess.freshStack();
@@ -224,9 +256,10 @@ export function runConfig(cfg) {
       const rec = sess.heroAct(choose(cfg.style || 'sensible', sess.heroOptions(), sess.hand.state, rnd));
       decisions++;
       for (const k of checkRecord(rec)) violations.push({ invariant: k, record: rec });
+      for (const k of checkModel(rec)) modelHits.push(k);
     }
   }
-  return { decisions, violations };
+  return { decisions, violations, modelHits };
 }
 
 export const CONFIGS = (hands, seed = 11) => {
@@ -237,6 +270,12 @@ export const CONFIGS = (hands, seed = 11) => {
     out.push({ style, game: '1/2', seats: 2, hands, seed: seed + k++ });
     out.push({ style, home: true, hands, seed: seed + k++ });
   }
+  // short-handed and tough tables, where QA-VERDICT's second pass found new classes
+  out.push({ style: 'aggressive', game: '1/2', table: 'tough', seats: 9, hands, seed: seed + k++ });
+  out.push({ style: 'sensible', game: '2/5', table: 'tough', seats: 9, hands, seed: seed + k++ });
+  out.push({ style: 'limper', game: '2/3', seats: 6, hands, seed: seed + k++ });
+  out.push({ style: 'passive', game: '1/2', seats: 3, hands, seed: seed + k++ });
+  out.push({ style: 'sensible', game: '2/5', table: 'loose', seats: 9, hands, seed: seed + k++ });
   return out;
 };
 
@@ -257,11 +296,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const dir = arg('--out', 'verdictcheck-out');
   const counts = Object.fromEntries(Object.keys(INVARIANTS).map((k) => [k, 0]));
   let total = 0;
+  const model = {};
   const saved = new Set();
   for (const cfg of CONFIGS(hands)) {
     const t0 = Date.now();
-    const { decisions, violations } = runConfig(cfg);
+    const { decisions, violations, modelHits } = runConfig(cfg);
     total += decisions;
+    for (const k of modelHits) model[k] = (model[k] || 0) + 1;
     for (const { invariant, record } of violations) {
       counts[invariant]++;
       if (!saved.has(invariant)) {
@@ -270,11 +311,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         fs.writeFileSync(path.join(dir, `${invariant.split(' ')[0]}.json`), JSON.stringify({ invariant, cfg, record: plain(record) }, null, 1));
       }
     }
-    console.log(`${(cfg.style + ' ' + (cfg.home ? 'home' : `${cfg.game} ${cfg.seats}-handed`)).padEnd(28)} ${String(decisions).padStart(5)} decisions, ${violations.length} violations (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
+    console.log(`${(cfg.style + ' ' + (cfg.home ? 'home' : `${cfg.game} ${cfg.seats}-handed${cfg.table ? ' ' + cfg.table : ''}`)).padEnd(34)} ${String(decisions).padStart(5)} decisions, ${violations.length} violations (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
   }
   const bad = Object.values(counts).reduce((a, b) => a + b, 0);
   console.log(`\n${total} decisions checked, ${bad} violations`);
   for (const [k, n] of Object.entries(counts)) if (n) console.log(`${String(n).padStart(5)}  ${k}`);
+  for (const [k, n] of Object.entries(model)) console.log(`model check (not failing): ${n}  ${k}`);
   if (bad) {
     console.log(`\nThe first hand for each is saved in ${dir}/.`);
     process.exit(1);

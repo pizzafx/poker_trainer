@@ -162,7 +162,7 @@ function goodHeadline(v, mine, best, d = {}) {
     // "gives up less" only when it scores below the reference (STRAT F4)
     if (mine.ev < best.ev) return `${mine.label}: fine. (It gives up less than the coach flags, but by the estimate below it does not work.)`; // the coach's estimate below says why
     // "scores higher" only when it is the judge's best with no option too close to tell apart
-    const higher = v.options.every((o, i) => o.ev <= mine.ev && (i === v.mine || !o.close));
+    const higher = v.options.every((o) => o.ev <= mine.ev) && !mine.close;
     return `${mine.label}: fine. It ${higher ? 'scores higher' : 'is close to the best'} against these players, but by the estimate below it only works if they keep playing this way; ${bare(best).toLowerCase()} is the standard play.`;
   }
   if (v.note === 'anchor') {
@@ -214,7 +214,8 @@ function goodHeadline(v, mine, best, d = {}) {
     const lo = Math.min(...bigger);
     const hi = Math.max(...bigger);
     const frac = mine.to / Math.max(1, v.pot);
-    const size = frac < 0.42 ? 'a third of the pot' : frac < 0.62 ? 'half pot' : frac < 0.85 ? 'three-quarters of the pot' : 'a pot-sized bet';
+    const SIZES = [[1 / 3, 'a third of the pot'], [0.5, 'half pot'], [2 / 3, 'two-thirds of the pot'], [0.75, 'three-quarters of the pot'], [1, 'a pot-sized bet']];
+    const size = SIZES.reduce((a, x) => (Math.abs(x[0] - frac) < Math.abs(a[0] - frac) ? x : a))[1]; // the nearest name (STRAT N4)
     const into = d.opponents >= 2 ? ` into ${NUM_WORDS[d.opponents] || d.opponents} players` : '';
     if (!bigger.length) return `${mine.label}: fine. (This is a sound value size${into}.)`;
     return `${mine.label}: fine. (Bigger bets score about ${lo === hi ? `$${lo}` : `$${lo}–${hi}`} more against these opponents, mostly because they call too often; ${size} is a sound value size${into}.)`;
@@ -266,6 +267,10 @@ export function anchorLine(d) {
   const bet = (o0) => {
     const o = { ...o0, alpha: needOf(o0, v) }; // on the river, the folds it needs to beat checking
     const s = st(o0);
+    if (made && (o.W === null || o.W === undefined)) {
+      // never called in the samples: they fold everything to this size (QA-VERDICT N5)
+      return `This ${kw} is almost never called here: they fold ${often(o.F)}. A smaller ${kw} gets paid by worse hands.`;
+    }
     if (made && o.W !== null) {
       const thin = s === 'even' || r5(o.W) === r5(o.need);
       const chk = v.options.find((x) => x.type === 'check');
@@ -278,6 +283,7 @@ export function anchorLine(d) {
     if (s === 'works') return `${foldsP(o.F)[0].toUpperCase()}${foldsP(o.F).slice(1)} and this ${kw} needs ${share(o.alpha, false)}. A bigger ${kw} needs more folds than you get.`;
     if (s === 'even' || r5(o.F) === r5(o.alpha)) return `This ${kw} about breaks even on folds: you get ${share(o.F, false)} and need ${share(o.alpha, false)}. Fine, not needed.`;
     // a big real draw is not a bluff: say what the draw still does when called (STRAT M4)
+    if (o.alpha < 0.05) return `This ${kw} is tiny next to the pot: it needs almost no folds, but they ${o.F < 0.05 ? 'almost never fold' : `fold only ${often(o.F)}`}.`;
     if (isRealDraw(hf) && hf.drawEquity >= 0.25) return `${kw === 'bet' ? 'Betting' : 'Raising'} needs folds ${often(o.alpha)} and they rarely fold; called, your draw still comes in ${often(hf.drawEquity)}. Checking or calling to see the card is fine.`;
     return `${kw === 'bet' ? 'Betting' : 'Raising'} here needs everyone to fold ${often(o.alpha)}; ${o.F < 0.05 ? 'they almost never do' : o.F > 0.95 ? 'they nearly always do' : `they fold only ${often(o.F)}`}. Do not bluff this field.`;
   };
@@ -387,7 +393,7 @@ export function explain(d) {
   const m = kind(mine);
   const b = kind(best);
   const word = v.grade === 'blunder' ? 'Blunder' : 'Mistake';
-  const ref = v.ref === 'habit' ? `${best.label.toLowerCase()} (the best play the coach teaches here)` : v.ref === 'robust' ? `${best.label.toLowerCase()} (it beats your play under every read)` : v.ref === 'anchor' ? `${best.label.toLowerCase()} (the best play that works against anyone)` : v.ref === 'noRaise' ? `${best.label.toLowerCase()} (the best play that is not a raise)` : v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
+  const ref = v.ref === 'quarterPot' ? `the best bet of at least a quarter of the pot (${bare(best).toLowerCase()})` : v.ref === 'habit' ? `${best.label.toLowerCase()} (the best play the coach teaches here)` : v.ref === 'robust' ? `${best.label.toLowerCase()} (it beats your play under every read)` : v.ref === 'anchor' ? `${best.label.toLowerCase()} (the best play that works against anyone)` : v.ref === 'noRaise' ? `${best.label.toLowerCase()} (the best play that is not a raise)` : v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
   const capped = v.priceCap !== undefined && Math.round(best.ev) - Math.round(mine.ev) > cost;
   const headline = v.dominated
     ? `${word}: ${mine.label.toLowerCase()} scores at least $${cost} below the best play here under every reasonable read of these players.`

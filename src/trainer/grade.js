@@ -139,7 +139,10 @@ export function gradeDecision(s, belief, action, judgeOpts, env) {
   const verdict = judgeDecision(s, HERO, belief, action, judgeOpts);
   temper(verdict, s, ctx, action, judgeOpts, env);
   let tip = null;
-  if (s.street === STREET.PRE) {
+  if (s.street === STREET.PRE && s.n <= 3) {
+    // three or fewer players dealt in: the ranges and words are full-ring ones, so no range tips
+    // (STRAT, QA-VERDICT N2); grading is unchanged
+  } else if (s.street === STREET.PRE) {
     const name = classNames[classOf(s.hole[HERO][0], s.hole[HERO][1])];
     const group = groupOf(positionName(s, HERO));
     // a limp with a hand outside the seat's Standard range gets "most players fold it here", never the
@@ -277,8 +280,10 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
         v.grade = 'good';
         v.note = 'mwHabit';
         v.habit = h;
-        // "scores higher" only when it is the judge's best and no other option is too close to tell apart (STRAT)
-        v.habitHigher = v.options.every((o, i) => o.ev <= mine.ev && (i === v.mine || !o.close));
+        // "scores higher" only when it is the judge's best and clear of the reference: by 2.2 standard
+        // errors of the paired gap, or by more than the bar (STRAT; QA-VERDICT N1)
+        const gh = pairedGap(v, v.mine, ref);
+        v.habitHigher = v.options.every((o) => o.ev <= mine.ev) && (gh.mean > 2.2 * gh.se || gh.mean > small);
         v.loss = 0;
         v.se = 0;
         v.best = ref;
@@ -309,7 +314,8 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     v.options.forEach((o, i) => {
       if (isRaise(o) && (tr < 0 || o.ev > v.options[tr].ev)) tr = i;
     });
-    v.preHigher = tr >= 0 && v.options.every((o) => o.ev <= v.options[tr].ev) && !v.options[tr].close;
+    const gp = tr >= 0 && v.best !== tr ? pairedGap(v, tr, v.best) : null;
+    v.preHigher = !!gp && v.options.every((o) => o.ev <= v.options[tr].ev) && (gp.mean > 2.2 * gp.se || gp.mean > small);
   };
   const lightReraise = pre && ctx.raises >= 1 && HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])] < 0.94 && !valueVsLoose(classNames[classOf(s.hole[HERO][0], s.hole[HERO][1])], ctx, env);
   if (lightReraise && isRaise(best())) {
@@ -512,6 +518,13 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     if (ctx.toCall > 0) {
       if (mw && bigger && mine.to >= 2.5 * s.currentBet - 0.5) return pass('sizeOk');
     } else {
+      // with two pair or better multiway, measured against the best bet up to the pot (R3), yellow at
+      // most; the floors below are for weaker hands (STRAT, QA-VERDICT N4)
+      if (mw && tier >= TIER.TWO_PAIR) {
+        if (over(best()) && regrade((o) => !over(o), undefined, 'upToPot')) return;
+        capYellow();
+        return;
+      }
       // multiway on the river with one pair the floor is 30% of the pot (STRAT, Nov 2026: R01's $40)
       if (bigger && betFrac(mine) >= (mw ? (river && onePair ? 0.3 : 0.45) : 0.6)) return pass('sizeOk');
       if (mw && bigger && tier < TIER.TOP_PAIR_GOOD) return pass('mwSize');
@@ -521,6 +534,10 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   // 6. Passing up a bluff: not flagged against players read as unable to fold, and it
   //    needs a wide margin (wider on the river) against everyone else. Never red.
   if (ctx.toCall === 0 && isRaise(best()) && mine.type === 'check' && weak && !v.costly) {
+    // never tell a student to bluff 3% of the pot: the reference is a bet of at least a quarter of the
+    // pot (STRAT, QA-VERDICT N3; the model folds too often to tiny bets)
+    if (betFrac(best()) < 0.25 && regrade((o) => !isRaise(o) || betFrac(o) >= 0.25, 'passedBluff', 'quarterPot')) return;
+    if (!isRaise(best())) return;
     const margin = (river ? 3 : 2) * small;
     if (v.loss < margin || stickyRead()) return pass('passedBluff');
     // On the river the flag stands only if the bet still beats the check by the bar when the players
@@ -813,12 +830,20 @@ export function applyAnchors(v, s, ctx) {
   // R6 protects only the fold (STRAT G1): the neutral line goes under the fold, or under a call that
   // ends up fine or not graded; a flagged call keeps its own estimate
   if (ctx.toCall > 0 && onePair && ctx.raises >= 2 && ctx.iBetThisStreet && s.history.some((h) => h.street === s.street && h.seat !== HERO && h.seat !== s.lastRaiser && ['call', 'bet', 'raise'].includes(h.type))) {
-    if (mine.type === 'fold' || (mine.type === 'call' && v.grade === 'good')) {
+    // ...and only when the call and the fold are genuinely close: within the bar of each other, or the
+    // scenario test calls the spot unclear (STRAT, Nov 2026). When the fold clearly beats the call it is
+    // graded normally (it can be the best play), with its own estimate.
+    const callO = v.options.find((o) => o.type === 'call');
+    const foldO = v.options.find((o) => o.type === 'fold');
+    const close = v.note === 'unclear' || (callO && foldO && Math.abs(Math.round(callO.ev) - Math.round(foldO.ev)) <= v.small);
+    if (close && (mine.type === 'fold' || (mine.type === 'call' && v.grade === 'good'))) {
       v.line = '8b';
       // the line says "nothing here is graded": so does the verdict (QA-VERDICT V1)
       if (v.grade === 'good' && (!v.note || v.note === 'fragile' || v.note === 'unclear')) v.note = 'closeCall';
       return;
     }
+    // a clearly right fold needs no R6 protection: plain grading, so it can be the best play
+    if (!close && mine.type === 'fold' && v.rule === 'R6') delete v.rule;
   }
   if (v.note === 'mwHabit' || v.note === 'passiveFold' || v.rule === 'R5' || v.rule === 'R5b') return;
   const RAW = v.options.reduce((b, o, i) => (o.ev > v.options[b].ev ? i : b), 0);

@@ -625,10 +625,11 @@ function renderActions() {
       if (+$('a-num').value !== raiseTo && document.activeElement !== $('a-num')) $('a-num').value = raiseTo;
       $('a-range').value = raiseTo;
     };
-    $('a-fold').onclick = () => act({ type: 'fold' });
-    $('a-call').onclick = () => act({ type: L.canCheck ? 'check' : 'call' });
+    // a click that was meant for "Next hand" must not act in the new hand (QA NH1): ignored for 400ms after a deal
+    $('a-fold').onclick = () => justDealt() || act({ type: 'fold' });
+    $('a-call').onclick = () => justDealt() || act({ type: L.canCheck ? 'check' : 'call' });
     if (L.canRaise) {
-      $('a-raise').onclick = () => act({ type: 'raise', to: raiseTo });
+      $('a-raise').onclick = () => justDealt() || act({ type: 'raise', to: raiseTo });
       $('a-num').oninput = (e) => setTo(e.target.value);
       $('a-num').onkeydown = (e) => {
         if (e.key === 'Enter') act({ type: 'raise', to: raiseTo });
@@ -649,6 +650,8 @@ function renderActions() {
       ${drill ? '<button id="a-exit">Exit drill</button>' : low ? `<button id="a-top">Top up to ${money(sess.heroBuy)}</button>` : ''}
       <span class="hint">${msg}</span></div>`;
     $('a-next').onclick = nextHand;
+    // reaching for "Next hand" (or "Next spot") cancels the auto-deal: the next deal is the player's (QA NH1)
+    $('a-next').onpointerenter = $('a-next').onpointerdown = holdAutoDeal;
     if ($('a-top')) $('a-top').onclick = () => { sess.topUp(); render(); };
     if ($('a-exit')) $('a-exit').onclick = exitDrill;
   }
@@ -1421,14 +1424,31 @@ function advance() {
 
 // When the hand is over and nothing you did in it was flagged (all green), deal the next one
 // without waiting. A mistake or blunder stops the game so you can read why.
+// The auto-deal after a green hand (QA NH1): it never deals while the player is reaching for "Next hand",
+// and the action buttons ignore clicks for 400ms after any deal, so a late click cannot fold, call or
+// raise in a hand the player has not seen.
+let autoHeld = false;
+let dealtAt = -Infinity;
+function holdAutoDeal() {
+  autoHeld = true;
+  clearTimeout(timer);
+}
+const justDealt = () => performance.now() - dealtAt < 400;
+function markDealt() {
+  dealtAt = performance.now();
+  autoHeld = false;
+}
+
 function scheduleAuto() {
   clearTimeout(timer);
+  if (autoHeld) return;
   const h = sess.hand;
   const last = h.decisions[h.decisions.length - 1];
   if (h.decisions.some((d) => d.verdict.grade !== 'good')) return; // anything flagged holds the table
   const wait = h.state.folded[HERO] ? 700 : 1800; // a moment to see the result
   timer = setTimeout(() => {
     if (!$('modal').classList.contains('hidden')) return; // a pop-up is open: wait for Space
+    if (autoHeld) return; // the player is reaching for "Next hand"
     nextHand();
   }, wait);
 }
@@ -1501,6 +1521,7 @@ function nextHand() {
   } catch (e) {
     return recoverTable('deal the next hand', e);
   }
+  markDealt();
   if (tapHint) stripEvent = { hand: sess.hand.no, text: `${TOUCH.matches || PHONE.matches ? 'Tap' : 'Click'} any player to see what you've noticed about them.` };
   raiseTo = 0;
   advance();
@@ -1537,6 +1558,7 @@ function nextSpot() {
   const seen = leaks[drill.cat] ? Object.keys(leaks[drill.cat].streets).map(Number).filter((st) => st > 0) : null;
   const found = sess.dealUntil((x) => DRILLS[drill.cat].match(x, seen));
   if (!found) sess.dealUntil((x) => DRILLS[drill.cat].match(x, null));
+  markDealt(); // the same guard as a new hand (QA NH1)
   render();
 }
 

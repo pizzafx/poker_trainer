@@ -1,6 +1,6 @@
 // Written by scripts/stamp.js: a build id over every module under src/, and the hash of each module
 // the judge worker imports (it checks the copies it loaded against these).
-export const BUILD = '379a3b493ff3';
+export const BUILD = 'ffbd10b6262d';
 export const HASHES = {
  "src/bots/policy.js": "4ad20b3124",
  "src/bots/profiles.js": "22344bd5d4",

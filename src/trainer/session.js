@@ -15,18 +15,20 @@ export { limpTipFor, openTipFor, junk3betTipFor } from './grade.js';
 import { snapshotDecision, handTruth } from './dispute.js';
 import { groupOf, expandRange, LIMPER_OFFSUIT, TIGHTER_ROW } from './ranges.js';
 import { explain } from './explain.js';
+import { bestHeadline } from './best.js';
 
 export const GAMES = {
   // $2/$3: the buy-in range as listed by one Arizona card room.
-  // $1/$3 and $2/$5: common US card-room ranges ($100-$300 at $1/$3; $200-$1,000 at $2/$5),
-  // not taken from one room. Rooms vary: some cap $1/$3 at $500 or $2/$5 at $500.
-  // The opponents play in big blinds, so the same player pool sits at every stake.
-  '1/3': { sb: 1, bb: 3, minBuy: 100, maxBuy: 300 },
+  // $1/$2 and $2/$5: common US card-room ranges ($100-$200 at $1/$2, 50 to 100 big blinds;
+  // $200-$1,000 at $2/$5), not taken from one room. Rooms vary: some allow $300 at $1/$2 or cap
+  // $2/$5 at $500. The opponents play in big blinds, so the same player pool sits at every stake.
+  '1/2': { sb: 1, bb: 2, minBuy: 100, maxBuy: 200 },
   '2/3': { sb: 2, bb: 3, minBuy: 100, maxBuy: 500 },
   '2/5': { sb: 2, bb: 5, minBuy: 200, maxBuy: 1000 },
 };
-// $3/$5 was removed (owner, Nov 2026: it plays the same as $2/$5). A saved '3/5' reads as '2/5'.
-export const RETIRED_GAMES = { '3/5': '2/5' };
+// Removed stakes (owner, Nov 2026): $1/$3 became $1/$2, the most common live game, and $3/$5 plays
+// the same as $2/$5. A saved key reads as its replacement.
+export const RETIRED_GAMES = { '1/3': '1/2', '3/5': '2/5' };
 export const gameKey = (k) => (GAMES[k] ? k : RETIRED_GAMES[k] || '2/3');
 
 export const RAKES = {
@@ -34,12 +36,12 @@ export const RAKES = {
   // settings, so they stay as they are ('tsr' is the stepped structure). Listed in the order
   // the Settings menu shows them.
   // The default for new players.
-  pct: { label: 'Typical casino rake: 10% up to $6, + $1 jackpot, no flop no drop', pct: 0.1, cap: 6, promo: 1, noFlopNoDrop: true },
+  pct: { label: 'Typical casino rake: 10% up to $6, + $1 jackpot, no flop no drop', short: '10% up to $6', hint: 'Plus $1 to the jackpot; nothing is taken when there is no flop.', word: '10% rake', pct: 0.1, cap: 6, promo: 1, noFlopNoDrop: true },
   // Stepped: one card room's listed "staggered up to $5, plus a $2 jackpot drop", with the $5 cap
   // reached at a $60 pot. Modelled as $1 per $12 of pot, capped at $5, plus $2 when there is a flop.
-  tsr: { label: 'Stepped to $5 (reached at a $60 pot) + $2 jackpot drop', pct: 1 / 12, cap: 5, promo: 2, noFlopNoDrop: true },
-  drop: { label: 'Flat drop (California style): $6 + $1 jackpot on every flop', fixed: 6, promo: 1, noFlopNoDrop: true },
-  none: { label: 'No rake (time game)', pct: 0, cap: 0, promo: 0, noFlopNoDrop: true },
+  tsr: { label: 'Stepped to $5 (reached at a $60 pot) + $2 jackpot drop', short: 'Stepped to $5, + $2 jackpot', hint: '$5 is reached at a $60 pot; $2 more goes to the jackpot.', word: 'stepped rake', pct: 1 / 12, cap: 5, promo: 2, noFlopNoDrop: true },
+  drop: { label: 'Flat drop (California style): $6 + $1 jackpot on every flop', short: 'Flat $6, + $1 jackpot', hint: 'Taken on every hand that sees a flop, whatever the pot (California style).', word: 'flat drop', fixed: 6, promo: 1, noFlopNoDrop: true },
+  none: { label: 'No rake (time game)', short: 'No rake (time game)', hint: 'You pay for the seat by the hour instead.', word: 'no rake', pct: 0, cap: 0, promo: 0, noFlopNoDrop: true },
 };
 
 // The game a new player is dealt into: the app's defaults, and what scripts/ checks by default.
@@ -53,7 +55,7 @@ export function samplesFor(base, s) {
   return Math.round(base * (s.street <= STREET.FLOP ? 5 : s.street === STREET.TURN ? 2.5 : 1.3) * (players >= 6 ? 0.7 : 1));
 }
 
-export const APP_GAME = { game: '1/3', rake: 'pct', heroBuy: 300 };
+export const APP_GAME = { game: '1/2', rake: 'pct', heroBuy: 200 };
 
 const HERO = 0;
 
@@ -370,6 +372,9 @@ export class Session {
       snapshot: snapshotDecision(this, s, judgeOpts),
     };
     Object.assign(record, explain(record));
+    // a ringed play is stored as one (QA BP2): the record's own headline never says "fine" under the ring
+    const bh = bestHeadline(record.verdict, record);
+    if (bh) record.headline = bh;
     h.decisions.push(record);
     this.decisions.push(record);
     // The table notices raises and big bets after the flop.

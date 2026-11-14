@@ -23,7 +23,7 @@ const HERO = 0;
 const SUIT_SYM = ['♣', '♦', '♥', '♠'];
 const SUIT_CLS = ['c', 'd', 'h', 's'];
 
-// What a new player starts on: $1/$3 with a 100-big-blind buy-in and a typical capped rake.
+// What a new player starts on: $1/$2 with a 100-big-blind buy-in ($200) and a typical capped rake.
 // Players who already have saved settings keep theirs.
 const DEFAULTS = { v: 3, game: APP_GAME.game, maxBuy: APP_GAME.heroBuy, rake: APP_GAME.rake, table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450, sideW: null };
 let settings = { ...DEFAULTS };
@@ -44,7 +44,7 @@ try {
       /* ignore */
     }
   } // anything older is dropped
-  // $3/$5 is gone: those players move to $2/$5, with the buy-in capped at its maximum
+  // $1/$3 and $3/$5 are gone: those players move to $1/$2 and $2/$5, the buy-in capped at the new maximum
   if (RETIRED_GAMES[settings.game]) {
     settings.game = RETIRED_GAMES[settings.game];
     settings.maxBuy = Math.min(settings.maxBuy || GAMES[settings.game].maxBuy, GAMES[settings.game].maxBuy);
@@ -1621,8 +1621,9 @@ async function resumeOrNew() {
   if (!owner && !(await holdTable())) return elsewhere('open');
   const saved = await loadSession();
   if (!saved) return newSession();
-  // a session saved at $3/$5 (now removed) starts afresh at $2/$5, as any change of stakes does
-  if (!saved.lineup && saved.game && saved.game.sb === 3 && saved.game.bb === 5) return newSession();
+  // a session saved at stakes that no longer exist ($1/$3, $3/$5) starts afresh at the new ones,
+  // as any change of stakes does
+  if (!saved.lineup && saved.game && !Object.values(GAMES).some((g) => g.sb === saved.game.sb && g.bb === saved.game.bb)) return newSession();
   try {
     sess = Session.fromSaved(saved);
   } catch {
@@ -1751,20 +1752,24 @@ function openGameModal({ tab = 'game', group = null } = {}) {
       <p class="form-err" id="h-err" role="alert"></p>
       <p class="sub">No rake. Everyone rebuys and nobody leaves. You know who is coming, but not which seat is which.</p>
     </div>
-    <details class="more-options"><summary>More options</summary>
-      <div id="casino-more">
-        <label class="field"><span>Buy-in ($)</span><input id="s-buy" class="input" type="number" inputmode="numeric" min="60" step="20" value="${settings.maxBuy}"></label>
-        <p class="form-err" id="s-err" role="alert"></p>
-        <label class="field"><span>House cut</span><select id="s-rake" class="input">${Object.entries(RAKES).map(([k, r]) => opt(k, r.label, settings.rake)).join('')}</select></label>
-        <label class="field"><span>Who's at the table</span><select id="s-table" class="input">${Object.entries(TABLES).map(([k, t]) => opt(k, t.label, settings.table)).join('')}</select></label>
+    <details class="more-options"><summary>More options <small id="mo-sum"></small></summary>
+      <div class="go-group" id="casino-more">
+        <div class="go-head"><span class="label">Table</span><span>Changing these starts a new session</span></div>
+        <div class="go-row inline"><label for="s-buy">Buy-in</label><div class="go-ctl"><span class="ctl money"><span aria-hidden="true">$</span><input id="s-buy" type="number" inputmode="numeric" min="60" step="20" value="${settings.maxBuy}" aria-label="Buy-in in dollars"></span><small id="s-buy-bb"></small></div>
+          <p class="form-err" id="s-err" role="alert"></p></div>
+        <div class="go-row"><label for="s-rake">House cut</label><div class="go-ctl"><select id="s-rake" class="ctl">${Object.entries(RAKES).map(([k, r]) => opt(k, r.short || r.label, settings.rake)).join('')}</select></div><p class="go-hint" id="s-rake-hint"></p></div>
+        <div class="go-row"><label for="s-table">Who's at the table</label><div class="go-ctl"><select id="s-table" class="ctl">${Object.entries(TABLES).map(([k, t]) => opt(k, t.short || t.label, settings.table)).join('')}</select></div><p class="go-hint" id="s-table-hint"></p></div>
       </div>
-      <label class="field"><span>Feedback</span><select id="s-fb" class="input">${opt('now', 'Right after each decision', settings.feedback)}${opt('after', 'When the hand is over', settings.feedback)}</select></label>
-      ${toggle('s-ranges', settings.rangesLive, 'Show ranges during the hand')}
-      ${toggle('s-reads', settings.reads, "Show the coach's reads on seats")}
-      <label class="field"><span>Opponent speed</span><select id="s-speed" class="input">${opt('800', 'Slow', String(settings.speed))}${opt('450', 'Normal', String(settings.speed))}${opt('150', 'Fast', String(settings.speed))}</select></label>
+      <div class="go-group">
+        <div class="go-head"><span class="label">Coach</span><span>Applies from the next hand</span></div>
+        <div class="go-row"><span class="go-lab">Feedback</span><div class="go-ctl">${seg('s-fb', [['now', 'After each decision'], ['after', 'After the hand']], settings.feedback)}</div></div>
+        <div class="go-row tog">${toggle('s-ranges', settings.rangesLive, 'Show ranges during the hand')}</div>
+        <div class="go-row tog">${toggle('s-reads', settings.reads, "Show the coach's reads on seats")}</div>
+        <div class="go-row inline"><span class="go-lab">Opponent speed</span><div class="go-ctl">${seg('s-speed', [['800', 'Slow'], ['450', 'Normal'], ['150', 'Fast']], String(settings.speed))}</div></div>
+      </div>
     </details>
     <div class="modal-actions settings-foot">
-      <small>Changing these starts a new session.</small>
+      <small>Table changes start a new session.</small>
       <button id="s-close" class="quiet">Close</button>
       <button class="primary" id="s-start">Start new session</button>
     </div>
@@ -1846,6 +1851,16 @@ function openGameModal({ tab = 'game', group = null } = {}) {
     $('h-total').textContent = `${n} opponent${n === 1 ? '' : 's'} (1 to 8)`;
     $('h-total').style.color = n >= 1 && n <= 8 ? '' : 'var(--bad)';
   };
+  const syncLines = () => {
+    const g = GAMES[$('s-game').value];
+    const buy = +$('s-buy').value;
+    $('s-buy-bb').textContent = Number.isFinite(buy) && buy > 0 ? `${Math.round(buy / g.bb)} big blinds at $${g.sb}/$${g.bb}` : '';
+    $('s-rake-hint').textContent = RAKES[$('s-rake').value].hint || '';
+    $('s-table-hint').textContent = TABLES[$('s-table').value].hint || '';
+    const fb = $('s-fb').value === 'after' ? 'feedback after the hand' : 'feedback after each decision';
+    $('mo-sum').textContent = $('s-mode').value === 'home' ? fb : `${money(buy || settings.maxBuy)} buy-in · ${RAKES[$('s-rake').value].word} · ${TABLES[$('s-table').value].short.toLowerCase()} · ${fb}`;
+  };
+  for (const id of ['s-buy', 's-rake', 's-table', 's-fb', 's-game', 's-mode']) $(id).addEventListener(id === 's-buy' ? 'input' : 'change', syncLines);
   $('s-mode').onchange = syncMode;
   document.querySelectorAll('.h-count').forEach((el) => (el.oninput = syncMode));
   // Once a problem is showing, it updates as the numbers are fixed.
@@ -1855,7 +1870,9 @@ function openGameModal({ tab = 'game', group = null } = {}) {
   syncMode();
   $('s-game').onchange = () => {
     $('s-buy').value = defaultBuy($('s-game').value);
+    syncLines();
   };
+  syncLines();
   $('s-start').onclick = () => {
     const bad = problems();
     showProblems(bad);

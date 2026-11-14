@@ -21,7 +21,7 @@ against a calling station, and a play a solver hates gets a green tick if it pri
 
 There are two ways to play:
 
-- **Casino table.** An eight-handed live $1/$3, $2/$3 or $2/$5 game with the mix of regulars,
+- **Casino table.** An eight-handed live $1/$2, $2/$3 or $2/$5 game with the mix of regulars,
   retirees and gamblers you find in a card room, real rake, and players who come and go.
 - **Home game.** Your own blinds and buy-in, and you choose who sits down: three maniacs, two
   nits and a total beginner, say. No rake, everyone rebuys, and nobody leaves.
@@ -213,7 +213,7 @@ start getting called lighter.
   browser; no file editing needed.
 - **Table types.** Typical, aggressive, conservative, or loose-passive: the same player
   types in a different mix.
-- **Game settings.** $1/$3, $2/$3 or $2/$5, buy-in, and rake (a typical 10% capped rake
+- **Game settings.** $1/$2, $2/$3 or $2/$5, buy-in, and rake (a typical 10% capped rake
   by default, plus a stepped structure with a jackpot drop, a flat drop, or none). None of it is
   needed to start: the table deals you in on sensible defaults.
 - **Quick sim.** Plays 40 hands in an instant so you start with something observed about
@@ -249,7 +249,7 @@ Read this before taking the advice to a real table.
   direction coaches agree on. Some of it has been checked against a three-player solver on the
   river and turn, none of it against live hand data.
 - **The opponents are easier to beat than real players.** A player who blindly follows the
-  top-rated option wins about two to four times what a strong live player makes: about 55 big
+  top-rated option wins about two to four times what a strong live player makes: about 50 big
   blinds per 100 hands here, against 15 to 30 for a strong player in a real game. Trust the direction
   of the advice (value-bet more, pay off less, isolate limpers) more than the dollar
   figures.
@@ -294,7 +294,8 @@ known gap, so it does not fail the run.
 Before committing a change to the site, run `node scripts/stamp.js`: it versions every asset URL
 so browsers fetch a new version as a whole (the tests fail if you forget).
 
-They play the game the app deals a new player ($1/$3, the typical casino rake, a $300 buy-in).
+Sessions play the game the app deals a new player ($1/$2, the typical casino rake, a $200 buy-in); the
+set-piece and benchmark spots keep the $1/$3 stakes they were written at.
 Add `--legacy` to any of them for the configuration used before November 2026 ($2/$3, with
 the stepped rake for sessions and a 10% rake capped at $5 for set-piece hands), to reproduce
 older numbers.

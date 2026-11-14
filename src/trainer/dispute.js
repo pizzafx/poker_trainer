@@ -3,6 +3,7 @@
 // coach's reads and the judge's numbers.
 import { cardStr, holeOrder } from '../engine/cards.js';
 import { positionName, potSize, STREET_NAMES } from '../engine/game.js';
+import { bestHeadline, verdictWord } from './best.js';
 
 // Bump when the report's shape changes, so old reports can still be read.
 export const REPORT_VERSION = 1;
@@ -84,7 +85,8 @@ export function disputeReport(record, player = {}) {
     },
     verdict: {
       grade: v.grade,
-      headline: record.headline,
+      word: verdictWord(v, record), // "best play", "fine", "not graded", "mistake", "blunder", as the screen shows it
+      headline: bestHeadline(v, record) || record.headline,
       category: record.category || null,
       took: v.mine >= 0 ? v.options[v.mine].label : null,
       best: v.options[v.best].label,
@@ -123,7 +125,7 @@ export function disputeText(report, summaryOnly = false) {
       L.push(`  ${p.name} (${p.pos}, $${p.stack}): read ${read}; watched ${p.observed.hands} hands${p.steaming ? '; on tilt' : ''}.`);
     }
   }
-  L.push(`Verdict: ${v.grade} - ${v.headline}`);
+  L.push(`Verdict: ${v.word || v.grade} - ${v.headline}`);
   for (const o of v.options) L.push(`  ${o.best ? '*' : ' '} ${o.label}: ${o.ev >= 0 ? '+' : '-'}$${Math.abs(Math.round(o.ev))}${o.took ? '  <- you' : ''}${o.close && !o.best ? '  (too close to call)' : ''}`);
   L.push(`  over ${v.samples} run-outs; cost $${v.loss} +/- $${Math.round(2 * v.se)}${t ? `; judge seed ${t.judge.seed}` : ''}`);
   if (report.truth) L.push(`After the hand: ${report.truth.players.filter((p) => p.cards).map((p) => `${p.name} was ${p.type}${p.tilt ? ' (tilted)' : ''} with ${p.cards}`).join('; ')}.`);

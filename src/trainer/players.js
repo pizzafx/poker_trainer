@@ -50,10 +50,10 @@ const REBUY = { nit: 0.5, abc: 0.6, station: 0.7, whale: 0.9, maniac: 0.85, gto:
 // usual share of the pool (order: nit, abc, station, whale, maniac, gto, tag, lag), so even
 // the extreme tables are made of players you really meet, just more of one kind.
 export const TABLES = {
-  typical: { label: 'Typical mix', mix: [1, 1, 1, 1, 1, 1, 1, 1, 1] },
-  aggressive: { label: 'Aggressive: more maniacs, gamblers and tricky regulars', mix: [0.4, 0.6, 0.8, 1.8, 2.5, 1.5, 1.2, 2.5, 1] },
-  tight: { label: 'Conservative: more nits and careful players', mix: [2.5, 1.4, 0.6, 0.3, 0.2, 1, 1.4, 0.6, 1] },
-  loose: { label: 'Loose and passive: a limp-fest of callers', mix: [0.6, 1, 1.6, 1.8, 0.6, 0.5, 0.6, 0.5, 1] },
+  typical: { label: 'Typical mix', short: 'Typical mix', hint: 'A bit of everything, as at most casino tables.', mix: [1, 1, 1, 1, 1, 1, 1, 1, 1] },
+  aggressive: { label: 'Aggressive: more maniacs, gamblers and tricky regulars', short: 'Aggressive', hint: 'More maniacs, gamblers and tricky regulars.', mix: [0.4, 0.6, 0.8, 1.8, 2.5, 1.5, 1.2, 2.5, 1] },
+  tight: { label: 'Conservative: more nits and careful players', short: 'Conservative', hint: 'More nits and careful players.', mix: [2.5, 1.4, 0.6, 0.3, 0.2, 1, 1.4, 0.6, 1] },
+  loose: { label: 'Loose and passive: a limp-fest of callers', short: 'Loose and passive', hint: 'A limp-fest of callers.', mix: [0.6, 1, 1.6, 1.8, 0.6, 0.5, 0.6, 0.5, 1] },
 };
 
 function sharesFor(mix) {

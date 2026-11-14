@@ -8,13 +8,13 @@ import { presetRanges, presetRaised } from '../src/trainer/ranges.js';
 test('first hand: skips before it are not counted, and it is hand 1', () => {
   let checked = 0;
   for (let seed = 1; seed <= 12; seed++) {
-    const sess = new Session({ seed, samples: 10, game: '1/3', heroBuy: 300, heroRanges: presetRanges('tight'), heroRangesRaised: presetRaised('tight') });
+    const sess = new Session({ seed, samples: 10, game: '1/2', heroBuy: 200, heroRanges: presetRanges('tight'), heroRangesRaised: presetRaised('tight') });
     sess.startPlayable();
     assert.equal(sess.handNo, 1, `seed ${seed}`);
     assert.equal(sess.hand.no, 1);
     assert.equal(sess.hand.log[0].text, 'Hand 1');
     assert.equal(sess.heroNet(), 0, 'nothing lost before the first hand');
-    assert.equal(sess.seats[0].stack, 300);
+    assert.equal(sess.seats[0].stack, 200);
     assert.equal(sess.results.length, 0);
     assert.ok(!sess.news.some((n) => /Skipped/.test(n)), sess.news.join(' '));
     checked++;
@@ -23,7 +23,7 @@ test('first hand: skips before it are not counted, and it is hand 1', () => {
 });
 
 test('first hand: later skips still count', () => {
-  const sess = new Session({ seed: 3, samples: 10, game: '1/3', heroBuy: 300, heroRanges: presetRanges('tight'), heroRangesRaised: presetRaised('tight') });
+  const sess = new Session({ seed: 3, samples: 10, game: '1/2', heroBuy: 200, heroRanges: presetRanges('tight'), heroRangesRaised: presetRaised('tight') });
   sess.startPlayable();
   let sawSkip = false;
   for (let h = 0; h < 30 && !sawSkip; h++) {

@@ -23,6 +23,7 @@
   --signal-ink: #13210a;
   --signal-wash: #b4e46e1f;
   --signal-line: #b4e46e55; /* best play: a lime-tinted border */
+  --hairline: #ffffff0a; /* Game tab rows */
   --signal-shine: #b4e46e4d;
   --signal-glow: #b4e46e8c;
   --signal-halo: #b4e46e30;
@@ -2499,3 +2500,47 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 #history .hm.best, #log .hm.best { color: var(--signal); background: var(--signal-wash); }
 /* Leak review tile */
 #modal-box .kv .best-tile .of { display: block; margin-top: 6px; font-size: 12px; }
+
+/* ================= "Your game", Game tab layout (ranges design, Addendum A) =================
+   One control height (40px), nothing wider than its content at desktop; "More options" in two groups,
+   Table (starts a new session) and Coach (applies from the next hand). */
+#modal-box.game-modal #gm-game .seg { padding: 2px; gap: 2px; border-radius: 11px; border-color: var(--line-2); background: var(--rail); flex-wrap: nowrap; }
+#modal-box.game-modal #gm-game .seg button { min-height: 34px; padding: 0 14px; font-size: 14px; border-radius: 9px; white-space: nowrap; }
+#modal-box.game-modal #gm-game .field { justify-items: start; }
+#modal-box.game-modal .ctl { height: 40px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--rail); color: var(--chalk); font: 500 14.5px/1 var(--ui, inherit); padding: 0 12px; }
+#modal-box.game-modal select.ctl { width: auto; max-width: 100%; padding-right: 34px; cursor: pointer; }
+#modal-box.game-modal select.ctl:focus, #modal-box.game-modal .money:focus-within { outline: none; border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-wash); }
+#modal-box.game-modal .money { display: inline-flex; align-items: center; gap: 4px; width: 128px; }
+#modal-box.game-modal .money > span { color: var(--slate); font: 500 14.5px/1 var(--mono); }
+#modal-box.game-modal .money input { width: 100%; height: 100%; min-width: 0; background: none; border: 0; padding: 0; color: var(--chalk); font: 500 15px/1 var(--mono); outline: none; -moz-appearance: textfield; }
+#modal-box.game-modal .money input::-webkit-inner-spin-button, #modal-box.game-modal .money input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+#modal-box.game-modal .money input[aria-invalid] { color: var(--bad); }
+#modal-box.game-modal .more-options > summary { list-style: none; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; color: var(--chalk); font: 600 15px/1.3 var(--ui, inherit); }
+#modal-box.game-modal .more-options > summary::-webkit-details-marker { display: none; }
+#modal-box.game-modal .more-options > summary::before { content: "▸"; color: var(--slate); }
+#modal-box.game-modal .more-options[open] > summary::before { content: "▾"; }
+#modal-box.game-modal .more-options > summary small { font: 400 13px/1.3 var(--ui, inherit); color: var(--slate); }
+#modal-box.game-modal .more-options[open] > summary small { display: none; }
+#modal-box.game-modal .go-group { margin-top: 18px; }
+#modal-box.game-modal .go-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+#modal-box.game-modal .go-head span:last-child { font-size: 12.5px; color: var(--slate-dim); text-align: right; }
+#modal-box.game-modal .go-row { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 4px 16px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--hairline); }
+#modal-box.game-modal .go-row > label, #modal-box.game-modal .go-row > .go-lab { font-size: 14.5px; color: var(--text); }
+#modal-box.game-modal .go-ctl { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+#modal-box.game-modal .go-ctl small { font-size: 12.5px; color: var(--slate); }
+#modal-box.game-modal .go-hint { grid-column: 2; margin: 0; font-size: 12.5px; color: var(--slate); }
+#modal-box.game-modal .go-row .form-err { grid-column: 2; margin: 0; }
+#modal-box.game-modal .go-row .form-err:empty { display: none; }
+#modal-box.game-modal .go-row.tog { grid-template-columns: 1fr; padding: 2px 0; }
+#modal-box.game-modal .go-row.tog .trow { margin: 0; min-height: 44px; font-size: 14.5px; }
+@media (max-width: 600px) {
+  #modal-box.game-modal .go-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  #modal-box.game-modal .go-row.inline { grid-template-columns: minmax(0, 1fr) auto; }
+  #modal-box.game-modal .go-row.inline .go-ctl small { display: none; }
+  #modal-box.game-modal .go-hint, #modal-box.game-modal .go-row .form-err { grid-column: 1 / -1; margin-top: -2px; }
+  #modal-box.game-modal select.ctl { width: 100%; }
+  #modal-box.game-modal #gm-game .seg { display: flex; width: 100%; }
+  #modal-box.game-modal #gm-game .seg button { flex: 1; padding: 0 8px; font-size: 13.5px; }
+  #modal-box.game-modal .go-row.inline .seg { width: auto; }
+  #modal-box.game-modal .more-options > summary small { flex: 1 1 100%; padding-left: 18px; }
+}

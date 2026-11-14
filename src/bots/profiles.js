@@ -74,6 +74,11 @@ const BASE = {
   mwTrap3: null, // out-of-position multiway trap rates with strong hands: [raiser behind, I am the raiser, other]
   mwPassiveValue: 0, // value-threshold increase per extra opponent for turn and river bets
   leadIntoRaiser: 0, // value-threshold increase for any lead into the previous street's aggressor
+  // Passivity, Revision D (POOL, owner-approved 13 Nov 2026): value betting when checked to.
+  m7CheckedTo: 1, // share of M7a (mwPassiveValue) kept when checked to
+  mwTightenCheckedTo: null, // mwTighten when checked to (null: the usual mwTighten)
+  checkedToShift: [0, 0, 0], // value-threshold shift when checked to [flop, turn, river]
+  leadIntoRaiserFlop: null, // the flop's lead-into-the-preflop-raiser term (null: leadIntoRaiser)
   ledRaiseRespect: 0, // call-threshold increase when raised after leading this street
   leadBluffMult: 1, // multiplier on bluff-leads into the aggressor
   penaltyCap: 0.14, // cap on (money term + multiway terms) in the call threshold (MATH safeguard 1)
@@ -143,6 +148,10 @@ const DEFS = {
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   abc: {
+    m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
+    mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
+    checkedToShift: [0,  -0.06,  -0.12], // POOL passivity, Revision D (13 Nov 2026)
+    leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.05, 0.09], // POOL overcall, owner-approved 13 Nov 2026 (river .07 -> .09, POOL correction)
     name: 'Straightforward recreational',
     blurb: 'Plays his cards face up: bets when he hits, gives up when he misses, limps along a lot.',
@@ -183,6 +192,10 @@ const DEFS = {
     leadBluffMult: 0.25, // POOL M, Nov 2026 (was the shared default)
   },
   station: {
+    m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
+    mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
+    checkedToShift: [0,  -0.04,  -0.04], // POOL passivity, Revision D (13 Nov 2026)
+    leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.03, 0.13], // POOL overcall, owner-approved 13 Nov 2026
     ocSize: 0.25, // POOL overcall: a pot-sized overcall hits harder than a half-pot one
     name: 'Loose-passive calling station',
@@ -240,6 +253,10 @@ const DEFS = {
     leadBluffMult: 0.25, // POOL M, Nov 2026 (was the shared default)
   },
   whale: {
+    m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
+    mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
+    checkedToShift: [0,  -0.06,  -0.12], // POOL passivity, Revision D (13 Nov 2026)
+    leadIntoRaiserFlop: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.02, 0.13], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Gambler',
     blurb: 'Here to play pots. Any two cards, calls far too much, and fires off the odd wild bluff.',
@@ -502,6 +519,10 @@ const DEFS = {
     mwTrap3: [0.5, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
   },
   beginner: {
+    m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
+    mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
+    checkedToShift: [0,  -0.05,  -0.08], // POOL passivity, Revision D (13 Nov 2026)
+    leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.08, 0.15], // POOL overcall, owner-approved 13 Nov 2026 (river .12 -> .15, POOL correction)
     name: 'Total beginner',
     blurb: 'Still learning. Plays most hands, limps, bets small, calls with any piece of the board, and gets scared off by big bets.',

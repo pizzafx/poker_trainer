@@ -106,7 +106,7 @@ export const EXPECT = {
   F03: { accept: ['bet:0.45-1.05'], flag: ['check'] },       // †
   // STRAT (Nov 2026): a draw bet up to the pot that the anchors count as working is exempt from the
   // "not a habit" note ($15: 30% against 25%; $25: 34% against 35%); bigger sizes keep it.
-  F04: { accept: ['check', 'bet:0.3-0.6'], note: { 'bet:0.7-1.6': 'mwHabit' }, neverBest: ['bet:0.7-1.6'] },                 // R4
+  F04: { accept: ['check', 'bet:0.3-0.8'], note: { 'bet:0.9-1.6': 'mwHabit' }, neverBest: ['bet:0.9-1.6'] },                 // R4; STRAT, 13 Nov: 3/4 pot (the judge's $35 = 76%) is a standard semi-bluff size the anchors support
   F05: { accept: ['check', 'bet:0.3-0.4'] },
   F06: { accept: ['check'] },
   F07: { accept: ['bet:0.6-1.6'], flag: ['check'] },          // set: not onePair, R1 does not apply
@@ -129,7 +129,7 @@ export const EXPECT = {
   T02: { accept: ['bet:0.6-1.05'], flag: ['check'] },        // 3-way goodTP IP pfr: R1 exception
   // owner's ruling: every bet keeps the note, supported or not (STRAT's condition on the F04 exemption)
   T03: { accept: ['check', 'bet'], note: { bet: 'mwHabit' }, neverBest: ['bet'], noGrade: true }, // owner: R7 note, never flagged; MATH: do not grade
-  T04: { accept: ['bet:0.6-1.05'], flag: ['check'] },        // two pair: R1 does not apply; R8? pot 4.3bb → see ‡
+  T04: { accept: ['bet:0.6-1.05'], softFlag: ['check'] },    // two pair: R1 does not apply; STRAT, 13 Nov: in a $13 pot the bar is the $9 floor, so a flag or the fragile waiver both pass
   T05: { accept: ['call', 'fold', 'raise'], note: { raise: 'mwHabit' }, neverBest: ['raise'] }, // owner: R7 note, never flagged; R5b
   // On the river with one pair the multiway sizing floor is 30% of the pot (STRAT, Nov 2026): $40 is good.
   R01: { accept: ['bet:0.3-0.8'], flag: ['check'], maxGrade: { check: 'mistake' }, quote: 'bet:0.74' }, // owner: check yellow; R3 quotes $90, $60 good

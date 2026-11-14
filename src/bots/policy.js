@@ -145,6 +145,9 @@ export function buildContext(s, seat = s.toAct) {
   for (let i = 0; i < n; i++) if (i !== seat && i !== s.lastRaiser && !s.folded[i] && !s.allIn[i] && !s.acted[i]) toActBehind++;
   ctx.callersIn = callersIn;
   ctx.iBetThisStreet = s.history.some((h) => h.street === s.street && h.seat === seat && (h.type === 'bet' || h.type === 'raise'));
+  // Passivity, Revision D (POOL, owner-approved 13 Nov 2026): has anyone already acted (checked) on
+  // this postflop street before me?
+  ctx.checkedTo = s.history.some((h) => h.street === s.street && h.street > STREET.PRE);
   ctx.preflopRaised = s.history.some((h) => h.street === STREET.PRE && h.type === 'raise');
   {
     const suits = [0, 0, 0, 0];
@@ -369,8 +372,13 @@ export function postflopPolicy(ctx, P, f) {
   if (ctx.toCall === 0) {
     // M7a: a passive player's bet into two or more on the turn or river, and any lead into the previous
     // street's aggressor, needs a real hand.
-    const m7 = (st > 0 ? P.mwPassiveValue * extra : 0) + (ctx.aggressorBehind ? P.leadIntoRaiser : 0);
-    const valueThr = P.valueBet[st] + P.mwTighten * extra + valueShiftFor(P, ctx) + m7;
+    // Revision D: checked to me (not a lead into the last aggressor), the others have shown weakness, so
+    // M7a and mwTighten are scaled by m7CheckedTo / mwTightenCheckedTo and a per-street shift applies; a
+    // flop lead into the preflop raiser uses leadIntoRaiserFlop (turn and river leads keep M7).
+    const ct = ctx.checkedTo && !ctx.aggressorBehind;
+    const lead = ctx.aggressorBehind ? (st === 0 && P.leadIntoRaiserFlop != null ? P.leadIntoRaiserFlop : P.leadIntoRaiser) : 0;
+    const m7 = (st > 0 ? P.mwPassiveValue * extra * (ct ? P.m7CheckedTo : 1) : 0) + lead;
+    const valueThr = P.valueBet[st] + (ct && P.mwTightenCheckedTo != null ? P.mwTightenCheckedTo : P.mwTighten) * extra + valueShiftFor(P, ctx) + m7 + (ct ? P.checkedToShift[st] : 0);
     let pValue = soft(S, valueThr, 0.035);
     if (f.tier >= TIER.STRONG) pValue *= 1 - P.slowplay * (st < 2 ? 1 : 0.25);
     // M5: strong hands trap out of position multiway, by where the preflop raiser sits; half as

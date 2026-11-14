@@ -263,3 +263,31 @@ test('turn exception: a closing two-pair check can be red; one with the bettor b
   assert.equal(behind.grade, 'mistake');
   assert.ok(behind.loss > 8 * 3 * 1.6 || behind.loss > 0.2 * 100, 'its loss is above the red bar, so the cap is what keeps it yellow');
 });
+
+// STRAT (for POOL and the live pro): T05's coach rule is locked whatever the judge's shove edge is.
+// R5b: the call is never flagged; R7: raises get the habit note and are never named the best play.
+test('T05: the call is good and raises carry the habit note, whatever the shove\'s edge (R5b, R7)', (t) => {
+  const t05 = (lead) => ({ id: 'T05', button: 0, hole: 'Qd Qh', board: '8s 5d 2c Jc 4h', seats: { 7: 'abc', 2: 'station' }, line: `7c 0r15 2c 7c | 2x 7x 0b25 2c 7c | 2b${lead} 7c` });
+  for (const seed of [5, 11]) {
+    const { s, belief, env } = build(t05(45));
+    const opts = { samples: 1500, seed };
+    const maxTo = legal(s).maxTo;
+    const v0 = judgeDecision(s, 0, belief, { type: 'raise', to: maxTo }, opts);
+    const rows = gradeAll(s, v0, opts, env);
+    const call = rows.find((r) => r.o.type === 'call');
+    const shove = rows.find((r) => r.o.type === 'raise' && r.o.to === maxTo);
+    const r115 = rows.find((r) => r.o.type === 'raise' && r.o.to === 115);
+    assert.ok(call && shove && r115, `options: ${v0.options.map((o) => o.label).join(', ')}`);
+    // 1. the precondition, as documentation only: today the judge rates the shove above the call
+    t.diagnostic(`seed ${seed}: shove ${shove.o.ev.toFixed(1)} vs call ${call.o.ev.toFixed(1)} (edge ${(shove.o.ev - call.o.ev).toFixed(1)})${shove.o.ev > call.o.ev ? '' : '  <- the shove no longer rates higher'}`);
+    // 2. the call is good, at any size of gap
+    assert.equal(call.v.grade, 'good', `seed ${seed}: call ${call.v.grade}`);
+    // 3. the shove and the $115 raise are good with the habit note
+    for (const r of [shove, r115]) {
+      assert.equal(r.v.grade, 'good', `seed ${seed}: ${r.o.label} ${r.v.grade}`);
+      assert.equal(r.v.note, 'mwHabit', `seed ${seed}: ${r.o.label} note ${r.v.note}`);
+    }
+    // 4. never best: the call's verdict does not name a raise or all-in as the best or reference play
+    assert.notEqual(call.v.options[call.v.best].type, 'raise', `seed ${seed}: the call is measured against ${call.v.options[call.v.best].label}`);
+  }
+});

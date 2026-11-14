@@ -22,9 +22,11 @@ export const GAMES = {
   // $1/$2 and $2/$5: common US card-room ranges ($100-$200 at $1/$2, 50 to 100 big blinds;
   // $200-$1,000 at $2/$5), not taken from one room. Rooms vary: some allow $300 at $1/$2 or cap
   // $2/$5 at $500. The opponents play in big blinds, so the same player pool sits at every stake.
-  '1/2': { sb: 1, bb: 2, minBuy: 100, maxBuy: 200 },
-  '2/3': { sb: 2, bb: 3, minBuy: 100, maxBuy: 500 },
-  '2/5': { sb: 2, bb: 5, minBuy: 200, maxBuy: 1000 },
+  // `rake`: the house cut a new player starts on at these stakes (the research's most common
+  // schedule at $1/$2 is 10% to a $5 cap; the others keep the typical $6 cap).
+  '1/2': { sb: 1, bb: 2, minBuy: 100, maxBuy: 200, rake: 'pct5' },
+  '2/3': { sb: 2, bb: 3, minBuy: 100, maxBuy: 500, rake: 'pct' },
+  '2/5': { sb: 2, bb: 5, minBuy: 200, maxBuy: 1000, rake: 'pct' },
 };
 // Removed stakes (owner, Nov 2026): $1/$3 became $1/$2, the most common live game, and $3/$5 plays
 // the same as $2/$5. A saved key reads as its replacement.
@@ -35,8 +37,10 @@ export const RAKES = {
   // Labels say what each structure is; no venue names. Keys are stored in players' saved
   // settings, so they stay as they are ('tsr' is the stepped structure). Listed in the order
   // the Settings menu shows them.
-  // The default for new players.
-  pct: { label: 'Typical casino rake: 10% up to $6, + $1 jackpot, no flop no drop', short: '10% up to $6', hint: 'Plus $1 to the jackpot; nothing is taken when there is no flop.', word: '10% rake', pct: 0.1, cap: 6, promo: 1, noFlopNoDrop: true },
+  // 10% to $5: the most common Las Vegas schedule in the research; the $1/$2 default.
+  pct5: { label: 'Typical $1/$2 rake: 10% up to $5, + $1 jackpot, no flop no drop', short: '10% up to $5', hint: 'Plus $1 to the jackpot; nothing is taken when there is no flop.', word: '10% to $5 rake', pct: 0.1, cap: 5, promo: 1, noFlopNoDrop: true },
+  // The default at $2/$3 and $2/$5.
+  pct: { label: 'Typical casino rake: 10% up to $6, + $1 jackpot, no flop no drop', short: '10% up to $6', hint: 'Plus $1 to the jackpot; nothing is taken when there is no flop.', word: '10% to $6 rake', pct: 0.1, cap: 6, promo: 1, noFlopNoDrop: true },
   // Stepped: one card room's listed "staggered up to $5, plus a $2 jackpot drop", with the $5 cap
   // reached at a $60 pot. Modelled as $1 per $12 of pot, capped at $5, plus $2 when there is a flop.
   tsr: { label: 'Stepped to $5 (reached at a $60 pot) + $2 jackpot drop', short: 'Stepped to $5, + $2 jackpot', hint: '$5 is reached at a $60 pot; $2 more goes to the jackpot.', word: 'stepped rake', pct: 1 / 12, cap: 5, promo: 2, noFlopNoDrop: true },
@@ -55,7 +59,7 @@ export function samplesFor(base, s) {
   return Math.round(base * (s.street <= STREET.FLOP ? 5 : s.street === STREET.TURN ? 2.5 : 1.3) * (players >= 6 ? 0.7 : 1));
 }
 
-export const APP_GAME = { game: '1/2', rake: 'pct', heroBuy: 200 };
+export const APP_GAME = { game: '1/2', rake: 'pct5', heroBuy: 200 };
 
 const HERO = 0;
 

@@ -25,7 +25,7 @@ const SUIT_CLS = ['c', 'd', 'h', 's'];
 
 // What a new player starts on: $1/$2 with a 100-big-blind buy-in ($200) and a typical capped rake.
 // Players who already have saved settings keep theirs.
-const DEFAULTS = { v: 3, game: APP_GAME.game, maxBuy: APP_GAME.heroBuy, rake: APP_GAME.rake, table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450, sideW: null };
+const DEFAULTS = { v: 3, game: APP_GAME.game, maxBuy: APP_GAME.heroBuy, rake: APP_GAME.rake, table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, rake5: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450, sideW: null };
 let settings = { ...DEFAULTS };
 let firstVisit = true; // nothing saved yet: deal straight in and show the one-time hint
 try {
@@ -44,6 +44,17 @@ try {
       /* ignore */
     }
   } // anything older is dropped
+  // $1/$2 now defaults to 10% up to $5 (Nov 2026): a player at $1/$2 (or moving there from $1/$3)
+  // who is still on the old default house cut moves to it, once
+  if (!saved.rake5 && !firstVisit) {
+    if ((RETIRED_GAMES[settings.game] || settings.game) === '1/2' && settings.rake === 'pct') settings.rake = 'pct5';
+    settings.rake5 = true;
+    try {
+      localStorage.setItem('trainer-settings', JSON.stringify(settings));
+    } catch {
+      /* ignore */
+    }
+  }
   // $1/$3 and $3/$5 are gone: those players move to $1/$2 and $2/$5, the buy-in capped at the new maximum
   if (RETIRED_GAMES[settings.game]) {
     settings.game = RETIRED_GAMES[settings.game];
@@ -1868,8 +1879,12 @@ function openGameModal({ tab = 'game', group = null } = {}) {
     if ($('h-err').textContent || $('s-err').textContent) showProblems(problems());
   }));
   syncMode();
+  let gamePrev = $('s-game').value;
   $('s-game').onchange = () => {
     $('s-buy').value = defaultBuy($('s-game').value);
+    // the house cut follows the stakes while it is on the old stakes' default
+    if ($('s-rake').value === GAMES[gamePrev].rake) $('s-rake').value = GAMES[$('s-game').value].rake;
+    gamePrev = $('s-game').value;
     syncLines();
   };
   syncLines();

@@ -16,7 +16,7 @@ import { equityVsRange } from '../trainer/equity.js';
 import { BUILD, HASHES } from '../trainer/version.js';
 import { keepHand, saveSession, loadSession, clearSession, listHands, clearHands } from './store.js';
 import { framesOf } from '../trainer/replay.js';
-import { bestPlayEdge } from '../trainer/best.js';
+import { bestPlayEdge, bestHeadline } from '../trainer/best.js';
 
 const $ = (id) => document.getElementById(id);
 const HERO = 0;
@@ -635,7 +635,7 @@ const tipLine = (d, cls = 'tip-line') =>
 // The coach's note on a fine verdict, without the "X: fine." it starts with (QA K1: the review shows it
 // under the fine row, as the strip and the panel do).
 function noteText(d) {
-  if (d.tip || !d.verdict.note || !d.headline) return '';
+  if (d.tip || !d.verdict.note || !d.headline || isBest(d)) return ''; // a best play's headline says it all
   const k = d.headline.indexOf(': ');
   const body = (k >= 0 ? d.headline.slice(k + 2) : d.headline).replace(/^(fine|good|not graded)\.\s*/, '').replace(/^\((.*)\)$/, '$1');
   return body;
@@ -689,7 +689,7 @@ function fbCard(d, showWhere = true) {
   const best = isBest(d);
   return `<div class="fb ${v.grade}${best ? ' best' : ''}">${where}
     ${best ? `<div class="fb-best"><span class="vmark good best" aria-hidden="true">${MARK.good}</span><span class="g bp-word">Best play</span></div>` : ''}
-    <div class="head">${esc(d.headline)}</div>
+    <div class="head">${esc(bestHeadline(v, d) || d.headline)}</div>
     ${best ? bestEdgeLine(d) : ''}
     ${anchorHtml(d)}
     ${tipLine(d)}

@@ -1,7 +1,7 @@
 // The best-play rule (trainer/best.js; STRAT's rule, header design Addendum B), on hand-built verdicts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isBestPlay, bestPlayEdge } from '../src/trainer/best.js';
+import { isBestPlay, bestPlayEdge, bestHeadline } from '../src/trainer/best.js';
 
 // A turn spot, pot $100, yellow bar $10: check, bet $50, bet $75, bet $100.
 const base = (over = {}) => ({
@@ -75,4 +75,17 @@ test('best play: a fold or check is not marked when the alternative loses by thr
   assert.equal(isBestPlay(fold(-30), {}), false); // trivial: 3 bars
   // a value bet is never excluded for being obvious
   assert.equal(isBestPlay(withOpt(0, { ev: -100 }), {}), true);
+});
+
+test('best play headline: never "fine" under the ring; names a size of the same kind within the bar', () => {
+  // bet $50 is best; bet $75 is $4 behind (within the $10 bar), bet $100 is $7 behind
+  assert.equal(bestHeadline(base(), {}), 'Bet $50 (50% pot): best play. (Bet $75 works about as well.)');
+  // no other size within the bar: the plain line
+  const v = base();
+  v.options[2].ev = 25;
+  v.options[3].ev = 20;
+  assert.equal(bestHeadline(v, {}), 'Bet $50 (50% pot): best play.');
+  // a play without the ring keeps the coach's own headline (null here)
+  assert.equal(bestHeadline(base({ note: 'mwHabit' }), {}), null);
+  for (const h of [bestHeadline(base(), {}), bestHeadline(v, {})]) assert.ok(!/fine|rates about the same/.test(h), h);
 });

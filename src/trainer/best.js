@@ -50,3 +50,17 @@ export function bestPlayEdge(v, d) {
 }
 
 export const isBestPlay = (v, d) => !!bestPlayEdge(v, d);
+
+// The Coach headline when the ring shows: it never says "fine" under "BEST PLAY". "{label}: best
+// play.", plus "({other} works about as well.)" when another size of the same kind is within the
+// yellow bar of yours.
+export function bestHeadline(v, d) {
+  if (!bestPlayEdge(v, d)) return null;
+  const mine = v.options[v.mine];
+  let twin = -1;
+  v.options.forEach((o, i) => {
+    if (i !== v.mine && o.type === mine.type && Math.abs(o.ev - mine.ev) < v.small && (twin < 0 || o.ev > v.options[twin].ev)) twin = i;
+  });
+  const bare = (o) => o.label.replace(/\s*\([^)]*\)\s*$/, '');
+  return `${mine.label}: best play.${twin >= 0 ? ` (${bare(v.options[twin])} works about as well.)` : ''}`;
+}

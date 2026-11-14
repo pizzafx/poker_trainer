@@ -44,6 +44,8 @@ let fivePlus = 0;
 let limpedPots = 0;
 let totalHands = 0;
 let rakeTotal = 0;
+let potTotal = 0; // final pot, in big blinds
+let potFlopTotal = 0; // the same, in hands that saw a flop
 
 let table = pickTable();
 let button = 0;
@@ -138,6 +140,8 @@ for (let h = 0; h < HANDS; h++) {
     }
   }
   rakeTotal += s.result.rake;
+  potTotal += s.result.pot / HAND.bb;
+  if (s.sawFlop) potFlopTotal += s.result.pot / HAND.bb;
   for (let i = 0; i < n; i++) {
     const st = stats[table[i]];
     st.hands++;
@@ -170,3 +174,6 @@ console.log(
 console.log(
   `flop seen ${pc(flops, totalHands)}% of hands | players per flop ${(playersAtFlop / flops).toFixed(2)} | heads-up flops ${pc(headsUpFlops, flops)}% | 5+ way ${pc(fivePlus, flops)}% | unraised flops ${pc(limpedPots, flops)}% | rake/hand $${(rakeTotal / totalHands).toFixed(2)}`,
 );
+// Average pot, the one live pot figure there is: about 25 big blinds at $1/$2 and 31 at $2/$5 (a
+// Las Vegas sample of about 1,000 hands, 2019). Win rate by type is the bb/100 column above.
+console.log(`average pot ${(potTotal / totalHands).toFixed(1)}bb per hand, ${(potFlopTotal / Math.max(1, flops)).toFixed(1)}bb in hands that see a flop | live sample: about 25bb at $1/$2, 31bb at $2/$5`);

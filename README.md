@@ -277,7 +277,9 @@ Everything the trainer believes can be inspected from the command line:
 npm test                        # engine, grading rules, ranges, replayer, solver fixture
 node scripts/spots.js           # the judge on 13 set-piece spots with known answers
 node scripts/mwbench.js         # the coach on 26 multiway spots, against their expected grades
-node scripts/calibrate.js       # stats that emerge from bot-vs-bot play, per player type
+node scripts/calibrate.js       # bot-vs-bot stats per type: VPIP, PFR, ..., win rate, average pot
+node scripts/harder.js          # yardstick 1: the steady stand-in in the app's own conditions
+node scripts/harder_session.js '{"mode":"judge","hands":2000}'   # yardstick 2: the judge follower (slow)
 node scripts/audit.js 11 150    # hand histories behind the costliest verdicts
 node scripts/selfplay.js        # win rate of a player who blindly follows the judge
 node scripts/exploit.js         # where that player's profit comes from
@@ -290,6 +292,21 @@ three-player river equilibrium. One pair folding more against a bet and a call, 
 value bet scoring about the same from half pot to 1.5 times the pot, are real tests. How often the
 field folds to a half-pot bet is still too low; that check prints its numbers and is marked as a
 known gap, so it does not fail the run.
+
+**Two calibration yardsticks.** How beatable the opponents are is measured two ways, against a live
+winner's 15 to 30 big blinds per 100 hands:
+
+- `harder.js`: the judge's stand-in, a steady player, in the app's own conditions (its default
+  game and rake, opponents buying in across the table's range, each a personal version of its
+  type, and the stand-in told nothing about who is who). Today about 25 bb/100 at $1/$2 and about
+  10 at a Tough table. One million hands take about two minutes.
+- `harder_session.js` in `judge` mode: a player who always takes the coach's top-rated option,
+  inside the real session. Today about 200 bb/100 (in a measurement of about 22,000 hands, plus
+  or minus 15), because the bots never adjust to someone who bets and raises that often. It is
+  slow, so it is not part of `npm test`.
+
+`calibrate.js` also prints the average pot, against the one live figure there is (about 25 big
+blinds at $1/$2): today's pots run about twice that.
 
 Before committing a change to the site, run `node scripts/stamp.js`: it versions every asset URL
 so browsers fetch a new version as a whole (the tests fail if you forget).

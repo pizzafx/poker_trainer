@@ -248,11 +248,11 @@ Read this before taking the advice to a real table.
   stakes, so every postflop number in `src/bots/profiles.js` is expert judgement in the
   direction coaches agree on. Some of it has been checked against a three-player solver on the
   river and turn, none of it against live hand data.
-- **The opponents are easier to beat than real players.** A player who blindly follows the
-  top-rated option wins about two to four times what a strong live player makes: about 50 big
-  blinds per 100 hands here, against 15 to 30 for a strong player in a real game. Trust the direction
-  of the advice (value-bet more, pay off less, isolate limpers) more than the dollar
-  figures.
+- **The opponents are easier to beat than real players.** A player who blindly took the coach's
+  top-rated option on every decision would win around 200 big blinds per 100 hands here, many
+  times the 15 to 30 a strong live player makes. A steady, disciplined player wins about 30. Trust
+  the direction of the advice (value-bet more, pay off less, isolate limpers) more than the dollar
+  figures, and use the trainer to build habits, not to estimate your hourly rate.
 - **Guardrails limit what gets flagged.** You are never marked down for declining a
   bluff-raise or a re-raise bluff, or for not betting more than the pot. With one pair the
   reference bet is the best one up to three-quarters of the pot, and with several players in a

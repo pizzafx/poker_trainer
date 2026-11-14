@@ -1,7 +1,8 @@
 // The best-play rule (trainer/best.js; STRAT's rule, header design Addendum B), on hand-built verdicts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isBestPlay, bestPlayEdge, bestHeadline } from '../src/trainer/best.js';
+import fs from 'node:fs';
+import { isBestPlay, bestPlayEdge, bestHeadline, verdictWord } from '../src/trainer/best.js';
 
 // A turn spot, pot $100, yellow bar $10: check, bet $50, bet $75, bet $100.
 const base = (over = {}) => ({
@@ -88,4 +89,23 @@ test('best play headline: never "fine" under the ring; names a size of the same 
   // a play without the ring keeps the coach's own headline (null here)
   assert.equal(bestHeadline(base({ note: 'mwHabit' }), {}), null);
   for (const h of [bestHeadline(base(), {}), bestHeadline(v, {})]) assert.ok(!/fine|rates about the same/.test(h), h);
+});
+
+test('grade word: "best play" exactly when the ring shows, for every verdict shape', () => {
+  const cases = [base(), base({ mine: 0 }), base({ mine: 2 }), base({ note: 'mwHabit' }), base({ note: 'sizeCheck', ref: 'upTo75', best: 2, mine: 2 }), withOpt(0, { close: true }), withOpt(0, { ev: 36 }), base({ rule: 'R5' })];
+  for (const v of cases) for (const d of [{}, { tipKind: 'wideOpen' }]) assert.equal(verdictWord(v, d) === 'best play', isBestPlay(v, d), JSON.stringify({ mine: v.mine, note: v.note, d }));
+  assert.equal(verdictWord(base({ grade: 'mistake' }), {}), 'mistake');
+  assert.equal(verdictWord(base({ note: 'unclear' }), {}), 'not graded');
+  assert.equal(verdictWord(base({ mine: 0 }), {}), 'fine');
+});
+
+test('the table strip takes its word and ring from the verdict, in the dimmed state too (owner bug, Nov 2026)', () => {
+  // stripHtml is DOM code; guard its source: the word comes from verdictWord and the ring from isBest,
+  // neither gated on the previous-decision state; only the pop is
+  const src = fs.readFileSync(new URL('../src/ui/app.js', import.meta.url), 'utf8');
+  const body = src.slice(src.indexOf('function stripHtml('), src.indexOf('function renderToast('));
+  assert.match(body, /const best = isBest\(show\);/);
+  assert.match(body, /const word = verdictWord\(v, show\);/);
+  assert.match(body, /const sheen = best && !prev &&/);
+  assert.doesNotMatch(body, /best = !prev/);
 });

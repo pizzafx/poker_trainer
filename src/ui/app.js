@@ -16,7 +16,7 @@ import { equityVsRange } from '../trainer/equity.js';
 import { BUILD, HASHES } from '../trainer/version.js';
 import { keepHand, saveSession, loadSession, clearSession, listHands, clearHands } from './store.js';
 import { framesOf } from '../trainer/replay.js';
-import { bestPlayEdge, bestHeadline } from '../trainer/best.js';
+import { bestPlayEdge, bestHeadline, verdictWord } from '../trainer/best.js';
 
 const $ = (id) => document.getElementById(id);
 const HERO = 0;
@@ -854,13 +854,15 @@ function stripHtml(show, { worst, prev }) {
   const g = v.grade;
   const mine = v.options[v.mine];
   const tipping = g === 'good' && !!show.tipKind;
-  const best = !prev && isBest(show); // not in the previous-hand state (Addendum B)
-  const word = g === 'good' ? (notGraded(v) ? 'not graded' : best ? 'best play' : 'fine') : g; // with a tip or a note it is "fine", as the headline says (QA Z3, M4)
+  // the same word and mark as the verdict everywhere else, the dimmed previous-decision state included;
+  // only the pop is kept for the moment a verdict lands (owner's bug report, Nov 2026)
+  const best = isBest(show);
+  const word = verdictWord(v, show); // with a tip or a note it is "fine", as the headline says (QA Z3, M4)
   // the pop plays once per decision: the strip keeps its "pop" class for the 1.3s it runs (so an
   // identical re-render leaves the element, and the animation, alone) and drops it afterwards
   const key = `${sess ? sess.id : ''}:${show.id}`;
   if (best && !POPPED.has(key)) POPPED.set(key, performance.now());
-  const sheen = best && performance.now() - POPPED.get(key) < 1300;
+  const sheen = best && !prev && performance.now() - POPPED.get(key) < 1300;
   const cost = g === 'good' ? 0 : shownCost(v);
   const tipFn = g === 'good' && show.tipKind ? STRIP_TIP[show.tipKind] : null;
   const tip = g === 'good' && show.tipKind ? (tipFn && v.tip ? tipFn(v.tip) : 'Tip') : '';
@@ -1214,7 +1216,7 @@ const markHtml = (d, cls = 'vmark') => {
   const g = d.verdict.grade;
   return `<span class="${cls} ${g}${isBest(d) ? ' best' : ''}" aria-hidden="true">${MARK[g]}</span>`;
 };
-const gradeWord = (d) => (notGraded(d.verdict) ? 'not graded' : isBest(d) ? 'best play' : GRADE_WORD[d.verdict.grade]);
+const gradeWord = (d) => verdictWord(d.verdict, d);
 const bestEdgeLine = (d) => {
   const e = bestPlayEdge(d.verdict, d);
   return e ? `<p class="best-edge">Clearly ahead of ${esc(e.label.replace(/\s*\([^)]*\)\s*$/, '').toLowerCase())}, the best alternative, by about <b>$${Math.max(1, Math.round(e.gap))}</b>.</p>` : '';
@@ -3143,7 +3145,7 @@ function handCardHtml(p) {
   const verdictOf = (d) => {
     if (!d) return '';
     const g = d.verdict.grade;
-    if (g === 'good') return `<span class="hl-v good${isBest(d) ? ' best' : ''}">${markHtml(d)}${notGraded(d.verdict) ? 'not graded' : d.tipKind ? 'fine · tip' : isBest(d) ? 'best play' : 'fine'}</span>`;
+    if (g === 'good') return `<span class="hl-v good${isBest(d) ? ' best' : ''}">${markHtml(d)}${d.tipKind && !notGraded(d.verdict) ? 'fine · tip' : verdictWord(d.verdict, d)}</span>`;
     return `<span class="hl-v ${g}">${g === 'blunder' ? 'Blunder' : 'Mistake'} · ${money(d.cost)}${p.why ? ` <button type="button" class="link-btn hl-why" data-why="${decisions.indexOf(d)}">Why ›</button>` : ''}</span>`;
   };
   let heroN = 0;

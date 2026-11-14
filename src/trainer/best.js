@@ -64,3 +64,12 @@ export function bestHeadline(v, d) {
   const bare = (o) => o.label.replace(/\s*\([^)]*\)\s*$/, '');
   return `${mine.label}: best play.${twin >= 0 ? ` (${bare(v.options[twin])} works about as well.)` : ''}`;
 }
+
+// The grade word every place uses for a verdict (strip, review and replayer rows, Hand log), so a
+// past verdict is never restated differently from how it landed: "best play" exactly when the ring
+// shows, "not graded" for close calls, otherwise "fine", "mistake" or "blunder".
+export function verdictWord(v, d) {
+  if (v.grade !== 'good') return v.grade;
+  if (v.note === 'unclear' || v.note === 'closeCall') return 'not graded';
+  return isBestPlay(v, d) ? 'best play' : 'fine';
+}

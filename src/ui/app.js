@@ -1397,12 +1397,20 @@ function advance() {
   // Once you are out of the hand, play it out immediately.
   if (!sess.heroInHand()) {
     let guard = 0;
-    while (sess.status() === 'bot' && guard++ < 500) sess.stepBot();
+    try {
+      while (sess.status() === 'bot' && guard++ < 500) sess.stepBot();
+    } catch (e) {
+      return recoverTable('play the hand out', e);
+    }
   }
   render();
   if (sess.status() === 'bot') {
     timer = setTimeout(() => {
-      sess.stepBot();
+      try {
+        sess.stepBot();
+      } catch (e) {
+        return recoverTable("play an opponent's turn", e);
+      }
       advance();
     }, settings.speed);
   } else if (sess.status() === 'over') {
@@ -1488,7 +1496,11 @@ function nextHand() {
   const tapHint = tapHintPending;
   tapHintPending = false; // shown once, as the second hand starts
   pastLog = [...pastLog, ...sess.hand.log].slice(-120);
-  sess.startPlayable();
+  try {
+    sess.startPlayable();
+  } catch (e) {
+    return recoverTable('deal the next hand', e);
+  }
   if (tapHint) stripEvent = { hand: sess.hand.no, text: `${TOUCH.matches || PHONE.matches ? 'Tap' : 'Click'} any player to see what you've noticed about them.` };
   raiseTo = 0;
   advance();
@@ -1636,25 +1648,43 @@ function newSession() {
 }
 
 // After a reload: the saved session if there is one, from the next hand; otherwise a new one.
+// Anything that throws while restoring, dealing or playing a bot's turn starts a fresh session (the
+// hand history is kept), with one console line, so the table is never left empty or stuck.
+function recoverTable(where, e) {
+  console.warn(`Could not ${where}; starting a new session.`, e);
+  clearTimeout(timer);
+  try {
+    clearSession();
+  } catch {
+    /* ignore */
+  }
+  newSession();
+}
+
 async function resumeOrNew() {
   dropPendingGrade();
   if (!owner && !(await holdTable())) return elsewhere('open');
-  const saved = await loadSession();
+  let saved = null;
+  try {
+    saved = await loadSession();
+  } catch (e) {
+    return recoverTable('read the saved session', e);
+  }
   if (!saved) return newSession();
   // a session saved at stakes that no longer exist ($1/$3, $3/$5) starts afresh at the new ones,
   // as any change of stakes does
   if (!saved.lineup && saved.game && !Object.values(GAMES).some((g) => g.sb === saved.game.sb && g.bb === saved.game.bb)) return newSession();
   try {
     sess = Session.fromSaved(saved);
-  } catch {
-    return newSession();
+    const o = sessionOpts();
+    sess.heroRanges = o.heroRanges;
+    sess.heroRangesRaised = o.heroRangesRaised;
+    keepPlaying(sess);
+    pastLog = [];
+    sess.startPlayable();
+  } catch (e) {
+    return recoverTable('restore the saved session', e);
   }
-  const o = sessionOpts();
-  sess.heroRanges = o.heroRanges;
-  sess.heroRangesRaised = o.heroRangesRaised;
-  keepPlaying(sess);
-  pastLog = [];
-  sess.startPlayable();
   sess.news.unshift(`Welcome back: your session carries on at hand ${sess.handNo}.`);
   refreshTonight();
   advance();

@@ -515,6 +515,14 @@ export class Session {
     sess.quiet = false;
     sess.foldingOut = false;
     sess.news = [];
+    // Opponent profiles saved by an older build lack fields added since (Revision D's checkedToShift,
+    // the overcall terms, the 3-bet continue values, ...). Fill every missing one from the current
+    // profile of that type; the saved personal numbers stay as they were (owner's empty table, Nov 2026).
+    for (const p of sess.seats || []) {
+      const cur = p && p.type ? PROFILES[p.type] : null;
+      if (!p.profile || !cur) continue;
+      for (const k of Object.keys(cur)) if (p.profile[k] === undefined) p.profile[k] = cur[k];
+    }
     return sess;
   }
 

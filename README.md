@@ -211,8 +211,8 @@ start getting called lighter.
 - **Players screen.** Sliders for how each opponent type plays: hands played and raised,
   bluffing, what they call with, what they never fold, how common they are. Saved in your
   browser; no file editing needed.
-- **Table types.** Typical, aggressive, conservative, or loose-passive: the same player
-  types in a different mix.
+- **Table types.** Typical, aggressive, conservative, loose-passive, or tough (more regulars,
+  fewer calling stations and gamblers): the same player types in a different mix.
 - **Game settings.** $1/$2, $2/$3 or $2/$5, buy-in, and rake (a typical 10% capped rake
   by default, plus a stepped structure with a jackpot drop, a flat drop, or none). None of it is
   needed to start: the table deals you in on sensible defaults.

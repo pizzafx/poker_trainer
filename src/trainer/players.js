@@ -54,6 +54,9 @@ export const TABLES = {
   aggressive: { label: 'Aggressive: more maniacs, gamblers and tricky regulars', short: 'Aggressive', hint: 'More maniacs, gamblers and tricky regulars.', mix: [0.4, 0.6, 0.8, 1.8, 2.5, 1.5, 1.2, 2.5, 1] },
   tight: { label: 'Conservative: more nits and careful players', short: 'Conservative', hint: 'More nits and careful players.', mix: [2.5, 1.4, 0.6, 0.3, 0.2, 1, 1.4, 0.6, 1] },
   loose: { label: 'Loose and passive: a limp-fest of callers', short: 'Loose and passive', hint: 'A limp-fest of callers.', mix: [0.6, 1, 1.6, 1.8, 0.6, 0.5, 0.6, 0.5, 1] },
+  // MATH's tough mix (CEO for the owner, Nov 2026): regulars doubled, stations and maniacs halved,
+  // gamblers at 40%. Grading is unchanged; the coach's reads start from this mix like any table's.
+  tough: { label: 'Tough: more regulars, fewer calling stations and gamblers', short: 'Tough', hint: 'More regulars, fewer calling stations and gamblers: the hardest table to beat.', mix: [1, 1, 0.5, 0.4, 0.5, 2, 2, 2, 1] },
 };
 
 function sharesFor(mix) {

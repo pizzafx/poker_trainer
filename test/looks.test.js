@@ -20,9 +20,9 @@ test('looks: twelve distinct looks with avatar ids and hues', () => {
 });
 
 test('looks: 1,000 generated tables never repeat a look or number a name', () => {
-  const tables = ['typical', 'aggressive', 'tight', 'loose'];
+  const tables = ['typical', 'aggressive', 'tight', 'loose', 'tough'];
   for (let i = 0; i < 1000; i++) {
-    const sess = new Session({ seed: 1000 + i, samples: 10, table: tables[i % 4], game: ['1/2', '2/3', '2/5'][i % 3] });
+    const sess = new Session({ seed: 1000 + i, samples: 10, table: tables[i % 5], game: ['1/2', '2/3', '2/5'][i % 3] });
     check(sess, `casino seed ${1000 + i}`);
   }
 });

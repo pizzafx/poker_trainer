@@ -29,7 +29,8 @@ const BASE = {
   threeBetBluff: 0, // chance of 3-betting hands just below the value range
   callThreeBet: 0.05,
   // 3-bet continue (POOL, owner-approved 13 Nov 2026): the opener continues this share of its own
-  // opening range [early/middle, late]; null keeps the old callThreeBet rule (stations, gamblers).
+  // opening range [early/middle, late]; null keeps the old callThreeBet rule. On hold (CEO, Nov 2026):
+  // POOL is re-deriving the values after a fix to how opponents rank premium hands facing a 3-bet.
   tbCont: null,
   tbSize: 0, // less per x of 3-bet size above 3x
   tbOOP: 0, // less out of position against the 3-bettor
@@ -102,8 +103,6 @@ const BASE = {
 
 const DEFS = {
   nit: {
-    tbCont: [0.55,  0.4], // POOL 3-bet continue, final (13 Nov 2026)
-    tbSize: 0.05, // POOL 3-bet continue, final (13 Nov 2026)
     mwOvercall: [0, 0.06, 0.07], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Tight-passive nit',
     blurb: 'Waits for big hands. Limps a lot, rarely raises, and when the money goes in he has it.',
@@ -156,8 +155,6 @@ const DEFS = {
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   abc: {
-    tbCont: [0.8,  0.68], // POOL 3-bet continue, final (13 Nov 2026)
-    tbSize: 0.05, // POOL 3-bet continue, final (13 Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     checkedToShift: [0,  -0.06,  -0.12], // POOL passivity, Revision D (13 Nov 2026)
@@ -325,8 +322,6 @@ const DEFS = {
     leadBluffMult: 0.5, // POOL M, Nov 2026 (was the shared default)
   },
   maniac: {
-    tbCont: [0.75,  0.65], // POOL 3-bet continue, final (13 Nov 2026)
-    tbSize: 0.05, // POOL 3-bet continue, final (13 Nov 2026)
     mwOvercall: [0, 0.07, 0.15], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Loose-aggressive maniac',
     blurb: 'Raises and barrels constantly with a huge range. Big bets mean much less from him.',
@@ -380,10 +375,6 @@ const DEFS = {
     mwCaller: 0.01, // POOL M, Nov 2026 (was the shared default)
   },
   gto: {
-    tbCont: [0.5,  0.42], // POOL 3-bet continue, final (13 Nov 2026)
-    tbSize: 0.1, // POOL 3-bet continue, final (13 Nov 2026)
-    tbOOP: 0.05, // POOL 3-bet continue, final (13 Nov 2026)
-    tbSqueeze: 0.08, // POOL 3-bet continue, final (13 Nov 2026)
     mwOvercall: [0, 0.28, 0.25], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Solver-style player',
     blurb: 'Small opens, small range-bets, balanced bluffs and bluff-catches by the chart, whoever he is up against.',
@@ -436,10 +427,6 @@ const DEFS = {
     mwTrap3: [0.4, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
   },
   tag: {
-    tbCont: [0.6,  0.45], // POOL 3-bet continue, final (13 Nov 2026)
-    tbSize: 0.1, // POOL 3-bet continue, final (13 Nov 2026)
-    tbOOP: 0.07, // POOL 3-bet continue, final (13 Nov 2026)
-    tbSqueeze: 0.08, // POOL 3-bet continue, final (13 Nov 2026)
     mwOvercall: [0, 0.07, 0.1], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Solid regular',
     blurb: 'Tight-aggressive grinder. Raises his good hands, isolates limpers, folds when a passive player wakes up.',
@@ -490,10 +477,6 @@ const DEFS = {
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   lag: {
-    tbCont: [0.55,  0.5], // POOL 3-bet continue, final (13 Nov 2026)
-    tbSize: 0.1, // POOL 3-bet continue, final (13 Nov 2026)
-    tbOOP: 0.07, // POOL 3-bet continue, final (13 Nov 2026)
-    tbSqueeze: 0.08, // POOL 3-bet continue, final (13 Nov 2026)
     mwOvercall: [0, 0.1, 0.1], // POOL overcall, owner-approved 13 Nov 2026 (river .09 -> .10, POOL correction)
     name: 'Tricky aggressive regular',
     blurb: 'Plays many hands in position and applies pressure, but picks his spots better than the maniac.',
@@ -543,8 +526,6 @@ const DEFS = {
     mwTrap3: [0.5, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
   },
   beginner: {
-    tbCont: [0.85,  0.8], // POOL 3-bet continue, final (13 Nov 2026)
-    tbSize: 0.03, // POOL 3-bet continue, final (13 Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     checkedToShift: [0,  -0.05,  -0.08], // POOL passivity, Revision D (13 Nov 2026)

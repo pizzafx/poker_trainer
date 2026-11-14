@@ -165,7 +165,7 @@ const DEFS = {
     mwOvercall: [0, 0.05, 0.09], // POOL overcall, owner-approved 13 Nov 2026 (river .07 -> .09, POOL correction)
     name: 'Straightforward recreational',
     blurb: 'Plays his cards face up: bets when he hits, gives up when he misses, limps along a lot.',
-    share: 0.315, // POOL share, Nov 2026: was 0.235
+    share: 0.375, // MATH's S (CEO for the owner, Nov 2026): six points from station; POOL Nov 2026 was 0.315
     vpip: [0.41, 0.42, 0.44, 0.43, 0.48], // POOL A2, Nov 2026: was [0.26, 0.29, 0.34, 0.32, 0.38]
     pfr: [0.08, 0.096, 0.144, 0.064, 0.048],
     openLimp: 0.85,
@@ -210,7 +210,7 @@ const DEFS = {
     ocSize: 0.25, // POOL overcall: a pot-sized overcall hits harder than a half-pot one
     name: 'Loose-passive calling station',
     blurb: 'Sees a lot of flops and hates folding a pair or a draw. Rarely raises without a big hand.',
-    share: 0.22, // POOL share, Nov 2026: was 0.3
+    share: 0.16, // MATH's S (CEO for the owner, Nov 2026): six points to abc; POOL Nov 2026 was 0.22
     vpip: [0.66, 0.67, 0.69, 0.68, 0.72], // POOL A2, Nov 2026: was [0.5, 0.53, 0.58, 0.55, 0.62]
     pfr: [0.035, 0.04, 0.055, 0.03, 0.025],
     isoFactor: 0.6,

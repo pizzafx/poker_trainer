@@ -85,6 +85,18 @@ export function buildContext(s, seat = s.toAct) {
     ctx.iRaised = iRaised;
     ctx.iLimped = iLimped && !iRaised;
     ctx.raiseBB = s.currentBet / ctx.base;
+    // 3-bet continue (POOL, owner-approved 13 Nov 2026): players who called the first raise before a
+    // re-raise (a squeeze)
+    {
+      let nr = 0;
+      let sq = 0;
+      for (const h of s.history) {
+        if (h.street !== STREET.PRE) continue;
+        if (h.type === 'raise') nr++;
+        else if (h.type === 'call' && nr === 1 && h.seat !== seat) sq++;
+      }
+      ctx.squeezeCallers = nr >= 2 ? sq : 0;
+    }
     // Acts after the raiser postflop?
     ctx.ipVsRaiser =
       raiserPos >= 0 && (seat - s.button - 1 + 2 * n) % n > (raiserPos - s.button - 1 + 2 * n) % n;
@@ -277,8 +289,21 @@ export function preflopPolicy(ctx, P, cls) {
       const value = inTop(rp, rw);
       const inBand = rp < 1 - rw && rp > 1 - rw - 0.05;
       raise = value + (1 - value) * (inBand ? P.fourBetBluff : 0);
-      const cw = P.callThreeBet * (cold ? 0.5 : 1) * (1 + 0.5 * P.callCrowd * ctx.callers);
-      call = (1 - raise) * inTop(mix, cw);
+      if (ctx.iRaised && ctx.raises === 2 && P.tbCont) {
+        // 3-bet continue (POOL): the opener continues a share of its OWN opening range, by its
+        // position, the 3-bet's size, being out of position, and callers squeezed.
+        const openW = P.pfr[ctx.pos] * (ctx.limpers ? P.isoFactor : 1);
+        const mult = ctx.currentBet / Math.max(1, ctx.myBet);
+        let c = P.tbCont[ctx.pos <= POS.MP ? 0 : 1];
+        c -= P.tbSize * Math.max(0, mult - 3);
+        if (!ctx.ipVsRaiser) c -= P.tbOOP;
+        c -= P.tbSqueeze * (ctx.squeezeCallers || 0);
+        c = clamp(c, 0.05, 1);
+        call = Math.max(0, inTop(rp, openW * c) - raise);
+      } else {
+        const cw = P.callThreeBet * (cold ? 0.5 : 1) * (1 + 0.5 * P.callCrowd * ctx.callers);
+        call = (1 - raise) * inTop(mix, cw);
+      }
     }
     // A1 (POOL, Nov 2026): a limp-reraise is about the strongest thing anyone does at these tables
     // (kings or aces, queens, ace-king): everything but the very top of a range gets out.

@@ -208,6 +208,7 @@ const HABITS = {
   limp: 'Limped first in (raising usually does better)',
   wideOpen: 'Opened a hand outside the Standard range for the seat',
   junk3bet: 'Re-raised with a hand that is mostly a bluff here',
+  size3bet: 'Re-raised for value at a size outside the usual band',
 };
 let habits = {};
 try {
@@ -872,6 +873,7 @@ const STRIP_TIP = {
   limp: (t) => `Tip: raise to $${t.to} instead of limping`,
   wideOpen: (t) => `Tip: usually a fold from ${t.where}`,
   junk3bet: () => 'Tip: too weak to re-raise; call or fold',
+  size3bet: (t) => (t.band === 'regulars' ? 'Tip: about 3.5–4x against regulars' : 'Tip: bigger, about 4–5x plus 1x per caller'),
 };
 const POPPED = new Map();
 function stripHtml(show, { worst, prev }) {

@@ -293,15 +293,23 @@ test('T05: the call is good and raises carry the habit note, whatever the shove\
 });
 
 // STRAT (for POOL's 3-bet continue work): the CO regular opens to $15, folded to the big blind.
-// Not 3-betting a light hand is never flagged, and premium 3-bets get no habit note. (Whether a light
-// 3-bet itself may be named the best play waits for the owner; until then it is not asserted.)
-test('BB facing a regular: not 3-betting a light hand is never flagged, premium 3-bets carry no habit note (preBluff)', () => {
+// A light 3-bet is fine with the habit note and never named best (STRAT's never-best rule, approved Nov
+// 2026); not 3-betting a light hand is never flagged; premium 3-bets get no habit note.
+test('BB light 3-bets against a regular are fine with the habit note, never best (preBluff)', () => {
   const spot = (hole) => ({ id: 'bb3b', button: 6, hole, board: '', seats: { 5: 'tag' }, line: '5r15' });
   const opts = { samples: 1500, seed: 5 };
   for (const hole of ['7s 6s', 'Kd 9c', 'As 5s']) {
     const { s, belief, env } = build(spot(hole));
+    for (const to of [45, 60]) {
+      const v1 = judgeDecision(s, 0, belief, { type: 'raise', to }, opts);
+      const r = gradeAll(s, v1, opts, env).find((x) => x.o.type === 'raise' && x.o.to === to);
+      assert.equal(r.v.grade, 'good', `${hole} 3-bet to $${to}: ${r.v.grade}`);
+      assert.equal(r.v.note, 'preBluff', `${hole} 3-bet to $${to}: note ${r.v.note}`);
+      assert.ok(['fold', 'call'].includes(r.v.options[r.v.best].type), `${hole} 3-bet to $${to} is measured against ${r.v.options[r.v.best].label}`);
+    }
     const v0 = judgeDecision(s, 0, belief, { type: 'raise', to: 45 }, opts);
     const rows = gradeAll(s, v0, opts, env);
+    for (const r of rows) assert.notEqual(r.best && r.o.type === 'raise', true, `${hole}: ${r.o.label} shown as the best play`);
     for (const kind of ['call', 'fold']) {
       const r = rows.find((x) => x.o.type === kind);
       assert.equal(r.v.grade, 'good', `${hole} ${kind}: ${r.v.grade} (measured against ${r.v.options[r.v.best].label})`);

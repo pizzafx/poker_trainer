@@ -96,6 +96,31 @@ export function junk3betTipFor(v, ctx, name, group) {
   return { kind: 'junk3bet', text: `re-raising with ${name} is mostly a bluff, and these players seldom fold to a re-raise; calling or folding is the usual play.${cost > 0 ? ` Here ${v.options[alt].label.toLowerCase()} was about $${cost} better.` : ''}` };
 }
 
+// A size tip on a value re-raise of a single raise (CEO for the owner, Nov 2026; wording STRAT's to
+// tune): against regulars about 3.5 to 4x the open; against players who call anyway, 4 to 5x plus 1x
+// per caller. Shown only when the size is outside that band, and never a flag. The opener's type is
+// the coach's read of them (at least 50%); nits and maniacs get no size tip.
+const REGULARS = ['tag', 'lag', 'gto'];
+const CALLERS = ['station', 'whale', 'abc', 'beginner'];
+export function size3betTipFor(v, ctx, premium, env) {
+  if (v.grade !== 'good' || v.mine < 0 || ctx.street !== STREET.PRE || ctx.raises !== 1 || premium < 0.94) return null;
+  const mine = v.options[v.mine];
+  if (mine.type !== 'raise' || !(ctx.currentBet > 0) || !env || ctx.aggressor < 0) return null;
+  const top = env.readOf(ctx.aggressor).ranked[0];
+  if (!top || top.p < 0.5) return null;
+  const mult = mine.to / ctx.currentBet;
+  const callers = ctx.callers || 0;
+  if (REGULARS.includes(top.id)) {
+    if (mult >= 3.5 - 0.05 && mult <= 4 + 0.05) return null;
+    return { kind: 'size3bet', band: 'regulars', text: 'about 3.5 to 4x the open works best against regulars; bigger against players who call anyway.' };
+  }
+  if (CALLERS.includes(top.id)) {
+    if (mult >= 4 + callers - 0.05 && mult <= 5 + callers + 0.05) return null;
+    return { kind: 'size3bet', band: 'callers', text: 'against players who call anyway, make value re-raises bigger: about 4 to 5x plus 1x per caller.' };
+  }
+  return null;
+}
+
 // env: { belief, readOf(seat) -> { ranked }, name(seat) -> nick }
 export function gradeDecision(s, belief, action, judgeOpts, env) {
   const ctx = buildContext(s);
@@ -105,7 +130,7 @@ export function gradeDecision(s, belief, action, judgeOpts, env) {
   if (!tip && s.street === STREET.PRE) {
     const name = classNames[classOf(s.hole[HERO][0], s.hole[HERO][1])];
     const group = groupOf(positionName(s, HERO));
-    tip = openTipFor(verdict, ctx, name, group) || junk3betTipFor(verdict, ctx, name, group) || limpOutsideTipFor(verdict, ctx, name, group);
+    tip = openTipFor(verdict, ctx, name, group) || junk3betTipFor(verdict, ctx, name, group) || limpOutsideTipFor(verdict, ctx, name, group) || size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env);
   }
   if (tip) verdict.tip = tip;
   return verdict;
@@ -251,6 +276,32 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
         v.sameKind = v.options[v.best].type === mine.type;
         refreshClose(v);
       } else if (regrade((o) => !habitOf(o))) return;
+    }
+  }
+  // A preflop re-raise below premium is never named the best play or the reference (STRAT's rule,
+  // approved by the CEO for the owner, Nov 2026: R7's habit rule before the flop). The judge's edge for
+  // light 3-bets rests on bots that never adjust to a light 3-bettor. Your own such re-raise within
+  // the bar of the best other play is fine with the preBluff note; any other play is measured
+  // against the best play that is not a raise.
+  if (pre && ctx.raises >= 1 && isRaise(best()) && HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])] < 0.94) {
+    const notRaise = (o) => !isRaise(o);
+    let alt = -1;
+    v.options.forEach((o, i) => {
+      if (notRaise(o) && (alt < 0 || o.ev > v.options[alt].ev)) alt = i;
+    });
+    if (alt >= 0) {
+      if (isRaise(mine) && v.options[alt].ev - mine.ev < small) {
+        v.grade = 'good';
+        v.note = 'preBluff';
+        v.loss = 0;
+        v.se = 0;
+        v.best = alt;
+        v.ref = 'noRaise';
+        v.sameKind = false;
+        refreshClose(v);
+        return;
+      }
+      if (regrade(notRaise, isRaise(mine) ? undefined : 'preBluff', 'noRaise')) return;
     }
   }
   if (v.grade === 'good') return;

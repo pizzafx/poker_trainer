@@ -143,11 +143,15 @@ test('temper: checking weak top pair or a weaker pair before the river is never 
 });
 
 test('temper: multiway, a one-pair check before the river is the R1 note, ahead of the older rules (QA M3)', () => {
-  const spot = at((p) => p.street >= 1 && p.street < STREET.RIVER && p.toCall === 0 && p.canRaise && p.tier >= TIER.WEAK_PAIR && p.tier <= TIER.TOP_PAIR_WEAK && p.opponents >= 2, 13);
+  const spot = at((p) => p.street >= 1 && p.street < STREET.RIVER && p.toCall === 0 && p.canRaise && p.tier >= TIER.WEAK_PAIR && p.tier <= TIER.TOP_PAIR_WEAK && p.opponents >= 2, 13,
+    // not a tiny pot, where the tiny-pot rule rightly comes first
+    (sess) => potSize(sess.hand.state) >= 6 * sess.hand.state.bbAmt);
   const to = Math.max(spot.L.minTo, Math.round(spot.pot / 2));
   const v = run(spot, verdict(spot, [['check', 0, 0], ['raise', to, 30 * smallOf(spot)]], 0, 1), { type: 'check' });
   assert.equal(v.grade, 'good');
-  assert.equal(v.note, 'mwCheck');
+  // R1's branch: its own note, or the out-of-position note it deliberately lets through first (three or
+  // more, or the preflop raiser, to act behind); never the older thin-value pass
+  assert.ok(['mwCheck', 'checkOOP'].includes(v.note), `note ${v.note}`);
 });
 
 test('temper: a call is graded on its price, not on money lost later', () => {

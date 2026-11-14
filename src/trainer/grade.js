@@ -114,6 +114,10 @@ export function gradeDecision(s, belief, action, judgeOpts, env) {
 // Guardrails on a verdict, so the trainer does not teach habits that only work on bots
 // and does not flag plays a competent player would defend. Multiway rules: MULTIWAY_COACH_SPEC.md
 // (FINAL, Nov 2026), R1-R11; the scenario test at the end is MATH_MULTIWAY 2b.
+// The index of the option of the same kind and size in another verdict of the same spot (a re-run
+// can list a different set of sizes when it is judged for a different chosen play), or -1.
+const sameOption = (vv, o) => vv.options.findIndex((x) => x.type === o.type && (x.to || 0) === (o.to || 0));
+
 export function temper(v, s, ctx, action, judgeOpts, env) {
   guardrails(v, s, ctx, action, judgeOpts, env);
   if (v.mine >= 0 && v.anchors && s.street !== STREET.PRE) applyAnchors(v, s, ctx);
@@ -293,7 +297,9 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     // The flag must survive opponents being a little looser and a little tighter than assumed.
     for (const shift of [-0.05, 0.05]) {
       const v2 = judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, ...(judgeOpts.budgetMs ? { budgetMs: judgeOpts.budgetMs / 4 } : {}), samples: Math.round(judgeOpts.samples / 2), shift });
-      if (v2.options[v.best].ev - v2.options[v.mine].ev < small * 0.5) return pass('fragile');
+      const b2 = sameOption(v2, v.options[v.best]);
+      const m2 = sameOption(v2, mine);
+      if (b2 >= 0 && m2 >= 0 && v2.options[b2].ev - v2.options[m2].ev < small * 0.5) return pass('fragile');
     }
     return;
   }
@@ -459,7 +465,9 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   const reOpts = judgeOpts.budgetMs ? { budgetMs: judgeOpts.budgetMs / 5 } : {}; // each re-run gets a fifth of the budget
   const runs = [-0.05, 0.05].map((shift) => judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, ...reOpts, samples: half, shift }));
   if (opp + 1 < 6 && v.loss <= 3 * baseBar) runs.push(judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, ...reOpts, samples: half, heroProfile: THIN_HERO }));
-  const scen = [v.options.map((o) => o.ev), ...runs.filter((r) => r.options.length === v.options.length).map((r) => r.options.map((o) => o.ev))];
+  // each re-run's values lined up with this verdict's options by kind and size, not by position
+  const aligned = runs.map((r) => v.options.map((o) => sameOption(r, o))).map((ix, k) => (ix.every((i) => i >= 0) ? ix.map((i) => runs[k].options[i].ev) : null));
+  const scen = [v.options.map((o) => o.ev), ...aligned.filter(Boolean)];
   if (v.runs && v.runs.sample) scen.push(tiltedEvs(v, 2), tiltedEvs(v, 0.5));
   const usable = v.options.map((o, i) => i !== v.mine && !habitOf(o) && allowed(o));
   const gaps = v.options.map((o, a) => (usable[a] ? pairedGap(v, a, v.mine) : null));

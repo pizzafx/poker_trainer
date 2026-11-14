@@ -625,7 +625,9 @@ function renderActions() {
       if (+$('a-num').value !== raiseTo && document.activeElement !== $('a-num')) $('a-num').value = raiseTo;
       $('a-range').value = raiseTo;
     };
-    // a click that was meant for "Next hand" must not act in the new hand (QA NH1): ignored for 400ms after a deal
+    // a click that was meant for "Next hand" must not act in the new hand (QA NH1); while the buttons are
+    // not yet armed they look a little dimmed, and fade in when armed (CEO)
+    showArming(el);
     $('a-fold').onclick = () => justDealt() || act({ type: 'fold' });
     $('a-call').onclick = () => justDealt() || act({ type: L.canCheck ? 'check' : 'call' });
     if (L.canRaise) {
@@ -1458,6 +1460,16 @@ const justDealt = () => {
   if (lastDown.type === 'touch' || lastDown.type === 'pen') return lastDown.t < dealtAt || since < 600;
   return since < (dealtAuto ? 1200 : 400);
 };
+// how long after the deal the buttons stay unarmed, for the dimmed look
+const armWindow = () => (lastDown.type === 'touch' || lastDown.type === 'pen' ? 600 : dealtAuto ? 1200 : 400);
+let armTimer = null;
+function showArming(el) {
+  clearTimeout(armTimer);
+  const left = armWindow() - (performance.now() - dealtAt);
+  if (!(left > 0)) return el.classList.remove('arming');
+  el.classList.add('arming');
+  armTimer = setTimeout(() => el.classList.remove('arming'), left);
+}
 function markDealt(auto = false) {
   dealtAt = performance.now();
   dealtAuto = auto;

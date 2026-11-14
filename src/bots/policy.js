@@ -5,6 +5,21 @@
 import { legal, potSize, STREET } from '../engine/game.js';
 import { TIER } from '../engine/features.js';
 
+import { EQ_HEADS_UP } from '../data/preflop.js';
+import { classInfo, classIndex, CLASS_COUNT } from '../engine/hands.js';
+// POOL's opponent package (owner-approved, Nov 2026), fix 1: a separate 'facing aggression' order for calling
+// and stacking off against re-raises.
+// Premium tiers by live consensus (AK level with QQ-JJ, suited broadways above small pairs), then heads-up equity.
+const TIERS = [['AA', 'KK'], ['QQ', 'AKs'], ['JJ', 'AKo'], ['TT', 'AQs'], ['AQo', '99', 'AJs', 'KQs'], ['88', 'ATs', 'KJs', 'AJo', 'KQo', 'QJs'], ['77', 'KTs', 'QTs', 'JTs', 'ATo', 'A5s', 'A4s']];
+export const STACK_PCT = (() => {
+  const score = new Float64Array(CLASS_COUNT);
+  for (let k = 0; k < CLASS_COUNT; k++) score[k] = EQ_HEADS_UP[k];
+  TIERS.forEach((t, i) => { for (const n of t) score[classIndex(n)] = 10 - i; });
+  const idx = [...Array(CLASS_COUNT).keys()].sort((a, b) => score[a] - score[b]);
+  const pct = new Float64Array(CLASS_COUNT); let below = 0;
+  for (const k of idx) { const c = classInfo(k); const n = c.pair ? 6 : c.suited ? 4 : 12; pct[k] = (below + n / 2) / 1326; below += n; }
+  return pct;
+})();
 export const BET_FRACS = [0.33, 0.5, 0.75, 1.0, 1.5];
 export const POS = { EP: 0, MP: 1, LP: 2, SB: 3, BB: 4 };
 
@@ -80,6 +95,7 @@ export function buildContext(s, seat = s.toAct) {
       }
     }
     ctx.limpers = limpers;
+    { let nr = 0, fl = false; for (const h of s.history) { if (h.street !== STREET.PRE) continue; if (h.type === 'raise') nr++; else if (h.type === 'call' && nr >= 1 && h.seat === seat) fl = true; } ctx.iFlatted = fl; }
     ctx.callers = callers;
     ctx.limpReraise = limpReraise && s.raises >= 2;
     ctx.iRaised = iRaised;
@@ -101,6 +117,7 @@ export function buildContext(s, seat = s.toAct) {
     ctx.ipVsRaiser =
       raiserPos >= 0 && (seat - s.button - 1 + 2 * n) % n > (raiserPos - s.button - 1 + 2 * n) % n;
     ctx.effBB = Math.min(s.stacks[seat] + s.bet[seat], maxOtherStack(s, seat)) / s.bbAmt;
+    ctx.effAggBB = s.lastRaiser >= 0 && s.lastRaiser !== seat ? Math.min(s.stacks[seat] + s.bet[seat], s.stacks[s.lastRaiser] + s.bet[s.lastRaiser]) / s.bbAmt : ctx.effBB;
     return ctx;
   }
 
@@ -231,7 +248,8 @@ function preflopSizes(ctx, P, premium) {
     normal = roundChips(ctx.currentBet * 2.4);
     big = ctx.maxTo;
   }
-  const commit = 0.4 * ctx.maxTo;
+  // Only value raises (or short stacks) turn into shoves at 40% of the stack; others at 65%.
+  const commit = (!premium && ctx.effBB > 40 ? 0.65 : 0.4) * ctx.maxTo;
   if (normal >= commit) normal = ctx.maxTo;
   if (big >= commit) big = ctx.maxTo;
   normal = clamp(normal, ctx.minTo, ctx.maxTo);
@@ -245,7 +263,9 @@ function preflopSizes(ctx, P, premium) {
 }
 
 export function preflopPolicy(ctx, P, cls) {
-  const rp = P.raisePct[cls];
+  const rp0 = P.raisePct[cls];
+  const sp = STACK_PCT[cls]; // facing-aggression order
+  const rp = rp0;
   const pp = P.playPct[cls];
   let raise = 0;
   let call = 0;
@@ -263,8 +283,8 @@ export function preflopPolicy(ctx, P, cls) {
     const cheap = ctx.pos === POS.SB ? Math.max(limpShare, 0.6) : limpShare;
     call = (enter - raise) * (rp > 0.99 ? 1 : cheap);
   } else if (ctx.raises === 1) {
-    const value = inTop(rp, P.threeBet * depth);
-    const inBand = rp < 1 - P.threeBet && rp > 1 - P.threeBet - 0.09;
+    const value = inTop(sp, P.threeBet * depth);
+    const inBand = sp < 1 - P.threeBet && sp > 1 - P.threeBet - 0.09;
     const bluff = inBand ? P.threeBetBluff : 0;
     raise = value + (1 - value) * bluff;
     const elastic = clamp(1 - (P.callElastic * (ctx.raiseBB - 5)) / 5, 0.2, 1.4);
@@ -272,7 +292,7 @@ export function preflopPolicy(ctx, P, cls) {
     if (ctx.pos === POS.LP || ctx.pos === POS.BB) width *= 1.2;
     if (ctx.iLimped) width *= P.limpCall;
     if (ctx.toCall >= 0.35 * (ctx.stack + ctx.myBet)) width = Math.min(width, P.stackOff * depth * 2);
-    call = (1 - raise) * inTop(Math.max(pp, rp), width);
+    call = (1 - raise) * inTop(Math.max(pp, rp, sp), width);
     call = Math.max(call, 0.5 * P.anyTwo * (1 - raise)); // A7: and call one raise half as often
   } else {
     // Facing a 3-bet or more.
@@ -280,14 +300,17 @@ export function preflopPolicy(ctx, P, cls) {
     const cold = !ctx.iRaised && !ctx.iLimped && ctx.myBet <= ctx.base;
     const bigDecision = ctx.toCall >= 0.3 * (ctx.stack + ctx.myBet) || ctx.raises >= 3;
     if (bigDecision) {
-      const w = P.stackOff * depth * (cold ? 0.7 : 1);
-      const go = inTop(rp, w);
+      // depth against the aggressor, and the price: a short shove gets called much wider
+      const dA = clamp(100 / Math.max(10, ctx.effAggBB), 0.7, 2);
+      const oddsMult = clamp(1 + (0.45 - ctx.odds) * 8, 1, 3);
+      const w = P.stackOff * dA * oddsMult * (cold ? 0.7 : 1);
+      const go = inTop(sp, w);
       raise = go * 0.6;
       call = go * 0.4;
     } else {
       const rw = P.fourBet * depth * (cold ? 0.7 : 1);
-      const value = inTop(rp, rw);
-      const inBand = rp < 1 - rw && rp > 1 - rw - 0.05;
+      const value = inTop(sp, rw);
+      const inBand = sp < 1 - rw && sp > 1 - rw - 0.05;
       raise = value + (1 - value) * (inBand ? P.fourBetBluff : 0);
       if (ctx.iRaised && ctx.raises === 2 && P.tbCont) {
         // 3-bet continue (POOL): the opener continues a share of its OWN opening range, by its
@@ -299,15 +322,17 @@ export function preflopPolicy(ctx, P, cls) {
         if (!ctx.ipVsRaiser) c -= P.tbOOP;
         c -= P.tbSqueeze * (ctx.squeezeCallers || 0);
         c = clamp(c, 0.05, 1);
-        call = Math.max(0, inTop(rp, openW * c) - raise);
+        call = Math.max(0, inTop(sp, openW * c) - raise);
       } else {
         const cw = P.callThreeBet * (cold ? 0.5 : 1) * (1 + 0.5 * P.callCrowd * ctx.callers);
-        call = (1 - raise) * inTop(mix, cw);
+        call = (1 - raise) * inTop(Math.max(mix, sp), cw);
+        // squeezes (fix 4): a player who flatted continues a share of its own calling range
+        if (ctx.iFlatted && !ctx.iRaised && P.sqCont) call = Math.max(call, (1 - raise) * inTop(Math.max(mix, sp), P.callRaise * P.sqCont));
       }
     }
     // A1 (POOL, Nov 2026): a limp-reraise is about the strongest thing anyone does at these tables
     // (kings or aces, queens, ace-king): everything but the very top of a range gets out.
-    if (ctx.limpReraise && rp < 0.985) {
+    if (ctx.limpReraise && sp < 0.985) {
       call *= 0.4;
       raise *= 0.3;
     }
@@ -315,7 +340,7 @@ export function preflopPolicy(ctx, P, cls) {
       // Tight players' re-raises are the top of their range: continue tighter.
       const k = clamp(0.4 + 1.2 * ctx.villain.aggro, 0.35, 1.3);
       call *= k;
-      if (rp < 0.985) raise *= k;
+      if (sp < 0.985) raise *= k;
     }
   }
 
@@ -330,7 +355,7 @@ export function preflopPolicy(ctx, P, cls) {
     out.call = Math.min(call, 1 - raise);
     out.fold = Math.max(0, 1 - raise - out.call);
   }
-  if (raise > 0) out.sizes = preflopSizes(ctx, P, rp > 0.972);
+  if (raise > 0) out.sizes = preflopSizes(ctx, P, sp > 0.972);
   return out;
 }
 
@@ -403,7 +428,7 @@ export function postflopPolicy(ctx, P, f) {
     const ct = ctx.checkedTo && !ctx.aggressorBehind;
     const lead = ctx.aggressorBehind ? (st === 0 && P.leadIntoRaiserFlop != null ? P.leadIntoRaiserFlop : P.leadIntoRaiser) : 0;
     const m7 = (st > 0 ? P.mwPassiveValue * extra * (ct ? P.m7CheckedTo : 1) : 0) + lead;
-    const valueThr = P.valueBet[st] + (ct && P.mwTightenCheckedTo != null ? P.mwTightenCheckedTo : P.mwTighten) * extra + valueShiftFor(P, ctx) + m7 + (ct ? P.checkedToShift[st] : 0);
+    const valueThr = P.valueBet[st] + (ct && P.mwTightenCheckedTo != null ? P.mwTightenCheckedTo : P.mwTighten) * extra + valueShiftFor(P, ctx) + m7 + (ct ? P.checkedToShift?.[st] ?? 0 : 0);
     let pValue = soft(S, valueThr, 0.035);
     if (f.tier >= TIER.STRONG) pValue *= 1 - P.slowplay * (st < 2 ? 1 : 0.25);
     // M5: strong hands trap out of position multiway, by where the preflop raiser sits; half as
@@ -428,13 +453,15 @@ export function postflopPolicy(ctx, P, f) {
     bluff = clamp(bluff * bluffMultFor(P, ctx), 0, 0.97);
 
     const pBluff = (1 - pValue) * bluff;
-    let bet = pValue + pBluff;
+    // river block bets (fix 2): medium hands out of position lead small
+    const pBlock = P.blockBet && st === 2 && !ctx.inPosition && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.TOP_PAIR_GOOD ? P.blockBet * Math.max(0, 1 - pValue - pBluff) : 0;
+    let bet = pValue + pBluff + pBlock;
     if (!ctx.canRaise) bet = 0;
     out.raise = bet;
     out.check = 1 - bet;
     if (bet > 0) {
       const valueW = S >= 0.8 ? P.sizeValue : P.sizeThin;
-      out.sizes = betSizes(ctx, mixWeights(valueW, pValue / bet, P.sizeBluff, pBluff / bet));
+      out.sizes = betSizes(ctx, mixWeights(mixWeights(valueW, pValue / bet, P.sizeBluff, pBluff / bet), 1, [1, 0, 0, 0, 0], pBlock / bet));
     }
     return out;
   }
@@ -453,9 +480,9 @@ export function postflopPolicy(ctx, P, f) {
   // Overcall (POOL, 13 Nov 2026): per caller already in, by street, outside both caps and lifting the
   // never-fold floor. ocSize scales it with the bet against the pot before the bet and the calls.
   let oc = 0;
-  if (ctx.callersIn > 0 && P.mwOvercall && P.mwOvercall[st]) {
+  if (ctx.callersIn > 0 && P.mwOvercall && (P.mwOvercall?.[st] ?? 0)) {
     const ocBf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall * (1 + ctx.callersIn));
-    oc = P.mwOvercall[st] * ctx.callersIn * (P.ocSize ? Math.pow(Math.max(0.25, ocBf) / 0.5, P.ocSize) : 1);
+    oc = (P.mwOvercall?.[st] ?? 0) * ctx.callersIn * (P.ocSize ? Math.pow(Math.max(0.25, ocBf) / 0.5, P.ocSize) : 1);
   }
   if (facingRaise && ctx.iBetThisStreet) mw += P.ledRaiseRespect;
   const respect = respectFor(P, ctx, st);
@@ -519,6 +546,15 @@ export function postflopPolicy(ctx, P, f) {
   // Once most of the stack is in, strong hands stop folding.
   if (ctx.toCall >= ctx.stack && S >= raiseThr) pCont = 1;
   out.raise = raise;
+  // Tiny bets (fix 5 v2, QA-VERDICT N3): almost nobody folds at 10 to 1 or better. Facing a single bet as
+  // the first to respond (no caller in), the continue share is at least w x (1 - tinyFold x pot odds),
+  // where w fades from 1 at a bet of 15% of the pot to 0 at 25%: it binds only on small bets, and never
+  // on overcalls (POOL's revision).
+  if (!facingRaise && !(ctx.callersIn > 0) && P.tinyFold) {
+    const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall);
+    const w = clamp((0.25 - bf) / 0.1, 0, 1);
+    if (w > 0) pCont = Math.max(pCont, w * (1 - P.tinyFold * ctx.odds));
+  }
   out.call = (1 - raise) * pCont;
   out.fold = Math.max(0, 1 - out.raise - out.call);
   if (raise > 0) out.sizes = raiseSizes(ctx, P);

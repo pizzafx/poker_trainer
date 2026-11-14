@@ -29,12 +29,15 @@ const BASE = {
   threeBetBluff: 0, // chance of 3-betting hands just below the value range
   callThreeBet: 0.05,
   // 3-bet continue (POOL, owner-approved 13 Nov 2026): the opener continues this share of its own
-  // opening range [early/middle, late]; null keeps the old callThreeBet rule. On hold (CEO, Nov 2026):
-  // POOL is re-deriving the values after a fix to how opponents rank premium hands facing a 3-bet.
+  // opening range [early/middle, late]; null keeps the old callThreeBet rule. Re-derived values with the
+  // facing-aggression order, in POOL's opponent package (owner-approved, Nov 2026).
   tbCont: null,
   tbSize: 0, // less per x of 3-bet size above 3x
   tbOOP: 0, // less out of position against the 3-bettor
   tbSqueeze: 0, // less per caller squeezed
+  sqCont: 0, // squeezed after flatting: share of the calling range that continues (0: the old rule)
+  blockBet: 0, // river block bets out of position with medium hands (share of the remaining checks)
+  tinyFold: 3, // small single bets: continue share at least (1 - tinyFold x pot odds), faded in below 25% of the pot
   fourBet: 0.008,
   fourBetBluff: 0,
   stackOff: 0.012, // share of hands willing to get all-in preflop at 100 big blinds
@@ -103,6 +106,10 @@ const BASE = {
 
 const DEFS = {
   nit: {
+    tbCont: [0.55,  0.4], // POOL opponent package (Nov 2026)
+    tbSize: 0.05, // POOL opponent package (Nov 2026)
+    blockBet: 0.04, // POOL opponent package (Nov 2026)
+    sqCont: 0.6, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.06, 0.07], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Tight-passive nit',
     blurb: 'Waits for big hands. Limps a lot, rarely raises, and when the money goes in he has it.',
@@ -120,7 +127,7 @@ const DEFS = {
     threeBet: 0.011,
     callThreeBet: 0.03,
     fourBet: 0.006,
-    stackOff: 0.009,
+    stackOff: 0.018, // POOL opponent package (Nov 2026)
     paintLove: 0.5,
     textureBlind: 0.2,
     absSens: 0.09, // POOL amendment 1, Nov 2026: P1v2 had 0.12 (nits folded top pair to small third bets)
@@ -155,6 +162,10 @@ const DEFS = {
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   abc: {
+    tbCont: [0.8,  0.68], // POOL opponent package (Nov 2026)
+    tbSize: 0.05, // POOL opponent package (Nov 2026)
+    blockBet: 0.1, // POOL opponent package (Nov 2026)
+    sqCont: 0.65, // POOL opponent package (Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     checkedToShift: [0,  -0.06,  -0.12], // POOL passivity, Revision D (13 Nov 2026)
@@ -170,9 +181,9 @@ const DEFS = {
     callRaise: 0.2,
     callElastic: 0.3, // POOL A5, Nov 2026: was 0.45
     limpCall: 1.25, // POOL A2, Nov 2026: was 0.9
-    threeBet: 0.013,
+    threeBet: 0.025, // POOL opponent package (Nov 2026)
     callThreeBet: 0.05,
-    stackOff: 0.012,
+    stackOff: 0.032, // POOL opponent package (Nov 2026)
     aceLove: 0.3,
     textureBlind: 0.5,
     cbet: [0.55, 0.3, 0.14],
@@ -181,7 +192,7 @@ const DEFS = {
     valueBet: [0.55, 0.6, 0.67],
     semiBluff: 0.22,
     slowplay: 0.3,
-    callThr: [0.34, 0.42, 0.38],
+    callThr: [0.34,  0.42,  0.34], // POOL opponent package (Nov 2026)
     sizeSens: 0.6,
     chase: 0.7,
     raiseValue: [0.8, 0.82, 0.86],
@@ -199,6 +210,8 @@ const DEFS = {
     leadBluffMult: 0.25, // POOL M, Nov 2026 (was the shared default)
   },
   station: {
+    blockBet: 0.12, // POOL opponent package (Nov 2026)
+    sqCont: 1.5, // POOL opponent package (Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     checkedToShift: [0,  -0.04,  -0.04], // POOL passivity, Revision D (13 Nov 2026)
@@ -222,7 +235,7 @@ const DEFS = {
     threeBet: 0.011,
     callThreeBet: 0.09,
     fourBet: 0.006,
-    stackOff: 0.016,
+    stackOff: 0.05, // POOL opponent package (Nov 2026)
     aceLove: 0.7,
     suitedLove: 0.7,
     paintLove: 0.4,
@@ -260,6 +273,8 @@ const DEFS = {
     leadBluffMult: 0.25, // POOL M, Nov 2026 (was the shared default)
   },
   whale: {
+    blockBet: 0.08, // POOL opponent package (Nov 2026)
+    sqCont: 1.6, // POOL opponent package (Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     checkedToShift: [0,  -0.06,  -0.12], // POOL passivity, Revision D (13 Nov 2026)
@@ -283,7 +298,7 @@ const DEFS = {
     threeBetBluff: 0.05,
     callThreeBet: 0.16,
     fourBet: 0.008,
-    stackOff: 0.03,
+    stackOff: 0.07, // POOL opponent package (Nov 2026)
     aceLove: 0.8,
     suitedLove: 1,
     paintLove: 0.6,
@@ -322,6 +337,9 @@ const DEFS = {
     leadBluffMult: 0.5, // POOL M, Nov 2026 (was the shared default)
   },
   maniac: {
+    tbCont: [0.75,  0.65], // POOL opponent package (Nov 2026)
+    tbSize: 0.05, // POOL opponent package (Nov 2026)
+    sqCont: 0.8, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.07, 0.15], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Loose-aggressive maniac',
     blurb: 'Raises and barrels constantly with a huge range. Big bets mean much less from him.',
@@ -375,6 +393,10 @@ const DEFS = {
     mwCaller: 0.01, // POOL M, Nov 2026 (was the shared default)
   },
   gto: {
+    tbCont: [0.5,  0.42], // POOL opponent package (Nov 2026)
+    tbSize: 0.1, // POOL opponent package (Nov 2026)
+    tbOOP: 0.05, // POOL opponent package (Nov 2026)
+    tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.28, 0.25], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Solver-style player',
     blurb: 'Small opens, small range-bets, balanced bluffs and bluff-catches by the chart, whoever he is up against.',
@@ -396,7 +418,7 @@ const DEFS = {
     callThreeBet: 0.2,
     fourBet: 0.018,
     fourBetBluff: 0.3,
-    stackOff: 0.032,
+    stackOff: 0.04, // POOL opponent package (Nov 2026)
     textureBlind: 0.1,
     absSens: 0.05,
     neverFold: 0.58,
@@ -427,6 +449,10 @@ const DEFS = {
     mwTrap3: [0.4, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
   },
   tag: {
+    tbCont: [0.6,  0.45], // POOL opponent package (Nov 2026)
+    tbSize: 0.1, // POOL opponent package (Nov 2026)
+    tbOOP: 0.07, // POOL opponent package (Nov 2026)
+    tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.07, 0.1], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Solid regular',
     blurb: 'Tight-aggressive grinder. Raises his good hands, isolates limpers, folds when a passive player wakes up.',
@@ -446,7 +472,7 @@ const DEFS = {
     callThreeBet: 0.14,
     fourBet: 0.012,
     fourBetBluff: 0.03,
-    stackOff: 0.02,
+    stackOff: 0.028, // POOL opponent package (Nov 2026)
     textureBlind: 0.15,
     neverFold: 0.66, // POOL P1v2, Nov 2026: was 0.62
     cbet: [0.65, 0.35, 0.15],
@@ -477,6 +503,10 @@ const DEFS = {
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   lag: {
+    tbCont: [0.55,  0.5], // POOL opponent package (Nov 2026)
+    tbSize: 0.1, // POOL opponent package (Nov 2026)
+    tbOOP: 0.07, // POOL opponent package (Nov 2026)
+    tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.1, 0.1], // POOL overcall, owner-approved 13 Nov 2026 (river .09 -> .10, POOL correction)
     name: 'Tricky aggressive regular',
     blurb: 'Plays many hands in position and applies pressure, but picks his spots better than the maniac.',
@@ -496,7 +526,7 @@ const DEFS = {
     callThreeBet: 0.2, // POOL A8, Nov 2026: was 0.16
     fourBet: 0.016,
     fourBetBluff: 0.12,
-    stackOff: 0.03,
+    stackOff: 0.04, // POOL opponent package (Nov 2026)
     textureBlind: 0.15,
     neverFold: 0.6,
     cbet: [0.72, 0.42, 0.2],
@@ -526,6 +556,10 @@ const DEFS = {
     mwTrap3: [0.5, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
   },
   beginner: {
+    tbCont: [0.85,  0.8], // POOL opponent package (Nov 2026)
+    tbSize: 0.03, // POOL opponent package (Nov 2026)
+    blockBet: 0.12, // POOL opponent package (Nov 2026)
+    sqCont: 1.2, // POOL opponent package (Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     checkedToShift: [0,  -0.05,  -0.08], // POOL passivity, Revision D (13 Nov 2026)
@@ -550,7 +584,7 @@ const DEFS = {
     threeBet: 0.008,
     callThreeBet: 0.12,
     fourBet: 0.005,
-    stackOff: 0.03,
+    stackOff: 0.05, // POOL opponent package (Nov 2026)
     aceLove: 1,
     suitedLove: 1,
     paintLove: 0.8,

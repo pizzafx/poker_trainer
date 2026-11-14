@@ -136,7 +136,7 @@ export const EXPECT = {
   R02: { accept: ['check'] },
   // 13 Nov 2026 (QA M1): R7 waives only plays within the yellow bar of the best other option. The
   // $100 raise (+$3 over the call) keeps the note; the shove ($64 below the call) is graded, red.
-  R03: { accept: ['call', 'fold', 'raise:2-3'], note: { 'raise:2-3': 'mwHabit' }, neverBest: ['raise'], flag: ['raise:6-7'] }, // R5b, R7
+  R03: { accept: ['call', 'fold', 'raise:2-3'], note: { 'raise:2-3': 'mwHabit' }, neverBest: ['raise'], softFlag: ['raise:6-7'] }, // R5b, R7; STRAT, Nov 2026: the shove may be flagged or fragile (as T04)
   R04: { accept: ['bet:0.3-0.4'], softFlag: ['check'] },     // river cap: never red
   R05: { accept: ['check', 'bet:0.3-0.8'], noGrade: true },  // R8; v2 do-not-grade
   // The raises are $62-65 below folding, so no "not a habit" waiver (QA M1); the scenario test leaves

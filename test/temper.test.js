@@ -104,7 +104,9 @@ test('temper: a bet of 60% of the pot or more is never "too small", and sizing i
 
 test('temper: passing up a bluff needs a wide margin and is never red', () => {
   // Against nobody read as unable to fold, so the margin rule is what passes it.
-  const spot = at((p) => p.street >= 1 && p.toCall === 0 && p.canRaise && p.tier >= 0 && p.tier <= TIER.HIGH_CARD, 8, noStickyRead);
+  const spot = at((p) => p.street >= 1 && p.toCall === 0 && p.canRaise && p.tier >= 0 && p.tier <= TIER.HIGH_CARD, 8,
+    // not a tiny pot, where the tiny-pot rule rightly comes first
+    (sess) => noStickyRead(sess) && potSize(sess.hand.state) >= 6 * sess.hand.state.bbAmt);
   const to = Math.max(spot.L.minTo, Math.round(spot.pot / 2));
   const small = smallOf(spot);
   const v1 = run(spot, verdict(spot, [['check', 0, 0], ['raise', to, 1.5 * small]], 0, 1, 'mistake'), { type: 'check' });

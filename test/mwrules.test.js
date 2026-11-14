@@ -350,3 +350,22 @@ test('Middle pair with a backdoor betting into a station multiway is not a draw:
     assert.equal(rows.find((r) => r.o.type === 'check').v.grade, 'good', `seed ${seed}: check`);
   }
 });
+
+// G5 part 2 (STRAT, owner-approved): calling a passive player's lead into a crowd is graded when
+// folding beats it by the bar, yellow at most, with R5b's reason; a raise scoring higher never flags it
+// (the T05 lock test).
+test('R5b: a one-pair call of a station\'s river lead into a crowd is yellow when folding beats it by the bar', () => {
+  const spot = { id: 'g5', button: 0, hole: '5s 4s', board: 'Kh 9c 3s 5d 2c', seats: { 7: 'abc', 2: 'station' }, line: '7c 0r15 2c 7c | 2x 7x 0b25 2c 7c | 2x 7x 0x | 2b80 7c' };
+  for (const seed of [5, 11]) {
+    const { s, belief, env } = build(spot);
+    const opts = { samples: 1500, seed };
+    const v0 = judgeDecision(s, 0, belief, null, opts);
+    const call = gradeAll(s, v0, opts, env).find((r) => r.o.type === 'call');
+    assert.equal(call.v.rule, 'R5b');
+    assert.equal(call.v.grade, 'mistake', `seed ${seed}: ${call.v.grade}`);
+    assert.equal(call.v.options[call.v.best].type, 'fold');
+    const ctx = buildContext(s);
+    const e = explain({ verdict: call.v, street: s.street, tier: 2, drawEquity: 0, opponents: 2, toCall: ctx.toCall, raises: ctx.raises, board: s.board, villain: null, odds: ctx.odds });
+    assert.match(e.reasons.join(' '), /When a passive player leads into a crowd, one pair is often beaten\. Folding scores about \$\d+ more\./);
+  }
+});

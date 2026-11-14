@@ -291,6 +291,9 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
         refreshClose(v);
         return;
       }
+      // outside the bar: graded against the best play the coach teaches; the habit's reason stays with
+      // it even if the scenario test later calls it fragile or unclear (STRAT, Nov 2026)
+      v.habitOut = h;
       if (regrade((o) => !habitOf(o), undefined, 'habit')) return;
     }
     // ...and never the reference when the trainee chose something else
@@ -412,7 +415,18 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   //     into a crowd).
   if (passiveLead && onePair && mine.type === 'call') {
     v.rule = 'R5b';
-    return pass(null);
+    // G5 part 2 (STRAT, owner-approved Nov 2026): when folding beats the call by the bar, the call is
+    // graded against the best play that is not a raise, yellow at most; a raise scoring higher never
+    // flags it. After the flop it costs at most its price.
+    const fold = v.options.findIndex((o) => o.type === 'fold');
+    if (fold < 0 || !(v.options[fold].ev - mine.ev > small)) return pass(null);
+    if (regrade((o) => !isRaise(o), undefined, 'noRaise')) return;
+    capYellow();
+    if (!pre && v.loss > ctx.toCall) {
+      v.loss = ctx.toCall;
+      v.priceCap = ctx.toCall;
+    }
+    return;
   }
   //     Only against a lead of a quarter of the pot or more: getting 4 to 1 or better, a one-pair fold
   //     is graded as usual (STRAT, Nov 2026).

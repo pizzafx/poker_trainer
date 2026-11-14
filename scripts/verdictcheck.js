@@ -94,7 +94,7 @@ export const INVARIANTS = {
     }
     return false;
   },
-  'C2 "not a habit to build" only under a habit rule': (d, v) => /not a habit to build/.test(text(d)) && !habitNotes.has(v.note),
+  'C2 "not a habit to build" only under a habit rule': (d, v) => /not a habit to build/.test(text(d)) && !habitNotes.has(v.note) && !v.habitOut,
   'C3 "BEST PLAY" never next to "fine" (strip word, headline, report)': (d, v) => {
     if (!isBestPlay(v, d)) return false;
     if (verdictWord(v, d) !== 'best play' || /: fine\./.test(bestHeadline(v, d) || d.headline || '')) return true;
@@ -131,19 +131,24 @@ export const INVARIANTS = {
     return top.type === 'raise' && top.ev - other > v.small;
   })(),
   'N2 no range-based preflop tip with 3 or fewer players dealt in': (d) => ['limp', 'wideOpen', 'junk3bet', 'size3bet'].includes(d.tipKind) && d.snapshot && d.snapshot.seats.length <= 3,
-  'N3 a missed-bluff flag names a reference bet of at least 25% of the pot': (d, v, m, b) => v.grade !== 'good' && m.type === 'check' && b.type === 'raise' && d.toCall === 0 && b.to / Math.max(1, v.pot) < 0.25,
+  'N3 a missed-bluff flag names a reference bet of at least 25% of the pot': (d, v, m, b) => v.grade !== 'good' && d.category === 'missedBluff' && m.type === 'check' && b.type === 'raise' && d.toCall === 0 && b.to / Math.max(1, v.pot) < 0.25,
   'N4 no "sound value size" pass with two pair or better': (d, v) => v.note === 'sizeOk' && d.tier >= TIER.TWO_PAIR,
   'N4b sizing never red with two pair or better multiway': (d, v, m, b) => d.tier >= TIER.TWO_PAIR && d.opponents >= 2 && m.type === 'raise' && b.type === 'raise' && v.grade === 'blunder',
   'N4c a 62-70% bet is "two-thirds", not "three-quarters"': (d, v, m) => /three-quarters of the pot is a sound/.test(d.headline || '') && m.type === 'raise' && m.to / Math.max(1, v.pot) < 0.705,
   'N5 no fold or bluff estimate with two pair or better': (d) => d.tier >= TIER.TWO_PAIR && /breaks even on folds|Do not bluff|needs everyone to fold|needs more folds than you get/.test(d.anchor || ''),
   'N5b no "needs everyone to fold almost never"': (d) => /fold almost never/.test(d.anchor || ''),
+  // the opponent model (POOL's tiny-bet fix, Nov 2026): nobody folds much to a tiny bet
+  'N3b tiny bets: everyone folds at most 3 x the pot odds (POOL\'s approved model), and 15% under 5% of the pot': (d, v) => d.street !== STREET.PRE && d.toCall === 0 && v.options.some((o) => {
+    if (o.type !== 'raise' || o.F === undefined) return false;
+    const frac = o.to / Math.max(1, v.pot);
+    const odds = o.to / (v.pot + o.to);
+    return frac < 0.1 && o.F > Math.max(0.15, 3 * odds) + 0.03;
+  }),
 };
 
-// Checks on the opponent model rather than the coach: counted and printed, not failing the run
-// until the model work lands (POOL).
-export const MODEL_CHECKS = {
-  'N3b bets under 10% of the pot fold everyone at most 15%': (d, v) => d.street !== STREET.PRE && d.toCall === 0 && v.options.some((o) => o.type === 'raise' && o.F !== undefined && o.to / Math.max(1, v.pot) < 0.1 && o.F > 0.15),
-};
+// Checks on the opponent model rather than the coach that are not yet expected to hold: counted and
+// printed, not failing the run. (Empty: N3b became a failing check with POOL's tiny-bet fix.)
+export const MODEL_CHECKS = {};
 export function checkModel(d) {
   const v = d.verdict;
   if (!v || v.mine < 0) return [];

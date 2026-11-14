@@ -28,6 +28,10 @@ const pct = (x) => `${Math.round(100 * x)}%`;
 const bare = (o) => o.label.replace(/\s*\([^)]*\)\s*$/, '');
 
 // R7 ("not a habit to build"): one line on why, per kind of play
+// A habit play outside the bar keeps its reason on a fragile or unclear line (STRAT, Nov 2026), so a
+// shove there is never presented as plainly fine.
+const habitTail = (v) => (v.habitOut && HABIT_WHY[v.habitOut] ? ` ${HABIT_WHY[v.habitOut].replace(/\.$/, '')}; not a habit to build.` : '');
+
 const HABIT_WHY = {
   raiseCaller: 'A raise into a bettor and a caller is usually called by better.',
   drawRaise: 'A raise into a bettor and a caller is usually called by better.',
@@ -199,7 +203,7 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'unclear') {
     // labelled "not graded", not "fine"
     const g = gap(best);
-    return `${mine.label}: not graded. ${g > 0 && best !== mine ? `${bare(best)} scores about $${g} more on our read; the` : 'The'} best play changes with small differences in how ${who} play${d.opponents === 1 ? 's' : ''}.`;
+    return `${mine.label}: not graded. ${g > 0 && best !== mine ? `${bare(best)} scores about $${g} more on our read; the` : 'The'} best play changes with small differences in how ${who} play${d.opponents === 1 ? 's' : ''}.${habitTail(v)}`;
   }
   if (v.note === 'checkOOP') return `${mine.label}: fine. (With several players or the preflop raiser still to act behind you, checking one pair is standard.)`;
   if (v.note === 'sizeCheck') return `${mine.label}: fine. (A bet of up to three-quarters of the pot ${more(best, 'rates about the same')}.)`;
@@ -221,7 +225,7 @@ function goodHeadline(v, mine, best, d = {}) {
     return `${mine.label}: fine. (Bigger bets score about ${lo === hi ? `$${lo}` : `$${lo}–${hi}`} more against these opponents, mostly because they call too often; ${size} is a sound value size${into}.)`;
   }
   if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A bluff ${more(top)} against these bots; not enough to rely on at a real table.)`;
-  if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read, so it is not graded.)`;
+  if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read, so it is not graded.${habitTail(v)})`;
   if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')}.)`;
   if (gap(top) > bar(top)) return `${mine.label}: fine. (${bare(top)} ${more(top)} on our read, but the coach does not hold you to it here.)`;
   const rivals = v.options.filter((o, i) => i !== v.best && o.close);
@@ -401,6 +405,8 @@ export function explain(d) {
       ? `${word}: ${mine.label.toLowerCase()} costs up to its price compared with ${ref}; what happens on later streets is graded there.`
       : `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}.`;
   const reasons = [];
+  // R5b's reason under a flagged call of a passive lead into a crowd (STRAT G5)
+  if (v.rule === 'R5b') reasons.push(`When a passive player leads into a crowd, one pair is often beaten. Folding scores about $${Math.max(0, Math.round(best.ev) - Math.round(mine.ev))} more.`);
   const r1 = readLine(d);
   if (r1) reasons.push(r1);
   const r2 = rangeLine(d);

@@ -1,0 +1,332 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "qa-3bet-vs-call",
+ "hole": "9d Ad",
+ "board": "",
+ "pot": 17,
+ "action": {
+  "type": "raise",
+  "to": 36
+ },
+ "took": "Raise to $36 (3.0x)",
+ "judgeSeed": 3017,
+ "table": {
+  "game": "casino",
+  "blinds": [
+   1,
+   2
+  ],
+  "straddle": 0,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 23,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "UTG+2",
+    "startStack": 200,
+    "stack": 200,
+    "inPot": 0,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Jeans",
+    "pos": "LJ",
+    "startStack": 200,
+    "stack": 200,
+    "inPot": 0,
+    "folded": false,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.276
+     },
+     {
+      "type": "abc",
+      "p": 0.233
+     },
+     {
+      "type": "lag",
+      "p": 0.128
+     }
+    ],
+    "observed": {
+     "hands": 0,
+     "vpip": 0,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Jersey",
+    "pos": "HJ",
+    "startStack": 434,
+    "stack": 434,
+    "inPot": 0,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.809
+     },
+     {
+      "type": "whale",
+      "p": 0.068
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 22,
+     "vpip": 13,
+     "pfr": 0,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 3,
+    "name": "Shades",
+    "pos": "CO",
+    "startStack": 181,
+    "stack": 181,
+    "inPot": 0,
+    "folded": false,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.541
+     },
+     {
+      "type": "lag",
+      "p": 0.314
+     },
+     {
+      "type": "gto",
+      "p": 0.036
+     }
+    ],
+    "observed": {
+     "hands": 22,
+     "vpip": 5,
+     "pfr": 3,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 4,
+    "name": "Golf Shirt",
+    "pos": "BTN",
+    "startStack": 149,
+    "stack": 149,
+    "inPot": 0,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.859
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     },
+     {
+      "type": "abc",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 22,
+     "vpip": 10,
+     "pfr": 1,
+     "showdowns": 4
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Party Crew",
+    "pos": "SB",
+    "startStack": 505,
+    "stack": 504,
+    "inPot": 1,
+    "folded": false,
+    "read": [
+     {
+      "type": "whale",
+      "p": 0.615
+     },
+     {
+      "type": "station",
+      "p": 0.262
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 22,
+     "vpip": 13,
+     "pfr": 0,
+     "showdowns": 3
+    }
+   },
+   {
+    "seat": 6,
+    "name": "Big Watch",
+    "pos": "BB",
+    "startStack": 628,
+    "stack": 626,
+    "inPot": 2,
+    "folded": false,
+    "read": [
+     {
+      "type": "whale",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 22,
+     "vpip": 18,
+     "pfr": 5,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 7,
+    "name": "Ball Cap",
+    "pos": "UTG",
+    "startStack": 167,
+    "stack": 165,
+    "inPot": 2,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.805
+     },
+     {
+      "type": "whale",
+      "p": 0.05
+     },
+     {
+      "type": "abc",
+      "p": 0.038
+     }
+    ],
+    "observed": {
+     "hands": 22,
+     "vpip": 10,
+     "pfr": 2,
+     "showdowns": 4
+    }
+   },
+   {
+    "seat": 8,
+    "name": "Hoodie",
+    "pos": "UTG+1",
+    "startStack": 174,
+    "stack": 162,
+    "inPot": 12,
+    "folded": false,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.51
+     },
+     {
+      "type": "lag",
+      "p": 0.272
+     },
+     {
+      "type": "gto",
+      "p": 0.11
+     }
+    ],
+    "observed": {
+     "hands": 22,
+     "vpip": 2,
+     "pfr": 1,
+     "showdowns": 0
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Party Crew",
+    "type": "sb",
+    "to": 1,
+    "amount": 1
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Big Watch",
+    "type": "bb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Ball Cap",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "Hoodie",
+    "type": "raise",
+    "to": 12,
+    "amount": 12
+   }
+  ],
+  "pot": 17,
+  "heat": 0.657,
+  "judge": {
+   "seed": 3017,
+   "samples": 2100
+  }
+ },
+ "villainPost": {
+  "seat": 8,
+  "post": [
+   0.01796241859981066,
+   0.01796241859981066,
+   0.01796241859981066,
+   0.01796241859981066,
+   0.01796241859981066,
+   0.10996103041874211,
+   0.5104702694435154,
+   0.27179418853887843,
+   0.01796241859981066
+  ]
+ },
+ "recorded": {
+  "grade": "blunder",
+  "best": "Call $12",
+  "took": "Raise to $36 (3.0x)",
+  "loss": 16.038690476190474,
+  "headline": "Blunder: raise to $36 (3.0x) costs about $16 compared with call $12."
+ },
+ "expect": {
+  "notGrade": "good",
+  "best": "Call $12"
+ },
+ "why": "a small 3-bet with a calling hand is flagged against calling"
+}

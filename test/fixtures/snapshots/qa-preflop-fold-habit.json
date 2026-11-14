@@ -1,0 +1,403 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "qa-preflop-fold-habit",
+ "hole": "5d Qd",
+ "board": "",
+ "pot": 125,
+ "action": {
+  "type": "fold"
+ },
+ "took": "Fold",
+ "judgeSeed": 2764,
+ "table": {
+  "game": "casino",
+  "blinds": [
+   1,
+   2
+  ],
+  "straddle": 0,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 21,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "HJ",
+    "startStack": 200,
+    "stack": 198,
+    "inPot": 2,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Loud Guy",
+    "pos": "CO",
+    "startStack": 195,
+    "stack": 165,
+    "inPot": 30,
+    "folded": false,
+    "read": [
+     {
+      "type": "maniac",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 20,
+     "vpip": 9,
+     "pfr": 5,
+     "showdowns": 3
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Jersey",
+    "pos": "BTN",
+    "startStack": 274,
+    "stack": 244,
+    "inPot": 30,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.73
+     },
+     {
+      "type": "abc",
+      "p": 0.087
+     },
+     {
+      "type": "whale",
+      "p": 0.076
+     }
+    ],
+    "observed": {
+     "hands": 20,
+     "vpip": 11,
+     "pfr": 0,
+     "showdowns": 5
+    }
+   },
+   {
+    "seat": 3,
+    "name": "Shades",
+    "pos": "SB",
+    "startStack": 182,
+    "stack": 181,
+    "inPot": 1,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.54
+     },
+     {
+      "type": "lag",
+      "p": 0.315
+     },
+     {
+      "type": "gto",
+      "p": 0.037
+     }
+    ],
+    "observed": {
+     "hands": 20,
+     "vpip": 5,
+     "pfr": 3,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 4,
+    "name": "Golf Shirt",
+    "pos": "BB",
+    "startStack": 152,
+    "stack": 150,
+    "inPot": 2,
+    "folded": true,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.859
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     },
+     {
+      "type": "abc",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 20,
+     "vpip": 10,
+     "pfr": 1,
+     "showdowns": 4
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Party Crew",
+    "pos": "UTG",
+    "startStack": 174,
+    "stack": 144,
+    "inPot": 30,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.47
+     },
+     {
+      "type": "whale",
+      "p": 0.408
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 20,
+     "vpip": 11,
+     "pfr": 0,
+     "showdowns": 2
+    }
+   },
+   {
+    "seat": 6,
+    "name": "Big Watch",
+    "pos": "UTG+1",
+    "startStack": 636,
+    "stack": 636,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "whale",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 20,
+     "vpip": 17,
+     "pfr": 5,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 7,
+    "name": "Ball Cap",
+    "pos": "UTG+2",
+    "startStack": 319,
+    "stack": 289,
+    "inPot": 30,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.757
+     },
+     {
+      "type": "station",
+      "p": 0.117
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 20,
+     "vpip": 8,
+     "pfr": 2,
+     "showdowns": 3
+    }
+   },
+   {
+    "seat": 8,
+    "name": "Hoodie",
+    "pos": "LJ",
+    "startStack": 174,
+    "stack": 174,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.548
+     },
+     {
+      "type": "lag",
+      "p": 0.24
+     },
+     {
+      "type": "gto",
+      "p": 0.104
+     }
+    ],
+    "observed": {
+     "hands": 20,
+     "vpip": 2,
+     "pfr": 1,
+     "showdowns": 0
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Shades",
+    "type": "sb",
+    "to": 1,
+    "amount": 1
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Golf Shirt",
+    "type": "bb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Party Crew",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Big Watch",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Ball Cap",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "Hoodie",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Loud Guy",
+    "type": "raise",
+    "to": 30,
+    "amount": 30
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Jersey",
+    "type": "call",
+    "to": 30,
+    "amount": 30
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Shades",
+    "type": "fold",
+    "to": 1,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Golf Shirt",
+    "type": "fold",
+    "to": 2,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Party Crew",
+    "type": "call",
+    "to": 30,
+    "amount": 28
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Ball Cap",
+    "type": "call",
+    "to": 30,
+    "amount": 28
+   }
+  ],
+  "pot": 125,
+  "heat": 0.634,
+  "judge": {
+   "seed": 2764,
+   "samples": 3000
+  }
+ },
+ "villainPost": {
+  "seat": 1,
+  "post": [
+   0.017241747524639542,
+   0.017241747524639542,
+   0.017241747524639542,
+   0.017241747524639542,
+   0.8620660198028837,
+   0.017241747524639542,
+   0.017241747524639542,
+   0.017241747524639542,
+   0.017241747524639542
+  ]
+ },
+ "recorded": {
+  "grade": "good",
+  "best": "Fold",
+  "took": "Fold",
+  "loss": 0,
+  "headline": "Fold: fine. (A re-raise bluff scores about $103 more against these bots; it is not a habit to build.)"
+ },
+ "expect": {
+  "grade": "good",
+  "best": "Fold"
+ },
+ "why": "folding to a 3-bet is fine; the re-raise bluff the bots overpay is not a habit to teach"
+}

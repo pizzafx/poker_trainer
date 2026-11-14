@@ -33,6 +33,14 @@ export function snapshotDecision(sess, s, judgeOpts) {
     if (i !== HERO) {
       const r = sess.readOf(i);
       row.read = r.ranked.slice(0, 3).map((t) => ({ type: t.id, p: +t.p.toFixed(3) }));
+      // the read itself (log weights in TYPE_IDS order, now and at the start of the hand), so the
+      // decision can be rebuilt exactly (scripts/replay_snapshot.js)
+      const lp = p.read && p.read.logP;
+      if (lp) {
+        const top = Math.max(...lp);
+        row.logP = Array.from(lp, (x) => +(x - top).toFixed(6));
+        row.handStart = Array.from(p.read.handStart, (x) => +(x - top).toFixed(6));
+      }
       row.observed = { hands: r.notes.hands, vpip: r.notes.vpip, pfr: r.notes.pfr, showdowns: r.notes.showdowns.length };
       if (r.steaming) row.steaming = true;
     }
@@ -48,6 +56,8 @@ export function snapshotDecision(sess, s, judgeOpts) {
     actions: s.history.map((e) => ({ street: STREET_NAMES[e.street], seat: e.seat, who: e.seat === HERO ? 'You' : sess.seats[e.seat].nick, type: e.type, to: e.to, amount: e.amount })),
     pot: potSize(s),
     heat: +sess.heat.toFixed(3),
+    // the table's heat when each opponent acted after the trainee's bet, by action index (for a replay)
+    heatAt: sess.hand && sess.hand.heatAt ? { ...sess.hand.heatAt } : {},
     judge: { seed: judgeOpts.seed, samples: judgeOpts.samples },
   };
 }

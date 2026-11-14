@@ -6,7 +6,7 @@
 import { makeRng } from '../engine/cards.js';
 import { COMBOS } from '../engine/hands.js';
 import { legal, applyAction, cloneState, potSize, STREET } from '../engine/game.js';
-import { handFeatures, boardTexture, TIER } from '../engine/features.js';
+import { handFeatures, boardTexture, TIER, isRealDraw } from '../engine/features.js';
 import { evaluate } from '../engine/evaluator.js';
 import { classOf } from '../engine/hands.js';
 import { buildContext, preflopPolicy, postflopPolicy, sampleAction } from '../bots/policy.js';
@@ -454,7 +454,7 @@ export function rangePicture(belief, seat, s, hero) {
     else if (f.tier >= TIER.STRONG) b.strong += x;
     else if (f.tier >= TIER.TWO_PAIR) b.twoPair += x;
     else if (f.tier >= TIER.TOP_PAIR_WEAK) b.topPair += x;
-    else if (f.drawEquity >= 0.14 && s.board.length < 5) b.draw += x;
+    else if (isRealDraw(f) && s.board.length < 5) b.draw += x; // a real draw, not backdoors (STRAT M2)
     else if (f.tier >= TIER.WEAK_PAIR) b.weakPair += x;
     else b.air += x;
     if (mine > f.score) ahead += x;

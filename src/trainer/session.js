@@ -2,7 +2,7 @@
 
 import { makeRng, cardStr, holeOrder } from '../engine/cards.js';
 import { newHand, applyAction, legal, potSize, positionName, STREET, STREET_NAMES } from '../engine/game.js';
-import { handFeatures, boardTexture, describeHand, TIER } from '../engine/features.js';
+import { handFeatures, boardTexture, describeHand, TIER, isRealDraw } from '../engine/features.js';
 import { classOf, classNames } from '../engine/hands.js';
 import { CATEGORY_NAMES, categoryOf } from '../engine/evaluator.js';
 import { buildContext, preflopPolicy, postflopPolicy, sampleAction, POS } from '../bots/policy.js';
@@ -372,6 +372,7 @@ export class Session {
       handText: feats ? describeHand(feats, s.board) : null,
       tier: feats ? feats.tier : null,
       drawEquity: feats ? feats.drawEquity : 0,
+      realDraw: feats ? isRealDraw(feats) : false, // a flush or straight draw, not backdoors or pair outs
       ctx,
       // The table as the trainee saw it, for a "Disagree?" report.
       snapshot: snapshotDecision(this, s, judgeOpts),

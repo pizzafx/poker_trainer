@@ -702,6 +702,8 @@ function readThen(d, r) {
 const REF_WHY = {
   anchor: 'The best play that works against anyone; a longer bar here comes from these opponents only',
   noRaise: 'The best play that is not a raise; the coach does not hold you to the raise',
+  robust: 'It beats your play under every reasonable read of these players; a longer bar here depends on one read',
+  habit: 'The best play the coach teaches here; a longer bar is a play that only works against these bots',
 };
 const refTag = (v, i) => (i === v.best && v.ref ? ` <span class="ref-tag" title="${esc(REF_WHY[v.ref] || 'The best bet the coach holds you to here; bigger sizes are not held against you')}">reference</span>` : '');
 function fbCard(d, showWhere = true) {

@@ -35,8 +35,12 @@ test('limp tip: every first-in limp outside the blinds gets it, quoting the stan
   }
 });
 
-test('limp tip: shows even when the judge has the limp a little ahead, inside the noise', () => {
-  assert.ok(limpTipFor(verdict({ limp: 4, r12: 3, r18: 2, se: 1 }), firstIn())); // 1 < 2.2 se
+test('limp tip: shows even when the judge has the limp a little ahead of one raise, inside the noise', () => {
+  assert.ok(limpTipFor(verdict({ limp: 4, r12: 3, r18: 4.2, se: 1 }), firstIn())); // r18 is not below the limp
+});
+
+test('limp tip: not when every raise scores below the limp ("usually does better" would be false; STRAT G3)', () => {
+  assert.equal(limpTipFor(verdict({ limp: 4, r12: 3, r18: 2, se: 1 }), firstIn()), null);
 });
 
 test('limp tip: vetoed only when the judge clearly prefers the limp', () => {

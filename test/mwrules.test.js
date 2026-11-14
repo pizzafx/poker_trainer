@@ -99,7 +99,7 @@ test('anchors: a play works, breaks even or fails on its own numbers', () => {
   const v = { anchors: { n: 3000, Q: 0.5, price: 0.2 } };
   const made = { tier: TIER.TOP_PAIR_GOOD, drawEquity: 0 };
   const air = { tier: TIER.HIGH_CARD, drawEquity: 0.02 };
-  const draw = { tier: TIER.HIGH_CARD, drawEquity: 0.32 };
+  const draw = { tier: TIER.HIGH_CARD, drawEquity: 0.32, flushDraw: 1 }; // a real draw (STRAT M2)
   const bet = (o) => ({ type: 'raise', to: 50, ...o });
   // value: ahead when called against what k callers need
   assert.equal(anchorStatus(bet({ W: 0.8, need: 0.45, called: 1500, F: 0.1, alpha: 0.35 }), v, made, 2), 'works');
@@ -137,7 +137,7 @@ test('estimate lines agree with the grade (F05, F06, F14)', () => {
       }
       if (r.v.note === 'anchorFails') {
         checked++;
-        assert.match(e.headline, /does not work/);
+        assert.match(e.headline, /does not work|only works if they keep playing this way/); // STRAT F4
         assert.match(e.anchor, /Do not bluff|call with better/, `${id} ${r.o.label}: ${e.anchor}`);
       }
       if (e.anchor) assert.doesNotMatch(e.anchor, /only almost never/);
@@ -322,5 +322,31 @@ test('BB light 3-bets against a regular are fine with the habit note, never best
       const r = gradeAll(s, v0, opts, env).find((x) => x.o.type === 'raise' && x.o.to === to);
       assert.notEqual(r.v.note, 'preBluff', `${hole} 3-bet to $${to}`);
     }
+  }
+});
+
+// The owner's J♣T♣ hand (STRAT, M2): middle pair with a backdoor flush is not a draw. Betting it into a
+// station multiway gets no "wins only when it hits" habit note.
+test('Middle pair with a backdoor betting into a station multiway is not a draw: no habit note', () => {
+  const spot = { id: 'jt', button: 1, hole: 'Jc Tc', board: '9c Th Ad 2h', seats: { 1: 'abc', 2: 'abc', 3: 'station' }, line: '0r15 1c 2c 3c | 2x 3x' };
+  for (const seed of [5, 11]) {
+    const { s, belief, env } = build(spot);
+    // (a) the premise
+    const hf = handFeatures(s.hole[0], s.board);
+    assert.equal(hf.tier, TIER.MIDDLE_PAIR);
+    assert.ok(!hf.flushDraw && !hf.straightDraw, 'no flush or straight draw');
+    assert.ok(hf.drawEquity >= 0.14, `drawEquity ${hf.drawEquity}`);
+    const opts = { samples: 1500, seed };
+    const v0 = judgeDecision(s, 0, belief, { type: 'raise', to: 30 }, opts);
+    const rows = gradeAll(s, v0, opts, env);
+    // (b) the $30 bet: good, no habit note
+    const bet = rows.find((r) => r.o.type === 'raise' && r.o.to === 30);
+    assert.equal(bet.v.grade, 'good', `seed ${seed}: $30 bet ${bet.v.grade}`);
+    assert.notEqual(bet.v.note, 'mwHabit', `seed ${seed}: $30 bet note`);
+    assert.ok(!bet.v.habit, `seed ${seed}: habit ${bet.v.habit}`);
+    // (c) no bet up to the pot carries drawStation
+    for (const r of rows.filter((x) => x.o.type === 'raise' && x.o.to - s.currentBet <= v0.pot + 0.5)) assert.notEqual(r.v.habit, 'drawStation', `seed ${seed}: ${r.o.label}`);
+    // (d) the check is not flagged
+    assert.equal(rows.find((r) => r.o.type === 'check').v.grade, 'good', `seed ${seed}: check`);
   }
 });

@@ -3,7 +3,7 @@
 // player's read and name, so it runs the same in Node, on the page, and in the page's judge worker.
 
 import { STREET, positionName } from '../engine/game.js';
-import { handFeatures, TIER } from '../engine/features.js';
+import { handFeatures, TIER, isRealDraw } from '../engine/features.js';
 import { classOf, classNames } from '../engine/hands.js';
 import { buildContext, POS } from '../bots/policy.js';
 import { HERO_PROFILE } from '../bots/profiles.js';
@@ -34,6 +34,8 @@ export function limpTipFor(v, ctx) {
   for (const [o, i] of raises) if (o.ev > v.options[br].ev) br = i;
   const g = pairedGap(v, v.mine, br);
   if (g.mean > 2.2 * g.se) return null; // the judge clearly prefers the limp
+  // "usually does better" is false on this hand when every raise scores below the limp (STRAT G3, V3b)
+  if (raises.every(([o]) => o.ev < mine.ev - 0.5)) return null;
   const to = raises[0][0].to;
   return { kind: 'limp', to, text: `raising first in, to about $${to}, usually does better than limping. Fewer players see the flop, and you keep the lead.` };
 }
@@ -121,17 +123,29 @@ export function size3betTipFor(v, ctx, premium, env) {
   return null;
 }
 
+// Value re-raises against a loose opener (STRAT M3): against an opener read (50% or more) as a maniac,
+// tricky regular, gambler or beginner, TT+, AJo+, ATs+, KQo and KJs+ are value, not light: no
+// preBluff note, no junk 3-bet tip, graded as usual, and they may be the best play.
+const VALUE_VS_LOOSE = new Set(['TT', 'JJ', 'QQ', 'KK', 'AA', 'AJo', 'AQo', 'AKo', 'ATs', 'AJs', 'AQs', 'AKs', 'KQo', 'KJs', 'KQs']);
+export function valueVsLoose(name, ctx, env) {
+  if (!env || ctx.raises < 1 || ctx.aggressor < 0 || ctx.aggressor === HERO || !VALUE_VS_LOOSE.has(name)) return false;
+  const top = env.readOf(ctx.aggressor).ranked[0];
+  return !!top && top.p >= 0.5 && ['maniac', 'lag', 'whale', 'beginner'].includes(top.id);
+}
+
 // env: { belief, readOf(seat) -> { ranked }, name(seat) -> nick }
 export function gradeDecision(s, belief, action, judgeOpts, env) {
   const ctx = buildContext(s);
   const verdict = judgeDecision(s, HERO, belief, action, judgeOpts);
   temper(verdict, s, ctx, action, judgeOpts, env);
-  let tip = limpTipFor(verdict, ctx);
-  if (!tip && s.street === STREET.PRE) {
+  let tip = null;
+  if (s.street === STREET.PRE) {
     const name = classNames[classOf(s.hole[HERO][0], s.hole[HERO][1])];
     const group = groupOf(positionName(s, HERO));
-    tip = openTipFor(verdict, ctx, name, group) || junk3betTipFor(verdict, ctx, name, group) || limpOutsideTipFor(verdict, ctx, name, group) || size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env);
-  }
+    // a limp with a hand outside the seat's Standard range gets "most players fold it here", never the
+    // raise tip (STRAT G3: never tell a student to raise K5o from UTG+1); inside it, the raise tip
+    tip = limpOutsideTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) ? null : junk3betTipFor(verdict, ctx, name, group)) || size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env);
+  } else tip = limpTipFor(verdict, ctx);
   if (tip) verdict.tip = tip;
   return verdict;
 }
@@ -215,10 +229,13 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   const river = s.street === STREET.RIVER;
   const onePair = !pre && tier >= TIER.WEAK_PAIR && tier <= TIER.OVERPAIR_TPTK;
   const goodTP = !pre && (tier === TIER.TOP_PAIR_GOOD || tier === TIER.OVERPAIR_TPTK);
-  const draw = !pre && hf.drawEquity >= 0.14 && tier <= TIER.MIDDLE_PAIR;
+  const realDraw = !pre && isRealDraw(hf);
+  const draw = realDraw && tier <= TIER.MIDDLE_PAIR;
   const betFrac = (o) => (o.to - s.currentBet) / Math.max(1, v.pot);
   // R5b: a bet led by a player read as passive, already called by someone else
-  const passiveLead = !pre && ctx.toCall > 0 && ctx.callersIn >= 1 && readAs(ctx.aggressor, ['station', 'abc', 'nit', 'beginner']);
+  // ...a lead or bet, not a raise of your own bet (STRAT G5: that is the strongest signal at these
+  // tables, graded as usual; folding it is covered by R6)
+  const passiveLead = !pre && ctx.toCall > 0 && ctx.callersIn >= 1 && !ctx.iBetThisStreet && ctx.raises === 1 && readAs(ctx.aggressor, ['station', 'abc', 'nit', 'beginner']);
   // STRAT's interim river rule (K9 vs a nit, Nov 2026): one pair below top pair top kicker, checked to
   // on the river, against players read as nits or solid regulars. A bet there wins mostly by folding
   // better hands, which is not a value bet. (MATH's anchor A1 replaces this when it ships.)
@@ -234,8 +251,9 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     // conditions): folds within 5 points of what it needs, or the draw's own equity covering it, the
     // same rule as anchorStatus for draws. Overbets keep the note.
     const supported = () => o.F !== undefined && betFrac(o) <= 1.05 && (o.F >= o.alpha - 0.05 || hf.drawEquity >= (o.need ?? 1 / (opp + 1)));
-    if (draw && live.some((i) => readAs(i, ['station'])) && !supported()) return 'drawStation';
-    if (draw && betFrac(o) > 1.05) return 'drawOverbet';
+    // "wins only when it hits" needs no made pair: a pair plus a draw has showdown value (STRAT)
+    if (draw && tier <= TIER.HIGH_CARD && live.some((i) => readAs(i, ['station'])) && !supported()) return 'drawStation';
+    if (draw && tier <= TIER.HIGH_CARD && betFrac(o) > 1.05) return 'drawOverbet';
     return null;
   };
   if (!pre) {
@@ -259,7 +277,8 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
         v.grade = 'good';
         v.note = 'mwHabit';
         v.habit = h;
-        v.habitHigher = v.options.every((o) => o.ev <= mine.ev); // "scores higher" only when it is the judge's best (STRAT)
+        // "scores higher" only when it is the judge's best and no other option is too close to tell apart (STRAT)
+        v.habitHigher = v.options.every((o, i) => o.ev <= mine.ev && (i === v.mine || !o.close));
         v.loss = 0;
         v.se = 0;
         v.best = ref;
@@ -267,7 +286,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
         refreshClose(v);
         return;
       }
-      if (regrade((o) => !habitOf(o))) return;
+      if (regrade((o) => !habitOf(o), undefined, 'habit')) return;
     }
     // ...and never the reference when the trainee chose something else
     if (!h && habitOf(best())) {
@@ -275,7 +294,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
         v.best = bestOther();
         v.sameKind = v.options[v.best].type === mine.type;
         refreshClose(v);
-      } else if (regrade((o) => !habitOf(o))) return;
+      } else if (regrade((o) => !habitOf(o), undefined, 'habit')) return;
     }
   }
   // A preflop re-raise below premium is never named the best play or the reference (STRAT's rule,
@@ -283,7 +302,17 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   // light 3-bets rests on bots that never adjust to a light 3-bettor. Your own such re-raise within
   // the bar of the best other play is fine with the preBluff note; any other play is measured
   // against the best play that is not a raise.
-  if (pre && ctx.raises >= 1 && isRaise(best()) && HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])] < 0.94) {
+  // "A light re-raise scores higher" only when the top raise beats the reference and is not too close
+  // to tell apart; otherwise "is close to the best" (STRAT M2/M3)
+  const setPreHigher = () => {
+    let tr = -1;
+    v.options.forEach((o, i) => {
+      if (isRaise(o) && (tr < 0 || o.ev > v.options[tr].ev)) tr = i;
+    });
+    v.preHigher = tr >= 0 && v.options.every((o) => o.ev <= v.options[tr].ev) && !v.options[tr].close;
+  };
+  const lightReraise = pre && ctx.raises >= 1 && HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])] < 0.94 && !valueVsLoose(classNames[classOf(s.hole[HERO][0], s.hole[HERO][1])], ctx, env);
+  if (lightReraise && isRaise(best())) {
     const notRaise = (o) => !isRaise(o);
     let alt = -1;
     v.options.forEach((o, i) => {
@@ -299,9 +328,13 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
         v.ref = 'noRaise';
         v.sameKind = false;
         refreshClose(v);
+        setPreHigher();
         return;
       }
-      if (regrade(notRaise, isRaise(mine) ? undefined : 'preBluff', 'noRaise')) return;
+      if (regrade(notRaise, isRaise(mine) ? undefined : 'preBluff', 'noRaise')) {
+        if (v.note === 'preBluff') setPreHigher();
+        return;
+      }
     }
   }
   if (v.grade === 'good') return;
@@ -323,7 +356,10 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     if (isRaise(mine) && ctx.raises >= 1 && premium >= 0.96 && best().type === 'call') return pass('callAlso');
     // A re-raise with a hand outside the top few percent is a bluff: compare with the best
     // option that is not a raise.
-    if (ctx.raises >= 1 && isRaise(best()) && premium < 0.94 && regrade((o) => !isRaise(o), 'preBluff', 'noRaise')) return;
+    if (lightReraise && isRaise(best()) && regrade((o) => !isRaise(o), 'preBluff', 'noRaise')) {
+      setPreHigher();
+      return;
+    }
     // The opener calling one re-raise: jacks or better, ace-king and ace-queen suited are never
     // red; queens or better and ace-king are fine unless the re-raiser is read as a nit.
     if (mine.type === 'call' && ctx.iRaised && ctx.raises === 2 && ['AA', 'KK', 'QQ', 'JJ', 'AKs', 'AKo', 'AQs'].includes(name)) {
@@ -461,8 +497,11 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   }
   // A semi-bluff with a real draw (a quarter or more of equity to come) is only flagged against
   // a player read as unable to fold, and then yellow at most (STRAT item 7).
-  if (isRaise(mine) && !isRaise(best()) && hf.drawEquity >= 0.25 && !river) {
-    if (!stickyRead()) return pass('semiBluff');
+  // ...and only when the anchors rate the bet as working (folds within 5 points of what it needs, or
+  // the draw's own equity covering 1 / (callers + 1)); otherwise graded as usual, never red (STRAT G2)
+  if (isRaise(mine) && !isRaise(best()) && realDraw && hf.drawEquity >= 0.25 && !river) {
+    const stt = v.anchors ? anchorStatus(mine, v, hf, opp) : 'works';
+    if (!stickyRead() && (stt === 'works' || stt === 'even')) return pass('semiBluff');
     capYellow();
   }
   // Sizing: a bet of 60% of the pot or more (45% multiway, R2) is never "too small"; multiway, a
@@ -484,6 +523,14 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   if (ctx.toCall === 0 && isRaise(best()) && mine.type === 'check' && weak && !v.costly) {
     const margin = (river ? 3 : 2) * small;
     if (v.loss < margin || stickyRead()) return pass('passedBluff');
+    // On the river the flag stands only if the bet still beats the check by the bar when the players
+    // call a little wider (R12's "calls wider" scenario; POOL and STRAT G6). Otherwise it is the pass.
+    if (river && env) {
+      const vw = judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, ...(judgeOpts.budgetMs ? { budgetMs: judgeOpts.budgetMs / 5 } : {}), samples: Math.round(judgeOpts.samples / 2), shift: -0.05 });
+      const b2 = sameOption(vw, best());
+      const m2 = sameOption(vw, mine);
+      if (b2 >= 0 && m2 >= 0 && vw.options[b2].ev - vw.options[m2].ev < small) return pass('passedBluff');
+    }
     v.grade = 'mistake';
   }
   // 7. A call against a fold is graded on what it can lose here: at most its price. Money
@@ -491,11 +538,19 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   if (mine.type === 'call' && best().type === 'fold' && v.loss > ctx.toCall) {
     v.grade = gradeFor(ctx.toCall, false);
     if (v.grade === 'good') return pass('callPrice');
+    // ...and after the flop the cost charged is capped at the price too, so the hand is not
+    // charged twice (STRAT G4; the review and Leak review sum the shown cost)
+    if (!pre) {
+      v.loss = ctx.toCall;
+      v.priceCap = ctx.toCall;
+    }
   }
+  // A call the anchors rate about break-even (ahead within 5 points of the price) is yellow at most (STRAT G4)
+  if (!pre && mine.type === 'call' && best().type === 'fold' && v.anchors && v.anchors.Q !== undefined && v.anchors.Q >= v.anchors.price - 0.05) capYellow();
   // 8. Flop and turn calls with top pair or better, up to half the pot and 15 big blinds, are
   //    yellow at most; with top pair or better and a draw, at any size (STRAT, Nov 2026).
   if (!river && mine.type === 'call' && tier >= TIER.TOP_PAIR_WEAK && ctx.toCall <= 0.5 * (v.pot - ctx.toCall) + 0.5 && ctx.toCall <= 15 * bb) capYellow();
-  if (!river && mine.type === 'call' && tier >= TIER.TOP_PAIR_WEAK && hf.drawEquity >= 0.14) capYellow();
+  if (!river && mine.type === 'call' && tier >= TIER.TOP_PAIR_WEAK && realDraw) capYellow();
   // Calling instead of raising with two pair or better, multiway, facing a bet and a caller, is
   // yellow at most (owner's ruling on F15).
   if (mw && ctx.toCall > 0 && ctx.callersIn >= 1 && mine.type === 'call' && tier >= TIER.TWO_PAIR && isRaise(best())) capYellow();
@@ -539,6 +594,9 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
       const RANK = { good: 0, mistake: 1, blunder: 2 };
       const sameK = v.options[pick].type === mine.type;
       const g2 = gradeFor(pickGap.mean, sameK);
+      // the named option is the one that beats yours under every read, which may not be the longest
+      // bar: say so, so the card does not contradict it (STRAT M5b)
+      if (v.options.some((o) => o.ev > v.options[pick].ev)) v.ref = 'robust';
       v.best = pick;
       v.sameKind = sameK;
       v.loss = pickGap.mean;
@@ -697,7 +755,7 @@ function thinValue(v, s, env, bar) {
 export function anchorStatus(o, v, hf, opp) {
   const A = v.anchors;
   if (!A || !hf) return null;
-  const draw = hf.drawEquity >= 0.14 && hf.tier <= TIER.MIDDLE_PAIR;
+  const draw = isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR;
   const se = (x, k) => Math.sqrt(Math.max(0, x * (1 - x)) / Math.max(1, k));
   // MATH, 13 Nov addendum: on the river the arithmetic is exact, so no tolerances (only the
   // two-standard-error guard); before it, the call tolerance shrinks with a small price.
@@ -720,7 +778,7 @@ export function anchorStatus(o, v, hf, opp) {
   }
   if (o.type === 'call') {
     if (A.Q === undefined) return null;
-    if (hf.drawEquity >= 0.14) return hf.drawEquity >= A.price ? 'works' : 'fails';
+    if (isRealDraw(hf)) return hf.drawEquity >= A.price ? 'works' : 'fails';
     const tol = river ? 0 : Math.min(0.1, A.price / 2);
     const e = se(A.Q, A.n);
     if (A.Q - (A.price + tol) >= 2 * e) return 'works';
@@ -752,9 +810,15 @@ export function applyAnchors(v, s, ctx) {
   const mine = v.options[v.mine];
   // a raise of your bet with another player in (the R6 spot): the neutral line under every option
   const onePair = hf.tier >= TIER.WEAK_PAIR && hf.tier <= TIER.OVERPAIR_TPTK;
+  // R6 protects only the fold (STRAT G1): the neutral line goes under the fold, or under a call that
+  // ends up fine or not graded; a flagged call keeps its own estimate
   if (ctx.toCall > 0 && onePair && ctx.raises >= 2 && ctx.iBetThisStreet && s.history.some((h) => h.street === s.street && h.seat !== HERO && h.seat !== s.lastRaiser && ['call', 'bet', 'raise'].includes(h.type))) {
-    v.line = '8b';
-    return;
+    if (mine.type === 'fold' || (mine.type === 'call' && v.grade === 'good')) {
+      v.line = '8b';
+      // the line says "nothing here is graded": so does the verdict (QA-VERDICT V1)
+      if (v.grade === 'good' && (!v.note || v.note === 'fragile' || v.note === 'unclear')) v.note = 'closeCall';
+      return;
+    }
   }
   if (v.note === 'mwHabit' || v.note === 'passiveFold' || v.rule === 'R5' || v.rule === 'R5b') return;
   const RAW = v.options.reduce((b, o, i) => (o.ev > v.options[b].ev ? i : b), 0);
@@ -846,7 +910,7 @@ export function applyAnchors(v, s, ctx) {
   if (mine.type === 'raise' && v.options[v.best].type === 'raise' && A.topSizeBest && hf.tier < TIER.TWO_PAIR) {
     v.grade = 'good';
     v.note = 'sizePeak';
-    v.line = '9';
+    v.line = 'auto'; // the sizing advice (line 9) only under a sizing flag, never under a fine bet (STRAT M5a)
     return;
   }
   // A1: a flag stands only if the play fails: a bet or raise that is the trainee's own ("bluffing

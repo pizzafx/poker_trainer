@@ -4,6 +4,11 @@
 import { evaluate, categoryOf, CATEGORY } from './evaluator.js';
 import { RANKS } from './cards.js';
 
+// A real draw (STRAT, Nov 2026, the J♣T♣ fix): a flush or straight draw with at least 14% equity
+// to come. Backdoors and pair-improvement outs never make a hand a draw. Takes handFeatures() output,
+// or a record's { realDraw } where it was stored.
+export const isRealDraw = (f) => (f.realDraw !== undefined ? !!f.realDraw : !!(f.flushDraw || f.straightDraw) && f.drawEquity >= 0.14);
+
 export const TIER = {
   AIR: 0,
   HIGH_CARD: 1, // ace/king high

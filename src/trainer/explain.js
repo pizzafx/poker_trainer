@@ -2,7 +2,7 @@
 // note on where the money-making play differs from what game theory would do.
 
 import { STREET } from '../engine/game.js';
-import { TIER } from '../engine/features.js';
+import { TIER, isRealDraw } from '../engine/features.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
 import { anchorStatus, needOf } from './grade.js';
 
@@ -43,7 +43,7 @@ function kind(a) {
 
 // A bet or raise is a bluff only with a weak pair or worse and no real draw (STRAT, QA K6): jacks under
 // a king are middle pair, played for value or protection, not bluffed.
-const bluffy = (d) => d.tier !== null && d.tier <= TIER.WEAK_PAIR && !(d.drawEquity >= 0.14);
+const bluffy = (d) => d.tier !== null && d.tier <= TIER.WEAK_PAIR && !isRealDraw(d);
 
 function categorise(d) {
   const v = d.verdict;
@@ -62,7 +62,7 @@ function categorise(d) {
   }
   if (m === 'raise' && b === 'raise') return mine.to < best.to ? 'sizeSmall' : 'sizeBig';
   if (facing) {
-    if (m === 'call' && b === 'fold') return weak && d.drawEquity >= 0.14 ? 'chase' : 'paidOff';
+    if (m === 'call' && b === 'fold') return weak && isRealDraw(d) ? 'chase' : 'paidOff';
     if (m === 'fold') return b === 'raise' && weak ? 'missedBluff' : 'overFold';
     if (m === 'raise') return bluffy(d) ? 'badBluff' : d.tier >= TIER.TWO_PAIR ? 'other' : 'overplay';
     if (m === 'call' && b === 'raise') return 'missedValue';
@@ -103,10 +103,13 @@ function rangeLine(d) {
   parts.push(`${pct(b.air)} nothing`);
   const verb = d.toCall > 0 ? (d.raises >= 2 ? 'raises' : 'bets') : 'gets here';
   let s = `When ${vil.nick} ${verb} like this, the hands that fit are roughly: ${parts.join(', ')}.`;
+  // the same effective price as the coach's estimate (all-in capped; STRAT F6)
+  const A = d.verdict && d.verdict.anchors;
+  const price = A && A.price !== undefined ? A.price : d.odds;
   if (d.toCall > 0 && d.street === STREET.RIVER) {
-    s += ` Your hand beats ${pct(vil.picture.equity)} of that; a call needs ${pct(d.odds)}.`;
+    s += ` Your hand beats ${pct(vil.picture.equity)} of that; a call needs ${pct(price)}.`;
   } else if (d.toCall > 0) {
-    s += ` You are ahead of ${pct(vil.picture.equity)} of that right now and the price needs ${pct(d.odds)}.`;
+    s += ` You are ahead of ${pct(vil.picture.equity)} of that right now and the price needs ${pct(price)}.`;
   }
   return s;
 }
@@ -152,9 +155,16 @@ function goodHeadline(v, mine, best, d = {}) {
   const more = (o, within) => (gap(o) > bar(o) || !within ? (gap(o) > 0 ? `scores about $${gap(o)} more` : 'scores about the same') : within);
   const who = d.opponents === 1 ? 'this player' : 'these players';
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
+  if (v.rule === 'R5b') return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`; // STRAT M5c
   if (v.note === 'premium') return `${mine.label}: fine. (Raising with this hand is never a mistake.)`;
   if (v.note === 'anchorHabit' || v.note === 'anchorEven' || v.note === 'sizePeak') return `${mine.label}: fine.`;
-  if (v.note === 'anchorFails') return `${mine.label}: fine. (It gives up less than the coach flags, but by the estimate below it does not work.)`; // the coach's estimate below says why
+  if (v.note === 'anchorFails') {
+    // "gives up less" only when it scores below the reference (STRAT F4)
+    if (mine.ev < best.ev) return `${mine.label}: fine. (It gives up less than the coach flags, but by the estimate below it does not work.)`; // the coach's estimate below says why
+    // "scores higher" only when it is the judge's best with no option too close to tell apart
+    const higher = v.options.every((o, i) => o.ev <= mine.ev && (i === v.mine || !o.close));
+    return `${mine.label}: fine. It ${higher ? 'scores higher' : 'is close to the best'} against these players, but by the estimate below it only works if they keep playing this way; ${bare(best).toLowerCase()} is the standard play.`;
+  }
   if (v.note === 'anchor') {
     // the bars' gap stated, then why it is not flagged (QA F2)
     const alt = gap(best) > 0 && best !== mine ? best : top;
@@ -196,7 +206,7 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'callPrice') return `${mine.label}: fine. (Folding ${more(best, 'rates a little higher')}, but this call can only cost its price; later decisions are graded when you make them.)`;
   if (v.note === 'bluffRaise') return `${mine.label}: fine. (A bluff-raise ${more(top)} against these bots, but that only works on bots; it is not a habit to build.)`;
   if (v.note === 'overbet') return `${mine.label}: fine. (A bet bigger than the pot ${more(top)} against these bots; a pot-sized bet or smaller is all you are held to.)`;
-  if (v.note === 'preBluff') return `${mine.label}: fine. (A re-raise bluff ${more(top)} against these bots; it is not a habit to build.)`;
+  if (v.note === 'preBluff') return `${mine.label}: fine. (A light re-raise ${v.preHigher ? 'scores higher' : 'is close to the best'} against these bots; it is not a habit to build.)`; // STRAT M3
   if (v.note === 'preFold') return `${mine.label}: fine.`;
   if (v.note === 'sizeOk') {
     // the range over the bigger sizes that score more, and why
@@ -214,7 +224,7 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')}.)`;
   if (gap(top) > bar(top)) return `${mine.label}: fine. (${bare(top)} ${more(top)} on our read, but the coach does not hold you to it here.)`;
   const rivals = v.options.filter((o, i) => i !== v.best && o.close);
-  if (!rivals.length) return `${mine.label}: the best play here.`;
+  if (!rivals.length) return `${mine.label}: fine.`; // "best play" only under the ring (bestHeadline replaces this then; STRAT F2)
   return `${mine.label}: good. (${rivals.length === 1 ? bare(rivals[0]) + ' rates' : 'Other options rate'} about the same.)`;
 }
 const NUM_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
@@ -244,14 +254,14 @@ export function anchorLine(d) {
   if (v.line === '8a') return LINE8A;
   if (v.line === '8b') return LINE8B;
   if (v.line === '9') return LINE9;
-  const hf = { tier: d.tier ?? 0, drawEquity: d.drawEquity ?? 0 };
+  const hf = { tier: d.tier ?? 0, drawEquity: d.drawEquity ?? 0, realDraw: !!d.realDraw };
   const opp = d.opponents || 1;
   const st = (o) => o.st ?? anchorStatus(o, v, hf, opp); // grading's own classification (QA E1)
   const river = d.street === STREET.RIVER;
   const now = river ? '' : ' right now';
   const mine = v.options[v.mine];
   const ref = v.options[v.best];
-  const made = hf.tier >= TIER.WEAK_PAIR && !(hf.drawEquity >= 0.14 && hf.tier <= TIER.MIDDLE_PAIR);
+  const made = hf.tier >= TIER.WEAK_PAIR && !(isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR);
   const kw = d.toCall > 0 ? 'raise' : 'bet'; // what the play is called in the line
   const bet = (o0) => {
     const o = { ...o0, alpha: needOf(o0, v) }; // on the river, the folds it needs to beat checking
@@ -267,6 +277,8 @@ export function anchorLine(d) {
     }
     if (s === 'works') return `${foldsP(o.F)[0].toUpperCase()}${foldsP(o.F).slice(1)} and this ${kw} needs ${share(o.alpha, false)}. A bigger ${kw} needs more folds than you get.`;
     if (s === 'even' || r5(o.F) === r5(o.alpha)) return `This ${kw} about breaks even on folds: you get ${share(o.F, false)} and need ${share(o.alpha, false)}. Fine, not needed.`;
+    // a big real draw is not a bluff: say what the draw still does when called (STRAT M4)
+    if (isRealDraw(hf) && hf.drawEquity >= 0.25) return `${kw === 'bet' ? 'Betting' : 'Raising'} needs folds ${often(o.alpha)} and they rarely fold; called, your draw still comes in ${often(hf.drawEquity)}. Checking or calling to see the card is fine.`;
     return `${kw === 'bet' ? 'Betting' : 'Raising'} here needs everyone to fold ${often(o.alpha)}; ${o.F < 0.05 ? 'they almost never do' : o.F > 0.95 ? 'they nearly always do' : `they fold only ${often(o.F)}`}. Do not bluff this field.`;
   };
   let line = null;
@@ -298,14 +310,29 @@ export function anchorLine(d) {
   else if (v.anchors.Q !== undefined && (mine.type === 'call' || mine.type === 'fold')) {
     const A = v.anchors;
     const call = v.options.find((o) => o.type === 'call');
-    const s = call ? st(call) : null;
+    let s = call ? st(call) : null;
+    // never "Fold." under a fine call or "Call." under a fine fold: the estimate says it is close (STRAT M1)
+    if (v.grade === 'good' && ((mine.type === 'call' && s === 'fails') || (mine.type === 'fold' && s === 'works'))) s = 'even';
     const who = d.toCall > 0 && opp === 2 && d.raises <= 1 ? ' of both players' : '';
     const need = share(A.price, false);
-    if (hf.drawEquity >= 0.14) {
-      // a draw: its chance to come in, against the price
-      line = `Your draw comes in ${often(hf.drawEquity)} and the price needs ${need}. ${s === 'works' ? 'Call.' : 'Not at this price.'}`;
+    if (isRealDraw(hf)) {
+      // a real draw: its chance to come in, against the price
+      line = `Your draw comes in ${often(hf.drawEquity)} and the price needs ${need}${s === 'works' ? '. Call.' : s === 'even' ? ': close.' : '. Not at this price.'}`;
     } else if (s === 'works') line = `You are ${aheadP(A.Q, '').replace('ahead', `ahead${who}`)} and need ${need} at this price. Call.${hf.tier >= TIER.WEAK_PAIR && hf.tier <= TIER.OVERPAIR_TPTK ? ' Raising gets called mostly by better hands.' : ''}`;
-    else if (s === 'fails') line = `You are ${aheadP(A.Q, '')} here and need ${need} at this price. Good players bluff just enough to make this close. This player's bets are nearly always real. Fold.`;
+    else if (s === 'fails') {
+      // "nearly always real" only for a bettor read as passive whose range shows under 15% nothing
+      // plus draws (STRAT F1); a loose bettor gets its own line, anyone else the neutral one
+      const pic = d.villain && d.villain.picture;
+      const post = pic && pic.post;
+      let top = -1;
+      if (post) for (let k = 0; k < post.length; k++) if (top < 0 || post[k] > post[top]) top = k;
+      const type = top >= 0 ? TYPE_IDS[top] : null;
+      const b = pic && pic.buckets;
+      const loose = b ? Math.round(100 * (b.air + b.draw)) : 100;
+      if (['nit', 'abc', 'station', 'beginner'].includes(type) && loose < 15) line = `You are ${aheadP(A.Q, '')} here and need ${need} at this price. Good players bluff just enough to make this close. This player's bets are nearly always real. Fold.`;
+      else if (['maniac', 'lag', 'whale'].includes(type)) line = `Even against a player who bluffs this often, you are not ahead often enough at this price. Fold.`;
+      else line = `You are ${aheadP(A.Q, '')} here and need ${need} at this price; not enough. Fold.`;
+    }
     else line = `You are ${aheadP(A.Q, '')} here and need ${need} at this price: close.`;
   } else if (mine.type === 'check' && ref.type === 'raise' && ref !== mine) {
     const b = bet(ref);
@@ -333,7 +360,8 @@ function anchorExtra(d) {
 export function shownCost(v) {
   if (v.grade === 'good' || v.mine < 0) return 0;
   if (v.dominated) return v.dominated; // behind the best play by at least this much under every read
-  return Math.max(0, Math.round(v.options[v.best].ev) - Math.round(v.options[v.mine].ev));
+  const gap = Math.max(0, Math.round(v.options[v.best].ev) - Math.round(v.options[v.mine].ev));
+  return v.priceCap !== undefined ? Math.min(gap, Math.round(v.priceCap)) : gap; // a call costs at most its price (STRAT G4)
 }
 
 export function explain(d) {
@@ -359,10 +387,13 @@ export function explain(d) {
   const m = kind(mine);
   const b = kind(best);
   const word = v.grade === 'blunder' ? 'Blunder' : 'Mistake';
-  const ref = v.ref === 'anchor' ? `${best.label.toLowerCase()} (the best play that works against anyone)` : v.ref === 'noRaise' ? `${best.label.toLowerCase()} (the best play that is not a raise)` : v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
+  const ref = v.ref === 'habit' ? `${best.label.toLowerCase()} (the best play the coach teaches here)` : v.ref === 'robust' ? `${best.label.toLowerCase()} (it beats your play under every read)` : v.ref === 'anchor' ? `${best.label.toLowerCase()} (the best play that works against anyone)` : v.ref === 'noRaise' ? `${best.label.toLowerCase()} (the best play that is not a raise)` : v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
+  const capped = v.priceCap !== undefined && Math.round(best.ev) - Math.round(mine.ev) > cost;
   const headline = v.dominated
     ? `${word}: ${mine.label.toLowerCase()} scores at least $${cost} below the best play here under every reasonable read of these players.`
-    : `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}.`;
+    : capped
+      ? `${word}: ${mine.label.toLowerCase()} costs up to its price compared with ${ref}; what happens on later streets is graded there.`
+      : `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}.`;
   const reasons = [];
   const r1 = readLine(d);
   if (r1) reasons.push(r1);
@@ -396,5 +427,9 @@ export function explain(d) {
     if (d.tier === null || d.tier < TIER.TOP_PAIR_GOOD || (multiway && d.tier <= TIER.OVERPAIR_TPTK)) theory = null; // R11
     else if (d.regularIn) theory = 'Why theory disagrees: against players who call too wide and rarely bluff, a good hand should simply bet.';
   }
+  // the theory about checking only under a check; under a call where a raise scored best, its own line (STRAT F5)
+  if (category === 'missedValue' && theory && m !== 'check') theory = m === 'call' ? 'Why theory disagrees: with a hand this strong, raising builds the pot while worse hands still pay; slow-playing is fine sometimes, not as a habit.' : null;
+  // "when several players check" needs two or more opponents, all checked on this street (STRAT F3)
+  if (category === 'missedBluff' && !(d.opponents >= 2 && d.toCall === 0)) theory = null;
   return { category, headline, reasons, theory, cost, anchor: anchorLine(d), anchorExtra: anchorExtra(d) };
 }

@@ -67,7 +67,9 @@ test('grading: verdicts are consistent with their own numbers', () => {
     if (v.grade !== 'good') {
       assert.notEqual(v.best, v.mine, 'a flagged play is not the best option');
       assert.ok(v.loss > 0);
-      assert.ok(Math.abs(v.loss - (v.options[v.best].ev - v.options[v.mine].ev)) < 1e-6, 'loss is best minus mine');
+      // best minus mine, except a call against a fold after the flop, which costs at most its price (STRAT G4)
+      if (v.priceCap !== undefined) assert.equal(v.loss, v.priceCap, 'a capped call costs its price');
+      else assert.ok(Math.abs(v.loss - (v.options[v.best].ev - v.options[v.mine].ev)) < 1e-6, 'loss is best minus mine');
       // Never flagged for less than three big blinds or a tenth of the pot.
       assert.ok(v.loss >= Math.max(3 * facts.bb, 0.1 * v.pot) - 1e-9, `flagged for only $${v.loss.toFixed(2)}`);
     }
@@ -118,8 +120,15 @@ test('cost shown: whole dollars, equal to the gap between the rounded values, an
       continue;
     }
     assert.ok(Number.isInteger(d.cost), `cost ${d.cost} is whole dollars`);
-    assert.equal(d.cost, Math.round(v.options[v.best].ev) - Math.round(v.options[v.mine].ev));
-    assert.ok(d.headline.includes(`costs about $${d.cost} compared`), d.headline);
+    const gap = Math.round(v.options[v.best].ev) - Math.round(v.options[v.mine].ev);
+    if (v.priceCap !== undefined && gap > Math.round(v.priceCap)) {
+      // a call against a fold after the flop: at most its price, and the headline says so (STRAT G4)
+      assert.equal(d.cost, Math.round(v.priceCap));
+      assert.ok(d.headline.includes('costs up to its price compared'), d.headline);
+    } else {
+      assert.equal(d.cost, gap);
+      assert.ok(d.headline.includes(`costs about $${d.cost} compared`), d.headline);
+    }
     sum += d.cost;
   }
   const rev = sess.review();

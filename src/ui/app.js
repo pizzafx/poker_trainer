@@ -16,6 +16,7 @@ import { equityVsRange } from '../trainer/equity.js';
 import { BUILD, HASHES } from '../trainer/version.js';
 import { keepHand, saveSession, loadSession, clearSession, listHands, clearHands } from './store.js';
 import { framesOf } from '../trainer/replay.js';
+import { bestPlayEdge } from '../trainer/best.js';
 
 const $ = (id) => document.getElementById(id);
 const HERO = 0;
@@ -685,8 +686,11 @@ function fbCard(d, showWhere = true) {
   const rows = v.options
     .map((o, i) => `<tr class="${i === v.best ? 'best' : ''} ${i === v.mine ? 'mine' : ''}"><td>${esc(o.label)}${refTag(v, i)}${o.close && i !== v.best ? ' <span class="approx" title="Too close to the best option to tell apart">≈</span>' : ''}</td><td>${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</td></tr>`)
     .join('');
-  return `<div class="fb ${v.grade}">${where}
+  const best = isBest(d);
+  return `<div class="fb ${v.grade}${best ? ' best' : ''}">${where}
+    ${best ? `<div class="fb-best"><span class="vmark good best" aria-hidden="true">${MARK.good}</span><span class="g bp-word">Best play</span></div>` : ''}
     <div class="head">${esc(d.headline)}</div>
+    ${best ? bestEdgeLine(d) : ''}
     ${anchorHtml(d)}
     ${tipLine(d)}
     ${d.reasons.map((r) => `<p>${esc(r)}</p>`).join('')}
@@ -791,8 +795,23 @@ function renderFeedback() {
     el.innerHTML = '<div class="empty">Feedback is held until the hand ends.</div>';
     return;
   }
-  el.innerHTML = [...h.decisions].reverse().map((d) => fbCard(d, false)).join('');
+  let html = [...h.decisions].reverse().map((d) => fbCard(d, false)).join('');
+  // The best-play pop plays once, on the newest card, and only if the Coach tab is showing as it
+  // lands; opening the tab later shows the final state (Addendum B). The card keeps "pop" for the
+  // 1.3s it runs, and an identical re-render leaves the element alone, so the pop is not cut short.
+  const d0 = h.decisions[h.decisions.length - 1];
+  const key = `${sess.id}:${d0.id}`;
+  if (isBest(d0)) {
+    if (!CARD_POPPED.has(key)) CARD_POPPED.set(key, { t: performance.now(), live: el.getClientRects().length > 0 });
+    const c = CARD_POPPED.get(key);
+    if (c.live && performance.now() - c.t < 1300) html = html.replace('<div class="fb-best">', '<div class="fb-best pop">');
+  }
+  if (el._fbHtml === html && el._fbEl && el.firstElementChild === el._fbEl) return;
+  el.innerHTML = html;
+  el._fbHtml = html;
+  el._fbEl = el.firstElementChild;
 }
+const CARD_POPPED = new Map();
 
 // ---- table events (header design, A2): no news line on the table. Each event becomes a
 // quiet line in the Hand log; a new player also gets a NEW tag on their seat for one hand; the two
@@ -829,21 +848,28 @@ const STRIP_TIP = {
   wideOpen: (t) => `Tip: usually a fold from ${t.where}`,
   junk3bet: () => 'Tip: too weak to re-raise; call or fold',
 };
+const POPPED = new Map();
 function stripHtml(show, { worst, prev }) {
   const v = show.verdict;
   const g = v.grade;
   const mine = v.options[v.mine];
   const tipping = g === 'good' && !!show.tipKind;
-  const word = g === 'good' ? (notGraded(v) ? 'not graded' : v.mine === v.best && !tipping && !v.note ? 'best play' : 'fine') : g; // with a tip or a note it is "fine", as the headline says (QA Z3, M4)
+  const best = !prev && isBest(show); // not in the previous-hand state (Addendum B)
+  const word = g === 'good' ? (notGraded(v) ? 'not graded' : best ? 'best play' : 'fine') : g; // with a tip or a note it is "fine", as the headline says (QA Z3, M4)
+  // the pop plays once per decision: the strip keeps its "pop" class for the 1.3s it runs (so an
+  // identical re-render leaves the element, and the animation, alone) and drops it afterwards
+  const key = `${sess ? sess.id : ''}:${show.id}`;
+  if (best && !POPPED.has(key)) POPPED.set(key, performance.now());
+  const sheen = best && performance.now() - POPPED.get(key) < 1300;
   const cost = g === 'good' ? 0 : shownCost(v);
   const tipFn = g === 'good' && show.tipKind ? STRIP_TIP[show.tipKind] : null;
   const tip = g === 'good' && show.tipKind ? (tipFn && v.tip ? tipFn(v.tip) : 'Tip') : '';
   const note = g === 'good' && !tip && v.note ? 'note' : '';
-  const cls = ['cs', g === 'mistake' ? 'warn' : g === 'blunder' ? 'bad' : '', tip ? 'tip' : '', note ? 'note' : '', prev ? 'prev' : ''].filter(Boolean).join(' ');
+  const cls = ['cs', g === 'mistake' ? 'warn' : g === 'blunder' ? 'bad' : '', best ? 'best' : '', sheen ? 'pop' : '', tip ? 'tip' : '', note ? 'note' : '', prev ? 'prev' : ''].filter(Boolean).join(' ');
   const st = worst ? `Worst<span class="st-x"> · ${esc(show.streetName)}</span>` : esc(show.streetName);
   const go = g !== 'good' ? 'Why ›' : tip || note ? '›' : 'Details ›';
-  return `<button type="button" class="${cls}" id="toast-open"><span class="st">${st}</span><span class="vmark ${g}" aria-hidden="true">${MARK[g]}</span>
-    <span class="main"><span class="act">${esc(mine.label.replace(/\s*\([^)]*\)\s*$/, ''))}</span><span class="rest"><span class="gw"> · <span class="g">${word}</span></span>${cost ? ` <span class="cost">−$${cost}</span>` : ''}${tip ? ` <span class="gw2">·</span> <span class="tipx">${esc(tip)}</span>` : ''}${note ? ` · <span class="tipx">note</span>` : ''}</span></span>
+  return `<button type="button" class="${cls}" id="toast-open"><span class="st">${st}</span><span class="vmark ${g}${best ? ' best' : ''}" aria-hidden="true">${MARK[g]}</span>
+    <span class="main"><span class="act">${esc(mine.label.replace(/\s*\([^)]*\)\s*$/, ''))}</span><span class="rest"><span class="gw"> · <span class="g${best ? ' bp-word' : ''}">${word}</span></span>${cost ? ` <span class="cost">−$${cost}</span>` : ''}${tip ? ` <span class="gw2">·</span> <span class="tipx">${esc(tip)}</span>` : ''}${note ? ` · <span class="tipx">note</span>` : ''}</span></span>
     <span class="go">${go}</span></button>`;
 }
 function renderToast() {
@@ -891,7 +917,13 @@ function renderToast() {
     }
   }
   const pending = !h.over && sess.status() === 'hero';
-  el.innerHTML = stripHtml(show, { worst: h.over && show.verdict.grade !== 'good' && h.decisions.length > 1, prev: pending });
+  const html = stripHtml(show, { worst: h.over && show.verdict.grade !== 'good' && h.decisions.length > 1, prev: pending });
+  // an identical strip that is still on screen is left as it is, so a running pop is not restarted
+  if (!(el._stripHtml === html && el._stripEl && el.firstElementChild === el._stripEl)) {
+    el.innerHTML = html;
+    el._stripHtml = html;
+    el._stripEl = el.firstElementChild;
+  }
   $('toast-open').onclick = () => (REVIEW_V2 && h.over && !drill ? openReview() : openSide('coach'));
 }
 
@@ -1175,6 +1207,18 @@ function render() {
 const REVIEW_V2 = true;
 const GRADE_WORD = { good: 'fine', mistake: 'mistake', blunder: 'blunder' };
 const MARK = { good: '✓', mistake: '!', blunder: '✕' };
+// Best play (header design, Addendum B): a ringed check and "best play" in caps, only when
+// bestPlayEdge (trainer/best.js, STRAT's rule) says the play was clearly the best. Display only.
+const isBest = (d) => !!d && !!bestPlayEdge(d.verdict, d);
+const markHtml = (d, cls = 'vmark') => {
+  const g = d.verdict.grade;
+  return `<span class="${cls} ${g}${isBest(d) ? ' best' : ''}" aria-hidden="true">${MARK[g]}</span>`;
+};
+const gradeWord = (d) => (notGraded(d.verdict) ? 'not graded' : isBest(d) ? 'best play' : GRADE_WORD[d.verdict.grade]);
+const bestEdgeLine = (d) => {
+  const e = bestPlayEdge(d.verdict, d);
+  return e ? `<p class="best-edge">Clearly ahead of ${esc(e.label.replace(/\s*\([^)]*\)\s*$/, '').toLowerCase())}, the best alternative, by about <b>$${Math.max(1, Math.round(e.gap))}</b>.</p>` : '';
+};
 const STREET_LABEL = ['Preflop', 'Flop', 'Turn', 'River'];
 
 function actionNoun(o) {
@@ -1195,7 +1239,11 @@ function openReview(stored = false) {
   const net = h.summary.net;
   const result = net > 0 ? `You won ${money(net)}.` : net < 0 ? `You lost ${money(-net)}.` : 'You broke even.';
   const costLine = !flagged.length
-    ? ds.length ? '<span class="ok">Every decision was fine.</span>' : ''
+    ? ds.length ? `<span class="ok">${(() => {
+        const nb = ds.filter(isBest).length;
+        if (!nb) return 'Every decision was fine.';
+        return ds.length === 1 ? 'Your decision was the best play.' : `Every decision fine, ${nb} of them the best play.`;
+      })()}</span>` : ''
     : flagged.length === 1
       ? `<span class="neg">One ${actionNoun(flagged[0].verdict.options[flagged[0].verdict.mine])} cost you about ${money(flagged[0].cost)}.</span>`
       : `<span class="neg">${flagged.length} plays cost you about ${money(cost)}.</span>`;
@@ -1212,9 +1260,9 @@ function openReview(stored = false) {
   const rows = ds.map((d) => {
     const v = d.verdict;
     const mine = v.options[v.mine];
-    const head = `<span class="label">${STREET_LABEL[d.street] || d.streetName}</span><span class="vmark ${d.verdict.grade}">${MARK[v.grade]}</span><span class="what">${esc(mine ? mine.label : '')}</span><span class="grade ${v.grade}">${notGraded(v) ? 'not graded' : GRADE_WORD[v.grade]}</span>`;
+    const head = `<span class="label">${STREET_LABEL[d.street] || d.streetName}</span>${markHtml(d)}<span class="what">${esc(mine ? mine.label : '')}</span><span class="grade ${v.grade}${isBest(d) ? ' best' : ''}">${gradeWord(d)}</span>`;
     const link = rec ? `<button type="button" class="link-btn rv-replay" data-replay-dec="${ds.indexOf(d)}">▶ replay</button>` : '';
-    if (v.grade === 'good') return `<div class="rv-step">${head}${link}</div>${tipLine(d, 'tip-line rv-tip')}${noteLine(d, 'tip-line rv-tip rv-note')}${anchorHtml(d)}`;
+    if (v.grade === 'good') return `<div class="rv-step${isBest(d) ? ' best' : ''}">${head}${link}</div>${tipLine(d, 'tip-line rv-tip')}${noteLine(d, 'tip-line rv-tip rv-note')}${anchorHtml(d)}`;
     const evs = v.options.map((o) => o.ev);
     const lo = Math.min(...evs, 0);
     const hi = Math.max(...evs, 0);
@@ -2136,7 +2184,7 @@ function reviewModal() {
     <div class="kv">
       <div class="stat"><small>Hands</small><b>${rev.hands}</b></div>
       <div class="stat"><small>Result</small><b class="${rev.net > 0 ? 'pos' : rev.net < 0 ? 'neg' : ''}">${signed(rev.net)}</b></div>
-      <div class="stat"><small>Decisions judged</small><b>${rev.judged}</b></div>
+      <div class="stat best-tile"><small>Best plays</small><b class="pos">${sess.decisions.filter(isBest).length}</b><small class="of">of ${rev.judged} judged</small></div>
       <div class="stat"><small>Cost of mistakes</small><b>${money(rev.lost)}</b></div>
     </div>
     ${(() => {
@@ -2685,7 +2733,7 @@ function renderReplayDock() {
   const f = RP.frames[RP.i];
   const k = RP.i;
   const d = f.decision >= 0 ? rec.decisions[f.decision] : null;
-  const mark = d ? `<span class="vmark ${d.verdict.grade}">${MARK[d.verdict.grade]}</span>` : '';
+  const mark = d ? markHtml(d) : '';
   const total = RP.frames.length;
   const figs = figures(rec, f).map(([l, v, sub]) => `<div class="fig"><span class="label">${l}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ''}</div>`).join('');
   // timeline: one segment per street, a dot per step
@@ -2695,7 +2743,7 @@ function renderReplayDock() {
     const html = dots.map(([g, j]) => {
       const dd = g.decision >= 0 ? rec.decisions[g.decision] : null;
       const facing = g.kind === 'action' && g.seat !== HERO && (g.action.type === 'bet' || g.action.type === 'raise') && !g.state.folded[HERO];
-      const cls = ['dot', dd ? `me ${dd.verdict.grade}${dd.tipKind ? ' tip' : ''}` : '', facing ? 'facing' : '', j < k ? 'past' : '', j === k ? 'now' : ''].filter(Boolean).join(' ');
+      const cls = ['dot', dd ? `me ${dd.verdict.grade}${dd.tipKind ? ' tip' : ''}${isBest(dd) ? ' best' : ''}` : '', facing ? 'facing' : '', j < k ? 'past' : '', j === k ? 'now' : ''].filter(Boolean).join(' ');
       return `<button type="button" class="${cls}" data-go="${j}" aria-label="${esc(actionWords(rec, g))}" title="${esc(actionWords(rec, g))}"></button>`;
     }).join('');
     const first = dots.length ? dots[0][1] : -1;
@@ -2756,14 +2804,14 @@ function renderReplayCoach() {
     const d = rec.decisions[f.decision];
     const v = d.verdict;
     const mine = v.options[v.mine];
-    const head = `<div class="rp-card-head"><span class="vmark ${v.grade}">${MARK[v.grade]}</span><div><b>${esc(mine ? mine.label : '')}</b><small>${esc(actionSub(rec, f, RP.i))}</small></div><span class="grade ${v.grade}">${notGraded(v) ? 'not graded' : GRADE_WORD[v.grade]}</span></div>`;
+    const head = `<div class="rp-card-head">${markHtml(d)}<div><b>${esc(mine ? mine.label : '')}</b><small>${esc(actionSub(rec, f, RP.i))}</small></div><span class="grade ${v.grade}${isBest(d) ? ' best' : ''}">${gradeWord(d)}</span></div>`;
     if (v.grade !== 'good') {
       html = `<div class="rp-card ${v.grade}">${head}<div class="rv-body">${flagBlock(d)}
         <div class="rv-acts">${d.villain ? `<button type="button" class="btn small" data-rseat="${d.villain.seat}">See ${esc(d.villain.nick)}'s range</button>` : ''}${d.category && DRILLS[d.category] ? `<button type="button" class="btn small" data-drill="${d.category}">Drill this leak</button>` : ''}${d.snapshot ? '<button type="button" class="btn small quiet" data-rdispute="1">Disagree?</button>' : ''}</div></div></div>`;
     } else if (d.tip) {
       html = `<div class="rp-card tip">${head}<div class="rv-body"><h2>${esc(d.headline)}</h2>${tipLine(d)}</div></div>`;
     } else {
-      html = `<div class="rp-card">${head}<div class="rv-body">${fbCard(d, false).replace('<div class="fb good">', '<div class="fb good rp-fine">')}</div></div>`;
+      html = `<div class="rp-card${isBest(d) ? ' best' : ''}">${head}<div class="rv-body">${fbCard(d, false).replace(/<div class="fb good( best)?">/, '<div class="fb good rp-fine">').replace(/<div class="fb-best">.*?<\/div>/s, '')}</div></div>`;
     }
   } else if ((f.kind === 'action' || (f.kind === 'folds' && f.count === 1)) && f.seat !== HERO) {
     const p = rec.seats[f.seat];
@@ -2837,7 +2885,7 @@ function renderReplayLog() {
     const mark = l.kind === 'act' && l.seat === HERO ? (() => {
       const nth = rec.log.filter((x, xi) => x.kind === 'act' && x.seat === HERO && xi <= rec.log.indexOf(l)).length - 1;
       const d = rec.decisions[nth];
-      return d ? `<span class="vmark ${d.verdict.grade}">${MARK[d.verdict.grade]}</span>` : '';
+      return d ? markHtml(d) : '';
     })() : '';
     lines.push(`<div class="ln ${l.kind}${l.seat === HERO && l.kind === 'act' ? ' me' : ''}${me ? ' cur' : ''}"${jump >= 0 ? ` data-go="${jump}" role="button" tabindex="0"` : ''}>${mark}${esc(l.text)}</div>`);
   }
@@ -2946,6 +2994,8 @@ function handMarker(r) {
     return `<span class="hm ${worst}"><span class="vmark ${worst}">${MARK[worst]}</span>${word} · ${money(cost)}</span>`;
   }
   if (r.decisions.some((d) => d.tipKind)) return '<span class="hm tip">Tip</span>';
+  const nb = r.decisions.filter(isBest).length;
+  if (nb) return `<span class="hm best"><span class="vmark good best">${MARK.good}</span>${nb} best</span>`;
   return `<span class="hm good"><span class="vmark good">${MARK.good}</span>${r.decisions.length > 1 ? 'All fine' : 'Fine'}</span>`;
 }
 
@@ -3093,7 +3143,7 @@ function handCardHtml(p) {
   const verdictOf = (d) => {
     if (!d) return '';
     const g = d.verdict.grade;
-    if (g === 'good') return `<span class="hl-v good"><span class="vmark good">${MARK.good}</span>${notGraded(d.verdict) ? 'not graded' : d.tipKind ? 'fine · tip' : 'fine'}</span>`;
+    if (g === 'good') return `<span class="hl-v good${isBest(d) ? ' best' : ''}">${markHtml(d)}${notGraded(d.verdict) ? 'not graded' : d.tipKind ? 'fine · tip' : isBest(d) ? 'best play' : 'fine'}</span>`;
     return `<span class="hl-v ${g}">${g === 'blunder' ? 'Blunder' : 'Mistake'} · ${money(d.cost)}${p.why ? ` <button type="button" class="link-btn hl-why" data-why="${decisions.indexOf(d)}">Why ›</button>` : ''}</span>`;
   };
   let heroN = 0;
@@ -3129,7 +3179,7 @@ function handCardHtml(p) {
     }
     if (e.allIn || (s.allIn && s.allIn[e.seat] && !H.slice(k + 1).some((x) => x.seat === e.seat))) text += ' <small>all-in</small>';
     const d = me ? decisions[heroN++] : null;
-    lines[e.street].push({ html: `<span class="hl-t">${text}</span>`, vhtml: me ? verdictOf(d) : '', me, grade: d ? d.verdict.grade : null, quiet: e.type === 'fold' && !me, facing: facing.has(k), idx: k });
+    lines[e.street].push({ html: `<span class="hl-t">${text}</span>`, vhtml: me ? verdictOf(d) : '', me, grade: d ? `${d.verdict.grade}${isBest(d) ? ' best' : ''}` : null, quiet: e.type === 'fold' && !me, facing: facing.has(k), idx: k });
   }
   // your action while the coach is checking it
   if (p.pending && p.live) {

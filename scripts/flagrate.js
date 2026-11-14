@@ -15,6 +15,7 @@ import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { CATEGORIES } from '../src/trainer/explain.js';
 import { Session } from '../src/trainer/session.js';
 import { SESSION, GAME_LINE } from './config.js';
+import { isBestPlay } from '../src/trainer/best.js';
 
 const at = process.argv.indexOf('--limper');
 const LIMPER = at >= 0;
@@ -55,6 +56,9 @@ for (const d of ds) if (d.verdict.note) notes[d.verdict.note] = (notes[d.verdict
 const cats = {};
 for (const d of flagged) cats[d.category] = (cats[d.category] || 0) + 1;
 console.log(`seed ${seed}: ${ds.length} decisions, ${flagged.length} flagged (${((100 * flagged.length) / ds.length).toFixed(1)}%), ${red} red`);
+const green = ds.filter((d) => d.verdict.grade === 'good');
+const bestN = green.filter((d) => isBestPlay(d.verdict, d)).length;
+console.log(`  best plays: ${bestN} of ${green.length} green (${((100 * bestN) / Math.max(1, green.length)).toFixed(1)}%), ${((100 * bestN) / ds.length).toFixed(1)}% of all decisions`);
 console.log('  by leak:', Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', ') || 'none');
 const openLimps = ds.filter((d) => d.street === STREET.PRE && d.ctx.raises === 0 && d.ctx.limpers === 0 && d.ctx.pos <= 2 && d.verdict.options[d.verdict.mine].type === 'call');
 const tipKinds = {};

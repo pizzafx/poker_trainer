@@ -651,7 +651,7 @@ function renderActions() {
     const dealing = autoDealDue(h) && !autoHeld;
     el.innerHTML = `<div class="act-row over">
       ${dealing ? `<span class="dealing" id="a-dealing" role="status">Dealing the ${drill ? 'next spot' : 'next hand'}… <kbd>Space</kbd></span>` : nextBtn}
-      ${drill ? '<button id="a-exit">Exit drill</button>' : low ? `<button id="a-top">Top up to ${money(sess.heroBuy)}</button>` : ''}
+      ${dealing ? '' : drill ? '<button id="a-exit">Exit drill</button>' : low ? `<button id="a-top">Top up to ${money(sess.heroBuy)}</button>` : ''}
       <span class="hint">${msg}</span></div>`;
     if ($('a-next')) $('a-next').onclick = nextHand;
     // pressing Top up or Exit drill holds the auto-deal; the deal is then the player's
@@ -1444,16 +1444,30 @@ function holdAutoDeal() {
     $('a-next').onclick = nextHand;
   }
 }
-// Clicks on Fold, Call and Raise are ignored for a moment after a deal: a second after one the table
-// made on its own (the player may still be reaching for where "Next hand" was), 400ms after one they asked for.
-const justDealt = () => performance.now() - dealtAt < (dealtAuto ? 1000 : 400);
+// Fold, Call and Raise are armed only by a fresh interaction after a deal (CEO, QA NH1):
+// - a touch that started before the buttons appeared never counts, and nothing for 600ms;
+// - a mouse click: nothing for 1.2s after a deal the table made on its own (the player may still be
+//   reaching for where "Next hand" was), 400ms after one they asked for.
+// Keyboard shortcuts are not affected.
+let lastDown = { type: 'mouse', t: -Infinity };
+document.addEventListener('pointerdown', (e) => (lastDown = { type: e.pointerType || 'mouse', t: performance.now() }), true);
+let keyAct = false;
+const justDealt = () => {
+  if (keyAct) return false;
+  const since = performance.now() - dealtAt;
+  if (lastDown.type === 'touch' || lastDown.type === 'pen') return lastDown.t < dealtAt || since < 600;
+  return since < (dealtAuto ? 1200 : 400);
+};
 function markDealt(auto = false) {
   dealtAt = performance.now();
   dealtAuto = auto;
   autoHeld = false;
 }
-// The table deals on its own after a hand with nothing flagged.
-const autoDealDue = (h) => !h.decisions.some((d) => d.verdict.grade !== 'good');
+// The table deals on its own after a hand with nothing flagged, unless the stack is below half the
+// buy-in: then it waits, with Top up on offer. Top up is shown only while the table waits, never where
+// Fold, Call and Raise are about to appear (QA NH1).
+const lowStack = () => !!sess && !drill && sess.heroStack < sess.heroBuy / 2;
+const autoDealDue = (h) => !h.decisions.some((d) => d.verdict.grade !== 'good') && !lowStack();
 
 function scheduleAuto() {
   clearTimeout(timer);
@@ -1756,9 +1770,15 @@ document.addEventListener('keydown', (e) => {
   const control = e.target.closest?.('button, a[href], [role="button"], [role="separator"], summary, [tabindex]:not([tabindex="-1"])');
   if (control && !control.closest('#actions') && (e.key === 'Enter' || e.key === ' ' || focusByKey)) return;
   const k = e.key.toLowerCase();
-  if (k === 'f') $('a-fold')?.click();
-  else if (k === 'c') $('a-call')?.click();
-  else if (k === 'r') $('a-raise')?.click();
+  // keyboard shortcuts are not held by the click guard
+  if (k === 'f' || k === 'c' || k === 'r') {
+    const b = $(k === 'f' ? 'a-fold' : k === 'c' ? 'a-call' : 'a-raise');
+    if (b) {
+      keyAct = true;
+      b.click();
+      keyAct = false;
+    }
+  }
   else if (k === ' ' || k === 'n' || k === 'enter') {
     if ($('a-next') || $('a-dealing')) {
       e.preventDefault();

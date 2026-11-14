@@ -2544,3 +2544,7 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
   #modal-box.game-modal .go-row.inline .seg { width: auto; }
   #modal-box.game-modal .more-options > summary small { flex: 1 1 100%; padding-left: 18px; }
 }
+
+/* "Dealing the next hand…" while the table is about to deal on its own: not a button (QA NH1) */
+.act-row.over .dealing { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 6px; color: var(--slate); font-size: 15px; cursor: default; user-select: none; }
+.act-row.over .dealing kbd { opacity: 0.8; }

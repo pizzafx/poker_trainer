@@ -645,13 +645,17 @@ function renderActions() {
     const net = h.summary.net;
     const msg = net > 0 ? `You won ${money(net)}.` : net < 0 ? `You lost ${money(-net)}.` : 'No change to your stack.';
     const low = sess.heroStack < sess.heroBuy;
+    // While the table is about to deal on its own there is no button to reach for: a late click would
+    // land on Fold or Call in the new hand (QA NH1). "Next hand" appears when the table holds.
+    const nextBtn = `<button class="primary" id="a-next">${drill ? 'Next spot' : 'Next hand'}<kbd>Space</kbd></button>`;
+    const dealing = autoDealDue(h) && !autoHeld;
     el.innerHTML = `<div class="act-row over">
-      <button class="primary" id="a-next">${drill ? 'Next spot' : 'Next hand'}<kbd>Space</kbd></button>
+      ${dealing ? `<span class="dealing" id="a-dealing" role="status">Dealing the ${drill ? 'next spot' : 'next hand'}… <kbd>Space</kbd></span>` : nextBtn}
       ${drill ? '<button id="a-exit">Exit drill</button>' : low ? `<button id="a-top">Top up to ${money(sess.heroBuy)}</button>` : ''}
       <span class="hint">${msg}</span></div>`;
-    $('a-next').onclick = nextHand;
-    // reaching for "Next hand" (or "Next spot") cancels the auto-deal: the next deal is the player's (QA NH1)
-    $('a-next').onpointerenter = $('a-next').onpointerdown = holdAutoDeal;
+    if ($('a-next')) $('a-next').onclick = nextHand;
+    // pressing Top up or Exit drill holds the auto-deal; the deal is then the player's
+    for (const id of ['a-top', 'a-exit']) if ($(id)) $(id).onpointerdown = holdAutoDeal;
     if ($('a-top')) $('a-top').onclick = () => { sess.topUp(); render(); };
     if ($('a-exit')) $('a-exit').onclick = exitDrill;
   }
@@ -1429,27 +1433,39 @@ function advance() {
 // raise in a hand the player has not seen.
 let autoHeld = false;
 let dealtAt = -Infinity;
+let dealtAuto = false;
 function holdAutoDeal() {
   autoHeld = true;
   clearTimeout(timer);
+  // the deal is now the player's: "Dealing…" becomes the "Next hand" button, in place
+  const d = $('a-dealing');
+  if (d) {
+    d.outerHTML = `<button class="primary" id="a-next">${drill ? 'Next spot' : 'Next hand'}<kbd>Space</kbd></button>`;
+    $('a-next').onclick = nextHand;
+  }
 }
-const justDealt = () => performance.now() - dealtAt < 400;
-function markDealt() {
+// Clicks on Fold, Call and Raise are ignored for a moment after a deal: a second after one the table
+// made on its own (the player may still be reaching for where "Next hand" was), 400ms after one they asked for.
+const justDealt = () => performance.now() - dealtAt < (dealtAuto ? 1000 : 400);
+function markDealt(auto = false) {
   dealtAt = performance.now();
+  dealtAuto = auto;
   autoHeld = false;
 }
+// The table deals on its own after a hand with nothing flagged.
+const autoDealDue = (h) => !h.decisions.some((d) => d.verdict.grade !== 'good');
 
 function scheduleAuto() {
   clearTimeout(timer);
   if (autoHeld) return;
   const h = sess.hand;
   const last = h.decisions[h.decisions.length - 1];
-  if (h.decisions.some((d) => d.verdict.grade !== 'good')) return; // anything flagged holds the table
+  if (!autoDealDue(h)) return; // anything flagged holds the table
   const wait = h.state.folded[HERO] ? 700 : 1800; // a moment to see the result
   timer = setTimeout(() => {
     if (!$('modal').classList.contains('hidden')) return; // a pop-up is open: wait for Space
-    if (autoHeld) return; // the player is reaching for "Next hand"
-    nextHand();
+    if (autoHeld) return; // the player took the deal (Top up, Exit drill)
+    nextHand(true);
   }, wait);
 }
 
@@ -1507,12 +1523,12 @@ async function act(action) {
   advance();
 }
 
-function nextHand() {
+function nextHand(auto = false) {
   dropPendingGrade();
   if (RP || document.body.classList.contains('in-history')) return;
   if (sess.status() !== 'over') return;
   closeReview();
-  if (drill) return nextSpot();
+  if (drill) return nextSpot(auto === true);
   const tapHint = tapHintPending;
   tapHintPending = false; // shown once, as the second hand starts
   pastLog = [...pastLog, ...sess.hand.log].slice(-120);
@@ -1521,7 +1537,7 @@ function nextHand() {
   } catch (e) {
     return recoverTable('deal the next hand', e);
   }
-  markDealt();
+  markDealt(auto === true);
   if (tapHint) stripEvent = { hand: sess.hand.no, text: `${TOUCH.matches || PHONE.matches ? 'Tap' : 'Click'} any player to see what you've noticed about them.` };
   raiseTo = 0;
   advance();
@@ -1551,14 +1567,14 @@ function startDrill(cat) {
   nextSpot();
 }
 
-function nextSpot() {
+function nextSpot(auto = false) {
   pastLog = [];
   raiseTo = 0;
   shownBoard = 0;
   const seen = leaks[drill.cat] ? Object.keys(leaks[drill.cat].streets).map(Number).filter((st) => st > 0) : null;
   const found = sess.dealUntil((x) => DRILLS[drill.cat].match(x, seen));
   if (!found) sess.dealUntil((x) => DRILLS[drill.cat].match(x, null));
-  markDealt(); // the same guard as a new hand (QA NH1)
+  markDealt(auto); // the same guard as a new hand (QA NH1)
   render();
 }
 
@@ -1744,7 +1760,7 @@ document.addEventListener('keydown', (e) => {
   else if (k === 'c') $('a-call')?.click();
   else if (k === 'r') $('a-raise')?.click();
   else if (k === ' ' || k === 'n' || k === 'enter') {
-    if ($('a-next')) {
+    if ($('a-next') || $('a-dealing')) {
       e.preventDefault();
       nextHand();
     }

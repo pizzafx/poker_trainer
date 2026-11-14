@@ -25,7 +25,7 @@ const SUIT_CLS = ['c', 'd', 'h', 's'];
 
 // What a new player starts on: $1/$2 with a 100-big-blind buy-in ($200) and a typical capped rake.
 // Players who already have saved settings keep theirs.
-const DEFAULTS = { v: 3, game: APP_GAME.game, maxBuy: APP_GAME.heroBuy, rake: APP_GAME.rake, table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, rake5: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450, sideW: null };
+const DEFAULTS = { v: 3, game: APP_GAME.game, maxBuy: APP_GAME.heroBuy, rake: APP_GAME.rake, table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, rake5: true, rake25: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450, sideW: null };
 let settings = { ...DEFAULTS };
 let firstVisit = true; // nothing saved yet: deal straight in and show the one-time hint
 try {
@@ -46,9 +46,13 @@ try {
   } // anything older is dropped
   // $1/$2 now defaults to 10% up to $5 (Nov 2026): a player at $1/$2 (or moving there from $1/$3)
   // who is still on the old default house cut moves to it, once
-  if (!saved.rake5 && !firstVisit) {
-    if ((RETIRED_GAMES[settings.game] || settings.game) === '1/2' && settings.rake === 'pct') settings.rake = 'pct5';
+  // ...and so does $2/$5 (Nov 2026, rake25): a $2/$5 player (or one moving there from $3/$5) on the old default
+  const target = RETIRED_GAMES[settings.game] || settings.game;
+  if ((!saved.rake5 || !saved.rake25) && !firstVisit) {
+    if (!saved.rake5 && target === '1/2' && settings.rake === 'pct') settings.rake = 'pct5';
+    if (!saved.rake25 && target === '2/5' && settings.rake === 'pct') settings.rake = 'pct5';
     settings.rake5 = true;
+    settings.rake25 = true;
     try {
       localStorage.setItem('trainer-settings', JSON.stringify(settings));
     } catch {
@@ -3039,9 +3043,10 @@ function handMarker(r) {
     const word = flagged.length > 1 ? `${flagged.length} flagged` : worst === 'blunder' ? 'Blunder' : 'Mistake';
     return `<span class="hm ${worst}"><span class="vmark ${worst}">${MARK[worst]}</span>${word} · ${money(cost)}</span>`;
   }
-  if (r.decisions.some((d) => d.tipKind)) return '<span class="hm tip">Tip</span>';
+  // flag > best > tip (CEO, Nov 2026)
   const nb = r.decisions.filter(isBest).length;
   if (nb) return `<span class="hm best"><span class="vmark good best">${MARK.good}</span>${nb} best</span>`;
+  if (r.decisions.some((d) => d.tipKind)) return '<span class="hm tip">Tip</span>';
   return `<span class="hm good"><span class="vmark good">${MARK.good}</span>${r.decisions.length > 1 ? 'All fine' : 'Fine'}</span>`;
 }
 

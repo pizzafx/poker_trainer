@@ -24,6 +24,15 @@
   --signal-wash: #b4e46e1f;
   --signal-line: #b4e46e55; /* best play: a lime-tinted border */
   --hairline: #ffffff0a; /* Game tab rows */
+  /* card styles: White faces and their suit inks; a darker club top stop (DECK_HANDOFF) */
+  --face-top: #fbfaf6;
+  --face-bottom: #efede6;
+  --face-edge: #00000024;
+  --ink-s: #17181b;
+  --ink-h: #c8262e;
+  --ink-d: #1f63c9;
+  --ink-c: #1b7f3d;
+  --club-top: #27974a;
   /* who is still in the hand (header design, Addendum C) */
   --back-rim: #efe9da;
   --back-lattice: #b4e46e2e;
@@ -2583,3 +2592,42 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 /* Fold, Call and Raise just after a deal, before they are armed (QA NH1): a little dimmed, fading in */
 #actions .act-row button { transition: opacity 0.25s ease; }
 #actions.arming #a-fold, #actions.arming #a-call, #actions.arming #a-raise { opacity: 0.55; cursor: default; }
+
+/* ================= card styles (DECK_HANDOFF): Classic or Split layout x Coloured or White =================
+   Two independent body classes over the same markup (<b> rank, <i> suit, <u> big rank). No class is
+   today's Classic Coloured. Previews in the Display settings (.pv) carry their own classes. */
+.card.c { background: linear-gradient(180deg, var(--club-top) 0%, var(--c-1b7a38) 100%); }
+
+/* Split: a big Space Grotesk rank top left, one big suit bottom right */
+:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b, :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) i, :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) u { position: absolute; text-shadow: none; font-style: normal; text-decoration: none; line-height: 1; opacity: 1; color: inherit; }
+:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b { left: calc(var(--cw) * 0.1); top: calc(var(--cw) * 0.07); font: 700 calc(var(--cw) * 0.64)/0.9 var(--display); letter-spacing: -0.06em; }
+:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b.ten { font-size: calc(var(--cw) * 0.52); letter-spacing: -0.09em; left: calc(var(--cw) * 0.06); }
+:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) i, :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) u { display: none; }
+:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back))::after { position: absolute; right: calc(var(--cw) * 0.06); bottom: calc(var(--cw) * 0.04); font-size: calc(var(--cw) * 0.66); line-height: 1; color: inherit; }
+:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)).s::after { content: "\2660\FE0E"; }
+:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)).h::after { content: "\2665\FE0E"; }
+:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)).d::after { content: "\2666\FE0E"; }
+:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)).c::after { content: "\2663\FE0E"; }
+/* under 40px (minis, other players' cards, the phone board): rank and suit stacked and centred */
+:is(.cards-inline, .seat:not(.hero) .cards) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b { left: 0; right: 0; text-align: center; top: calc(var(--cw) * 0.07); font-size: calc(var(--cw) * 0.66); letter-spacing: -0.06em; }
+:is(.cards-inline, .seat:not(.hero) .cards) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b.ten { font-size: calc(var(--cw) * 0.54); letter-spacing: -0.1em; }
+:is(.cards-inline, .seat:not(.hero) .cards) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) i { display: block; left: 0; right: 0; text-align: center; top: calc(var(--cw) * 0.78); font-size: calc(var(--cw) * 0.46); }
+:is(.cards-inline, .seat:not(.hero) .cards) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back))::after { display: none; }
+@media (max-width: 600px) {
+  #board :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b { left: 0; right: 0; text-align: center; top: calc(var(--cw) * 0.07); font-size: calc(var(--cw) * 0.66); letter-spacing: -0.06em; }
+  #board :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b.ten { font-size: calc(var(--cw) * 0.54); letter-spacing: -0.1em; }
+  #board :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) i { display: block; left: 0; right: 0; text-align: center; top: calc(var(--cw) * 0.78); font-size: calc(var(--cw) * 0.46); }
+  #board :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back))::after { display: none; }
+}
+
+/* White: a white face, rank and suit in the suit's ink; the big rank has no shadow */
+:is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)) { background: linear-gradient(180deg, var(--face-top), var(--face-bottom)); box-shadow: 0 calc(var(--cw) * 0.06) calc(var(--cw) * 0.16) var(--c-000b), inset 0 0 0 1px var(--face-edge); }
+:is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)).s { color: var(--ink-s); }
+:is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)).h { color: var(--ink-h); }
+:is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)).d { color: var(--ink-d); }
+:is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)).c { color: var(--ink-c); }
+:is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)) b, :is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)) i, :is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)) u { color: inherit; text-shadow: none; }
+
+/* the Display rows: two tiny cards in each button */
+#modal-box.game-modal #gm-game .deck-ctl .seg button { min-height: 40px; display: inline-flex; align-items: center; gap: 8px; }
+.deck-ctl .pv .cards-inline { --cw: 16px; gap: 2px; }

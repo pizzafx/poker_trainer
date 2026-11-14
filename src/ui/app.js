@@ -25,7 +25,7 @@ const SUIT_CLS = ['c', 'd', 'h', 's'];
 
 // What a new player starts on: $1/$2 with a 100-big-blind buy-in ($200) and a typical capped rake.
 // Players who already have saved settings keep theirs.
-const DEFAULTS = { v: 3, game: APP_GAME.game, maxBuy: APP_GAME.heroBuy, rake: APP_GAME.rake, table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, rake5: true, rake25: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450, sideW: null };
+const DEFAULTS = { v: 3, game: APP_GAME.game, maxBuy: APP_GAME.heroBuy, rake: APP_GAME.rake, table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, rake5: true, rake25: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450, sideW: null, cardLayout: 'classic', cardColour: 'coloured' };
 let settings = { ...DEFAULTS };
 let firstVisit = true; // nothing saved yet: deal straight in and show the one-time hint
 try {
@@ -96,6 +96,13 @@ try {
     }
   }
 }
+// The card style (two device settings, independent): layout Classic or Split, colour Coloured or White.
+// Each is a class on <body>; the cards are restyled by CSS alone, so a change repaints every card at once.
+function applyDeck() {
+  document.body.classList.toggle('deck-split', settings.cardLayout === 'split');
+  document.body.classList.toggle('deck-white', settings.cardColour === 'white');
+}
+applyDeck();
 // A buy-in of 100 big blinds, kept inside the room's range.
 const defaultBuy = (game) => {
   const g = GAMES[game];
@@ -1849,6 +1856,9 @@ function settingsModal(opts = {}) {
 }
 function openGameModal({ tab = 'game', group = null } = {}) {
   const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
+  // two tiny cards (A♥ K♦) in the style a button would give: its own choice, and the other row's current one
+  const deckPreview = (layout, colour) =>
+    `<span class="pv" data-l="${layout || ''}" data-c="${colour || ''}">${cardsInline([12 * 4 + 2, 11 * 4 + 1])}</span>`;
   const seg = (id, items, cur) => `<div class="seg" role="radiogroup" data-for="${id}">${items.map(([v, l]) => `<button type="button" role="radio" data-v="${v}" aria-checked="${v === cur}" class="${v === cur ? 'on' : ''}">${l}</button>`).join('')}</div><input type="hidden" id="${id}" value="${cur}">`;
   const toggle = (id, on, label) => `<label class="trow" for="${id}"><span>${label}</span><input id="${id}" type="checkbox" class="toggle" ${on ? 'checked' : ''}></label>`;
   openModal(`
@@ -1887,6 +1897,11 @@ function openGameModal({ tab = 'game', group = null } = {}) {
         <div class="go-row tog">${toggle('s-reads', settings.reads, "Show the coach's reads on seats")}</div>
         <div class="go-row inline"><span class="go-lab">Opponent speed</span><div class="go-ctl">${seg('s-speed', [['800', 'Slow'], ['450', 'Normal'], ['150', 'Fast']], String(settings.speed))}</div></div>
       </div>
+      <div class="go-group">
+        <div class="go-head"><span class="label">Display</span><span>Saved on this device · applies now</span></div>
+        <div class="go-row"><span class="go-lab">Card layout</span><div class="go-ctl deck-ctl">${seg('s-layout', [['classic', deckPreview('classic', null) + 'Classic'], ['split', deckPreview('split', null) + 'Split']], settings.cardLayout)}</div></div>
+        <div class="go-row"><span class="go-lab">Card colour</span><div class="go-ctl deck-ctl">${seg('s-colour', [['coloured', deckPreview(null, 'coloured') + 'Coloured'], ['white', deckPreview(null, 'white') + 'White']], settings.cardColour)}</div></div>
+      </div>
     </details>
     <div class="modal-actions settings-foot">
       <small>Table changes start a new session.</small>
@@ -1924,6 +1939,21 @@ function openGameModal({ tab = 'game', group = null } = {}) {
       input.dispatchEvent(new Event('change'));
     });
   });
+  // Display: saved and applied at once, no new session
+  const paintPreviews = () =>
+    document.querySelectorAll('#modal-box .pv').forEach((pv) => {
+      const l = pv.dataset.l || settings.cardLayout;
+      const c = pv.dataset.c || settings.cardColour;
+      pv.className = `pv${l === 'split' ? ' deck-split' : ''}${c === 'white' ? ' deck-white' : ''}`;
+    });
+  paintPreviews();
+  for (const [id, key] of [['s-layout', 'cardLayout'], ['s-colour', 'cardColour']])
+    $(id).addEventListener('change', () => {
+      settings[key] = $(id).value;
+      saveSettings();
+      applyDeck();
+      paintPreviews();
+    });
   const read = () => {
     settings.feedback = $('s-fb').value;
     settings.reads = $('s-reads').checked;

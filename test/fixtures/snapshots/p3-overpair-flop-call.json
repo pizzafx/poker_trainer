@@ -1,0 +1,437 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "p3-overpair-flop-call",
+ "hole": "Ad As",
+ "board": "7c Ks Kd",
+ "pot": 91,
+ "action": {
+  "type": "call"
+ },
+ "took": "Call $40",
+ "samples": 3000,
+ "judgeSeed": 6960,
+ "table": {
+  "game": "casino",
+  "blinds": [
+   2,
+   3
+  ],
+  "straddle": 0,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 53,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "SB",
+    "startStack": 500,
+    "stack": 485,
+    "inPot": 15,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Jeans",
+    "pos": "BB",
+    "startStack": 241,
+    "stack": 186,
+    "inPot": 55,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.861
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 52,
+     "vpip": 34,
+     "pfr": 0,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Big Watch",
+    "pos": "UTG",
+    "startStack": 936,
+    "stack": 933,
+    "inPot": 3,
+    "folded": true,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.818
+     },
+     {
+      "type": "whale",
+      "p": 0.059
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 52,
+     "vpip": 37,
+     "pfr": 1,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 3,
+    "name": "Golf Shirt",
+    "pos": "UTG+1",
+    "startStack": 853,
+    "stack": 850,
+    "inPot": 3,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.747
+     },
+     {
+      "type": "station",
+      "p": 0.121
+     },
+     {
+      "type": "whale",
+      "p": 0.025
+     }
+    ],
+    "observed": {
+     "hands": 7,
+     "vpip": 3,
+     "pfr": 1,
+     "showdowns": 2
+    }
+   },
+   {
+    "seat": 4,
+    "name": "Button-Down",
+    "pos": "UTG+2",
+    "startStack": 430,
+    "stack": 430,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.786
+     },
+     {
+      "type": "gto",
+      "p": 0.056
+     },
+     {
+      "type": "lag",
+      "p": 0.051
+     }
+    ],
+    "observed": {
+     "hands": 52,
+     "vpip": 5,
+     "pfr": 4,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Hoodie",
+    "pos": "LJ",
+    "startStack": 169,
+    "stack": 169,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.532
+     },
+     {
+      "type": "gto",
+      "p": 0.213
+     },
+     {
+      "type": "lag",
+      "p": 0.148
+     }
+    ],
+    "observed": {
+     "hands": 52,
+     "vpip": 9,
+     "pfr": 5,
+     "showdowns": 2
+    }
+   },
+   {
+    "seat": 6,
+    "name": "Jersey",
+    "pos": "HJ",
+    "startStack": 611,
+    "stack": 611,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "station",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 52,
+     "vpip": 21,
+     "pfr": 3,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 7,
+    "name": "New Guy",
+    "pos": "CO",
+    "startStack": 451,
+    "stack": 436,
+    "inPot": 15,
+    "folded": true,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.802
+     },
+     {
+      "type": "whale",
+      "p": 0.075
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 52,
+     "vpip": 37,
+     "pfr": 1,
+     "showdowns": 6
+    },
+    "steaming": true
+   },
+   {
+    "seat": 8,
+    "name": "Ball Cap",
+    "pos": "BTN",
+    "startStack": 907,
+    "stack": 907,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.673
+     },
+     {
+      "type": "abc",
+      "p": 0.121
+     },
+     {
+      "type": "nit",
+      "p": 0.098
+     }
+    ],
+    "observed": {
+     "hands": 52,
+     "vpip": 6,
+     "pfr": 3,
+     "showdowns": 6
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "sb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Jeans",
+    "type": "bb",
+    "to": 3,
+    "amount": 3
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Big Watch",
+    "type": "call",
+    "to": 3,
+    "amount": 3
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Golf Shirt",
+    "type": "call",
+    "to": 3,
+    "amount": 3
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Button-Down",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Hoodie",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Jersey",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "New Guy",
+    "type": "call",
+    "to": 3,
+    "amount": 3
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "Ball Cap",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "raise",
+    "to": 15,
+    "amount": 13
+   },
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Jeans",
+    "type": "call",
+    "to": 15,
+    "amount": 12
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Big Watch",
+    "type": "fold",
+    "to": 3,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Golf Shirt",
+    "type": "fold",
+    "to": 3,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "New Guy",
+    "type": "call",
+    "to": 15,
+    "amount": 12
+   },
+   {
+    "street": "flop",
+    "seat": 0,
+    "who": "You",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 1,
+    "who": "Jeans",
+    "type": "bet",
+    "to": 40,
+    "amount": 40
+   },
+   {
+    "street": "flop",
+    "seat": 7,
+    "who": "New Guy",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   }
+  ],
+  "pot": 91,
+  "heat": 0.02,
+  "judge": {
+   "seed": 6960,
+   "samples": 3000
+  }
+ },
+ "villainPost": {
+  "seat": 1,
+  "post": [
+   0.01739283912736857,
+   0.01739283912736857,
+   0.8608572869810514,
+   0.01739283912736857,
+   0.01739283912736857,
+   0.01739283912736857,
+   0.01739283912736857,
+   0.01739283912736857,
+   0.01739283912736857
+  ]
+ },
+ "recorded": {
+  "grade": "blunder",
+  "best": "Fold",
+  "took": "Call $40",
+  "loss": 40,
+  "headline": "Blunder: call $40 costs up to its price compared with fold; what happens on later streets is graded there."
+ },
+ "expect": {
+  "notGrade": "blunder",
+  "best": "Fold"
+ },
+ "why": "AA calling a station's one flop bet on K-K-7: yellow at most (P3-2)"
+}

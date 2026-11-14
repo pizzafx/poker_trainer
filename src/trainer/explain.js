@@ -228,7 +228,8 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read, so it is not graded.${habitTail(v)})`;
   if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')}.)`;
   if (gap(top) > bar(top)) return `${mine.label}: fine. (${bare(top)} ${more(top)} on our read, but the coach does not hold you to it here.)`;
-  const rivals = v.options.filter((o, i) => i !== v.best && o.close);
+  // "about the same" only within the bar (1.6 times it for the same kind of play), whatever the close marks say (STRAT, QA-VERDICT V13)
+  const rivals = v.options.filter((o, i) => i !== v.best && o.close && Math.abs(Math.round(o.ev) - Math.round(mine.ev)) <= (v.small || 0) * (o.type === mine.type ? 1.6 : 1));
   if (!rivals.length) return `${mine.label}: fine.`; // "best play" only under the ring (bestHeadline replaces this then; STRAT F2)
   return `${mine.label}: good. (${rivals.length === 1 ? bare(rivals[0]) + ' rates' : 'Other options rate'} about the same.)`;
 }
@@ -406,7 +407,8 @@ export function explain(d) {
       : `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}.`;
   const reasons = [];
   // R5b's reason under a flagged call of a passive lead into a crowd (STRAT G5)
-  if (v.rule === 'R5b') reasons.push(`When a passive player leads into a crowd, one pair is often beaten. Folding scores about $${Math.max(0, Math.round(best.ev) - Math.round(mine.ev))} more.`);
+  if (v.setRaise && best.type === 'call') reasons.push('Calling keeps in the hands you beat; a re-raise folds them.');
+  if (v.rule === 'R5b' && best.type === 'fold') reasons.push(`When a passive player leads into a crowd, one pair is often beaten. Folding scores about $${Math.max(0, Math.round(best.ev) - Math.round(mine.ev))} more.`);
   const r1 = readLine(d);
   if (r1) reasons.push(r1);
   const r2 = rangeLine(d);

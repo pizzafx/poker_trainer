@@ -262,7 +262,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const out = rec.kind === 'snapshot-fixture' ? rejudgeFixture(rec, { samples: +arg('--samples') || 0 }) : rejudge(rec, { samples: +arg('--samples') || 0 });
   const v = out.verdict;
   console.log(`${out.street}: ${v.options.map((o, i) => `${i === v.best ? '*' : ' '}${o.label} ${o.ev.toFixed(1)}`).join(' |')}`);
-  console.log(`now:      ${out.grade}, took ${out.took}, best ${out.best}${out.ref ? `, ref ${out.ref}` : ''}, loss ${Math.round(out.loss)}`);
+  console.log(`now:      ${out.grade}, took ${out.took}, best ${out.best}${out.ref ? `, ref ${out.ref}` : ''}${v.note ? `, note ${v.note}` : ''}${v.rule ? `, rule ${v.rule}` : ''}, loss ${Math.round(out.loss)}`);
   const rr = out.recorded || {};
   console.log(`recorded: ${rr.grade}, took ${rr.took}, best ${rr.best}, loss ${Math.round(rr.loss || 0)}${rr.headline ? `\n          "${rr.headline}"` : ''}`);
   const name = arg('--fixture');

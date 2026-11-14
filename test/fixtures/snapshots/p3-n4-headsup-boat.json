@@ -1,0 +1,366 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "p3-n4-headsup-boat",
+ "hole": "3d 3s",
+ "board": "2c Kd 6d 3h Ks",
+ "pot": 40,
+ "action": {
+  "type": "raise",
+  "to": 26
+ },
+ "took": "Bet $26 (65% pot)",
+ "samples": 780,
+ "judgeSeed": 5128,
+ "table": {
+  "game": "home",
+  "blinds": [
+   1,
+   2
+  ],
+  "straddle": 0,
+  "rake": "No rake (time game)",
+  "handNo": 39,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "LJ",
+    "startStack": 200,
+    "stack": 183,
+    "inPot": 17,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Button-Down",
+    "pos": "HJ",
+    "startStack": 111,
+    "stack": 109,
+    "inPot": 2,
+    "folded": true,
+    "read": [
+     {
+      "type": "whale",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 38,
+     "vpip": 28,
+     "pfr": 4,
+     "showdowns": 6
+    },
+    "steaming": true
+   },
+   {
+    "seat": 2,
+    "name": "Jersey",
+    "pos": "CO",
+    "startStack": 764,
+    "stack": 764,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.85
+     },
+     {
+      "type": "beginner",
+      "p": 0.025
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 38,
+     "vpip": 27,
+     "pfr": 2,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 3,
+    "name": "New Guy",
+    "pos": "BTN",
+    "startStack": 275,
+    "stack": 273,
+    "inPot": 2,
+    "folded": true,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.767
+     },
+     {
+      "type": "beginner",
+      "p": 0.11
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 38,
+     "vpip": 26,
+     "pfr": 1,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 4,
+    "name": "Jeans",
+    "pos": "SB",
+    "startStack": 917,
+    "stack": 915,
+    "inPot": 2,
+    "folded": true,
+    "read": [
+     {
+      "type": "beginner",
+      "p": 0.832
+     },
+     {
+      "type": "station",
+      "p": 0.045
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 38,
+     "vpip": 22,
+     "pfr": 3,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Shades",
+    "pos": "BB",
+    "startStack": 329,
+    "stack": 312,
+    "inPot": 17,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 38,
+     "vpip": 23,
+     "pfr": 0,
+     "showdowns": 6
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Jeans",
+    "type": "sb",
+    "to": 1,
+    "amount": 1
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Shades",
+    "type": "bb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Button-Down",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Jersey",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "New Guy",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Jeans",
+    "type": "call",
+    "to": 2,
+    "amount": 1
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Shades",
+    "type": "check",
+    "to": 2,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 4,
+    "who": "Jeans",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 5,
+    "who": "Shades",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 0,
+    "who": "You",
+    "type": "bet",
+    "to": 3,
+    "amount": 3
+   },
+   {
+    "street": "flop",
+    "seat": 1,
+    "who": "Button-Down",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 3,
+    "who": "New Guy",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 4,
+    "who": "Jeans",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 5,
+    "who": "Shades",
+    "type": "call",
+    "to": 3,
+    "amount": 3
+   },
+   {
+    "street": "turn",
+    "seat": 5,
+    "who": "Shades",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "turn",
+    "seat": 0,
+    "who": "You",
+    "type": "bet",
+    "to": 12,
+    "amount": 12
+   },
+   {
+    "street": "turn",
+    "seat": 5,
+    "who": "Shades",
+    "type": "call",
+    "to": 12,
+    "amount": 12
+   },
+   {
+    "street": "river",
+    "seat": 5,
+    "who": "Shades",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   }
+  ],
+  "pot": 40,
+  "heat": 0.634,
+  "judge": {
+   "seed": 5128,
+   "samples": 780
+  }
+ },
+ "villainPost": {
+  "seat": 5,
+  "post": [
+   0.01724202162905845,
+   0.01724202162905845,
+   0.8620638269675324,
+   0.01724202162905845,
+   0.01724202162905845,
+   0.01724202162905845,
+   0.01724202162905845,
+   0.01724202162905845,
+   0.01724202162905845
+  ]
+ },
+ "recorded": {
+  "grade": "good",
+  "best": "Bet $40 (100% pot)",
+  "took": "Bet $26 (65% pot)",
+  "loss": 9.667948717948718,
+  "headline": "Bet $26 (65% pot): fine. (Bigger bets score about $3\u201323 more against these opponents, mostly because they call too often; two-thirds of the pot is a sound value size.)"
+ },
+ "expect": {
+  "notNote": "sizeOk"
+ },
+ "why": "heads-up river full house: never passed as a 'sound value size' (N4)"
+}

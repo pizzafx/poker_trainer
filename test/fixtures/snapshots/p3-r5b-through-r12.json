@@ -1,0 +1,452 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "p3-r5b-through-r12",
+ "hole": "Ad 5d",
+ "board": "3c 5c Tc",
+ "pot": 54,
+ "action": {
+  "type": "call"
+ },
+ "took": "Call $9",
+ "samples": 2100,
+ "judgeSeed": 2901,
+ "table": {
+  "game": "casino",
+  "blinds": [
+   1,
+   2
+  ],
+  "straddle": 0,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 22,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "BTN",
+    "startStack": 200,
+    "stack": 198,
+    "inPot": 2,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Ball Cap",
+    "pos": "SB",
+    "startStack": 32,
+    "stack": 30,
+    "inPot": 2,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.774
+     },
+     {
+      "type": "nit",
+      "p": 0.097
+     },
+     {
+      "type": "station",
+      "p": 0.022
+     }
+    ],
+    "observed": {
+     "hands": 21,
+     "vpip": 5,
+     "pfr": 1,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Big Watch",
+    "pos": "BB",
+    "startStack": 199,
+    "stack": 197,
+    "inPot": 2,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.849
+     },
+     {
+      "type": "lag",
+      "p": 0.02
+     },
+     {
+      "type": "station",
+      "p": 0.02
+     }
+    ],
+    "observed": {
+     "hands": 21,
+     "vpip": 5,
+     "pfr": 1,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 3,
+    "name": "Cardigan",
+    "pos": "UTG",
+    "startStack": 172,
+    "stack": 161,
+    "inPot": 11,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.6
+     },
+     {
+      "type": "nit",
+      "p": 0.271
+     },
+     {
+      "type": "station",
+      "p": 0.022
+     }
+    ],
+    "observed": {
+     "hands": 21,
+     "vpip": 3,
+     "pfr": 0,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 4,
+    "name": "Button-Down",
+    "pos": "UTG+1",
+    "startStack": 113,
+    "stack": 111,
+    "inPot": 2,
+    "folded": true,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.742
+     },
+     {
+      "type": "whale",
+      "p": 0.135
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 21,
+     "vpip": 14,
+     "pfr": 2,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Jeans",
+    "pos": "UTG+2",
+    "startStack": 291,
+    "stack": 280,
+    "inPot": 11,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.69
+     },
+     {
+      "type": "station",
+      "p": 0.186
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 21,
+     "vpip": 8,
+     "pfr": 0,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 6,
+    "name": "Shades",
+    "pos": "LJ",
+    "startStack": 160,
+    "stack": 149,
+    "inPot": 11,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.75
+     },
+     {
+      "type": "station",
+      "p": 0.127
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 17,
+     "vpip": 6,
+     "pfr": 1,
+     "showdowns": 3
+    }
+   },
+   {
+    "seat": 7,
+    "name": "Golf Shirt",
+    "pos": "HJ",
+    "startStack": 97,
+    "stack": 95,
+    "inPot": 2,
+    "folded": true,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.86
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 21,
+     "vpip": 9,
+     "pfr": 1,
+     "showdowns": 5
+    }
+   },
+   {
+    "seat": 8,
+    "name": "Party Crew",
+    "pos": "CO",
+    "startStack": 15,
+    "stack": 4,
+    "inPot": 11,
+    "folded": false,
+    "read": [
+     {
+      "type": "whale",
+      "p": 0.857
+     },
+     {
+      "type": "station",
+      "p": 0.02
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 21,
+     "vpip": 12,
+     "pfr": 0,
+     "showdowns": 6
+    },
+    "steaming": true
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Ball Cap",
+    "type": "sb",
+    "to": 1,
+    "amount": 1
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Big Watch",
+    "type": "bb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Cardigan",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Button-Down",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Jeans",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Shades",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Golf Shirt",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "Party Crew",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Ball Cap",
+    "type": "call",
+    "to": 2,
+    "amount": 1
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Big Watch",
+    "type": "check",
+    "to": 2,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 1,
+    "who": "Ball Cap",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 2,
+    "who": "Big Watch",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 3,
+    "who": "Cardigan",
+    "type": "bet",
+    "to": 9,
+    "amount": 9
+   },
+   {
+    "street": "flop",
+    "seat": 4,
+    "who": "Button-Down",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 5,
+    "who": "Jeans",
+    "type": "call",
+    "to": 9,
+    "amount": 9
+   },
+   {
+    "street": "flop",
+    "seat": 6,
+    "who": "Shades",
+    "type": "call",
+    "to": 9,
+    "amount": 9
+   },
+   {
+    "street": "flop",
+    "seat": 7,
+    "who": "Golf Shirt",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 8,
+    "who": "Party Crew",
+    "type": "call",
+    "to": 9,
+    "amount": 9
+   }
+  ],
+  "pot": 54,
+  "heat": 0.119,
+  "judge": {
+   "seed": 2901,
+   "samples": 2100
+  }
+ },
+ "villainPost": {
+  "seat": 3,
+  "post": [
+   0.2706994483313388,
+   0.5996756570675225,
+   0.022405910837927864,
+   0.01786983062720179,
+   0.01786983062720179,
+   0.01786983062720179,
+   0.01786983062720179,
+   0.01786983062720179,
+   0.01786983062720179
+  ]
+ },
+ "recorded": {
+  "grade": "mistake",
+  "best": "Fold",
+  "took": "Call $9",
+  "loss": 6.621651785714286,
+  "headline": "Mistake: call $9 costs about $7 compared with fold."
+ },
+ "expect": {
+  "notGrade": "blunder"
+ },
+ "why": "R5b call of a passive lead goes through the scenario test; yellow at most (P3-1)"
+}

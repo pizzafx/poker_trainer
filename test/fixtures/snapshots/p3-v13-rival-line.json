@@ -1,0 +1,297 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "p3-v13-rival-line",
+ "hole": "As Ah",
+ "board": "",
+ "pot": 13,
+ "action": {
+  "type": "call"
+ },
+ "took": "Call $10",
+ "samples": 2100,
+ "judgeSeed": 11924,
+ "table": {
+  "game": "home",
+  "blinds": [
+   1,
+   2
+  ],
+  "straddle": 0,
+  "rake": "No rake (time game)",
+  "handNo": 91,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "UTG+1",
+    "startStack": 200,
+    "stack": 200,
+    "inPot": 0,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Golf Shirt",
+    "pos": "LJ",
+    "startStack": 448,
+    "stack": 448,
+    "inPot": 0,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 90,
+     "vpip": 71,
+     "pfr": 7,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Loud Guy",
+    "pos": "HJ",
+    "startStack": 2264,
+    "stack": 2264,
+    "inPot": 0,
+    "folded": false,
+    "read": [
+     {
+      "type": "maniac",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 90,
+     "vpip": 58,
+     "pfr": 36,
+     "showdowns": 6
+    },
+    "steaming": true
+   },
+   {
+    "seat": 3,
+    "name": "Party Crew",
+    "pos": "CO",
+    "startStack": 1372,
+    "stack": 1372,
+    "inPot": 0,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.86
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 90,
+     "vpip": 50,
+     "pfr": 2,
+     "showdowns": 6
+    },
+    "steaming": true
+   },
+   {
+    "seat": 4,
+    "name": "New Guy",
+    "pos": "BTN",
+    "startStack": 1005,
+    "stack": 1005,
+    "inPot": 0,
+    "folded": false,
+    "read": [
+     {
+      "type": "beginner",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 90,
+     "vpip": 52,
+     "pfr": 1,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Button-Down",
+    "pos": "SB",
+    "startStack": 154,
+    "stack": 153,
+    "inPot": 1,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "station",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 90,
+     "vpip": 24,
+     "pfr": 8,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 6,
+    "name": "Ball Cap",
+    "pos": "BB",
+    "startStack": 994,
+    "stack": 992,
+    "inPot": 2,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "station",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 90,
+     "vpip": 36,
+     "pfr": 6,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 7,
+    "name": "Cardigan",
+    "pos": "UTG",
+    "startStack": 178,
+    "stack": 168,
+    "inPot": 10,
+    "folded": false,
+    "read": [
+     {
+      "type": "whale",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 90,
+     "vpip": 70,
+     "pfr": 4,
+     "showdowns": 6
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Button-Down",
+    "type": "sb",
+    "to": 1,
+    "amount": 1
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Ball Cap",
+    "type": "bb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Cardigan",
+    "type": "raise",
+    "to": 10,
+    "amount": 10
+   }
+  ],
+  "pot": 13,
+  "heat": 0.096,
+  "judge": {
+   "seed": 11924,
+   "samples": 2100
+  }
+ },
+ "villainPost": {
+  "seat": 7,
+  "post": [
+   0.017241379323373426,
+   0.017241379323373426,
+   0.017241379323373426,
+   0.8620689654130125,
+   0.017241379323373426,
+   0.017241379323373426,
+   0.017241379323373426,
+   0.017241379323373426,
+   0.017241379323373426
+  ]
+ },
+ "recorded": {
+  "grade": "good",
+  "best": "Call $10",
+  "took": "Call $10",
+  "loss": 0,
+  "headline": "Call $10: good. (Raise to $40 rates about the same.)"
+ },
+ "expect": {
+  "grade": "good",
+  "best": "Call $10"
+ },
+ "why": "AA call with a raise $18 behind: no 'about the same' line (V13)"
+}

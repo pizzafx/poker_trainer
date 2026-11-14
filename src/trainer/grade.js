@@ -422,11 +422,8 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     if (fold < 0 || !(v.options[fold].ev - mine.ev > small)) return pass(null);
     if (regrade((o) => !isRaise(o), undefined, 'noRaise')) return;
     capYellow();
-    if (!pre && v.loss > ctx.toCall) {
-      v.loss = ctx.toCall;
-      v.priceCap = ctx.toCall;
-    }
-    return;
+    // ...and then through the same tests as every other flag (STRAT pass 3, P3-1): rule 7 below caps the
+    // cost at the price (a capped cost under the bar passes as callPrice), then the scenario test
   }
   //     Only against a lead of a quarter of the pot or more: getting 4 to 1 or better, a one-pair fold
   //     is graded as usual (STRAT, Nov 2026).
@@ -524,6 +521,13 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     if (!stickyRead() && (stt === 'works' || stt === 'even')) return pass('semiBluff');
     capYellow();
   }
+  // A set or better raising on the flop or turn, where the reference is a call or a check, is yellow at
+  // most (getting it in is the standard live play), except against a raise by a player read as a nit.
+  // The river is graded as usual (STRAT pass 3, P3-3).
+  if (!pre && !river && isRaise(mine) && tier >= TIER.STRONG && !isRaise(best()) && !(ctx.raises >= 1 && readAs(ctx.aggressor, ['nit']))) {
+    capYellow();
+    if (v.grade !== 'good') v.setRaise = true;
+  }
   // Sizing: a bet of 60% of the pot or more (45% multiway, R2) is never "too small"; multiway, a
   // smaller bet is a note with less than top pair good kicker; facing a bet multiway, a raise to
   // 2.5 times it or more is never too small. Sizing is never red.
@@ -532,9 +536,9 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     if (ctx.toCall > 0) {
       if (mw && bigger && mine.to >= 2.5 * s.currentBet - 0.5) return pass('sizeOk');
     } else {
-      // with two pair or better multiway, measured against the best bet up to the pot (R3), yellow at
-      // most; the floors below are for weaker hands (STRAT, QA-VERDICT N4)
-      if (mw && tier >= TIER.TWO_PAIR) {
+      // with two pair or better, measured against the best bet up to the pot (R3), yellow at most,
+      // heads-up too; the floors below are for weaker hands (STRAT, QA-VERDICT N4 and pass 3)
+      if (tier >= TIER.TWO_PAIR) {
         if (over(best()) && regrade((o) => !over(o), undefined, 'upToPot')) return;
         capYellow();
         return;
@@ -576,12 +580,16 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
       v.priceCap = ctx.toCall;
     }
   }
+  if (v.rule === 'R5b') capYellow(); // G5 part 2: yellow at most, also after the price cap
   // A call the anchors rate about break-even (ahead within 5 points of the price) is yellow at most (STRAT G4)
   if (!pre && mine.type === 'call' && best().type === 'fold' && v.anchors && v.anchors.Q !== undefined && v.anchors.Q >= v.anchors.price - 0.05) capYellow();
   // 8. Flop and turn calls with top pair or better, up to half the pot and 15 big blinds, are
   //    yellow at most; with top pair or better and a draw, at any size (STRAT, Nov 2026).
   if (!river && mine.type === 'call' && tier >= TIER.TOP_PAIR_WEAK && ctx.toCall <= 0.5 * (v.pot - ctx.toCall) + 0.5 && ctx.toCall <= 15 * bb) capYellow();
   if (!river && mine.type === 'call' && tier >= TIER.TOP_PAIR_WEAK && realDraw) capYellow();
+  // A flop call of one bet with an overpair or top pair top kicker or better is yellow at most: the
+  // red grade would rest on the bettor's range read alone (STRAT pass 3, P3-2).
+  if (s.street === STREET.FLOP && mine.type === 'call' && ctx.raises === 1 && tier >= TIER.OVERPAIR_TPTK) capYellow();
   // Calling instead of raising with two pair or better, multiway, facing a bet and a caller, is
   // yellow at most (owner's ruling on F15).
   if (mw && ctx.toCall > 0 && ctx.callersIn >= 1 && mine.type === 'call' && tier >= TIER.TWO_PAIR && isRaise(best())) capYellow();
@@ -608,6 +616,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   if (v.runs && v.runs.sample) scen.push(tiltedEvs(v, 2), tiltedEvs(v, 0.5));
   const usable = v.options.map((o, i) => i !== v.mine && !habitOf(o) && allowed(o));
   const gaps = v.options.map((o, a) => (usable[a] ? pairedGap(v, a, v.mine) : null));
+  v.scenarios = scen.length; // the scenario test ran (checked by scripts/verdictcheck.js, P3-1b)
   const r = robustVerdict(scen, v.mine, {
     usable,
     bar: (a) => small * (v.options[a].type === mine.type ? 1.6 : 1),
@@ -859,7 +868,8 @@ export function applyAnchors(v, s, ctx) {
     // a clearly right fold needs no R6 protection: plain grading, so it can be the best play
     if (!close && mine.type === 'fold' && v.rule === 'R6') delete v.rule;
   }
-  if (v.note === 'mwHabit' || v.note === 'passiveFold' || v.rule === 'R5' || v.rule === 'R5b') return;
+  // a flagged R5b call gets its estimate, G4 and A4 like any call (STRAT pass 3, P3-1)
+  if (v.note === 'mwHabit' || v.note === 'passiveFold' || v.rule === 'R5' || (v.rule === 'R5b' && v.grade === 'good')) return;
   const RAW = v.options.reduce((b, o, i) => (o.ev > v.options[b].ev ? i : b), 0);
   // A4: the judge's best is a fold while a call works by 20 points or more, or the reverse:
   // nothing on this decision is graded, and the line names no play.

@@ -1,0 +1,454 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "p3-set-reraise",
+ "hole": "2c 2h",
+ "board": "2s 3c Kd",
+ "pot": 153,
+ "action": {
+  "type": "raise",
+  "to": 314
+ },
+ "took": "Raise to $314 (3.5x)",
+ "samples": 3000,
+ "judgeSeed": 13119,
+ "table": {
+  "game": "casino",
+  "blinds": [
+   2,
+   5
+  ],
+  "straddle": 0,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 100,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "LJ",
+    "startStack": 1000,
+    "stack": 976,
+    "inPot": 24,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Button-Down",
+    "pos": "HJ",
+    "startStack": 1413,
+    "stack": 1413,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "station",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 27,
+     "vpip": 9,
+     "pfr": 1,
+     "showdowns": 5
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Jeans",
+    "pos": "CO",
+    "startStack": 1323,
+    "stack": 1323,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.694
+     },
+     {
+      "type": "nit",
+      "p": 0.183
+     },
+     {
+      "type": "abc",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 69,
+     "vpip": 8,
+     "pfr": 3,
+     "showdowns": 5
+    }
+   },
+   {
+    "seat": 3,
+    "name": "Loud Guy",
+    "pos": "BTN",
+    "startStack": 729,
+    "stack": 724,
+    "inPot": 5,
+    "folded": true,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.678
+     },
+     {
+      "type": "abc",
+      "p": 0.159
+     },
+     {
+      "type": "whale",
+      "p": 0.056
+     }
+    ],
+    "observed": {
+     "hands": 27,
+     "vpip": 12,
+     "pfr": 3,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 4,
+    "name": "Cardigan",
+    "pos": "SB",
+    "startStack": 225,
+    "stack": 201,
+    "inPot": 24,
+    "folded": false,
+    "read": [
+     {
+      "type": "nit",
+      "p": 0.858
+     },
+     {
+      "type": "abc",
+      "p": 0.02
+     },
+     {
+      "type": "station",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 99,
+     "vpip": 22,
+     "pfr": 4,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Ball Cap",
+    "pos": "BB",
+    "startStack": 756,
+    "stack": 751,
+    "inPot": 5,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.441
+     },
+     {
+      "type": "station",
+      "p": 0.427
+     },
+     {
+      "type": "whale",
+      "p": 0.025
+     }
+    ],
+    "observed": {
+     "hands": 14,
+     "vpip": 8,
+     "pfr": 0,
+     "showdowns": 2
+    },
+    "steaming": true
+   },
+   {
+    "seat": 6,
+    "name": "Hoodie",
+    "pos": "UTG",
+    "startStack": 101,
+    "stack": 101,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 99,
+     "vpip": 66,
+     "pfr": 1,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 7,
+    "name": "Golf Shirt",
+    "pos": "UTG+1",
+    "startStack": 940,
+    "stack": 845,
+    "inPot": 95,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.645
+     },
+     {
+      "type": "station",
+      "p": 0.113
+     },
+     {
+      "type": "nit",
+      "p": 0.107
+     }
+    ],
+    "observed": {
+     "hands": 2,
+     "vpip": 0,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 8,
+    "name": "New Guy",
+    "pos": "UTG+2",
+    "startStack": 427,
+    "stack": 427,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "gto",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 53,
+     "vpip": 18,
+     "pfr": 13,
+     "showdowns": 6
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Cardigan",
+    "type": "sb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Ball Cap",
+    "type": "bb",
+    "to": 5,
+    "amount": 5
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Hoodie",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Golf Shirt",
+    "type": "call",
+    "to": 5,
+    "amount": 5
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "New Guy",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 5,
+    "amount": 5
+   },
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Button-Down",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Jeans",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Loud Guy",
+    "type": "call",
+    "to": 5,
+    "amount": 5
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Cardigan",
+    "type": "call",
+    "to": 5,
+    "amount": 3
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Ball Cap",
+    "type": "check",
+    "to": 5,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 4,
+    "who": "Cardigan",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 5,
+    "who": "Ball Cap",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 7,
+    "who": "Golf Shirt",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 0,
+    "who": "You",
+    "type": "bet",
+    "to": 19,
+    "amount": 19
+   },
+   {
+    "street": "flop",
+    "seat": 3,
+    "who": "Loud Guy",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 4,
+    "who": "Cardigan",
+    "type": "call",
+    "to": 19,
+    "amount": 19
+   },
+   {
+    "street": "flop",
+    "seat": 5,
+    "who": "Ball Cap",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 7,
+    "who": "Golf Shirt",
+    "type": "raise",
+    "to": 90,
+    "amount": 90
+   }
+  ],
+  "pot": 153,
+  "heat": 0.237,
+  "judge": {
+   "seed": 13119,
+   "samples": 3000
+  }
+ },
+ "villainPost": {
+  "seat": 7,
+  "post": [
+   0.10694406221774709,
+   0.6446886306255365,
+   0.11281302378527933,
+   0.04350875644035032,
+   0.018409105386217334,
+   0.018409105386217334,
+   0.018409105386217334,
+   0.018409105386217334,
+   0.018409105386217334
+  ]
+ },
+ "recorded": {
+  "grade": "blunder",
+  "best": "Call $71",
+  "took": "Raise to $314 (3.5x)",
+  "loss": 115.22366666666667,
+  "headline": "Blunder: raise to $314 (3.5x) costs about $116 compared with call $71."
+ },
+ "expect": {
+  "notGrade": "blunder",
+  "best": "Call $71"
+ },
+ "why": "bottom set re-raising an abc's flop raise: yellow at most against a call (P3-3)"
+}

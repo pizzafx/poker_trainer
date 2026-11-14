@@ -137,6 +137,21 @@ export const INVARIANTS = {
   'N4c a 62-70% bet is "two-thirds", not "three-quarters"': (d, v, m) => /three-quarters of the pot is a sound/.test(d.headline || '') && m.type === 'raise' && m.to / Math.max(1, v.pot) < 0.705,
   'N5 no fold or bluff estimate with two pair or better': (d) => d.tier >= TIER.TWO_PAIR && /breaks even on folds|Do not bluff|needs everyone to fold|needs more folds than you get/.test(d.anchor || ''),
   'N5b no "needs everyone to fold almost never"': (d) => /fold almost never/.test(d.anchor || ''),
+  // ---- pass 3 (QA-VERDICT on 340d91a; STRAT's rulings) ----
+  'N4h no "sound value size" with two pair or better when a bigger bet beats it by the bar': (d, v, m) => {
+    if (d.street === STREET.PRE || d.toCall !== 0 || m.type !== 'raise' || d.tier < TIER.TWO_PAIR || v.note !== 'sizeOk') return false;
+    return v.options.some((o, i) => o.type === 'raise' && o.to > m.to && (() => { const g = pairedGap(v, i, v.mine); return g.mean >= v.small && g.mean > 2.2 * g.se; })());
+  },
+  'P3-1a a flag never shows a cost under the yellow bar': (d, v) => v.grade !== 'good' && v.mine >= 0 && shownCost(v) < R(v.small),
+  'P3-1b a flagged R5b call has the estimate and went through the scenario test': (d, v) => v.rule === 'R5b' && v.grade !== 'good' && (!d.anchor || !v.scenarios),
+  'P3-2 flop call of one bet with an overpair/TPTK or better is never red': (d, v, m) => d.street === STREET.FLOP && m.type === 'call' && d.raises === 1 && d.tier >= TIER.OVERPAIR_TPTK && v.grade === 'blunder',
+  'P3-3 flop/turn raise with a set or better vs a call or check is never red (not vs a nit)': (d, v, m, b) => (d.street === STREET.FLOP || d.street === STREET.TURN) && m.type === 'raise' && ['call', 'check'].includes(b.type) && d.tier >= TIER.STRONG && v.grade === 'blunder' && !(d.villain && (() => { const t = topRead(d, d.villain.nick); return t && t.p >= 0.5 && t.type === 'nit'; })()),
+  'V13b "X rates about the same" (the good line) only within the bar': (d, v, m) => {
+    const mm = (d.headline || '').match(/: good\. \((.+?) rates about the same\.\)/);
+    if (!mm) return false;
+    const o = v.options.find((x) => x.label.replace(/\s*\([^)]*\)\s*$/, '') === mm[1] || x.label === mm[1]);
+    return !!o && Math.abs(R(o.ev) - R(m.ev)) > v.small * (o.type === m.type ? 1.6 : 1);
+  },
   // the opponent model (POOL's tiny-bet fix, Nov 2026): nobody folds much to a tiny bet
   'N3b tiny bets: everyone folds at most 3 x the pot odds (POOL\'s approved model), and 15% under 5% of the pot': (d, v) => d.street !== STREET.PRE && d.toCall === 0 && v.options.some((o) => {
     if (o.type !== 'raise' || o.F === undefined) return false;

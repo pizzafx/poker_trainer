@@ -21,7 +21,7 @@ against a calling station, and a play a solver hates gets a green tick if it pri
 
 There are two ways to play:
 
-- **Casino table.** An eight-handed live $1/$3, $2/$3, $2/$5 or $3/$5 game with the mix of regulars,
+- **Casino table.** An eight-handed live $1/$3, $2/$3 or $2/$5 game with the mix of regulars,
   retirees and gamblers you find in a card room, real rake, and players who come and go.
 - **Home game.** Your own blinds and buy-in, and you choose who sits down: three maniacs, two
   nits and a total beginner, say. No rake, everyone rebuys, and nobody leaves.
@@ -213,7 +213,7 @@ start getting called lighter.
   browser; no file editing needed.
 - **Table types.** Typical, aggressive, conservative, or loose-passive: the same player
   types in a different mix.
-- **Game settings.** $1/$3, $2/$3, $2/$5 or $3/$5, buy-in, and rake (a typical 10% capped rake
+- **Game settings.** $1/$3, $2/$3 or $2/$5, buy-in, and rake (a typical 10% capped rake
   by default, plus a stepped structure with a jackpot drop, a flat drop, or none). None of it is
   needed to start: the table deals you in on sensible defaults.
 - **Quick sim.** Plays 40 hands in an instant so you start with something observed about

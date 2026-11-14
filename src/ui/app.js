@@ -1,4 +1,4 @@
-import { Session, GAMES, RAKES, APP_GAME } from '../trainer/session.js';
+import { Session, GAMES, RAKES, APP_GAME, RETIRED_GAMES } from '../trainer/session.js';
 import { RANKS, holeOrder } from '../engine/cards.js';
 import { potSize, positionName, STREET } from '../engine/game.js';
 import { classIndex, classOf } from '../engine/hands.js';
@@ -44,6 +44,16 @@ try {
       /* ignore */
     }
   } // anything older is dropped
+  // $3/$5 is gone: those players move to $2/$5, with the buy-in capped at its maximum
+  if (RETIRED_GAMES[settings.game]) {
+    settings.game = RETIRED_GAMES[settings.game];
+    settings.maxBuy = Math.min(settings.maxBuy || GAMES[settings.game].maxBuy, GAMES[settings.game].maxBuy);
+    try {
+      localStorage.setItem('trainer-settings', JSON.stringify(settings));
+    } catch {
+      /* ignore */
+    }
+  }
 } catch {
   /* storage unavailable: use defaults */
 }
@@ -1611,6 +1621,8 @@ async function resumeOrNew() {
   if (!owner && !(await holdTable())) return elsewhere('open');
   const saved = await loadSession();
   if (!saved) return newSession();
+  // a session saved at $3/$5 (now removed) starts afresh at $2/$5, as any change of stakes does
+  if (!saved.lineup && saved.game && saved.game.sb === 3 && saved.game.bb === 5) return newSession();
   try {
     sess = Session.fromSaved(saved);
   } catch {

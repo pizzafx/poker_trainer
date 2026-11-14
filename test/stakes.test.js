@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Session, GAMES } from '../src/trainer/session.js';
+import { Session, GAMES, gameKey } from '../src/trainer/session.js';
 
 test('stakes: every casino game deals, posts its blinds and seats legal buy-ins', () => {
-  assert.deepEqual(Object.keys(GAMES), ['1/3', '2/3', '2/5', '3/5']);
+  assert.deepEqual(Object.keys(GAMES), ['1/3', '2/3', '2/5']);
   for (const [key, g] of Object.entries(GAMES)) {
     assert.ok(g.sb < g.bb && g.minBuy < g.maxBuy, key);
     const sess = new Session({ game: key, seed: 11, samples: 40 });
@@ -18,4 +18,12 @@ test('stakes: every casino game deals, posts its blinds and seats legal buy-ins'
     assert.equal(s.total[s.bbSeat], Math.min(g.bb, s.startStacks[s.bbSeat]), `${key}: big blind posted`);
     for (const p of sess.seats) assert.ok(Number.isFinite(p.stack) && p.stack >= 0, `${key}: ${p.nick} has ${p.stack}`);
   }
+});
+
+test('stakes: a saved $3/$5 game (removed, Nov 2026) plays as $2/$5', () => {
+  assert.equal(gameKey('3/5'), '2/5');
+  assert.equal(gameKey('1/3'), '1/3');
+  const sess = new Session({ game: '3/5', seed: 3, samples: 10 });
+  assert.equal(sess.game.sb, 2);
+  assert.equal(sess.game.bb, 5);
 });

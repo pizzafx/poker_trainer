@@ -17,15 +17,17 @@ import { groupOf, expandRange, LIMPER_OFFSUIT, TIGHTER_ROW } from './ranges.js';
 import { explain } from './explain.js';
 
 export const GAMES = {
-  // $2/$3 and $3/$5: buy-in ranges as listed by one Arizona card room.
+  // $2/$3: the buy-in range as listed by one Arizona card room.
   // $1/$3 and $2/$5: common US card-room ranges ($100-$300 at $1/$3; $200-$1,000 at $2/$5),
   // not taken from one room. Rooms vary: some cap $1/$3 at $500 or $2/$5 at $500.
   // The opponents play in big blinds, so the same player pool sits at every stake.
   '1/3': { sb: 1, bb: 3, minBuy: 100, maxBuy: 300 },
   '2/3': { sb: 2, bb: 3, minBuy: 100, maxBuy: 500 },
   '2/5': { sb: 2, bb: 5, minBuy: 200, maxBuy: 1000 },
-  '3/5': { sb: 3, bb: 5, minBuy: 300, maxBuy: 1500 },
 };
+// $3/$5 was removed (owner, Nov 2026: it plays the same as $2/$5). A saved '3/5' reads as '2/5'.
+export const RETIRED_GAMES = { '3/5': '2/5' };
+export const gameKey = (k) => (GAMES[k] ? k : RETIRED_GAMES[k] || '2/3');
 
 export const RAKES = {
   // Labels say what each structure is; no venue names. Keys are stored in players' saved
@@ -61,7 +63,7 @@ export class Session {
   constructor(opts = {}) {
     // Home game: custom stakes ({ sb, bb, minBuy, maxBuy }), a chosen line-up of player
     // types, and no rake.
-    const g = opts.custom || GAMES[opts.game || '2/3'];
+    const g = opts.custom || GAMES[gameKey(opts.game || '2/3')];
     this.game = { ...g, maxBuy: opts.maxBuy || g.maxBuy };
     this.rake = RAKES[opts.custom ? 'none' : opts.rake || 'tsr'];
     this.rng = makeRng(opts.seed || (Date.now() & 0x7fffffff));

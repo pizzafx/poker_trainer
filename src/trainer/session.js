@@ -373,6 +373,7 @@ export class Session {
       tier: feats ? feats.tier : null,
       drawEquity: feats ? feats.drawEquity : 0,
       realDraw: feats ? isRealDraw(feats) : false, // a flush or straight draw, not backdoors or pair outs
+      ownDrawEquity: feats ? feats.ownDrawEquity : 0, // the draw's own outs (STRAT P4-2)
       ctx,
       // The table as the trainee saw it, for a "Disagree?" report.
       snapshot: snapshotDecision(this, s, judgeOpts),

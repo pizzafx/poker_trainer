@@ -7,7 +7,8 @@ import { RANKS } from './cards.js';
 // A real draw (STRAT, Nov 2026, the J♣T♣ fix): a flush or straight draw with at least 14% equity
 // to come. Backdoors and pair-improvement outs never make a hand a draw. Takes handFeatures() output,
 // or a record's { realDraw } where it was stored.
-export const isRealDraw = (f) => (f.realDraw !== undefined ? !!f.realDraw : !!(f.flushDraw || f.straightDraw) && f.drawEquity >= 0.14);
+// Measured on the draw's own outs, not the pair's improvement outs or overcards (STRAT P4-2).
+export const isRealDraw = (f) => (f.realDraw !== undefined ? !!f.realDraw : !!(f.flushDraw || f.straightDraw) && (f.ownDrawEquity ?? f.drawEquity) >= 0.14);
 
 export const TIER = {
   AIR: 0,
@@ -229,6 +230,7 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
   let flushDraw = 0;
   let straightDraw = 0;
   let outs = 0;
+  let drawOuts = 0; // flush and straight outs only (STRAT P4-2): what makes a hand a draw
   if (board.length < 5) {
     if (cat < CATEGORY.FLUSH) {
       for (let s = 0; s < 4; s++) {
@@ -245,6 +247,7 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
           if (mine === 2 || nut || hiMine >= 10) {
             flushDraw = nut ? 2 : 1;
             outs += 9;
+            drawOuts += 9;
           }
         } else if (mine === 2 && bd === 1 && board.length === 3) {
           outs += 1; // backdoor
@@ -265,6 +268,7 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
       if (flushDraw) so -= ranks; // some straight outs are already flush outs
       if (tex.maxSuit >= 3 && !flushDraw) so *= 0.75; // tainted outs
       outs += so;
+      drawOuts += so;
     }
     if (tier <= TIER.HIGH_CARD) {
       const top = boardRanksDesc[0];
@@ -276,8 +280,10 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
   }
   const perCard = board.length === 3 ? 0.038 : 0.022;
   const drawEquity = Math.min(0.6, outs * perCard);
+  // the draw's own equity: flush and straight outs, with the same overlap and tainted-outs discounts
+  const ownDrawEquity = Math.min(0.6, drawOuts * perCard);
 
-  return { tier, strength, raw, score, cat, flushDraw, straightDraw, outs, drawEquity, nutFlush };
+  return { tier, strength, raw, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, nutFlush };
 }
 
 export function describeHand(f, board) {

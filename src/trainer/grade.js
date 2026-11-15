@@ -582,7 +582,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   }
   if (v.rule === 'R5b') capYellow(); // G5 part 2: yellow at most, also after the price cap
   // A call the anchors rate about break-even (ahead within 5 points of the price) is yellow at most (STRAT G4)
-  if (!pre && mine.type === 'call' && best().type === 'fold' && v.anchors && v.anchors.Q !== undefined && v.anchors.Q >= v.anchors.price - 0.05) capYellow();
+  if (!pre && mine.type === 'call' && best().type === 'fold' && v.anchors && v.anchors.Q !== undefined && callQ(v, hf) >= v.anchors.price - 0.05) capYellow();
   // 8. Flop and turn calls with top pair or better, up to half the pot and 15 big blinds, are
   //    yellow at most; with top pair or better and a draw, at any size (STRAT, Nov 2026).
   if (!river && mine.type === 'call' && tier >= TIER.TOP_PAIR_WEAK && ctx.toCall <= 0.5 * (v.pot - ctx.toCall) + 0.5 && ctx.toCall <= 15 * bb) capYellow();
@@ -792,6 +792,20 @@ function thinValue(v, s, env, bar) {
 // ahead of everyone who put money in (Q, against the price). A share counts as above or below its
 // threshold only when it clears it by two standard errors; otherwise "even". The tolerances (0.05,
 // 0.10, 0.20) are MATH's, tunables.
+// The figure a call is held to against the price (STRAT P4-2, MATH's check): a pure draw, its own
+// draw equity; a weak or middle pair with a real draw, ahead now or coming in, Q + (1 - Q) x draw;
+// anything else, Q (top pair or better with a draw is judged as a made hand).
+const ownDraw = (hf) => hf.ownDrawEquity ?? hf.drawEquity ?? 0;
+export function callQ(v, hf) {
+  const A = v.anchors;
+  if (!A || A.Q === undefined) return undefined;
+  if (hf && isRealDraw(hf)) {
+    if (hf.tier <= TIER.HIGH_CARD) return ownDraw(hf);
+    if (hf.tier <= TIER.MIDDLE_PAIR) return A.Q + (1 - A.Q) * ownDraw(hf);
+  }
+  return A.Q;
+}
+
 export function anchorStatus(o, v, hf, opp) {
   const A = v.anchors;
   if (!A || !hf) return null;
@@ -818,11 +832,15 @@ export function anchorStatus(o, v, hf, opp) {
   }
   if (o.type === 'call') {
     if (A.Q === undefined) return null;
-    if (isRealDraw(hf)) return hf.drawEquity >= A.price ? 'works' : 'fails';
+    // a pure draw: its own outs against the price
+    if (isRealDraw(hf) && hf.tier <= TIER.HIGH_CARD) return ownDraw(hf) >= A.price ? 'works' : 'fails';
+    // a made hand (or a weak or middle pair plus a real draw, combined), with the made-hand tolerance
+    const q = callQ(v, hf);
+    const combined = isRealDraw(hf) && hf.tier >= TIER.WEAK_PAIR && hf.tier <= TIER.MIDDLE_PAIR;
     const tol = river ? 0 : Math.min(0.1, A.price / 2);
-    const e = se(A.Q, A.n);
-    if (A.Q - (A.price + tol) >= 2 * e) return 'works';
-    if (A.price - tol - A.Q >= 2 * e) return 'fails';
+    const e = se(A.Q, A.n) * (combined ? 1 - ownDraw(hf) : 1);
+    if (q - (A.price + tol) >= 2 * e) return 'works';
+    if (A.price - tol - q >= 2 * e) return 'fails';
     return 'even';
   }
   return 'works'; // checking and folding are always available
@@ -877,7 +895,8 @@ export function applyAnchors(v, s, ctx) {
   if (A.Q !== undefined) {
     const raw = v.options[RAW].type;
     // only the call and the fold it is about; a raise or bet outside that pair keeps its grade (QA F1)
-    if ((mine.type === 'call' || mine.type === 'fold') && ((raw === 'fold' && A.Q >= A.price + 0.2) || (raw === 'call' && A.Q <= A.price - 0.2))) {
+    const q = callQ(v, hf); // the same figure the call's status uses (STRAT P4-2)
+    if ((mine.type === 'call' || mine.type === 'fold') && ((raw === 'fold' && q >= A.price + 0.2) || (raw === 'call' && q <= A.price - 0.2))) {
       v.grade = 'good';
       v.note = 'closeCall';
       v.line = '8a';

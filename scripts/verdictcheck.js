@@ -143,6 +143,14 @@ export const INVARIANTS = {
     if (d.street === STREET.PRE || d.toCall !== 0 || m.type !== 'raise' || d.tier < TIER.TWO_PAIR || v.note !== 'sizeOk') return false;
     return v.options.some((o, i) => o.type === 'raise' && o.to > m.to && (() => { const g = pairedGap(v, i, v.mine); return g.mean >= v.small && g.mean > 2.2 * g.se; })());
   },
+  'P4-2 "Your draw comes in" only below top pair, at the draw\'s own equity': (d) => {
+    const m = (d.anchor || '').match(/[Yy]our draw (?:still )?comes in (?:about (\d+)% of the time|almost never|almost always)/);
+    if (!m) return false;
+    if (d.tier >= TIER.TOP_PAIR_WEAK) return true;
+    const e = handFeatures(d.hole, d.board).ownDrawEquity;
+    return m[1] !== undefined && e >= 0.05 && e <= 0.95 && +m[1] !== Math.round(e * 20) * 5;
+  },
+  'P4-2b a real draw has 14% or more from its own outs': (d) => d.street !== STREET.PRE && d.realDraw && handFeatures(d.hole, d.board).ownDrawEquity < 0.14,
   'P4-1 every postflop flag went through the scenario test': (d, v) => d.street !== STREET.PRE && v.grade !== 'good' && !(v.scenarios >= 1),
   'P3-1a a flag never shows a cost under the yellow bar': (d, v) => v.grade !== 'good' && v.mine >= 0 && shownCost(v) < R(v.small),
   'P3-1b a flagged R5b call has the estimate and went through the scenario test': (d, v) => v.rule === 'R5b' && v.grade !== 'good' && (!d.anchor || !v.scenarios),
@@ -165,7 +173,25 @@ export const INVARIANTS = {
 
 // Checks on the opponent model rather than the coach that are not yet expected to hold: counted and
 // printed, not failing the run. (Empty: N3b became a failing check with POOL's tiny-bet fix.)
-export const MODEL_CHECKS = {};
+// Not failing: reported for QA to review (STRAT P4-2, MATH: list the calls whose status flips under the
+// own-draw rule, against the old one that counted pair outs and overcards as draw equity).
+const oldCallStatus = (d, v) => {
+  const A = v.anchors;
+  if (!A || A.Q === undefined || d.street === STREET.PRE) return null;
+  const f = handFeatures(d.hole, d.board);
+  if ((f.flushDraw || f.straightDraw) && f.drawEquity >= 0.14) return f.drawEquity >= A.price ? 'works' : 'fails';
+  const tol = d.street === STREET.RIVER ? 0 : Math.min(0.1, A.price / 2);
+  const e = Math.sqrt(Math.max(0, A.Q * (1 - A.Q)) / Math.max(1, A.n));
+  return A.Q - (A.price + tol) >= 2 * e ? 'works' : A.price - tol - A.Q >= 2 * e ? 'fails' : 'even';
+};
+export const MODEL_CHECKS = {
+  'P4-2 flip: a call\'s status changed under the own-draw rule': (d, v) => {
+    const c = v.options.find((o) => o.type === 'call');
+    if (!c || c.st === undefined) return false;
+    const old = oldCallStatus(d, v);
+    return old !== null && old !== c.st;
+  },
+};
 export function checkModel(d) {
   const v = d.verdict;
   if (!v || v.mine < 0) return [];
@@ -265,6 +291,7 @@ export function runConfig(cfg) {
   );
   const violations = [];
   const modelHits = [];
+  const flips = [];
   let decisions = 0;
   for (let h = 0; h < (cfg.hands || 60); h++) {
     sess.freshStack();
@@ -278,10 +305,16 @@ export function runConfig(cfg) {
       const rec = sess.heroAct(choose(cfg.style || 'sensible', sess.heroOptions(), sess.hand.state, rnd));
       decisions++;
       for (const k of checkRecord(rec)) violations.push({ invariant: k, record: rec });
-      for (const k of checkModel(rec)) modelHits.push(k);
+      for (const k of checkModel(rec)) {
+        modelHits.push(k);
+        if (k.startsWith('P4-2 flip')) {
+          const c = rec.verdict.options.find((o) => o.type === 'call');
+          flips.push(`${cfg.style} ${cfg.home ? 'home' : cfg.game} seed ${cfg.seed} hand ${rec.hand} ${rec.streetName}: ${rec.hole.map(cardStr).join(' ')} on ${rec.board.map(cardStr).join(' ')}, call ${oldCallStatus(rec, rec.verdict)} -> ${c.st} (Q ${Math.round(100 * rec.verdict.anchors.Q)}%, own draw ${Math.round(100 * (rec.ownDrawEquity || 0))}%, price ${Math.round(100 * rec.verdict.anchors.price)}%; ${rec.verdict.grade})`);
+        }
+      }
     }
   }
-  return { decisions, violations, modelHits };
+  return { decisions, violations, modelHits, flips };
 }
 
 export const CONFIGS = (hands, seed = 11) => {
@@ -320,9 +353,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   let total = 0;
   const model = {};
   const saved = new Set();
+  const allFlips = [];
   for (const cfg of CONFIGS(hands)) {
     const t0 = Date.now();
-    const { decisions, violations, modelHits } = runConfig(cfg);
+    const { decisions, violations, modelHits, flips } = runConfig(cfg);
+    allFlips.push(...flips);
     total += decisions;
     for (const k of modelHits) model[k] = (model[k] || 0) + 1;
     for (const { invariant, record } of violations) {
@@ -339,6 +374,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`\n${total} decisions checked, ${bad} violations`);
   for (const [k, n] of Object.entries(counts)) if (n) console.log(`${String(n).padStart(5)}  ${k}`);
   for (const [k, n] of Object.entries(model)) console.log(`model check (not failing): ${n}  ${k}`);
+  if (allFlips.length) {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'P4-2_flips.txt'), allFlips.join('\n') + '\n');
+    console.log(`The calls whose status flipped are listed in ${dir}/P4-2_flips.txt.`);
+  }
   if (bad) {
     console.log(`\nThe first hand for each is saved in ${dir}/.`);
     process.exit(1);

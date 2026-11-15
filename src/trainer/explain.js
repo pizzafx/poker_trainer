@@ -261,7 +261,7 @@ export function anchorLine(d) {
   if (v.line === '8a') return LINE8A;
   if (v.line === '8b') return LINE8B;
   if (v.line === '9') return LINE9;
-  const hf = { tier: d.tier ?? 0, drawEquity: d.drawEquity ?? 0, realDraw: !!d.realDraw };
+  const hf = { tier: d.tier ?? 0, drawEquity: d.drawEquity ?? 0, ownDrawEquity: d.ownDrawEquity ?? d.drawEquity ?? 0, realDraw: !!d.realDraw };
   const opp = d.opponents || 1;
   const st = (o) => o.st ?? anchorStatus(o, v, hf, opp); // grading's own classification (QA E1)
   const river = d.street === STREET.RIVER;
@@ -290,7 +290,7 @@ export function anchorLine(d) {
     if (s === 'even' || r5(o.F) === r5(o.alpha)) return `This ${kw} about breaks even on folds: you get ${share(o.F, false)} and need ${share(o.alpha, false)}. Fine, not needed.`;
     // a big real draw is not a bluff: say what the draw still does when called (STRAT M4)
     if (o.alpha < 0.05) return `This ${kw} is tiny next to the pot: it needs almost no folds, but they ${o.F < 0.05 ? 'almost never fold' : `fold only ${often(o.F)}`}.`;
-    if (isRealDraw(hf) && hf.drawEquity >= 0.25) return `${kw === 'bet' ? 'Betting' : 'Raising'} needs folds ${often(o.alpha)} and they rarely fold; called, your draw still comes in ${often(hf.drawEquity)}. Checking or calling to see the card is fine.`;
+    if (isRealDraw(hf) && hf.drawEquity >= 0.25) return `${kw === 'bet' ? 'Betting' : 'Raising'} needs folds ${often(o.alpha)} and they rarely fold; called, your draw still comes in ${often(hf.ownDrawEquity)}. Checking or calling to see the card is fine.`;
     return `${kw === 'bet' ? 'Betting' : 'Raising'} here needs everyone to fold ${often(o.alpha)}; ${o.F < 0.05 ? 'they almost never do' : o.F > 0.95 ? 'they nearly always do' : `they fold only ${often(o.F)}`}. Do not bluff this field.`;
   };
   let line = null;
@@ -327,9 +327,13 @@ export function anchorLine(d) {
     if (v.grade === 'good' && ((mine.type === 'call' && s === 'fails') || (mine.type === 'fold' && s === 'works'))) s = 'even';
     const who = d.toCall > 0 && opp === 2 && d.raises <= 1 ? ' of both players' : '';
     const need = share(A.price, false);
-    if (isRealDraw(hf)) {
-      // a real draw: its chance to come in, against the price
-      line = `Your draw comes in ${often(hf.drawEquity)} and the price needs ${need}${s === 'works' ? '. Call.' : s === 'even' ? ': close.' : '. Not at this price.'}`;
+    const tail = s === 'works' ? '. Call.' : s === 'even' ? ': close.' : '. Not at this price.';
+    if (isRealDraw(hf) && hf.tier <= TIER.HIGH_CARD) {
+      // a pure draw: its own chance to come in, against the price (STRAT P4-2)
+      line = `Your draw comes in ${often(hf.ownDrawEquity)} and the price needs ${need}${tail}`;
+    } else if (isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR) {
+      // a weak or middle pair plus a real draw: both (STRAT P4-2); top pair or better reads as a made hand
+      line = `You are ${aheadP(A.Q, river ? '' : ' now')} and your draw comes in ${often(hf.ownDrawEquity)}; the price needs ${need}${tail}`;
     } else if (s === 'works') line = `You are ${aheadP(A.Q, '').replace('ahead', `ahead${who}`)} and need ${need} at this price. Call.${hf.tier >= TIER.WEAK_PAIR && hf.tier <= TIER.OVERPAIR_TPTK ? ' Raising gets called mostly by better hands.' : ''}`;
     else if (s === 'fails') {
       // "nearly always real" only for a bettor read as passive whose range shows under 15% nothing

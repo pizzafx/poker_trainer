@@ -9,6 +9,7 @@ import { limpOutsideTipFor, robustVerdict, anchorStatus, applyAnchors, needOf } 
 import { build, gradeAll } from '../scripts/gradeall.js';
 import { SPOTS } from '../scripts/mwbench_spots.js';
 import { explain, anchorLine } from '../src/trainer/explain.js';
+import { bestHeadline } from '../src/trainer/best.js';
 import { buildContext } from '../src/bots/policy.js';
 
 // STRAT: a call before the river with top pair or better and a draw is yellow at most, at any size.
@@ -367,5 +368,31 @@ test('R5b: a one-pair call of a station\'s river lead into a crowd is yellow whe
     const ctx = buildContext(s);
     const e = explain({ verdict: call.v, street: s.street, tier: 2, drawEquity: 0, opponents: 2, toCall: ctx.toCall, raises: ctx.raises, board: s.board, villain: null, odds: ctx.odds });
     assert.match(e.reasons.join(' '), /When a passive player leads into a crowd, one pair is often beaten\. Folding scores about \$\d+ more\./);
+  }
+});
+
+// F10 (CEO, with POOL's pass 3): top pair facing a station's half-pot bet and a caller. The pro: the call is
+// best, a $15 raise fine, $30 wrong. Whatever the model scores, the call is never flagged or noted as a
+// miss, and the $30 raise is never praised or quoted as the reference.
+test('F10: the call is never flagged or noted as a miss; the $30 raise is never praised or the reference', () => {
+  const spot = SPOTS.find((x) => x.id === 'F10');
+  const { s, belief, env } = build(spot);
+  const ctx = buildContext(s);
+  const hf = handFeatures(s.hole[0], s.board);
+  const opts = { samples: 1500, seed: 5 };
+  const v0 = judgeDecision(s, 0, belief, null, opts);
+  const rows = gradeAll(s, v0, opts, env);
+  const isBig = (o) => o.type === 'raise' && o.to >= 30;
+  assert.ok(rows.some((r) => isBig(r.o)), `a raise to $30 or more is offered: ${rows.map((r) => r.o.label).join(', ')}`);
+  const record = (r) => ({ verdict: r.v, street: s.street, tier: hf.tier, drawEquity: hf.drawEquity, opponents: 2, toCall: ctx.toCall, raises: ctx.raises, board: s.board, villain: null, odds: ctx.odds });
+  const call = rows.find((r) => r.o.type === 'call');
+  assert.equal(call.v.grade, 'good', 'the call is not flagged');
+  // the words the app shows: a ringed play's headline is the best-play one (as Session.heroCommit)
+  const e = explain(record(call));
+  const callText = [bestHeadline(call.v, record(call)) || e.headline, ...(e.reasons || [])].join(' ');
+  assert.ok(!/[Rr]aise/.test(callText), `the call's words name no raise: ${callText}`);
+  for (const r of rows) {
+    if (isBig(r.o)) assert.ok(!r.best, `${r.o.label} is not shown as the best play`);
+    if (r.v.grade !== 'good') assert.ok(!isBig(r.v.options[r.v.best]), `${r.o.label} is not measured against ${r.v.options[r.v.best].label}`);
   }
 });

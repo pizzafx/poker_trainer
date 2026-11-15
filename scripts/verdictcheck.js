@@ -110,7 +110,8 @@ export const INVARIANTS = {
     }
     return false;
   },
-  'C5 a flag names the top option or a tagged reference': (d, v) => v.grade !== 'good' && !isTop(v, v.best) && !v.ref,
+  // a dominated flag's headline names no option ("scores at least $X below the best play ... under every read"): exempt (QA-VERDICT P4-3)
+  'C5 a flag names the top option or a tagged reference': (d, v) => v.grade !== 'good' && !v.dominated && !isTop(v, v.best) && !v.ref,
   'C6 notes never contradict the hand': (d, v) => {
     if (d.street === STREET.PRE) return false;
     if (['mwCheck', 'checkOOP'].includes(v.note) && !(d.tier >= TIER.WEAK_PAIR && d.tier <= TIER.OVERPAIR_TPTK)) return true;
@@ -142,6 +143,7 @@ export const INVARIANTS = {
     if (d.street === STREET.PRE || d.toCall !== 0 || m.type !== 'raise' || d.tier < TIER.TWO_PAIR || v.note !== 'sizeOk') return false;
     return v.options.some((o, i) => o.type === 'raise' && o.to > m.to && (() => { const g = pairedGap(v, i, v.mine); return g.mean >= v.small && g.mean > 2.2 * g.se; })());
   },
+  'P4-1 every postflop flag went through the scenario test': (d, v) => d.street !== STREET.PRE && v.grade !== 'good' && !(v.scenarios >= 1),
   'P3-1a a flag never shows a cost under the yellow bar': (d, v) => v.grade !== 'good' && v.mine >= 0 && shownCost(v) < R(v.small),
   'P3-1b a flagged R5b call has the estimate and went through the scenario test': (d, v) => v.rule === 'R5b' && v.grade !== 'good' && (!d.anchor || !v.scenarios),
   'P3-2 flop call of one bet with an overpair/TPTK or better is never red': (d, v, m) => d.street === STREET.FLOP && m.type === 'call' && d.raises === 1 && d.tier >= TIER.OVERPAIR_TPTK && v.grade === 'blunder',

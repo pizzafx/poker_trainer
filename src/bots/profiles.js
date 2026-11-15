@@ -38,6 +38,9 @@ const BASE = {
   sqCont: 0, // squeezed after flatting: share of the calling range that continues (0: the old rule)
   blockBet: 0, // river block bets out of position with medium hands (share of the remaining checks)
   tinyFold: 3, // small single bets: continue share at least (1 - tinyFold x pot odds), faded in below 25% of the pot
+  pairStab: 0, // checked to on the flop or turn: share of weak and middle pairs that bet (POOL pass 3)
+  passiveRaiseMult: null, // passive types: bluff and semi-bluff raises times this (null: off)
+  passiveDrawRaiseMult: null, // ...and this for draws with 30% equity or more on the flop and turn
   fourBet: 0.008,
   fourBetBluff: 0,
   stackOff: 0.012, // share of hands willing to get all-in preflop at 100 big blinds
@@ -106,7 +109,7 @@ const BASE = {
 
 const DEFS = {
   nit: {
-    tbCont: [0.55,  0.4], // POOL opponent package (Nov 2026)
+    tbCont: [0.55, 0.4], // POOL opponent package (Nov 2026)
     tbSize: 0.05, // POOL opponent package (Nov 2026)
     blockBet: 0.04, // POOL opponent package (Nov 2026)
     sqCont: 0.6, // POOL opponent package (Nov 2026)
@@ -124,7 +127,7 @@ const DEFS = {
     callRaise: 0.07,
     callElastic: 0.5, // POOL A5, Nov 2026: was 0.7
     limpCall: 1.1,
-    threeBet: 0.011,
+    threeBet: 0.017, // POOL batch 2 / pass 3 (Nov 2026)
     callThreeBet: 0.03,
     fourBet: 0.006,
     stackOff: 0.018, // POOL opponent package (Nov 2026)
@@ -162,13 +165,13 @@ const DEFS = {
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   abc: {
-    tbCont: [0.8,  0.68], // POOL opponent package (Nov 2026)
+    tbCont: [0.8, 0.68], // POOL opponent package (Nov 2026)
     tbSize: 0.05, // POOL opponent package (Nov 2026)
     blockBet: 0.1, // POOL opponent package (Nov 2026)
     sqCont: 0.65, // POOL opponent package (Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
-    checkedToShift: [0,  -0.06,  -0.12], // POOL passivity, Revision D (13 Nov 2026)
+    checkedToShift: [0, -0.06, -0.12], // POOL passivity, Revision D (13 Nov 2026)
     leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.05, 0.09], // POOL overcall, owner-approved 13 Nov 2026 (river .07 -> .09, POOL correction)
     name: 'Straightforward recreational',
@@ -181,7 +184,7 @@ const DEFS = {
     callRaise: 0.2,
     callElastic: 0.3, // POOL A5, Nov 2026: was 0.45
     limpCall: 1.25, // POOL A2, Nov 2026: was 0.9
-    threeBet: 0.025, // POOL opponent package (Nov 2026)
+    threeBet: 0.02, // POOL batch 2 / pass 3 (Nov 2026)
     callThreeBet: 0.05,
     stackOff: 0.032, // POOL opponent package (Nov 2026)
     aceLove: 0.3,
@@ -192,7 +195,7 @@ const DEFS = {
     valueBet: [0.55, 0.6, 0.67],
     semiBluff: 0.22,
     slowplay: 0.3,
-    callThr: [0.34,  0.42,  0.34], // POOL opponent package (Nov 2026)
+    callThr: [0.34, 0.42, 0.34], // POOL opponent package (Nov 2026)
     sizeSens: 0.6,
     chase: 0.7,
     raiseValue: [0.8, 0.82, 0.86],
@@ -208,13 +211,16 @@ const DEFS = {
     leadIntoRaiser: 0.08, // POOL M, Nov 2026 (was the shared default)
     ledRaiseRespect: 0.15, // POOL M, Nov 2026 (was the shared default)
     leadBluffMult: 0.25, // POOL M, Nov 2026 (was the shared default)
+    pairStab: 0.2, // POOL batch 2 / pass 3 (Nov 2026)
+    passiveRaiseMult: 0.4, // POOL batch 2 / pass 3 (Nov 2026)
+    passiveDrawRaiseMult: 0.6, // POOL batch 2 / pass 3 (Nov 2026)
   },
   station: {
     blockBet: 0.12, // POOL opponent package (Nov 2026)
     sqCont: 1.5, // POOL opponent package (Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
-    checkedToShift: [0,  -0.04,  -0.04], // POOL passivity, Revision D (13 Nov 2026)
+    checkedToShift: [0, -0.04, -0.04], // POOL passivity, Revision D (13 Nov 2026)
     leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.03, 0.13], // POOL overcall, owner-approved 13 Nov 2026
     ocSize: 0.25, // POOL overcall: a pot-sized overcall hits harder than a half-pot one
@@ -260,8 +266,8 @@ const DEFS = {
     raiseRespect: [0.08, 0.12, 0.24],
     minRaise: 0.45,
     sizeValue: [0.1, 0.3, 0.35, 0.2, 0.05],
-    sizeThin: [0.4, 0.4, 0.2, 0, 0],
-    sizeBluff: [0.4, 0.4, 0.2, 0, 0],
+    sizeThin: [0.3, 0.35, 0.3, 0.05, 0], // POOL batch 2 / pass 3 (Nov 2026)
+    sizeBluff: [0.3, 0.35, 0.3, 0.05, 0], // POOL batch 2 / pass 3 (Nov 2026)
     absFrom: 30, // POOL P1v2, Nov 2026: was 40
     overFold: 0.06, // POOL P1v2, Nov 2026: was 0.04
     anyTwo: 0.05, // POOL A7, Nov 2026 (was the shared default)
@@ -271,13 +277,16 @@ const DEFS = {
     leadIntoRaiser: 0.08, // POOL M, Nov 2026 (was the shared default)
     ledRaiseRespect: 0.15, // POOL M, Nov 2026 (was the shared default)
     leadBluffMult: 0.25, // POOL M, Nov 2026 (was the shared default)
+    pairStab: 0.35, // POOL batch 2 / pass 3 (Nov 2026)
+    passiveRaiseMult: 0.4, // POOL batch 2 / pass 3 (Nov 2026)
+    passiveDrawRaiseMult: 0.6, // POOL batch 2 / pass 3 (Nov 2026)
   },
   whale: {
     blockBet: 0.08, // POOL opponent package (Nov 2026)
     sqCont: 1.6, // POOL opponent package (Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
-    checkedToShift: [0,  -0.06,  -0.12], // POOL passivity, Revision D (13 Nov 2026)
+    checkedToShift: [0, -0.06, -0.12], // POOL passivity, Revision D (13 Nov 2026)
     leadIntoRaiserFlop: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.02, 0.13], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Gambler',
@@ -324,8 +333,8 @@ const DEFS = {
     raiseRespect: [0.05, 0.08, 0.12],
     minRaise: 0.45,
     sizeValue: [0.1, 0.25, 0.3, 0.25, 0.1],
-    sizeThin: [0.35, 0.35, 0.2, 0.1, 0],
-    sizeBluff: [0.2, 0.3, 0.25, 0.15, 0.1],
+    sizeThin: [0.3, 0.35, 0.3, 0.05, 0], // POOL batch 2 / pass 3 (Nov 2026)
+    sizeBluff: [0.3, 0.35, 0.3, 0.05, 0], // POOL batch 2 / pass 3 (Nov 2026)
     absFrom: 25, // POOL P1v2, Nov 2026: was 30
     overFold: 0.04,
     anyTwo: 0.25, // POOL A7, Nov 2026 (was the shared default)
@@ -335,9 +344,10 @@ const DEFS = {
     leadIntoRaiser: 0.06, // POOL M, Nov 2026 (was the shared default)
     ledRaiseRespect: 0.1, // POOL M, Nov 2026 (was the shared default)
     leadBluffMult: 0.5, // POOL M, Nov 2026 (was the shared default)
+    pairStab: 0.38, // POOL batch 2 / pass 3 (Nov 2026)
   },
   maniac: {
-    tbCont: [0.75,  0.65], // POOL opponent package (Nov 2026)
+    tbCont: [0.75, 0.65], // POOL opponent package (Nov 2026)
     tbSize: 0.05, // POOL opponent package (Nov 2026)
     sqCont: 0.8, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.07, 0.15], // POOL overcall, owner-approved 13 Nov 2026
@@ -393,8 +403,8 @@ const DEFS = {
     mwCaller: 0.01, // POOL M, Nov 2026 (was the shared default)
   },
   gto: {
-    tbCont: [0.5,  0.42], // POOL opponent package (Nov 2026)
-    tbSize: 0.1, // POOL opponent package (Nov 2026)
+    tbCont: [0.5, 0.42], // POOL opponent package (Nov 2026)
+    tbSize: 0.06, // POOL batch 2 / pass 3 (Nov 2026)
     tbOOP: 0.05, // POOL opponent package (Nov 2026)
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.28, 0.25], // POOL overcall, owner-approved 13 Nov 2026
@@ -449,7 +459,7 @@ const DEFS = {
     mwTrap3: [0.4, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
   },
   tag: {
-    tbCont: [0.6,  0.45], // POOL opponent package (Nov 2026)
+    tbCont: [0.6, 0.45], // POOL opponent package (Nov 2026)
     tbSize: 0.1, // POOL opponent package (Nov 2026)
     tbOOP: 0.07, // POOL opponent package (Nov 2026)
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
@@ -467,7 +477,7 @@ const DEFS = {
     limpTrap: 0,
     callRaise: 0.13,
     callElastic: 0.8,
-    threeBet: 0.022, // POOL A4, Nov 2026: was 0.03
+    threeBet: 0.03, // POOL batch 2 / pass 3 (Nov 2026)
     threeBetBluff: 0.05, // POOL A4, Nov 2026: was 0.12
     callThreeBet: 0.14,
     fourBet: 0.012,
@@ -503,7 +513,7 @@ const DEFS = {
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
   },
   lag: {
-    tbCont: [0.55,  0.5], // POOL opponent package (Nov 2026)
+    tbCont: [0.55, 0.5], // POOL opponent package (Nov 2026)
     tbSize: 0.1, // POOL opponent package (Nov 2026)
     tbOOP: 0.07, // POOL opponent package (Nov 2026)
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
@@ -556,13 +566,13 @@ const DEFS = {
     mwTrap3: [0.5, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
   },
   beginner: {
-    tbCont: [0.85,  0.8], // POOL opponent package (Nov 2026)
+    tbCont: [0.85, 0.8], // POOL opponent package (Nov 2026)
     tbSize: 0.03, // POOL opponent package (Nov 2026)
     blockBet: 0.12, // POOL opponent package (Nov 2026)
     sqCont: 1.2, // POOL opponent package (Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwTightenCheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
-    checkedToShift: [0,  -0.05,  -0.08], // POOL passivity, Revision D (13 Nov 2026)
+    checkedToShift: [0, -0.05, -0.08], // POOL passivity, Revision D (13 Nov 2026)
     leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.08, 0.15], // POOL overcall, owner-approved 13 Nov 2026 (river .12 -> .15, POOL correction)
     name: 'Total beginner',
@@ -620,6 +630,9 @@ const DEFS = {
     leadIntoRaiser: 0.08, // POOL M, Nov 2026 (was the shared default)
     ledRaiseRespect: 0.15, // POOL M, Nov 2026 (was the shared default)
     leadBluffMult: 0.25, // POOL M, Nov 2026 (was the shared default)
+    pairStab: 0.3, // POOL batch 2 / pass 3 (Nov 2026)
+    passiveRaiseMult: 0.4, // POOL batch 2 / pass 3 (Nov 2026)
+    passiveDrawRaiseMult: 0.6, // POOL batch 2 / pass 3 (Nov 2026)
   },
 };
 

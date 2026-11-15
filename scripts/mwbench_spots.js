@@ -141,5 +141,6 @@ export const EXPECT = {
   R05: { accept: ['check', 'bet:0.3-0.8'], noGrade: true },  // R8; v2 do-not-grade
   // The raises are $62-65 below folding, so no "not a habit" waiver (QA M1); the scenario test leaves
   // them ungraded, as MATH's do-not-grade list says.
-  X01: { accept: ['fold', 'call'], neverBest: ['raise'], noGrade: true }, // R6 required
+  // R6 required on the fold and the call; re-raising a passive check-raise plus a caller may be yellow (STRAT, POOL pass 3)
+  X01: { accept: ['fold', 'call'], softFlag: ['raise'], maxGrade: { raise: 'mistake' }, neverBest: ['raise'] },
 };

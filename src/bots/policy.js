@@ -118,6 +118,7 @@ export function buildContext(s, seat = s.toAct) {
       raiserPos >= 0 && (seat - s.button - 1 + 2 * n) % n > (raiserPos - s.button - 1 + 2 * n) % n;
     ctx.effBB = Math.min(s.stacks[seat] + s.bet[seat], maxOtherStack(s, seat)) / s.bbAmt;
     ctx.effAggBB = s.lastRaiser >= 0 && s.lastRaiser !== seat ? Math.min(s.stacks[seat] + s.bet[seat], s.stacks[s.lastRaiser] + s.bet[s.lastRaiser]) / s.bbAmt : ctx.effBB;
+    ctx.aggAllIn = s.lastRaiser >= 0 && s.lastRaiser !== seat && !!s.allIn[s.lastRaiser];
     return ctx;
   }
 
@@ -249,7 +250,8 @@ function preflopSizes(ctx, P, premium) {
     big = ctx.maxTo;
   }
   // Only value raises (or short stacks) turn into shoves at 40% of the stack; others at 65%.
-  const commit = (!premium && ctx.effBB > 40 ? 0.65 : 0.4) * ctx.maxTo;
+  // non-premium 4-bets keep their normal size when deep (POOL G2)
+  const commit = (!premium && ctx.effBB > 40 ? (ctx.raises >= 2 ? 0.95 : 0.65) : 0.4) * ctx.maxTo;
   if (normal >= commit) normal = ctx.maxTo;
   if (big >= commit) big = ctx.maxTo;
   normal = clamp(normal, ctx.minTo, ctx.maxTo);
@@ -298,7 +300,9 @@ export function preflopPolicy(ctx, P, cls) {
     // Facing a 3-bet or more.
     const mix = 0.5 * (rp + pp);
     const cold = !ctx.iRaised && !ctx.iLimped && ctx.myBet <= ctx.base;
-    const bigDecision = ctx.toCall >= 0.3 * (ctx.stack + ctx.myBet) || ctx.raises >= 3;
+    // measured against the effective stack versus the aggressor; any all-in is a stack-off decision (POOL G1)
+    const effChips = Math.min(ctx.stack + ctx.myBet, ctx.effAggBB * ctx.bb);
+    const bigDecision = ctx.toCall >= 0.3 * effChips || ctx.raises >= 3 || ctx.aggAllIn;
     if (bigDecision) {
       // depth against the aggressor, and the price: a short shove gets called much wider
       const dA = clamp(100 / Math.max(10, ctx.effAggBB), 0.7, 2);
@@ -307,6 +311,11 @@ export function preflopPolicy(ctx, P, cls) {
       const go = inTop(sp, w);
       raise = go * 0.6;
       call = go * 0.4;
+      // facing an all-in, the price comes first: under 15% needed is a call with anything, tapering out by 25% (POOL G1)
+      if (ctx.aggAllIn) {
+        const wP = clamp((0.25 - ctx.odds) / 0.1, 0, 1);
+        if (wP > 0) call = Math.max(call, wP * (1 - raise));
+      }
     } else {
       const rw = P.fourBet * depth * (cold ? 0.7 : 1);
       const value = inTop(sp, rw);
@@ -318,7 +327,7 @@ export function preflopPolicy(ctx, P, cls) {
         const openW = P.pfr[ctx.pos] * (ctx.limpers ? P.isoFactor : 1);
         const mult = ctx.currentBet / Math.max(1, ctx.myBet);
         let c = P.tbCont[ctx.pos <= POS.MP ? 0 : 1];
-        c -= P.tbSize * Math.max(0, mult - 3);
+        c -= P.tbSize * Math.max(0, Math.min(mult, 6) - 3); // the size penalty stops at 6x (POOL G2)
         if (!ctx.ipVsRaiser) c -= P.tbOOP;
         c -= P.tbSqueeze * (ctx.squeezeCallers || 0);
         c = clamp(c, 0.05, 1);
@@ -455,13 +464,15 @@ export function postflopPolicy(ctx, P, f) {
     const pBluff = (1 - pValue) * bluff;
     // river block bets (fix 2): medium hands out of position lead small
     const pBlock = P.blockBet && st === 2 && !ctx.inPosition && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.TOP_PAIR_GOOD ? P.blockBet * Math.max(0, 1 - pValue - pBluff) : 0;
-    let bet = pValue + pBluff + pBlock;
+    // checked to on the flop or turn, passive players bet a weak or middle pair "to see where they are" (POOL pass 3)
+    const pPair = P.pairStab && ct && st < 2 && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.MIDDLE_PAIR ? P.pairStab * Math.max(0, 1 - pValue - pBluff - pBlock) : 0;
+    let bet = pValue + pBluff + pBlock + pPair;
     if (!ctx.canRaise) bet = 0;
     out.raise = bet;
     out.check = 1 - bet;
     if (bet > 0) {
       const valueW = S >= 0.8 ? P.sizeValue : P.sizeThin;
-      out.sizes = betSizes(ctx, mixWeights(mixWeights(valueW, pValue / bet, P.sizeBluff, pBluff / bet), 1, [1, 0, 0, 0, 0], pBlock / bet));
+      out.sizes = betSizes(ctx, mixWeights(mixWeights(mixWeights(valueW, pValue / bet, P.sizeBluff, pBluff / bet), 1, [1, 0, 0, 0, 0], pBlock / bet), 1, P.sizeThin, pPair / bet));
     }
     return out;
   }
@@ -531,6 +542,8 @@ export function postflopPolicy(ctx, P, f) {
   if (S < callThr) {
     pBluffRaise = P.raiseBluff[st];
     if (st < 2 && f.drawEquity >= 0.3) pBluffRaise = Math.max(pBluffRaise, P.raiseBluff[st] * 3 + P.semiBluff * 0.15);
+    // passive players' bluff and semi-bluff raises are rarer: a raise from them is mostly a real hand; strong draws keep a bit more (POOL pass 3)
+    if (P.passiveRaiseMult != null) pBluffRaise *= st < 2 && f.drawEquity >= 0.3 ? (P.passiveDrawRaiseMult ?? P.passiveRaiseMult) : P.passiveRaiseMult;
     if (facingRaise) pBluffRaise *= 0.4;
     pBluffRaise *= Math.pow(1 - (P.mwRaiseCut ?? P.mwBluffCut), extra); // M2
     // R1 (POOL, Nov 2026): big raises are value at these tables, so a bluff-raise that would put in

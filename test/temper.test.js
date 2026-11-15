@@ -137,7 +137,9 @@ test('temper: checking a strong hand on the flop is never red', () => {
 
 test('temper: checking weak top pair or a weaker pair before the river is never flagged', () => {
   // heads-up: multiway the R1 note carries it (next test)
-  const spot = at((p) => p.street >= 1 && p.street < STREET.RIVER && p.toCall === 0 && p.canRaise && p.tier >= TIER.WEAK_PAIR && p.tier <= TIER.TOP_PAIR_WEAK && p.opponents === 1, 13);
+  const spot = at((p) => p.street >= 1 && p.street < STREET.RIVER && p.toCall === 0 && p.canRaise && p.tier >= TIER.WEAK_PAIR && p.tier <= TIER.TOP_PAIR_WEAK && p.opponents === 1, 13,
+    // not a tiny pot, where the tiny-pot rule rightly comes first
+    (sess) => potSize(sess.hand.state) >= 6 * sess.hand.state.bbAmt);
   const to = Math.max(spot.L.minTo, Math.round(spot.pot / 2));
   const v = run(spot, verdict(spot, [['check', 0, 0], ['raise', to, 30 * smallOf(spot)]], 0, 1), { type: 'check' });
   assert.equal(v.grade, 'good');

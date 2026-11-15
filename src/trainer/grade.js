@@ -538,14 +538,14 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     } else {
       // with two pair or better, measured against the best bet up to the pot (R3), yellow at most,
       // heads-up too; the floors below are for weaker hands (STRAT, QA-VERDICT N4 and pass 3)
+      // ...and then on to the scenario test like every other flag (QA-VERDICT P4-1)
       if (tier >= TIER.TWO_PAIR) {
         if (over(best()) && regrade((o) => !over(o), undefined, 'upToPot')) return;
-        capYellow();
-        return;
+      } else {
+        // multiway on the river with one pair the floor is 30% of the pot (STRAT, Nov 2026: R01's $40)
+        if (bigger && betFrac(mine) >= (mw ? (river && onePair ? 0.3 : 0.45) : 0.6)) return pass('sizeOk');
+        if (mw && bigger && tier < TIER.TOP_PAIR_GOOD) return pass('mwSize');
       }
-      // multiway on the river with one pair the floor is 30% of the pot (STRAT, Nov 2026: R01's $40)
-      if (bigger && betFrac(mine) >= (mw ? (river && onePair ? 0.3 : 0.45) : 0.6)) return pass('sizeOk');
-      if (mw && bigger && tier < TIER.TOP_PAIR_GOOD) return pass('mwSize');
     }
     capYellow();
   }

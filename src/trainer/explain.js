@@ -227,7 +227,8 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A bluff ${more(top)} against these bots; not enough to rely on at a real table.)`;
   if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read, so it is not graded.${habitTail(v)})`;
   if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')}.)`;
-  if (gap(top) > bar(top)) return `${mine.label}: fine. (${bare(top)} ${more(top)} on our read, but the coach does not hold you to it here.)`;
+  // ...never naming a play the coach does not teach here (R7 habits: the reference already leaves them out; STRAT, F10)
+  if (gap(top) > bar(top) && v.ref !== 'habit') return `${mine.label}: fine. (${bare(top)} ${more(top)} on our read, but the coach does not hold you to it here.)`;
   // "about the same" only within the bar (1.6 times it for the same kind of play), whatever the close marks say (STRAT, QA-VERDICT V13)
   const rivals = v.options.filter((o, i) => i !== v.best && o.close && Math.abs(Math.round(o.ev) - Math.round(mine.ev)) <= (v.small || 0) * (o.type === mine.type ? 1.6 : 1));
   if (!rivals.length) return `${mine.label}: fine.`; // "best play" only under the ring (bestHeadline replaces this then; STRAT F2)

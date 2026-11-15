@@ -109,9 +109,13 @@ if (typeof ResizeObserver !== 'undefined') addEventListener('DOMContentLoaded', 
 });
 // The card style (two device settings, independent): layout Classic or Split, colour Coloured or White.
 // Each is a class on <body>; the cards are restyled by CSS alone, so a change repaints every card at once.
+// Traditional (the owner's art, white only) uses the Split classes underneath, so cards under 40px get the
+// same stacked index in the White inks (DECK_HANDOFF Addendum A).
 function applyDeck() {
-  document.body.classList.toggle('deck-split', settings.cardLayout === 'split');
-  document.body.classList.toggle('deck-white', settings.cardColour === 'white');
+  const trad = settings.cardLayout === 'trad';
+  document.body.classList.toggle('deck-trad', trad);
+  document.body.classList.toggle('deck-split', trad || settings.cardLayout === 'split');
+  document.body.classList.toggle('deck-white', trad || settings.cardColour === 'white');
 }
 applyDeck();
 // A buy-in of 100 big blinds, kept inside the room's range.
@@ -300,13 +304,19 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const money = (x) => (x < 0 ? '-' : '') + '$' + Math.abs(Math.round(x)).toLocaleString();
 const signed = (x) => (x >= 0 ? '+' : '-') + '$' + Math.abs(Math.round(x)).toLocaleString();
 
-function cardHtml(c) {
+// The Traditional deck: the owner's card art, one webp per card, fetched only when that deck is chosen and
+// only for cards shown at 40px or more (CSS hides the image on smaller cards, and a hidden lazy image is
+// not fetched).
+const RANK_NAME = { A: 'Ace', K: 'King', Q: 'Queen', J: 'Jack', T: 'Ten', 9: 'Nine', 8: 'Eight', 7: 'Seven', 6: 'Six', 5: 'Five', 4: 'Four', 3: 'Three', 2: 'Two' };
+const SUIT_NAME = ['clubs', 'diamonds', 'hearts', 'spades'];
+const tradImg = (c) => `<img class="trad" src="assets/cards/trad/${RANKS[c >> 2]}${'cdhs'[c & 3]}.webp" width="150" height="210" alt="${RANK_NAME[RANKS[c >> 2]]} of ${SUIT_NAME[c & 3]}" decoding="async" loading="lazy">`;
+function cardHtml(c, art = settings.cardLayout === 'trad') {
   const r = RANKS[c >> 2] === 'T' ? '10' : RANKS[c >> 2];
   const sym = SUIT_SYM[c & 3];
-  return `<span class="card ${SUIT_CLS[c & 3]}"><b${r === '10' ? ' class="ten"' : ''}>${r}</b><i>${sym}</i><u${r === '10' ? ' class="ten"' : ''}>${r}</u></span>`;
+  return `<span class="card ${SUIT_CLS[c & 3]}"><b${r === '10' ? ' class="ten"' : ''}>${r}</b><i>${sym}</i><u${r === '10' ? ' class="ten"' : ''}>${r}</u>${art ? tradImg(c) : ''}</span>`;
 }
 const backHtml = () => '<span class="card back"></span>';
-const cardsInline = (cs) => `<span class="cards-inline">${cs.map((c) => cardHtml(c)).join('')}</span>`;
+const cardsInline = (cs) => `<span class="cards-inline">${cs.map((c) => cardHtml(c, false)).join('')}</span>`;
 
 // ---------------------------------------------------------------- rendering
 
@@ -1885,12 +1895,14 @@ function openGameModal({ tab = 'game', group = null } = {}) {
   const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
   // Card style: one 2x2 radiogroup, rows by layout, columns by colour; each tile shows a real A♥ K♦ in
   // its style (DECK_HANDOFF §5, revised)
-  const DECKS = [['classic', 'coloured'], ['classic', 'white'], ['split', 'coloured'], ['split', 'white']];
-  const deckName = (l, c) => `${l === 'split' ? 'Split' : 'Classic'}, ${c === 'white' ? 'White' : 'Coloured'}`;
+  const DECKS = [['classic', 'coloured'], ['classic', 'white'], ['split', 'coloured'], ['split', 'white'], ['trad', 'white']];
+  const LAYOUT_NAME = { classic: 'Classic', split: 'Split', trad: 'Traditional' };
+  const deckName = (l, c) => `${LAYOUT_NAME[l]}, ${c === 'white' ? 'White' : 'Coloured'}`;
   const deckTiles = () =>
     `<div class="cs-picker" role="radiogroup" aria-labelledby="cs-lab">${DECKS.map(([l, c], i) => {
-      const on = settings.cardLayout === l && settings.cardColour === c;
-      return `<button type="button" class="cstile" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" data-i="${i}" aria-label="${deckName(l, c)}"><span class="swatch pv${l === 'split' ? ' deck-split' : ''}${c === 'white' ? ' deck-white' : ''}"><span class="pv-cards">${cardHtml(12 * 4 + 2)}${cardHtml(11 * 4 + 1)}</span></span><span class="nm">${l === 'split' ? 'Split' : 'Classic'} <small>· ${c === 'white' ? 'White' : 'Coloured'}</small></span>${i === 0 ? '<span class="def">default</span>' : ''}</button>`;
+      const on = settings.cardLayout === l && (l === 'trad' || settings.cardColour === c);
+      const trad = l === 'trad';
+      return `<button type="button" class="cstile${trad ? ' wide' : ''}" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" data-i="${i}" aria-label="${deckName(l, c)}"><span class="swatch pv${trad ? ' deck-trad' : ''}${l !== 'classic' ? ' deck-split' : ''}${c === 'white' ? ' deck-white' : ''}"><span class="pv-cards">${cardHtml(12 * 4 + 2, trad)}${cardHtml(11 * 4 + 1, trad)}</span></span><span class="nm">${LAYOUT_NAME[l]} <small>· ${c === 'white' ? 'White' : 'Coloured'}</small></span><span class="def"${i === 0 ? '' : ' aria-hidden="true"'}>${i === 0 ? 'default' : '&nbsp;'}</span></button>`;
     }).join('')}</div>`;
   const seg = (id, items, cur) => `<div class="seg" role="radiogroup" data-for="${id}">${items.map(([v, l]) => `<button type="button" role="radio" data-v="${v}" aria-checked="${v === cur}" class="${v === cur ? 'on' : ''}">${l}</button>`).join('')}</div><input type="hidden" id="${id}" value="${cur}">`;
   const toggle = (id, on, label) => `<label class="trow" for="${id}"><span>${label}</span><input id="${id}" type="checkbox" class="toggle" ${on ? 'checked' : ''}></label>`;
@@ -1974,9 +1986,12 @@ function openGameModal({ tab = 'game', group = null } = {}) {
   // Card style: saved and applied at once, no new session; arrow keys move in two dimensions and select
   const tiles = [...document.querySelectorAll('#modal-box .cstile')];
   const pickDeck = (i, focus) => {
+    const wasTrad = settings.cardLayout === 'trad';
     [settings.cardLayout, settings.cardColour] = DECKS[i];
     saveSettings();
     applyDeck();
+    // Traditional draws its cards from images: the table is redrawn when it is switched on or off
+    if (wasTrad !== (settings.cardLayout === 'trad') && sess) render();
     tiles.forEach((b, k) => {
       b.setAttribute('aria-checked', k === i);
       b.tabIndex = k === i ? 0 : -1;
@@ -1986,9 +2001,11 @@ function openGameModal({ tab = 'game', group = null } = {}) {
   tiles.forEach((b, i) => {
     b.onclick = () => pickDeck(i, false);
     b.onkeydown = (e) => {
+      // rows Classic, Split, Traditional (one wide tile); columns Coloured, White
       const row = i >> 1;
-      const col = i & 1;
-      const to = { ArrowLeft: row * 2, ArrowRight: row * 2 + 1, ArrowUp: col, ArrowDown: 2 + col }[e.key];
+      const col = i === 4 ? 1 : i & 1;
+      const at = (r, c2) => (r >= 2 ? 4 : r * 2 + c2);
+      const to = { ArrowLeft: at(row, 0), ArrowRight: at(row, 1), ArrowUp: at(Math.max(0, row - 1), col), ArrowDown: at(Math.min(2, row + 1), col) }[e.key];
       if (to === undefined) return;
       e.preventDefault();
       e.stopPropagation();

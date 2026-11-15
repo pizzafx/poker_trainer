@@ -2637,8 +2637,8 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 .cstile .pv-cards { display: flex; gap: 6px; --cw: 44px; }
 .cstile .nm { font-size: 14px; font-weight: 600; line-height: 1.2; color: var(--chalk); padding: 0 2px; }
 .cstile .nm small { font-weight: 400; color: var(--slate); }
-/* "default" sits in the top-left corner of the swatch, so every tile is the same height (QA DK4) */
-.cstile .def { position: absolute; top: 14px; left: 14px; font: 500 9.5px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--chalk); background: var(--c-00000080); padding: 3px 5px; border-radius: 5px; }
+/* "default" on its own small line under the name; every tile has that line, so all are the same height (QA DK4) */
+.cstile .def { display: block; margin-top: -4px; padding: 0 2px; font: 500 10px/1.2 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate-dim); }
 .cstile[aria-checked="true"] { border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal), 0 0 0 5px var(--signal-wash); }
 .cstile[aria-checked="true"]::after { content: "\2713"; position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--signal); color: var(--signal-ink); font-size: 12px; font-weight: 800; box-shadow: 0 0 0 3px var(--panel-2); }
 .cstile:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
@@ -2666,3 +2666,15 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 
 /* bet chips against a short stack: "$19 ⅓" (Addendum D2) */
 .presets button .frac { margin-left: 4px; font: 500 0.78em/1 var(--mono); color: var(--slate); }
+
+/* ================= Traditional: the owner's card art (DECK_HANDOFF Addendum A) =================
+   40px and up: the image fills the card; the drawn rank and suit are hidden. Under 40px the image is
+   hidden (and so never fetched) and the card shows the Split stacked index in the White inks. */
+:is(body.deck-trad .card:not(.pv .card):not(.back):not(.slot), .pv.deck-trad .card:not(.back)) > img.trad { position: absolute; inset: 0; width: 100%; height: 100%; display: block; border-radius: inherit; }
+:is(body.deck-trad .card:not(.pv .card):not(.back):not(.slot), .pv.deck-trad .card:not(.back)) > b, :is(body.deck-trad .card:not(.pv .card):not(.back):not(.slot), .pv.deck-trad .card:not(.back)) > i, :is(body.deck-trad .card:not(.pv .card):not(.back):not(.slot), .pv.deck-trad .card:not(.back)) > u { display: none; }
+:is(body.deck-trad .card:not(.pv .card):not(.back):not(.slot), .pv.deck-trad .card:not(.back))::after { display: none; }
+:is(body.deck-trad .card:not(.pv .card):not(.back):not(.slot), .pv.deck-trad .card:not(.back)) { background: var(--face-top); }
+:is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-trad .card:not(.pv .card):not(.back):not(.slot), .pv.deck-trad .card:not(.back)) > img.trad { display: none; }
+:is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-trad .card:not(.pv .card):not(.back):not(.slot), .pv.deck-trad .card:not(.back)) > b, :is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-trad .card:not(.pv .card):not(.back):not(.slot), .pv.deck-trad .card:not(.back)) > i { display: block; }
+.card > img.trad { display: none; }
+.cs-picker .cstile.wide { grid-column: 1 / -1; }

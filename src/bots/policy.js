@@ -70,6 +70,7 @@ export function buildContext(s, seat = s.toAct) {
     else if (off === 0 || toButton === 1) ctx.pos = POS.LP;
     else if (toButton <= 3) ctx.pos = POS.MP;
     else ctx.pos = POS.EP;
+    ctx.btn = n > 2 && off === 0; // POOL batch 6, F5
     ctx.base = s.straddleAmt > 0 && s.straddleSeat >= 0 ? s.straddleAmt : s.bbAmt;
     let limpers = 0;
     let callers = 0;
@@ -116,6 +117,7 @@ export function buildContext(s, seat = s.toAct) {
     // Acts after the raiser postflop?
     ctx.ipVsRaiser =
       raiserPos >= 0 && (seat - s.button - 1 + 2 * n) % n > (raiserPos - s.button - 1 + 2 * n) % n;
+    { const oR = raiserPos >= 0 ? (raiserPos - s.button + n) % n : -1; ctx.stealSpot = (n > 2 && oR >= 0 && raisesSeen === 1 && callers === 0 && limpers === 0 && (ctx.pos === POS.SB || ctx.pos === POS.BB) ? (oR === 0 ? 1 : n - oR === 1 ? 0.5 : 0) : 0); } // POOL batch 6: a steal, folded to the blinds: 1 from the BTN, 0.5 from the CO
     ctx.effBB = Math.min(s.stacks[seat] + s.bet[seat], maxOtherStack(s, seat)) / s.bbAmt;
     ctx.effAggBB = s.lastRaiser >= 0 && s.lastRaiser !== seat ? Math.min(s.stacks[seat] + s.bet[seat], s.stacks[s.lastRaiser] + s.bet[s.lastRaiser]) / s.bbAmt : ctx.effBB;
     ctx.aggAllIn = s.lastRaiser >= 0 && s.lastRaiser !== seat && !!s.allIn[s.lastRaiser];
@@ -178,6 +180,7 @@ export function buildContext(s, seat = s.toAct) {
   // Passivity, Revision D (POOL, owner-approved 13 Nov 2026): has anyone already acted (checked) on
   // this postflop street before me?
   ctx.checkedTo = s.history.some((h) => h.street === s.street && h.street > STREET.PRE);
+  ctx.iChecked = s.history.some((h) => h.street === s.street && h.street > STREET.PRE && h.seat === seat && h.type === 'check'); // POOL batch 6
   ctx.preflopRaised = s.history.some((h) => h.street === STREET.PRE && h.type === 'raise');
   {
     const suits = [0, 0, 0, 0];
@@ -274,7 +277,7 @@ export function preflopPolicy(ctx, P, cls) {
   const depth = clamp(100 / Math.max(10, ctx.effBB), 0.7, 3); // short stacks get it in lighter
 
   if (ctx.raises === 0) {
-    const width = P.pfr[ctx.pos] * (ctx.limpers ? P.isoFactor : 1);
+    const width = P.pfr[ctx.pos] * (ctx.limpers ? P.isoFactor : 1) * (ctx.btn ? P.btnMult ?? 1 : 1);
     raise = inTop(rp, width);
     if (rp > 0.99) raise *= 1 - P.limpTrap;
     const playWidth = P.vpip[ctx.pos] * (1 + 0.06 * ctx.limpers);
@@ -285,13 +288,16 @@ export function preflopPolicy(ctx, P, cls) {
     const cheap = ctx.pos === POS.SB ? Math.max(limpShare, 0.6) : limpShare;
     call = (enter - raise) * (rp > 0.99 ? 1 : cheap);
   } else if (ctx.raises === 1) {
-    const value = inTop(sp, P.threeBet * depth);
-    const inBand = sp < 1 - P.threeBet && sp > 1 - P.threeBet - 0.09;
+    const st3 = P.steal3Bet ?? P.stealDefend;
+    const tbW = P.threeBet * (ctx.stealSpot && st3 ? 1 + (st3 - 1) * ctx.stealSpot : 1);
+    const value = inTop(sp, tbW * depth);
+    const inBand = sp < 1 - tbW && sp > 1 - tbW - 0.09;
     const bluff = inBand ? P.threeBetBluff : 0;
     raise = value + (1 - value) * bluff;
     const elastic = clamp(1 - (P.callElastic * (ctx.raiseBB - 5)) / 5, 0.2, 1.4);
     let width = P.callRaise * elastic * (1 + P.callCrowd * ctx.callers);
     if (ctx.pos === POS.LP || ctx.pos === POS.BB) width *= 1.2;
+    if (ctx.stealSpot && P.stealDefend) width *= 1 + (P.stealDefend - 1) * ctx.stealSpot; // POOL batch 6: blinds defend wider against a late-position steal
     if (ctx.iLimped) width *= P.limpCall;
     if (ctx.toCall >= 0.35 * (ctx.stack + ctx.myBet)) width = Math.min(width, P.stackOff * depth * 2);
     call = (1 - raise) * inTop(Math.max(pp, rp, sp), width);
@@ -338,7 +344,7 @@ export function preflopPolicy(ctx, P, cls) {
       if (ctx.iRaised && ctx.raises === 2 && P.tbCont) {
         // 3-bet continue (POOL): the opener continues a share of its OWN opening range, by its
         // position, the 3-bet's size, being out of position, and callers squeezed.
-        const openW = P.pfr[ctx.pos] * (ctx.limpers ? P.isoFactor : 1);
+        const openW = P.pfr[ctx.pos] * (ctx.limpers ? P.isoFactor : 1) * (ctx.btn ? P.btnMult ?? 1 : 1);
         const mult = ctx.currentBet / Math.max(1, ctx.myBet);
         let c = P.tbCont[ctx.pos <= POS.MP ? 0 : 1];
         c -= P.tbSize * Math.max(0, Math.min(mult, 6) - 3); // the size penalty stops at 6x (POOL G2)
@@ -547,6 +553,8 @@ export function postflopPolicy(ctx, P, f) {
   const raiseThr = P.raiseValue[st] + (facingRaise ? 0.07 : 0) + Math.max(0, respect) * 0.5;
 
   let pRaiseV = soft(S, raiseThr, 0.03);
+  // POOL batch 6, H1: regulars check-raise some top pairs on wet boards (protection and value)
+  if (P.tpCheckRaise && st < 2 && ctx.wet && ctx.iChecked && ctx.raises === 1 && f.tier >= TIER.TOP_PAIR_WEAK && f.tier < TIER.TWO_PAIR) pRaiseV = Math.max(pRaiseV, P.tpCheckRaise * (f.tier >= TIER.TOP_PAIR_GOOD ? 1 : 0.5));
   if (st < 2) pRaiseV *= 1 - (P.slowplayFacing != null ? P.slowplayFacing : P.slowplay); // passive types (POOL HX2) flat their monsters more facing a bet
   // Many players call on "I have a pair" without discounting for a scary board.
   const Sc = S + P.textureBlind * (f.raw - S);
@@ -560,7 +568,10 @@ export function postflopPolicy(ctx, P, f) {
   let pBluffRaise = 0;
   if (S < callThr) {
     pBluffRaise = P.raiseBluff[st];
-    if (st < 2 && f.drawEquity >= 0.3) pBluffRaise = Math.max(pBluffRaise, P.raiseBluff[st] * 3 + P.semiBluff * 0.15);
+    // POOL batch 6, H1: regulars' bluff raises lean on draws (flop 25%+ equity, turn 16%+), less on air
+    const drawLine = P.airRaiseMult != null ? (st === 0 ? 0.25 : 0.16) : 0.3;
+    if (st < 2 && f.drawEquity >= drawLine) pBluffRaise = Math.max(pBluffRaise, P.raiseBluff[st] * 3 + P.semiBluff * 0.15) * (P.drawRaiseMult ?? 1);
+    else if (P.airRaiseMult != null && f.drawEquity < 0.14) pBluffRaise *= P.airRaiseMult;
     // passive players' bluff and semi-bluff raises are rarer: a raise from them is mostly a real hand; strong draws keep a bit more (POOL pass 3)
     if (P.passiveRaiseMult != null) pBluffRaise *= st < 2 && f.drawEquity >= 0.3 ? (P.passiveDrawRaiseMult ?? P.passiveRaiseMult) : P.passiveRaiseMult;
     if (facingRaise) pBluffRaise *= 0.4;

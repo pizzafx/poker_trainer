@@ -47,6 +47,12 @@ const BASE = {
   setMineEnd: 0.1, // set-mining tapers out from 7% of the effective stack to this (POOL batch 5)
   stackOffRaise: 1, // share of a stack-off that re-raises rather than calls, times 0.6 (POOL batch 5, G5)
   isoRaise: 0.3, // facing an all-in, a non-premium stack-off re-raises this share of the time (POOL batch 5)
+  btnMult: 1, // first-in width on the button, times this (POOL batch 6, F5)
+  stealDefend: null, // blinds facing a steal: calling width times this (1 from the button, half from the cutoff)
+  steal3Bet: null, // ...and 3-bet width times this (default stealDefend)
+  tpCheckRaise: 0, // regulars check-raise top pair on wet flops and turns at least this often (H1)
+  airRaiseMult: null, // bluff raises with no real draw times this; draws from 25% (flop) / 16% (turn) (H1)
+  drawRaiseMult: null, // ...and draw raises times this
   fourBet: 0.008,
   fourBetBluff: 0,
   stackOff: 0.012, // share of hands willing to get all-in preflop at 100 big blinds
@@ -224,6 +230,7 @@ const DEFS = {
     setMine: 0.9, // POOL HX / batch 4 (Nov 2026)
     slowplayFacing: 0.5, // POOL HX / batch 4 (Nov 2026)
     stackOffRaise: 0.5, // POOL batch 5 (Nov 2026)
+    btnMult: 1.15, // POOL batch 6 (Nov 2026)
   },
   station: {
     blockBet: 0.12, // POOL opponent package (Nov 2026)
@@ -477,6 +484,12 @@ const DEFS = {
     mwRaiseCut: 0.6, // POOL M, Nov 2026 (was the shared default)
     mwTrap3: [0.4, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
     deepJamCap: 0.1, // POOL HX / batch 4 (Nov 2026)
+    btnMult: 1.25, // POOL batch 6 (Nov 2026)
+    airRaiseMult: 0.3, // POOL batch 6 (Nov 2026)
+    drawRaiseMult: 1.4, // POOL batch 6 (Nov 2026)
+    stealDefend: 1.55, // POOL batch 6 (Nov 2026)
+    tpCheckRaise: 0.12, // POOL batch 6 (Nov 2026)
+    steal3Bet: 2.6, // POOL batch 6 (Nov 2026)
   },
   tag: {
     tbCont: [0.6, 0.45], // POOL opponent package (Nov 2026)
@@ -532,6 +545,11 @@ const DEFS = {
     mwRaiseCut: 0.85, // POOL M, Nov 2026 (was the shared default)
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
     deepJamCap: 0.1, // POOL HX / batch 4 (Nov 2026)
+    btnMult: 1.4, // POOL batch 6 (Nov 2026)
+    airRaiseMult: 0.3, // POOL batch 6 (Nov 2026)
+    drawRaiseMult: 1.4, // POOL batch 6 (Nov 2026)
+    stealDefend: 1.3, // POOL batch 6 (Nov 2026)
+    tpCheckRaise: 0.1, // POOL batch 6 (Nov 2026)
   },
   lag: {
     tbCont: [0.55, 0.5], // POOL opponent package (Nov 2026)
@@ -586,6 +604,11 @@ const DEFS = {
     mwRaiseCut: 0.75, // POOL M, Nov 2026 (was the shared default)
     mwTrap3: [0.5, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
     isoRaise: 0.45, // POOL batch 5 (Nov 2026)
+    btnMult: 1.3, // POOL batch 6 (Nov 2026)
+    airRaiseMult: 0.4, // POOL batch 6 (Nov 2026)
+    drawRaiseMult: 1.3, // POOL batch 6 (Nov 2026)
+    stealDefend: 1.3, // POOL batch 6 (Nov 2026)
+    tpCheckRaise: 0.15, // POOL batch 6 (Nov 2026)
   },
   beginner: {
     tbCont: [0.85, 0.8], // POOL opponent package (Nov 2026)

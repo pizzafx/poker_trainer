@@ -145,7 +145,7 @@ test('junk 3-bet note: against a regular opener it says what a solid player does
   const env = (id, p) => ({ readOf: () => ({ ranked: [{ id, p }] }) });
   const ctx = { ...threeCtx, aggressor: 3 };
   const reg = junk3betTipFor(threeBetVerdict(), ctx, 'J7o', 'bb', env('tag', 0.7));
-  assert.match(reg.text, /a solid player folds their worst hands and keeps the ones that have you beaten/);
+  assert.match(reg.text, /^re-raising with J7o against a regular rarely pays: they fold their worst hands and keep the ones that have you beaten/);
   assert.doesNotMatch(reg.text, /seldom fold/);
   for (const [id, p] of [['station', 0.8], ['tag', 0.4]]) assert.match(junk3betTipFor(threeBetVerdict(), ctx, 'J7o', 'bb', env(id, p)).text, /seldom fold/, `${id} ${p}`);
 });

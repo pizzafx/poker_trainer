@@ -15,7 +15,8 @@ import { disputeReport, disputeText } from '../src/trainer/dispute.js';
 test('best play: the stored headline and the Disagree report say "best play", never "fine"', () => {
   const sess = new Session({ seed: 7, samples: 120 });
   const rng = makeRng(12);
-  for (let h = 0; h < 40; h++) {
+  // 60 hands: the stand-in plays the tag profile, which opponent changes move (a sample, not a rate)
+  for (let h = 0; h < 60; h++) {
     sess.freshStack();
     sess.startPlayable();
     let guard = 0;
@@ -31,7 +32,7 @@ test('best play: the stored headline and the Disagree report say "best play", ne
     }
   }
   const best = sess.decisions.filter((d) => isBestPlay(d.verdict, d));
-  assert.ok(best.length >= 3, `only ${best.length} best plays in 40 hands`);
+  assert.ok(best.length >= 3, `only ${best.length} best plays in 60 hands`);
   for (const d of best) {
     assert.match(d.headline, /: best play\./, d.headline);
     assert.doesNotMatch(d.headline, /fine|rates about the same/, d.headline);

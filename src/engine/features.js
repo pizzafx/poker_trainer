@@ -231,6 +231,7 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
   let straightDraw = 0;
   let outs = 0;
   let drawOuts = 0; // flush and straight outs only (STRAT P4-2): what makes a hand a draw
+  let overOuts = 0; // overcards to the board, 1.5 outs each (counted in outs; a pure draw's status band)
   if (board.length < 5) {
     if (cat < CATEGORY.FLUSH) {
       for (let s = 0; s < 4; s++) {
@@ -272,8 +273,8 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
     }
     if (tier <= TIER.HIGH_CARD) {
       const top = boardRanksDesc[0];
-      if (h1 > top) outs += 1.5;
-      if (h2 > top) outs += 1.5;
+      if (h1 > top) (outs += 1.5), (overOuts += 1.5);
+      if (h2 > top) (outs += 1.5), (overOuts += 1.5);
     } else if (cat === CATEGORY.PAIR && tier <= TIER.TOP_PAIR_GOOD && tier >= TIER.WEAK_PAIR) {
       outs += h1 === h2 ? 2 : 3; // improve to set / two pair or trips (discounted)
     }
@@ -282,8 +283,9 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
   const drawEquity = Math.min(0.6, outs * perCard);
   // the draw's own equity: flush and straight outs, with the same overlap and tainted-outs discounts
   const ownDrawEquity = Math.min(0.6, drawOuts * perCard);
+  const overEquity = overOuts * perCard;
 
-  return { tier, strength, raw, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, nutFlush };
+  return { tier, strength, raw, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, overEquity, nutFlush };
 }
 
 export function describeHand(f, board) {

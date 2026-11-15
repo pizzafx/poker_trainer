@@ -251,7 +251,7 @@ function preflopSizes(ctx, P, premium) {
   }
   // Only value raises (or short stacks) turn into shoves at 40% of the stack; others at 65%.
   // non-premium 4-bets keep their normal size when deep (POOL G2)
-  const commit = (!premium && ctx.effBB > 40 ? (ctx.raises >= 2 ? 0.95 : 0.65) : 0.4) * ctx.maxTo;
+  const commit = (!premium && ctx.effBB > 40 ? (ctx.raises >= 2 ? 0.45 : 0.65) : 0.4) * ctx.maxTo; // POOL batch 3, G4: a 4-bet past 45% of the stack is a shove
   if (normal >= commit) normal = ctx.maxTo;
   if (big >= commit) big = ctx.maxTo;
   normal = clamp(normal, ctx.minTo, ctx.maxTo);
@@ -296,6 +296,8 @@ export function preflopPolicy(ctx, P, cls) {
     if (ctx.toCall >= 0.35 * (ctx.stack + ctx.myBet)) width = Math.min(width, P.stackOff * depth * 2);
     call = (1 - raise) * inTop(Math.max(pp, rp, sp), width);
     call = Math.max(call, 0.5 * P.anyTwo * (1 - raise)); // A7: and call one raise half as often
+    // set-mining (POOL HX1, Nov 2026). Facing one cheap raise (at most 7% of the effective stack), small and middle pairs call.
+    if (P.setMine && classInfo(cls).pair && ctx.toCall <= 0.07 * Math.min(ctx.stack + ctx.myBet, ctx.effAggBB * ctx.bb)) call = Math.max(call, P.setMine * (1 - raise));
   } else {
     // Facing a 3-bet or more.
     const mix = 0.5 * (rp + pp);
@@ -311,6 +313,8 @@ export function preflopPolicy(ctx, P, cls) {
       const go = inTop(sp, w);
       raise = go * 0.6;
       call = go * 0.4;
+      // POOL batch 4 (with PRO): deep, facing a big 3-bet (not all-in), solid regulars rarely jam a non-premium hand; the rest folds
+      if (P.deepJamCap != null && ctx.raises === 2 && !ctx.aggAllIn && ctx.effBB > 40 && sp <= 0.972) raise = Math.min(raise, P.deepJamCap);
       // facing an all-in, the price comes first: under 15% needed is a call with anything, tapering out by 25% (POOL G1)
       if (ctx.aggAllIn) {
         const wP = clamp((0.25 - ctx.odds) / 0.1, 0, 1);
@@ -320,7 +324,9 @@ export function preflopPolicy(ctx, P, cls) {
       const rw = P.fourBet * depth * (cold ? 0.7 : 1);
       const value = inTop(sp, rw);
       const inBand = sp < 1 - rw && sp > 1 - rw - 0.05;
-      raise = value + (1 - value) * (inBand ? P.fourBetBluff : 0);
+      // POOL batch 3, G4: deep, a bluff 4-bet that would be more than 45% of the stack is dropped (call or fold instead)
+      const bluffOK = ctx.effBB <= 40 || roundChips(ctx.currentBet * 2.4) < 0.45 * ctx.maxTo;
+      raise = value + (1 - value) * (inBand && bluffOK ? P.fourBetBluff : 0);
       if (ctx.iRaised && ctx.raises === 2 && P.tbCont) {
         // 3-bet continue (POOL): the opener continues a share of its OWN opening range, by its
         // position, the 3-bet's size, being out of position, and callers squeezed.
@@ -341,7 +347,7 @@ export function preflopPolicy(ctx, P, cls) {
     }
     // A1 (POOL, Nov 2026): a limp-reraise is about the strongest thing anyone does at these tables
     // (kings or aces, queens, ace-king): everything but the very top of a range gets out.
-    if (ctx.limpReraise && sp < 0.985) {
+    if (ctx.limpReraise && sp < 0.985 && !(ctx.aggAllIn && ctx.odds < 0.25)) { // POOL batch 3, G1r: not against a cheap limp-shove
       call *= 0.4;
       raise *= 0.3;
     }
@@ -350,6 +356,11 @@ export function preflopPolicy(ctx, P, cls) {
       const k = clamp(0.4 + 1.2 * ctx.villain.aggro, 0.35, 1.3);
       call *= k;
       if (sp < 0.985) raise *= k;
+    }
+    // POOL batch 3, G1r: the all-in price floor comes after the limp-reraise and read discounts
+    if (ctx.aggAllIn) {
+      const wP = clamp((0.25 - ctx.odds) / 0.1, 0, 1);
+      if (wP > 0) call = Math.max(call, wP * (1 - raise));
     }
   }
 
@@ -528,7 +539,7 @@ export function postflopPolicy(ctx, P, f) {
   const raiseThr = P.raiseValue[st] + (facingRaise ? 0.07 : 0) + Math.max(0, respect) * 0.5;
 
   let pRaiseV = soft(S, raiseThr, 0.03);
-  if (st < 2) pRaiseV *= 1 - P.slowplay;
+  if (st < 2) pRaiseV *= 1 - (P.slowplayFacing != null ? P.slowplayFacing : P.slowplay); // passive types (POOL HX2) flat their monsters more facing a bet
   // Many players call on "I have a pair" without discounting for a scary board.
   const Sc = S + P.textureBlind * (f.raw - S);
   let pCont = soft(Sc, callThr, 0.035);

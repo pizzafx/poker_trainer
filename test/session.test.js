@@ -64,6 +64,12 @@ test('grading: verdicts are consistent with their own numbers', () => {
     assert.ok(v.mine >= 0 && v.mine < v.options.length);
     const fold = v.options.find((o) => o.type === 'fold');
     if (fold) assert.equal(fold.ev, 0, 'folding is worth exactly zero');
+    if (v.rule === 'strongLimp') {
+      // the owner's rule (STRAT L-S1): yellow whatever the gap, measured against the best raise
+      assert.equal(v.grade, 'mistake');
+      assert.ok(Math.abs(v.loss - Math.max(0, v.options[v.best].ev - v.options[v.mine].ev)) < 1e-6, 'strong-limp loss is the raise gap, never below zero');
+      continue;
+    }
     if (v.grade !== 'good') {
       assert.notEqual(v.best, v.mine, 'a flagged play is not the best option');
       assert.ok(v.loss > 0);
@@ -121,7 +127,11 @@ test('cost shown: whole dollars, equal to the gap between the rounded values, an
     }
     assert.ok(Number.isInteger(d.cost), `cost ${d.cost} is whole dollars`);
     const gap = Math.round(v.options[v.best].ev) - Math.round(v.options[v.mine].ev);
-    if (v.priceCap !== undefined && gap > Math.round(v.priceCap)) {
+    if (v.rule === 'strongLimp') {
+      // no figure when raising does not score more (STRAT L-S1)
+      assert.equal(d.cost, Math.max(0, gap));
+      assert.ok(d.headline.startsWith('Mistake: limping '), d.headline);
+    } else if (v.priceCap !== undefined && gap > Math.round(v.priceCap)) {
       // a call against a fold after the flop: at most its price, and the headline says so (STRAT G4)
       assert.equal(d.cost, Math.round(v.priceCap));
       assert.ok(d.headline.includes('costs up to its price compared'), d.headline);

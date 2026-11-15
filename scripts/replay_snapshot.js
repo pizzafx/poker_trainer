@@ -146,9 +146,9 @@ export function rebuild(recIn, { samples } = {}) {
   // read and move the hand's start back by that evidence.
   for (let i = 1; i < n; i++) {
     const row = t.seats[i];
-    if (Array.isArray(row.logP) && row.logP.length === T && Array.isArray(row.handStart)) {
+    if (Array.isArray(row.logP) && row.logP.length === T) {
       reads[i].logP.set(row.logP);
-      reads[i].handStart.set(row.handStart);
+      reads[i].handStart.set(Array.isArray(row.handStart) ? row.handStart : row.logP); // no handStart: unchanged this hand
       continue;
     }
     for (let k = 0; k < T; k++) {

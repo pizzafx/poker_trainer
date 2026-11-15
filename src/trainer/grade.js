@@ -897,8 +897,12 @@ export function anchorStatus(o, v, hf, opp) {
   }
   if (o.type === 'call') {
     if (A.Q === undefined) return null;
-    // a pure draw: its own outs against the price
-    if (isRealDraw(hf) && hf.tier <= TIER.HIGH_CARD) return ownDraw(hf) >= A.price ? 'works' : 'fails';
+    // a pure draw: its own outs against the price; short of it, overcards that may be good too make it
+    // close ("even"), never "works" (MATH and STRAT, pass 6 watch item). callQ, G4 and A4 are unchanged.
+    if (isRealDraw(hf) && hf.tier <= TIER.HIGH_CARD) {
+      if (ownDraw(hf) >= A.price) return 'works';
+      return ownDraw(hf) + (hf.overEquity || 0) >= A.price ? 'even' : 'fails';
+    }
     // a made hand (or a weak or middle pair plus a real draw, combined), with the made-hand tolerance
     const q = callQ(v, hf);
     const combined = isRealDraw(hf) && hf.tier >= TIER.WEAK_PAIR && hf.tier <= TIER.MIDDLE_PAIR;

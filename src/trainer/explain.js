@@ -269,13 +269,22 @@ const LINE8A = 'Close. The price is right for a call, but the bets still to come
 const LINE8B = 'Close. A raise with another player in the pot is usually a strong hand. Calling and folding are both reasonable; nothing here is graded.';
 const LINE9 = 'Bigger bets score higher only because these opponents call any size. Use half to three-quarters of the pot; bigger is not required.';
 
+// "an ace or a king": your hole cards above the board's top card, in words
+const RANK_WORD = { A: 'an ace', K: 'a king', Q: 'a queen', J: 'a jack', T: 'a ten', 9: 'a nine', 8: 'an eight', 7: 'a seven', 6: 'a six', 5: 'a five', 4: 'a four', 3: 'a three' };
+function overcardWords(d) {
+  if (!d.hole || !d.board || !d.board.length) return null;
+  const top = Math.max(...d.board.map((c) => c >> 2));
+  const over = [...new Set(d.hole.filter((c) => c >> 2 > top).sort((a, b) => b - a).map((c) => '23456789TJQKA'[c >> 2]))];
+  return over.length ? over.map((r) => RANK_WORD[r]).join(' or ') : null;
+}
+
 export function anchorLine(d) {
   const v = d.verdict;
   if (!v.line || !v.anchors || v.mine < 0) return null;
   if (v.line === '8a') return LINE8A;
   if (v.line === '8b') return LINE8B;
   if (v.line === '9') return LINE9;
-  const hf = { tier: d.tier ?? 0, drawEquity: d.drawEquity ?? 0, ownDrawEquity: d.ownDrawEquity ?? d.drawEquity ?? 0, realDraw: !!d.realDraw };
+  const hf = { tier: d.tier ?? 0, drawEquity: d.drawEquity ?? 0, ownDrawEquity: d.ownDrawEquity ?? d.drawEquity ?? 0, overEquity: d.overEquity ?? 0, realDraw: !!d.realDraw };
   const opp = d.opponents || 1;
   const st = (o) => o.st ?? anchorStatus(o, v, hf, opp); // grading's own classification (QA E1)
   const river = d.street === STREET.RIVER;
@@ -343,8 +352,12 @@ export function anchorLine(d) {
     const need = share(A.price, false);
     const tail = s === 'works' ? '. Call.' : s === 'even' ? ': close.' : '. Not at this price.';
     if (isRealDraw(hf) && hf.tier <= TIER.HIGH_CARD) {
-      // a pure draw: its own chance to come in, against the price (STRAT P4-2)
-      line = `Your draw comes in ${often(hf.ownDrawEquity)} and the price needs ${need}${tail}`;
+      // a pure draw: its own chance to come in, against the price (STRAT P4-2); when only overcards make it
+      // close, name them (pass 6 watch item)
+      const overs = s === 'even' && hf.ownDrawEquity < A.price ? overcardWords(d) : null;
+      line = overs
+        ? `Your draw comes in ${often(hf.ownDrawEquity)}; ${overs} may be good too. The price needs ${need}: close.`
+        : `Your draw comes in ${often(hf.ownDrawEquity)} and the price needs ${need}${tail}`;
     } else if (isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR) {
       // a weak or middle pair plus a real draw: both (STRAT P4-2); top pair or better reads as a made hand
       line = `You are ${aheadP(A.Q, river ? '' : ' now')} and your draw comes in ${often(hf.ownDrawEquity)}; the price needs ${need}${tail}`;

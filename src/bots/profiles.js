@@ -41,6 +41,9 @@ const BASE = {
   pairStab: 0, // checked to on the flop or turn: share of weak and middle pairs that bet (POOL pass 3)
   passiveRaiseMult: null, // passive types: bluff and semi-bluff raises times this (null: off)
   passiveDrawRaiseMult: null, // ...and this for draws with 30% equity or more on the flop and turn
+  setMine: 0, // facing one cheap raise (7% of the effective stack or less), pairs call at least this share (POOL HX1)
+  slowplayFacing: null, // facing a bet on the flop or turn, monsters flat this share instead of slowplay (POOL HX2; null: slowplay)
+  deepJamCap: null, // deep, facing a big 3-bet that is not all-in, non-premium jams capped at this (POOL batch 4)
   fourBet: 0.008,
   fourBetBluff: 0,
   stackOff: 0.012, // share of hands willing to get all-in preflop at 100 big blinds
@@ -163,6 +166,7 @@ const DEFS = {
     mwCallTighten: 0.25, // POOL M, Nov 2026 (was the shared default)
     mwRaiseCut: 0.85, // POOL M, Nov 2026 (was the shared default)
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
+    setMine: 0.7, // POOL HX / batch 4 (Nov 2026)
   },
   abc: {
     tbCont: [0.8, 0.68], // POOL opponent package (Nov 2026)
@@ -214,6 +218,8 @@ const DEFS = {
     pairStab: 0.2, // POOL batch 2 / pass 3 (Nov 2026)
     passiveRaiseMult: 0.4, // POOL batch 2 / pass 3 (Nov 2026)
     passiveDrawRaiseMult: 0.6, // POOL batch 2 / pass 3 (Nov 2026)
+    setMine: 0.9, // POOL HX / batch 4 (Nov 2026)
+    slowplayFacing: 0.5, // POOL HX / batch 4 (Nov 2026)
   },
   station: {
     blockBet: 0.12, // POOL opponent package (Nov 2026)
@@ -280,6 +286,8 @@ const DEFS = {
     pairStab: 0.35, // POOL batch 2 / pass 3 (Nov 2026)
     passiveRaiseMult: 0.4, // POOL batch 2 / pass 3 (Nov 2026)
     passiveDrawRaiseMult: 0.6, // POOL batch 2 / pass 3 (Nov 2026)
+    setMine: 1, // POOL HX / batch 4 (Nov 2026)
+    slowplayFacing: 0.65, // POOL HX / batch 4 (Nov 2026)
   },
   whale: {
     blockBet: 0.08, // POOL opponent package (Nov 2026)
@@ -345,6 +353,8 @@ const DEFS = {
     ledRaiseRespect: 0.1, // POOL M, Nov 2026 (was the shared default)
     leadBluffMult: 0.5, // POOL M, Nov 2026 (was the shared default)
     pairStab: 0.38, // POOL batch 2 / pass 3 (Nov 2026)
+    setMine: 1, // POOL HX / batch 4 (Nov 2026)
+    slowplayFacing: 0.4, // POOL HX / batch 4 (Nov 2026)
   },
   maniac: {
     tbCont: [0.75, 0.65], // POOL opponent package (Nov 2026)
@@ -457,6 +467,7 @@ const DEFS = {
     mwCallTighten: 0.25, // POOL M, Nov 2026 (was the shared default)
     mwRaiseCut: 0.6, // POOL M, Nov 2026 (was the shared default)
     mwTrap3: [0.4, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
+    deepJamCap: 0.1, // POOL HX / batch 4 (Nov 2026)
   },
   tag: {
     tbCont: [0.6, 0.45], // POOL opponent package (Nov 2026)
@@ -511,6 +522,7 @@ const DEFS = {
     mwCallTighten: 0.25, // POOL M, Nov 2026 (was the shared default)
     mwRaiseCut: 0.85, // POOL M, Nov 2026 (was the shared default)
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
+    deepJamCap: 0.1, // POOL HX / batch 4 (Nov 2026)
   },
   lag: {
     tbCont: [0.55, 0.5], // POOL opponent package (Nov 2026)
@@ -633,6 +645,8 @@ const DEFS = {
     pairStab: 0.3, // POOL batch 2 / pass 3 (Nov 2026)
     passiveRaiseMult: 0.4, // POOL batch 2 / pass 3 (Nov 2026)
     passiveDrawRaiseMult: 0.6, // POOL batch 2 / pass 3 (Nov 2026)
+    setMine: 0.9, // POOL HX / batch 4 (Nov 2026)
+    slowplayFacing: 0.55, // POOL HX / batch 4 (Nov 2026)
   },
 };
 

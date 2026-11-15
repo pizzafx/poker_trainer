@@ -36,7 +36,9 @@ test('replay: recorded hands rebuild exactly, ranges included', () => {
   let compared = 0;
   for (const { rec, snaps } of hands) {
     const json = JSON.stringify(rec);
-    assert.ok(json.length < 60000, `record is ${json.length} bytes`);
+    // flagged decisions keep a snapshot with each opponent's read, for an exact replay (scripts/replay_snapshot.js):
+    // this test's random trainee is flagged often, so its biggest hands run to about 60 KB
+    assert.ok(json.length < 75000, `record is ${json.length} bytes`);
     const back = JSON.parse(json); // what storage gives back
     const { steps, final } = replayHand(back);
     assert.deepEqual(final.stacks, rec.startStacks.map((x, i) => x + rec.result.net[i]), `hand ${rec.no}: stacks`);

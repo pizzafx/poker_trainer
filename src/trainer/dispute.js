@@ -40,8 +40,9 @@ export function snapshotDecision(sess, s, judgeOpts) {
       const lp = p.read && p.read.logP;
       if (lp) {
         const top = Math.max(...lp);
-        row.logP = Array.from(lp, (x) => +(x - top).toFixed(6));
-        row.handStart = Array.from(p.read.handStart, (x) => +(x - top).toFixed(6));
+        row.logP = Array.from(lp, (x) => +(x - top).toFixed(4));
+        const hs = Array.from(p.read.handStart, (x) => +(x - top).toFixed(4));
+        if (hs.some((x, k) => x !== row.logP[k])) row.handStart = hs; // left out when nothing changed this hand (size)
       }
       row.observed = { hands: r.notes.hands, vpip: r.notes.vpip, pfr: r.notes.pfr, showdowns: r.notes.showdowns.length };
       if (r.steaming) row.steaming = true;

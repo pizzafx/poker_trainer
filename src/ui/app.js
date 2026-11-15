@@ -541,7 +541,7 @@ function tendencies(p) {
     `Before the flop ${style}`,
   ];
   const sd = n.showdowns[0];
-  if (sd) lines.push(`Last shown: ${holeOrder(sd.cards).map((c) => RANKS[c >> 2] + SUIT_SYM[c & 3]).join(' ')} (${sd.won ? 'won' : 'lost'})`);
+  if (sd) lines.push(`Last shown: ${holeOrder(sd.cards).map((c) => rankText(c) + SUIT_SYM[c & 3]).join(' ')} (${sd.won ? 'won' : 'lost'})`);
   if (p.steaming) lines.push('Steaming after a big loss');
   return lines;
 }
@@ -612,15 +612,18 @@ function renderActions() {
     }
     const verb = s.currentBet === 0 ? 'Bet' : 'Raise to';
     // Every chip is one short word or amount; the exact amount, and whom an all-in covers, are in
-    // the title and the accessible name ("All-in: $158 puts Jersey all in").
-    const short = (l) => (!PHONE.matches ? l : l.replace(' of stacks', ' stack'));
-    const chipTitle = (l, v, title, seat) =>
-      l === 'All-in' ? (seat >= 0 ? `All-in: $${v} puts ${sess.seats[seat].nick} all in` : `All-in: $${v}, your whole stack`) : title ? `${title}: $${v}` : `$${v}`;
+    // the title and the accessible name ("All-in: $158 puts Jersey all in"). Against a short stack the
+    // chips are dollars with the fraction as a small hint ("$19 ⅓"); the all-in shows its amount on
+    // desktop (Addendum D2).
+    const whose = (seat) => (seat >= 0 ? `${sess.seats[seat].nick}'s stack` : 'your stack');
+    const chipTitle = (l, v, title, seat, hint) =>
+      l === 'All-in' ? (seat >= 0 ? `All-in: $${v} puts ${sess.seats[seat].nick} all in` : `All-in: $${v}, your whole stack`) : hint ? `$${v}: ${title} ${whose(seat)}` : title ? `${title}: $${v}` : `$${v}`;
+    const chipLabel = (l, v, hint) => (hint ? `$${v}<small class="frac">${hint}</small>` : l === 'All-in' && !PHONE.matches ? `All-in $${v}` : esc(l));
     const pre = L.canRaise
       ? presets(L, s)
-          .map(([l, v, title, seat]) => {
-            const t = esc(chipTitle(l, v, title, seat));
-            return `<button data-to="${v}" title="${t}" aria-label="${t}">${short(l)}</button>`;
+          .map(([l, v, title, seat, hint]) => {
+            const t = esc(chipTitle(l, v, title, seat, hint));
+            return `<button data-to="${v}" title="${t}" aria-label="${t}">${chipLabel(l, v, hint)}</button>`;
           })
           .join('')
       : '';
@@ -744,9 +747,15 @@ function fbCard(d, showWhere = true) {
     .map((o, i) => `<tr class="${i === v.best ? 'best' : ''} ${i === v.mine ? 'mine' : ''}"><td>${esc(o.label)}${refTag(v, i)}${o.close && i !== v.best ? ' <span class="approx" title="Too close to the best option to tell apart">≈</span>' : ''}</td><td>${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</td></tr>`)
     .join('');
   const best = isBest(d);
-  return `<div class="fb ${v.grade}${best ? ' best' : ''}">${where}
+  // not graded: the mark, only the verdict in bold, a grey chip, then the rest of the sentence as body (Addendum D1)
+  const ng = isNg(d);
+  const ngSplit = ng ? (d.headline || '').match(/^(.*?: not graded\.)\s*(.*)$/) : null;
+  const head = ng
+    ? `<div class="head ng-head">${markHtml(d)}<b>${esc(ngSplit ? ngSplit[1] : d.headline)}</b> <span class="ng-chip">${v.note === 'closeCall' ? 'too close to call' : 'depends on the read'}</span></div>${ngSplit && ngSplit[2] ? `<p class="ng-body">${esc(ngSplit[2])}</p>` : ''}`
+    : `<div class="head">${esc(bestHeadline(v, d) || d.headline)}</div>`;
+  return `<div class="fb ${v.grade}${ng ? ' ng' : ''}${best ? ' best' : ''}">${where}
     ${best ? `<div class="fb-best"><span class="vmark good best" aria-hidden="true">${MARK.good}</span><span class="g bp-word">Best play</span></div>` : ''}
-    <div class="head">${esc(bestHeadline(v, d) || d.headline)}</div>
+    ${head}
     ${best ? bestEdgeLine(d) : ''}
     ${anchorHtml(d)}
     ${tipLine(d)}
@@ -924,11 +933,12 @@ function stripHtml(show, { worst, prev }) {
   const cost = g === 'good' ? 0 : shownCost(v);
   const tipFn = g === 'good' && show.tipKind ? STRIP_TIP[show.tipKind] : null;
   const tip = g === 'good' && show.tipKind ? (tipFn && v.tip ? tipFn(v.tip) : 'Tip') : '';
-  const note = g === 'good' && !tip && v.note ? 'note' : '';
-  const cls = ['cs', g === 'mistake' ? 'warn' : g === 'blunder' ? 'bad' : '', best ? 'best' : '', sheen ? 'pop' : '', tip ? 'tip' : '', note ? 'note' : '', prev ? 'prev' : ''].filter(Boolean).join(' ');
+  const ng = isNg(show);
+  const note = g === 'good' && !tip && !ng && v.note ? 'note' : '';
+  const cls = ['cs', g === 'mistake' ? 'warn' : g === 'blunder' ? 'bad' : '', ng ? 'ng' : '', best ? 'best' : '', sheen ? 'pop' : '', tip ? 'tip' : '', note ? 'note' : '', prev ? 'prev' : ''].filter(Boolean).join(' ');
   const st = worst ? `Worst<span class="st-x"> · ${esc(show.streetName)}</span>` : esc(show.streetName);
-  const go = g !== 'good' ? 'Why ›' : tip || note ? '›' : 'Details ›';
-  return `<button type="button" class="${cls}" id="toast-open"><span class="st">${st}</span><span class="vmark ${g}${best ? ' best' : ''}" aria-hidden="true">${MARK[g]}</span>
+  const go = g !== 'good' || ng ? 'Why ›' : tip || note ? '›' : 'Details ›';
+  return `<button type="button" class="${cls}" id="toast-open"><span class="st">${st}</span>${markHtml(show)}
     <span class="main"><span class="act">${esc(mine.label.replace(/\s*\([^)]*\)\s*$/, ''))}</span><span class="rest"><span class="gw"> · <span class="g${best ? ' bp-word' : ''}">${word}</span></span>${cost ? ` <span class="cost">−$${cost}</span>` : ''}${tip ? ` <span class="gw2">·</span> <span class="tipx">${esc(tip)}</span>` : ''}${note ? ` · <span class="tipx">note</span>` : ''}</span></span>
     <span class="go">${go}</span></button>`;
 }
@@ -1270,10 +1280,15 @@ const MARK = { good: '✓', mistake: '!', blunder: '✕' };
 // Best play (header design, Addendum B): a ringed check and "best play" in caps, only when
 // bestPlayEdge (trainer/best.js, STRAT's rule) says the play was clearly the best. Display only.
 const isBest = (d) => !!d && !!bestPlayEdge(d.verdict, d);
+// "Not graded" (unclear, closeCall) has its own neutral mark: a hollow grey ring with a dash, never the
+// green check (Addendum D1).
+const isNg = (d) => !!d && d.verdict.grade === 'good' && notGraded(d.verdict);
 const markHtml = (d, cls = 'vmark') => {
   const g = d.verdict.grade;
+  if (isNg(d)) return `<span class="${cls} ng" aria-hidden="true">–</span>`;
   return `<span class="${cls} ${g}${isBest(d) ? ' best' : ''}" aria-hidden="true">${MARK[g]}</span>`;
 };
+const gradeCls = (d) => `${d.verdict.grade}${isNg(d) ? ' ng' : ''}${isBest(d) ? ' best' : ''}`;
 const gradeWord = (d) => verdictWord(d.verdict, d);
 const bestEdgeLine = (d) => {
   const e = bestPlayEdge(d.verdict, d);
@@ -1314,13 +1329,13 @@ function openReview(stored = false) {
     <div><span class="label">Your hand</span>${cardsInline(holeOrder(s.hole[HERO]))}</div>
     ${s.board.length ? `<div><span class="label">Board</span>${cardsInline(s.board)}</div>` : ''}
     ${shown.map((i) => `<div><span class="label">${esc(sess.seats[i].nick)} showed</span>${cardsInline(holeOrder(s.hole[i]))}</div>`).join('')}
-    ${wins.length ? `<p class="rv-vs">${esc(wins.join('. '))}.</p>` : ''}
+    ${wins.length ? `<p class="rv-vs">${esc(suitText(wins.join('. ')))}.</p>` : ''}
   </div>`;
   const firstFlag = ds.find((d) => d.verdict.grade !== 'good');
   const rows = ds.map((d) => {
     const v = d.verdict;
     const mine = v.options[v.mine];
-    const head = `<span class="label">${STREET_LABEL[d.street] || d.streetName}</span>${markHtml(d)}<span class="what">${esc(mine ? mine.label : '')}</span><span class="grade ${v.grade}${isBest(d) ? ' best' : ''}">${gradeWord(d)}</span>`;
+    const head = `<span class="label">${STREET_LABEL[d.street] || d.streetName}</span>${markHtml(d)}<span class="what">${esc(mine ? mine.label : '')}</span><span class="grade ${gradeCls(d)}">${gradeWord(d)}</span>`;
     const link = rec ? `<button type="button" class="link-btn rv-replay" data-replay-dec="${ds.indexOf(d)}">▶ replay</button>` : '';
     if (v.grade === 'good') return `<div class="rv-step${isBest(d) ? ' best' : ''}">${head}${link}</div>${tipLine(d, 'tip-line rv-tip')}${noteLine(d, 'tip-line rv-tip rv-note')}${anchorHtml(d)}`;
     const evs = v.options.map((o) => o.ev);
@@ -1875,7 +1890,7 @@ function openGameModal({ tab = 'game', group = null } = {}) {
   const deckTiles = () =>
     `<div class="cs-picker" role="radiogroup" aria-labelledby="cs-lab">${DECKS.map(([l, c], i) => {
       const on = settings.cardLayout === l && settings.cardColour === c;
-      return `<button type="button" class="cstile" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" data-i="${i}" aria-label="${deckName(l, c)}"><span class="swatch pv${l === 'split' ? ' deck-split' : ''}${c === 'white' ? ' deck-white' : ''}"><span class="pv-cards">${cardHtml(12 * 4 + 2)}${cardHtml(11 * 4 + 1)}</span></span><span class="nm">${l === 'split' ? 'Split' : 'Classic'} <small>· ${c === 'white' ? 'White' : 'Coloured'}</small>${i === 0 ? '<span class="def">default</span>' : ''}</span></button>`;
+      return `<button type="button" class="cstile" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" data-i="${i}" aria-label="${deckName(l, c)}"><span class="swatch pv${l === 'split' ? ' deck-split' : ''}${c === 'white' ? ' deck-white' : ''}"><span class="pv-cards">${cardHtml(12 * 4 + 2)}${cardHtml(11 * 4 + 1)}</span></span><span class="nm">${l === 'split' ? 'Split' : 'Classic'} <small>· ${c === 'white' ? 'White' : 'Coloured'}</small></span>${i === 0 ? '<span class="def">default</span>' : ''}</button>`;
     }).join('')}</div>`;
   const seg = (id, items, cur) => `<div class="seg" role="radiogroup" data-for="${id}">${items.map(([v, l]) => `<button type="button" role="radio" data-v="${v}" aria-checked="${v === cur}" class="${v === cur ? 'on' : ''}">${l}</button>`).join('')}</div><input type="hidden" id="${id}" value="${cur}">`;
   const toggle = (id, on, label) => `<label class="trow" for="${id}"><span>${label}</span><input id="${id}" type="checkbox" class="toggle" ${on ? 'checked' : ''}></label>`;
@@ -2672,7 +2687,7 @@ let lastRecord = null; // the hand just finished at the table, for "Replay this 
 let liveSess = null; // the live session while the replayer stands in for it
 
 // card names in running text: "K♠ 7♣ 2♣"
-const frameText = () => (cs) => cs.map((c) => RANKS[c >> 2] + SUIT_SYM[c & 3]).join(' ');
+const frameText = () => (cs) => cs.map((c) => rankText(c) + SUIT_SYM[c & 3]).join(' ');
 
 function replaySession(rec, i) {
   const f = RP.frames[i];
@@ -2954,7 +2969,7 @@ function renderReplayDock() {
     const html = dots.map(([g, j]) => {
       const dd = g.decision >= 0 ? rec.decisions[g.decision] : null;
       const facing = g.kind === 'action' && g.seat !== HERO && (g.action.type === 'bet' || g.action.type === 'raise') && !g.state.folded[HERO];
-      const cls = ['dot', dd ? `me ${dd.verdict.grade}${dd.tipKind ? ' tip' : ''}${isBest(dd) ? ' best' : ''}` : '', facing ? 'facing' : '', j < k ? 'past' : '', j === k ? 'now' : ''].filter(Boolean).join(' ');
+      const cls = ['dot', dd ? `me ${dd.verdict.grade}${isNg(dd) ? ' ng' : ''}${dd.tipKind ? ' tip' : ''}${isBest(dd) ? ' best' : ''}` : '', facing ? 'facing' : '', j < k ? 'past' : '', j === k ? 'now' : ''].filter(Boolean).join(' ');
       return `<button type="button" class="${cls}" data-go="${j}" aria-label="${esc(actionWords(rec, g))}" title="${esc(actionWords(rec, g))}"></button>`;
     }).join('');
     const first = dots.length ? dots[0][1] : -1;
@@ -3015,7 +3030,7 @@ function renderReplayCoach() {
     const d = rec.decisions[f.decision];
     const v = d.verdict;
     const mine = v.options[v.mine];
-    const head = `<div class="rp-card-head">${markHtml(d)}<div><b>${esc(mine ? mine.label : '')}</b><small>${esc(actionSub(rec, f, RP.i))}</small></div><span class="grade ${v.grade}${isBest(d) ? ' best' : ''}">${gradeWord(d)}</span></div>`;
+    const head = `<div class="rp-card-head">${markHtml(d)}<div><b>${esc(mine ? mine.label : '')}</b><small>${esc(actionSub(rec, f, RP.i))}</small></div><span class="grade ${gradeCls(d)}">${gradeWord(d)}</span></div>`;
     if (v.grade !== 'good') {
       html = `<div class="rp-card ${v.grade}">${head}<div class="rv-body">${flagBlock(d)}
         <div class="rv-acts">${d.villain ? `<button type="button" class="btn small" data-rseat="${d.villain.seat}">See ${esc(d.villain.nick)}'s range</button>` : ''}${d.category && DRILLS[d.category] ? `<button type="button" class="btn small" data-drill="${d.category}">Drill this leak</button>` : ''}${d.snapshot ? '<button type="button" class="btn small quiet" data-rdispute="1">Disagree?</button>' : ''}</div></div></div>`;
@@ -3098,7 +3113,7 @@ function renderReplayLog() {
       const d = rec.decisions[nth];
       return d ? markHtml(d) : '';
     })() : '';
-    lines.push(`<div class="ln ${l.kind}${l.seat === HERO && l.kind === 'act' ? ' me' : ''}${me ? ' cur' : ''}"${jump >= 0 ? ` data-go="${jump}" role="button" tabindex="0"` : ''}>${mark}${esc(l.text)}</div>`);
+    lines.push(`<div class="ln ${l.kind}${l.seat === HERO && l.kind === 'act' ? ' me' : ''}${me ? ' cur' : ''}"${jump >= 0 ? ` data-go="${jump}" role="button" tabindex="0"` : ''}>${mark}${esc(suitText(l.text))}</div>`);
   }
   if (after) lines.push(`<p class="hint">${after} more action${after === 1 ? '' : 's'} after this point.</p>`);
   $('log').innerHTML = lines.join('');
@@ -3207,6 +3222,9 @@ function handMarker(r) {
   // flag > best > tip (CEO, Nov 2026)
   const nb = r.decisions.filter(isBest).length;
   if (nb) return `<span class="hm best"><span class="vmark good best">${MARK.good}</span>${nb} best</span>`;
+  // nothing flagged but some not graded: grey, not counted as fine or flagged (Addendum D1); flag > best > not graded > tip
+  const ngN = r.decisions.filter(isNg).length;
+  if (ngN) return `<span class="hm ng"><span class="vmark ng">–</span>${ngN === r.decisions.length ? `${ngN} not graded` : `All fine · ${ngN} not graded`}</span>`;
   if (r.decisions.some((d) => d.tipKind)) return '<span class="hm tip">Tip</span>';
   return `<span class="hm good"><span class="vmark good">${MARK.good}</span>${r.decisions.length > 1 ? 'All fine' : 'Fine'}</span>`;
 }
@@ -3332,7 +3350,9 @@ const bbOf = (x, bb) => {
 };
 // "Ad Qh" in the engine's showdown lines, with suit symbols as everywhere else
 const SUIT_OF = { s: '♠', h: '♥', d: '♦', c: '♣' };
-const suitText = (t) => t.replace(/\b([2-9TJQKA])([shdc])\b/g, (m, r, su) => r + SUIT_OF[su]);
+// cards written as text: suit symbols, and a ten as "10" as the cards show it (QA DK5)
+const suitText = (t) => t.replace(/\b([2-9TJQKA])([shdc])\b/g, (m, r, su) => (r === 'T' ? '10' : r) + SUIT_OF[su]);
+const rankText = (c) => (RANKS[c >> 2] === 'T' ? '10' : RANKS[c >> 2]);
 
 // p: { s, seats, decisions, bb, no, position, over, net, shows, live, pending, links, current }
 function handCardHtml(p) {
@@ -3355,7 +3375,7 @@ function handCardHtml(p) {
   const verdictOf = (d) => {
     if (!d) return '';
     const g = d.verdict.grade;
-    if (g === 'good') return `<span class="hl-v good${isBest(d) ? ' best' : ''}">${markHtml(d)}${d.tipKind && !notGraded(d.verdict) ? 'fine · tip' : verdictWord(d.verdict, d)}</span>`;
+    if (g === 'good') return `<span class="hl-v good${isNg(d) ? ' ng' : ''}${isBest(d) ? ' best' : ''}">${markHtml(d)}${d.tipKind && !notGraded(d.verdict) ? 'fine · tip' : verdictWord(d.verdict, d)}</span>`;
     return `<span class="hl-v ${g}">${g === 'blunder' ? 'Blunder' : 'Mistake'} · ${money(d.cost)}${p.why ? ` <button type="button" class="link-btn hl-why" data-why="${decisions.indexOf(d)}">Why ›</button>` : ''}</span>`;
   };
   let heroN = 0;

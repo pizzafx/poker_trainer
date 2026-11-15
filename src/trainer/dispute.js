@@ -10,6 +10,8 @@ export const REPORT_VERSION = 1;
 
 const HERO = 0;
 const cards = (cs) => (cs || []).map(cardStr).join(' ');
+// the readable summary writes a ten as "10", as the cards show it (QA DK5); the report's data keeps "T"
+const tens = (t) => String(t).replace(/\bT([shdc])\b/g, '10$1');
 const pct = (x) => Math.round(x * 100);
 // Typed arrays (the range picture keeps some) become plain, rounded arrays so the report
 // survives a JSON round trip unchanged.
@@ -124,7 +126,7 @@ export function disputeText(report, summaryOnly = false) {
   if (report.player.preferred) L.push(`I would: ${report.player.preferred}`);
   if (report.player.why) L.push(`Why: ${report.player.why}`);
   L.push('');
-  L.push(`Hand ${d.hand}, ${d.street}, ${d.position}. You: ${d.hole}${d.board ? `  Board: ${d.board}` : ''}. Pot $${d.pot}${d.toCall ? `, $${d.toCall} to call` : ''}.`);
+  L.push(`Hand ${d.hand}, ${d.street}, ${d.position}. You: ${tens(d.hole)}${d.board ? `  Board: ${tens(d.board)}` : ''}. Pot $${d.pot}${d.toCall ? `, $${d.toCall} to call` : ''}.`);
   if (t) {
     L.push(`Game: ${t.game}, blinds $${t.blinds[0]}/$${t.blinds[1]}${t.straddle ? `, straddle $${t.straddle}` : ''}.`);
     const acts = t.actions.filter((a) => a.type !== 'sb' && a.type !== 'bb').map((a) => `${a.street} ${a.who} ${a.type}${a.amount ? ' $' + a.to : ''}`);
@@ -138,7 +140,7 @@ export function disputeText(report, summaryOnly = false) {
   L.push(`Verdict: ${v.word || v.grade} - ${v.headline}`);
   for (const o of v.options) L.push(`  ${o.best ? '*' : ' '} ${o.label}: ${o.ev >= 0 ? '+' : '-'}$${Math.abs(Math.round(o.ev))}${o.took ? '  <- you' : ''}${o.close && !o.best ? '  (too close to call)' : ''}`);
   L.push(`  over ${v.samples} run-outs; cost $${v.loss} +/- $${Math.round(2 * v.se)}${t ? `; judge seed ${t.judge.seed}` : ''}`);
-  if (report.truth) L.push(`After the hand: ${report.truth.players.filter((p) => p.cards).map((p) => `${p.name} was ${p.type}${p.tilt ? ' (tilted)' : ''} with ${p.cards}`).join('; ')}.`);
+  if (report.truth) L.push(`After the hand: ${report.truth.players.filter((p) => p.cards).map((p) => `${p.name} was ${p.type}${p.tilt ? ' (tilted)' : ''} with ${tens(p.cards)}`).join('; ')}.`);
   if (summaryOnly) return L.join('\n');
   L.push('');
   L.push('--- data ---');

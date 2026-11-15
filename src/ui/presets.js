@@ -1,7 +1,8 @@
 // Bet-size preset buttons for the action bar, and which size is selected by default.
 // Pure functions (no DOM) so they can be tested in Node. Each preset is [label, amount, title,
-// seat]: the title explains a label that hides arithmetic, and the last (all-in) preset names the
-// seat it covers, so the page can say whom it puts all in.
+// seat, hint]: the title explains a label that hides arithmetic, the last (all-in) preset names the
+// seat it covers, so the page can say whom it puts all in, and a stack-fraction chip carries its
+// fraction as a small hint next to its dollar amount ("$19 ⅓"; Addendum D2).
 import { STREET } from '../engine/game.js';
 
 export function presets(L, s) {
@@ -35,13 +36,14 @@ export function presets(L, s) {
   const top = Math.max(L.minTo, Math.min(L.maxTo, cover));
   const kept = out.filter(([, v]) => Math.round(v) < 0.8 * top);
   if (!kept.length && s.currentBet === 0) {
-    kept.push(['⅓ of stacks', top / 3], ['⅔ of stacks', (2 * top) / 3]);
+    const who = top >= L.maxTo ? -1 : coverSeat;
+    kept.push([null, top / 3, 'a third of', who, '⅓'], [null, (2 * top) / 3, 'two thirds of', who, '⅔']);
   }
   // One short label whatever it covers; the title says whether it is your stack or theirs.
   kept.push(['All-in', top, null, top >= L.maxTo ? -1 : coverSeat]);
-  return kept.map(([l, v, title = null, seat = -1]) => {
+  return kept.map(([l, v, title = null, seat = -1, hint = null]) => {
     const to = Math.max(L.minTo, Math.min(L.maxTo, Math.round(v)));
-    return [l ?? `$${to}`, to, title, seat];
+    return [l ?? `$${to}`, to, title, seat, hint];
   });
 }
 

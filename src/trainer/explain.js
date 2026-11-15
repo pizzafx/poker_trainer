@@ -20,6 +20,7 @@ export const CATEGORIES = {
   prePassive: 'Preflop: limping or calling when raising makes more',
   preRaise: 'Preflop: raising when calling or folding does better',
   chase: 'Chasing: calling with a draw at the wrong price',
+  strongLimp: 'Limped strong hands',
   other: 'Strong hands: raising when calling or folding did better',
 };
 
@@ -159,7 +160,8 @@ function goodHeadline(v, mine, best, d = {}) {
   const more = (o, within) => (gap(o) > bar(o) || !within ? (gap(o) > 0 ? `scores about $${gap(o)} more` : 'scores about the same') : within);
   const who = d.opponents === 1 ? 'this player' : 'these players';
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
-  if (v.rule === 'R5b') return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`; // STRAT M5c
+  // ...unless the scenario test left it not graded (R5b goes through it since P3-1): then the not-graded line
+  if (v.rule === 'R5b' && v.note !== 'unclear' && v.note !== 'closeCall') return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`; // STRAT M5c
   if (v.note === 'premium') return `${mine.label}: fine. (Raising with this hand is never a mistake.)`;
   if (v.note === 'anchorHabit' || v.note === 'anchorEven' || v.note === 'sizePeak') return `${mine.label}: fine.`;
   if (v.note === 'anchorFails') {
@@ -203,6 +205,18 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'unclear') {
     // labelled "not graded", not "fine"
     const g = gap(best);
+    // your play trails the reference by the bar on our read: say which way the read leans, and what
+    // changes it (STRAT, the owner's report, 14 Nov; invariant U1)
+    if (best !== mine && g >= bar(best) * (best.type === mine.type ? 1.6 : 1)) {
+      const flip = v.flip >= 0 ? v.options[v.flip] : null;
+      const them = d.opponents === 1 ? 'this player calls' : 'these players call';
+      const refName = best.type === 'check' ? 'a check' : best.type === 'fold' ? 'folding' : best.type === 'call' ? 'a call' : bare(best).toLowerCase();
+      if (flip && flip.type === 'raise' && flip.to !== mine.to) {
+        const big = /^All-in/.test(flip.label) || (flip.to - (d.currentBet || 0)) >= (2 / 3) * Math.max(1, v.pot);
+        return `${mine.label}: not graded. On our read ${refName} is better by about $${g}. If ${them} a little differently, a ${big ? 'big' : 'small'} ${d.toCall > 0 ? 'raise' : 'bet'} does better instead, so we don't grade it.${habitTail(v)}`;
+      }
+      return `${mine.label}: not graded. On our read ${refName} is better by about $${g}, but that changes if ${them} a little differently, so we don't grade it.${habitTail(v)}`;
+    }
     return `${mine.label}: not graded. ${g > 0 && best !== mine ? `${bare(best)} scores about $${g} more on our read; the` : 'The'} best play changes with small differences in how ${who} play${d.opponents === 1 ? 's' : ''}.${habitTail(v)}`;
   }
   if (v.note === 'checkOOP') return `${mine.label}: fine. (With several players or the preflop raiser still to act behind you, checking one pair is standard.)`;
@@ -398,8 +412,21 @@ export function explain(d) {
       anchorExtra: anchorExtra(d),
     };
   }
-  const category = categorise(d);
+  const category = v.rule === 'strongLimp' ? 'strongLimp' : categorise(d);
   const cost = shownCost(v);
+  if (v.rule === 'strongLimp') {
+    // the owner's rule (STRAT L-S1): no dollar clause when raising does not score more on our read
+    const sl = v.strongLimp || {};
+    return {
+      category,
+      headline: `Mistake: limping ${sl.name || 'this hand'}. A hand this strong should raise: limping lets the field in cheaply and gives up value.${cost > 0 ? ` Raising scores about $${cost} more on our read; a standard open is about $${sl.std}.` : ` A standard open is about $${sl.std}.`}`,
+      reasons: [],
+      theory: null,
+      cost,
+      anchor: null,
+      anchorExtra: null,
+    };
+  }
   const m = kind(mine);
   const b = kind(best);
   const word = v.grade === 'blunder' ? 'Blunder' : 'Mistake';
@@ -428,12 +455,17 @@ export function explain(d) {
   }
   if (d.street === STREET.PRE) {
     const where = d.position;
-    if (category === 'preLoose') reasons.push(`From ${where}, with the action so far, this hand loses money on average: it will often be dominated or out of position in a raked pot.`);
+    if (v.preAllIn) {
+      // facing an all-in, calling ends your betting: the price against their range (STRAT P5-1)
+      const shover = d.villain && d.villain.nick;
+      reasons.push(`Facing an all-in there is no later street: it is the price against their range. You need ${share(v.preAllIn.price)}; against what ${d.opponents >= 2 || !shover ? 'they have shown here (the all-in and the call)' : `${shover} shoves with here`} you have ${share(v.preAllIn.E)}.`);
+    } else if (v.preShove && category === 'preLoose') reasons.push(`From ${where}, against this action, this hand loses money on average: it is often dominated by what continues.`);
+    else if (category === 'preLoose') reasons.push(`From ${where}, with the action so far, this hand loses money on average: it will often be dominated or out of position in a raked pot.`);
     if (category === 'prePassive') reasons.push(`A raise here gets called by worse hands and gives you the betting lead; just calling lets everyone in cheaply against a hand that plays best against few opponents.`);
     if (category === 'preTight') reasons.push(`The players in this pot enter with weak hands and pay off after the flop, so this hand is profitable here even though it is a fold at a tougher table.`);
   }
   // The "theory would call" note only applies when the hand is strong enough that theory would.
-  let theory = THEORY[category];
+  let theory = v.preShove ? null : THEORY[category]; // no multiway or position theory with an all-in in play (STRAT P5-1)
   if (category === 'paidOff' && (d.tier === null || d.tier < TIER.TOP_PAIR_GOOD)) theory = null;
   if (category === 'overplay' && m === 'raise' && d.toCall > 0) {
     theory = 'Why theory disagrees: a raise here is meant to get called by worse or to fold out better. These players fold the hands you beat and continue with the ones that beat you, so the raise mostly gets called by better. Calling keeps their worse hands and bluffs in.';

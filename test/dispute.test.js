@@ -97,7 +97,8 @@ test('dispute issue link: prefilled, always short enough for GitHub, summary alw
       assert.match(q.get('title'), new RegExp(`^Dispute: hand ${d.hand} `));
       const body = q.get('body');
       assert.match(body, /^Trainer dispute/);
-      assert.ok(body.includes(report.decision.hole), 'cards in the body');
+      // the readable summary writes a ten as "10" (QA DK5); the data keeps "T"
+      assert.ok(body.includes(report.decision.hole.replace(/\bT([shdc])\b/g, '10$1')), 'cards in the body');
       if (body.includes('```json')) {
         const json = body.slice(body.indexOf('```json') + 7, body.lastIndexOf('```')).trim();
         assert.deepEqual(JSON.parse(json), report);

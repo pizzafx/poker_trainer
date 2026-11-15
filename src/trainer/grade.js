@@ -2,7 +2,7 @@
 // habits, and the soft tips. Pure: it needs only the hand's state, the read tracker and each
 // player's read and name, so it runs the same in Node, on the page, and in the page's judge worker.
 
-import { STREET, positionName } from '../engine/game.js';
+import { STREET, positionName, rakeFor } from '../engine/game.js';
 import { handFeatures, TIER, isRealDraw } from '../engine/features.js';
 import { classOf, classNames } from '../engine/hands.js';
 import { buildContext, POS } from '../bots/policy.js';
@@ -134,12 +134,49 @@ export function valueVsLoose(name, ctx, env) {
 }
 
 // env: { belief, readOf(seat) -> { ranked }, name(seat) -> nick }
+// Limping these is a yellow flag in every seat (owner, 14 Nov; STRAT L-S1).
+export const STRONG_LIMP = new Set(['AA', 'KK', 'QQ', 'JJ', 'TT', '99', 'AKs', 'AQs', 'AJs', 'AKo', 'AQo', 'KQs']);
+
+// Preflop with an all-in in play (STRAT P5-1): v.preShove marks it; when calling ends your betting (you
+// are all-in after the call, or every live opponent is all-in) the call is a pure showdown, so
+// v.preAllIn = { E, price }: E = (EV(call) + toCall) / P and price = toCall / P, P the pot you can win
+// after the call, net of rake.
+function preAllInFacts(v, s, ctx) {
+  if (v.mine < 0) return;
+  const mine = v.options[v.mine];
+  const live = [];
+  for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) live.push(i);
+  const oppAllIn = live.some((i) => s.allIn[i]);
+  const myShove = mine.type === 'raise' && mine.to >= s.stacks[HERO] + s.bet[HERO];
+  if (!oppAllIn && !myShove) return;
+  v.preShove = true;
+  const call = v.options.find((o) => o.type === 'call');
+  if (!call || !(ctx.toCall > 0) || !(mine.type === 'call' || mine.type === 'fold')) return;
+  const put = Math.min(ctx.toCall, s.stacks[HERO]);
+  const heroAllIn = put >= s.stacks[HERO];
+  if (!heroAllIn && !live.every((i) => s.allIn[i])) return;
+  const mineTotal = s.total[HERO] + put;
+  let P = 0;
+  let pot = 0;
+  for (let i = 0; i < s.n; i++) {
+    const t = i === HERO ? mineTotal : s.total[i];
+    P += Math.min(t, mineTotal);
+    pot += t;
+  }
+  P -= rakeFor({ ...s, sawFlop: true }, pot);
+  if (!(P > 0)) return;
+  v.preAllIn = { E: (call.ev + put) / P, price: put / P };
+}
+
 export function gradeDecision(s, belief, action, judgeOpts, env) {
   const ctx = buildContext(s);
   const verdict = judgeDecision(s, HERO, belief, action, judgeOpts);
   temper(verdict, s, ctx, action, judgeOpts, env);
+  if (s.street === STREET.PRE) preAllInFacts(verdict, s, ctx);
   let tip = null;
-  if (s.street === STREET.PRE && s.n <= 3) {
+  if (verdict.rule === 'strongLimp') {
+    // the flag replaces the limp tip (STRAT L-S1)
+  } else if (s.street === STREET.PRE && s.n <= 3) {
     // three or fewer players dealt in: the ranges and words are full-ring ones, so no range tips
     // (STRAT, QA-VERDICT N2); grading is unchanged
   } else if (s.street === STREET.PRE) {
@@ -344,6 +381,29 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
         if (v.note === 'preBluff') setPreHigher();
         return;
       }
+    }
+  }
+  // Owner, 14 Nov (STRAT L-S1): limping a strong hand preflop is a yellow flag whatever the EV gap:
+  // first in, behind limpers or completing the small blind, with 4+ players dealt in. Measured against
+  // the best raise; the shown cost is that gap, never brought up to the bar.
+  if (pre && mine.type === 'call' && ctx.raises === 0 && s.n > 3 && positionName(s, HERO) !== 'BB' && v.options.some(isRaise)) {
+    const name = classNames[classOf(s.hole[HERO][0], s.hole[HERO][1])];
+    if (STRONG_LIMP.has(name)) {
+      let br = -1;
+      v.options.forEach((o, i) => {
+        if (isRaise(o) && (br < 0 || o.ev > v.options[br].ev)) br = i;
+      });
+      const std = v.options.filter(isRaise).reduce((a, o) => Math.min(a, o.to), Infinity); // the limp tip's standard open
+      v.rule = 'strongLimp';
+      v.grade = 'mistake';
+      v.best = br;
+      v.ref = null;
+      v.sameKind = false;
+      v.loss = Math.max(0, v.options[br].ev - mine.ev);
+      v.se = 0;
+      v.strongLimp = { name, std };
+      refreshClose(v);
+      return;
     }
   }
   if (v.grade === 'good') return;
@@ -654,6 +714,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     v.ref = null;
     return;
   }
+  if (r.unclear && r.flip >= 0) v.flip = r.flip;
   return pass(r.unclear ? 'unclear' : 'fragile');
 }
 
@@ -707,12 +768,16 @@ export function robustVerdict(scen, mine, { usable, bar, significant, kind, smal
   }
   if (dom >= 1.5 * small) return { pick: -1, dominated: Math.round(dom) };
   const kinds = new Set();
+  let flip = -1; // the best option in the first scenario where the best kind changes (STRAT, the owner's report)
+  let baseKind = null;
   for (const e of scen) {
     let b = -1;
     for (let i = 0; i < e.length; i++) if (notHabit[i] && (b < 0 || e[i] > e[b])) b = i;
+    if (baseKind === null) baseKind = kind(b);
+    else if (flip < 0 && kind(b) !== baseKind) flip = b;
     kinds.add(kind(b));
   }
-  return { pick: -1, unclear: kinds.size > 1 };
+  return { pick: -1, unclear: kinds.size > 1, flip };
 }
 
 // "Thin value" stand-in for the trainee in the play-outs (MATH_MULTIWAY 2b): bets thinner, never slowplays.

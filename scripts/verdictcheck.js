@@ -22,6 +22,7 @@ import { shownCost } from '../src/trainer/explain.js';
 import { disputeReport, disputeText } from '../src/trainer/dispute.js';
 import { presetRanges, groupOf } from '../src/trainer/ranges.js';
 import { pairedGap } from '../src/trainer/judge.js';
+import { STRONG_LIMP } from '../src/trainer/grade.js';
 
 const STANDARD = presetRanges('standard');
 const LOOSE = ['maniac', 'whale', 'lag'];
@@ -77,7 +78,7 @@ export const INVARIANTS = {
     }
     return false;
   },
-  'V14 a flag never names a reference that scores no better': (d, v, m, b) => v.grade !== 'good' && b.ev <= m.ev,
+  'V14 a flag never names a reference that scores no better': (d, v, m, b) => v.grade !== 'good' && v.rule !== 'strongLimp' && b.ev <= m.ev,
   'V15 no light-re-raise wording or junk tip for a value re-raise (TT+ AJo+ ATs+ KQo KJs+) of a loose opener': (d, v, m) => d.street === STREET.PRE && (/bluff|light re-raise/.test(d.headline || '') || d.tipKind === 'junk3bet') && m.type === 'raise' && VALUE_VS_LOOSE.has(classNames[classOf(d.hole[0], d.hole[1])]) && d.villain && (() => { const t = topRead(d, d.villain.nick); return t && t.p >= 0.5 && ['maniac', 'lag', 'whale', 'beginner'].includes(t.type); })(),
   // ---- the CEO's list ----
   'C1 "scores higher" only when that play is the judge\'s best and clear of the reference': (d, v) => {
@@ -111,7 +112,8 @@ export const INVARIANTS = {
     return false;
   },
   // a dominated flag's headline names no option ("scores at least $X below the best play ... under every read"): exempt (QA-VERDICT P4-3)
-  'C5 a flag names the top option or a tagged reference': (d, v) => v.grade !== 'good' && !v.dominated && !isTop(v, v.best) && !v.ref,
+  // ...the owner's strong-limp flag stands whatever the gap (L-S1): exempt
+  'C5 a flag names the top option or a tagged reference': (d, v) => v.grade !== 'good' && !v.dominated && v.rule !== 'strongLimp' && !isTop(v, v.best) && !v.ref,
   'C6 notes never contradict the hand': (d, v) => {
     if (d.street === STREET.PRE) return false;
     if (['mwCheck', 'checkOOP'].includes(v.note) && !(d.tier >= TIER.WEAK_PAIR && d.tier <= TIER.OVERPAIR_TPTK)) return true;
@@ -152,7 +154,30 @@ export const INVARIANTS = {
   },
   'P4-2b a real draw has 14% or more from its own outs': (d) => d.street !== STREET.PRE && d.realDraw && handFeatures(d.hole, d.board).ownDrawEquity < 0.14,
   'P4-1 every postflop flag went through the scenario test': (d, v) => d.street !== STREET.PRE && v.grade !== 'good' && !(v.scenarios >= 1),
-  'P3-1a a flag never shows a cost under the yellow bar': (d, v) => v.grade !== 'good' && v.mine >= 0 && shownCost(v) < R(v.small),
+  'P3-1a a flag never shows a cost under the yellow bar': (d, v) => v.grade !== 'good' && v.rule !== 'strongLimp' && v.mine >= 0 && shownCost(v) < R(v.small),
+  // ---- the owner's strong-limp rule, the owner's "not graded" report, pass 5 ----
+  'L-S1 limping a strong hand (4+ dealt, not the BB, nobody raised) is a yellow strongLimp flag': (d, v, m) =>
+    d.street === STREET.PRE && m.type === 'call' && d.raises === 0 && d.position !== 'BB' && d.snapshot && d.snapshot.seats.length > 3 && v.options.some((o) => o.type === 'raise') &&
+    STRONG_LIMP.has(classNames[classOf(d.hole[0], d.hole[1])]) && !(v.grade === 'mistake' && v.rule === 'strongLimp'),
+  'U1 "not graded" with a base gap at or above the bar names the reference and says "better by"': (d, v, m, b) => {
+    if (v.note !== 'unclear' || b === m) return false;
+    const gap = R(b.ev) - R(m.ev);
+    return gap >= v.small * (b.type === m.type ? 1.6 : 1) && !/better by about \$\d+/.test(d.headline || '');
+  },
+  'P5-1 no "out of position" or "multiway pot" wording with an all-in in play preflop': (d, v) => d.street === STREET.PRE && v.preShove && /out of position|multiway pot/.test(text(d)),
+  'P5-1b the all-in line: "you have" at least "need" exactly when the call scores at least zero': (d, v) => {
+    const why = (d.reasons || []).join(' ');
+    const need = why.match(/You need (?:about )?(\d+)%/);
+    const have = why.match(/you have (?:about )?(\d+)%/);
+    const call = v.options.find((o) => o.type === 'call');
+    if (!need || !have || !call) return false;
+    const E = v.preAllIn && v.preAllIn.E;
+    const price = v.preAllIn && v.preAllIn.price;
+    if (E === undefined) return true; // the line without its numbers
+    if (Math.abs(call.ev) <= 0.5) return false; // QA's $0.50 slack
+    return (E >= price) !== (call.ev >= 0);
+  },
+
   'P3-1b a flagged R5b call has the estimate and went through the scenario test': (d, v) => v.rule === 'R5b' && v.grade !== 'good' && (!d.anchor || !v.scenarios),
   'P3-2 flop call of one bet with an overpair/TPTK or better is never red': (d, v, m) => d.street === STREET.FLOP && m.type === 'call' && d.raises === 1 && d.tier >= TIER.OVERPAIR_TPTK && v.grade === 'blunder',
   'P3-3 flop/turn raise with a set or better vs a call or check is never red (not vs a nit)': (d, v, m, b) => (d.street === STREET.FLOP || d.street === STREET.TURN) && m.type === 'raise' && ['call', 'check'].includes(b.type) && d.tier >= TIER.STRONG && v.grade === 'blunder' && !(d.villain && (() => { const t = topRead(d, d.villain.nick); return t && t.p >= 0.5 && t.type === 'nit'; })()),

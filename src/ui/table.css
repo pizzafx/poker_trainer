@@ -2637,7 +2637,8 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 .cstile .pv-cards { display: flex; gap: 6px; --cw: 44px; }
 .cstile .nm { font-size: 14px; font-weight: 600; line-height: 1.2; color: var(--chalk); padding: 0 2px; }
 .cstile .nm small { font-weight: 400; color: var(--slate); }
-.cstile .def { font: 500 10px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate-dim); margin-left: 6px; }
+/* "default" sits in the top-left corner of the swatch, so every tile is the same height (QA DK4) */
+.cstile .def { position: absolute; top: 14px; left: 14px; font: 500 9.5px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--chalk); background: var(--c-00000080); padding: 3px 5px; border-radius: 5px; }
 .cstile[aria-checked="true"] { border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal), 0 0 0 5px var(--signal-wash); }
 .cstile[aria-checked="true"]::after { content: "\2713"; position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--signal); color: var(--signal-ink); font-size: 12px; font-weight: 800; box-shadow: 0 0 0 3px var(--panel-2); }
 .cstile:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
@@ -2647,3 +2648,21 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
   .cstile .swatch { padding: 8px 0; }
   .cstile .nm { font-size: 13.5px; }
 }
+
+/* ================= "not graded": a hollow grey ring with a dash, never the green check (Addendum D1) ================= */
+#toast .cs .vmark.ng, #review .vmark.ng, #replay-dock .vmark.ng, #feedback .vmark.ng, #log .vmark.ng, #history .vmark.ng, .fb .vmark.ng {
+  background: none; color: var(--slate); box-shadow: inset 0 0 0 1.5px var(--slate-dim); border: 0; }
+#toast .cs.ng { box-shadow: inset 3px 0 0 var(--slate-dim); }
+#toast .cs.ng .g, #toast .cs.ng .go { color: var(--slate); }
+#review .grade.ng, #feedback .rp-card .grade.ng { color: var(--slate); }
+#replay-dock .dot.me.ng { background: none; box-shadow: inset 0 0 0 1.5px var(--slate); }
+#log .hl-v.good.ng { color: var(--slate); }
+#log .hm.ng, #history .hm.ng { color: var(--slate); }
+.fb.ng { border-left-color: var(--slate-dim); }
+.fb .ng-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.fb .ng-head .vmark.ng { width: 22px; height: 22px; flex: none; border-radius: 50%; display: inline-grid; place-items: center; font: 800 12px/1 -apple-system, sans-serif; }
+.ng-chip { font: 500 11px/1 var(--mono); letter-spacing: 0.04em; color: var(--slate); border: 1px solid var(--line-2); border-radius: 999px; padding: 3px 8px; }
+.fb .ng-body { margin-top: 6px; color: var(--text); }
+
+/* bet chips against a short stack: "$19 ⅓" (Addendum D2) */
+.presets button .frac { margin-left: 4px; font: 500 0.78em/1 var(--mono); color: var(--slate); }

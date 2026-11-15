@@ -868,7 +868,8 @@ button.toast { width: 100%; text-align: left; font: inherit; color: inherit; }
   opacity: 1;
   text-shadow: 0 calc(var(--cw) * 0.02) calc(var(--cw) * 0.04) var(--c-0005);
 }
-.card u.ten { font-size: calc(var(--cw) * 0.6); letter-spacing: -0.08em; right: calc(var(--cw) * 0.09); bottom: calc(var(--cw) * 0.05); }
+/* the "10" keeps the other ranks' size and cap height, fitted by compressing it horizontally (owner, Nov 2026) */
+.card u.ten { letter-spacing: -0.08em; right: calc(var(--cw) * 0.09); transform: scaleX(0.7); transform-origin: 100% 50%; }
 /* tiny inline cards in the coach panel: index only */
 .cards-inline .card u { display: none; }
 .cards-inline .card b { font-size: calc(var(--cw) * 0.5); top: calc(var(--cw) * 0.04); left: calc(var(--cw) * 0.12); }
@@ -2601,7 +2602,7 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 /* Split: a big Space Grotesk rank top left, one big suit bottom right */
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b, :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) i, :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) u { position: absolute; text-shadow: none; font-style: normal; text-decoration: none; line-height: 1; opacity: 1; color: inherit; }
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b { left: calc(var(--cw) * 0.1); top: calc(var(--cw) * 0.07); font: 700 calc(var(--cw) * 0.64)/0.9 var(--display); letter-spacing: -0.06em; }
-:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b.ten { font-size: calc(var(--cw) * 0.52); letter-spacing: -0.04em; left: calc(var(--cw) * 0.06); }
+:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b.ten { letter-spacing: -0.06em; left: calc(var(--cw) * 0.06); transform: scaleX(0.72); transform-origin: 0 50%; }
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) i, :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) u { display: none; }
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back))::after { position: absolute; right: calc(var(--cw) * 0.06); bottom: calc(var(--cw) * 0.04); font-size: calc(var(--cw) * 0.66); line-height: 1; color: inherit; }
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)).s::after { content: "\2660\FE0E"; }
@@ -2610,7 +2611,7 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)).c::after { content: "\2663\FE0E"; }
 /* under 40px (minis, other players' cards, the phone board): rank and suit stacked and centred */
 :is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b { left: 0; right: 0; text-align: center; top: calc(var(--cw) * 0.07); font-size: calc(var(--cw) * 0.66); letter-spacing: -0.06em; }
-:is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b.ten { font-size: calc(var(--cw) * 0.54); letter-spacing: -0.05em; }
+:is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b.ten { letter-spacing: -0.06em; transform: scaleX(0.72); transform-origin: 50% 50%; }
 :is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) i { display: block; left: 0; right: 0; text-align: center; top: calc(var(--cw) * 0.78); font-size: calc(var(--cw) * 0.46); }
 :is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back))::after { display: none; }
 

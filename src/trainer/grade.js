@@ -386,7 +386,8 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   // Owner, 14 Nov (STRAT L-S1): limping a strong hand preflop is a yellow flag whatever the EV gap:
   // first in, behind limpers or completing the small blind, with 4+ players dealt in. Measured against
   // the best raise; the shown cost is that gap, never brought up to the bar.
-  if (pre && mine.type === 'call' && ctx.raises === 0 && s.n > 3 && positionName(s, HERO) !== 'BB' && v.options.some(isRaise)) {
+  // ...only a free check is exempt: the big blind completing against a straddle limps like any seat (STRAT P7-3)
+  if (pre && mine.type === 'call' && ctx.raises === 0 && ctx.toCall > 0 && s.n > 3 && v.options.some(isRaise)) {
     const name = classNames[classOf(s.hole[HERO][0], s.hole[HERO][1])];
     if (STRONG_LIMP.has(name)) {
       let br = -1;
@@ -928,6 +929,16 @@ export function needOf(o, v) {
 
 // A1-A5, after every other rule: the anchors can veto a flag or veto praise; they never create a
 // flag (A5). Rule-based notes (R5, R5b, R6, R7, the passive-lead fold) overrule them.
+// Players not folded and not all-in still to act after you on this street.
+function stillToAct(s) {
+  let k = 0;
+  for (let j = 1; j < s.n; j++) {
+    const i = (HERO + j) % s.n;
+    if (!s.folded[i] && !s.allIn[i] && (!s.acted[i] || s.bet[i] < s.currentBet)) k++;
+  }
+  return k;
+}
+
 export function applyAnchors(v, s, ctx) {
   const hf = handFeatures(s.hole[HERO], s.board);
   let opp = 0;
@@ -945,7 +956,9 @@ export function applyAnchors(v, s, ctx) {
     // graded normally (it can be the best play), with its own estimate.
     const callO = v.options.find((o) => o.type === 'call');
     const foldO = v.options.find((o) => o.type === 'fold');
-    const close = v.note === 'unclear' || (callO && foldO && Math.abs(Math.round(callO.ev) - Math.round(foldO.ev)) <= v.small);
+    // ...and never when you are almost never ahead: then it is graded plainly (STRAT P7-2)
+    const never = v.anchors && v.anchors.Q !== undefined && callQ(v, hf) < 0.05;
+    const close = !never && (v.note === 'unclear' || (callO && foldO && Math.abs(Math.round(callO.ev) - Math.round(foldO.ev)) <= v.small));
     if (close && (mine.type === 'fold' || (mine.type === 'call' && v.grade === 'good'))) {
       v.line = '8b';
       // the line says "nothing here is graded": so does the verdict (QA-VERDICT V1)
@@ -969,6 +982,8 @@ export function applyAnchors(v, s, ctx) {
       v.grade = 'good';
       v.note = 'closeCall';
       v.line = '8a';
+      // which way the estimate and the judge disagree, and who can still act behind you (STRAT P7-1)
+      v.a4 = { raw, behind: stillToAct(s) };
       return;
     }
   }

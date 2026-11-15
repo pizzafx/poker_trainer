@@ -22,7 +22,8 @@ import { shownCost } from '../src/trainer/explain.js';
 import { disputeReport, disputeText } from '../src/trainer/dispute.js';
 import { presetRanges, groupOf } from '../src/trainer/ranges.js';
 import { pairedGap } from '../src/trainer/judge.js';
-import { STRONG_LIMP } from '../src/trainer/grade.js';
+import { STRONG_LIMP, callQ } from '../src/trainer/grade.js';
+const callQOf = (d, v) => (d.street === STREET.PRE ? v.anchors.Q : callQ(v, handFeatures(d.hole, d.board)));
 
 const STANDARD = presetRanges('standard');
 const LOOSE = ['maniac', 'whale', 'lag'];
@@ -156,14 +157,19 @@ export const INVARIANTS = {
   'P4-1 every postflop flag went through the scenario test': (d, v) => d.street !== STREET.PRE && v.grade !== 'good' && !(v.scenarios >= 1),
   'P3-1a a flag never shows a cost under the yellow bar': (d, v) => v.grade !== 'good' && v.rule !== 'strongLimp' && v.mine >= 0 && shownCost(v) < R(v.small),
   // ---- the owner's strong-limp rule, the owner's "not graded" report, pass 5 ----
-  'L-S1 limping a strong hand (4+ dealt, not the BB, nobody raised) is a yellow strongLimp flag': (d, v, m) =>
-    d.street === STREET.PRE && m.type === 'call' && d.raises === 0 && d.position !== 'BB' && d.snapshot && d.snapshot.seats.length > 3 && v.options.some((o) => o.type === 'raise') &&
+  'L-S1 limping a strong hand (4+ dealt, not a free check, nobody raised) is a yellow strongLimp flag': (d, v, m) =>
+    d.street === STREET.PRE && m.type === 'call' && d.raises === 0 && d.toCall > 0 && d.snapshot && d.snapshot.seats.length > 3 && v.options.some((o) => o.type === 'raise') &&
     STRONG_LIMP.has(classNames[classOf(d.hole[0], d.hole[1])]) && !(v.grade === 'mistake' && v.rule === 'strongLimp'),
   'U1 "not graded" with a base gap at or above the bar names the reference and says "better by"': (d, v, m, b) => {
     if (v.note !== 'unclear' || b === m) return false;
     const gap = R(b.ev) - R(m.ev);
     return gap >= v.small * (b.type === m.type ? 1.6 : 1) && !/better by about \$\d+/.test(d.headline || '');
   },
+  // ---- pass 7 (QA-VERDICT; STRAT's rulings) ----
+  'P7-1 no "bets still to come" on the river': (d) => d.street === STREET.RIVER && /bets still to come/.test(d.anchor || ''),
+  'P7-1b line 8a ("bets still to come") only when the judge prefers the fold': (d, v) => /bets still to come/.test(d.anchor || '') && !(v.a4 && v.a4.raw === 'fold'),
+  'P7-2 no "Close." line when you are almost never ahead': (d, v) => /^Close\./.test(d.anchor || '') && v.anchors && v.anchors.Q !== undefined && callQOf(d, v) < 0.05,
+  'P7-2b never "both reasonable" when you are almost never ahead': (d, v) => v.anchors && v.anchors.Q !== undefined && callQOf(d, v) < 0.05 && /both reasonable/.test(d.anchor || ''),
   'P5-1 no "out of position" or "multiway pot" wording with an all-in in play preflop': (d, v) => d.street === STREET.PRE && v.preShove && /out of position|multiway pot/.test(text(d)),
   'P5-1b the all-in line: "you have" at least "need" exactly when the call scores at least zero': (d, v) => {
     const why = (d.reasons || []).join(' ');
@@ -210,6 +216,7 @@ const oldCallStatus = (d, v) => {
   return A.Q - (A.price + tol) >= 2 * e ? 'works' : A.price - tol - A.Q >= 2 * e ? 'fails' : 'even';
 };
 export const MODEL_CHECKS = {
+  'P7-1 log: a river 8a line with nobody behind (should not happen)': (d, v) => v.line === '8a' && d.street === STREET.RIVER && v.a4 && v.a4.raw === 'fold' && !(v.a4.behind > 0),
   'P4-2 flip: a call\'s status changed under the own-draw rule': (d, v) => {
     const c = v.options.find((o) => o.type === 'call');
     if (!c || c.st === undefined) return false;

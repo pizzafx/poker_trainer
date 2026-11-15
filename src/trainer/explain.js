@@ -281,7 +281,16 @@ function overcardWords(d) {
 export function anchorLine(d) {
   const v = d.verdict;
   if (!v.line || !v.anchors || v.mine < 0) return null;
-  if (v.line === '8a') return LINE8A;
+  if (v.line === '8a') {
+    // by street and direction (STRAT P7-1): on the river there are no bets still to come
+    const a4 = v.a4 || {};
+    if (a4.raw === 'call') return 'Close. Our estimate and the price disagree here, so nothing is graded.';
+    if (d.street === STREET.RIVER) {
+      if (a4.behind > 0) return `Close. The price is right against the bet, but ${a4.behind === 1 ? 'the player' : `the ${a4.behind} players`} still to act can raise or call with better. Nothing here is graded.`;
+      return 'Close. Nothing here is graded.';
+    }
+    return LINE8A;
+  }
   if (v.line === '8b') return LINE8B;
   if (v.line === '9') return LINE9;
   const hf = { tier: d.tier ?? 0, drawEquity: d.drawEquity ?? 0, ownDrawEquity: d.ownDrawEquity ?? d.drawEquity ?? 0, overEquity: d.overEquity ?? 0, realDraw: !!d.realDraw };

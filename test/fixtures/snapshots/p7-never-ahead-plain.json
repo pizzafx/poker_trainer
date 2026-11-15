@@ -1,0 +1,511 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "p7-never-ahead-plain",
+ "hole": "8h 9c",
+ "board": "5d 6c 8s 6s Qh",
+ "pot": 471,
+ "action": {
+  "type": "call"
+ },
+ "took": "Call $34",
+ "samples": 780,
+ "judgeSeed": 4873,
+ "table": {
+  "game": "casino",
+  "blinds": [
+   1,
+   2
+  ],
+  "straddle": 0,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 37,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "UTG",
+    "startStack": 200,
+    "stack": 56,
+    "inPot": 144,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Button-Down",
+    "pos": "UTG+1",
+    "startStack": 89,
+    "stack": 89,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "station",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 36,
+     "vpip": 19,
+     "pfr": 4,
+     "showdowns": 5
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Hoodie",
+    "pos": "UTG+2",
+    "startStack": 206,
+    "stack": 206,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.52
+     },
+     {
+      "type": "gto",
+      "p": 0.247
+     },
+     {
+      "type": "lag",
+      "p": 0.115
+     }
+    ],
+    "observed": {
+     "hands": 10,
+     "vpip": 1,
+     "pfr": 1,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 3,
+    "name": "Ball Cap",
+    "pos": "LJ",
+    "startStack": 216,
+    "stack": 214,
+    "inPot": 2,
+    "folded": true,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 36,
+     "vpip": 19,
+     "pfr": 0,
+     "showdowns": 4
+    }
+   },
+   {
+    "seat": 4,
+    "name": "New Guy",
+    "pos": "HJ",
+    "startStack": 178,
+    "stack": 0,
+    "inPot": 178,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.86
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     },
+     {
+      "type": "abc",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 36,
+     "vpip": 26,
+     "pfr": 2,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Jeans",
+    "pos": "CO",
+    "startStack": 195,
+    "stack": 195,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.82
+     },
+     {
+      "type": "lag",
+      "p": 0.054
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 36,
+     "vpip": 6,
+     "pfr": 5,
+     "showdowns": 2
+    }
+   },
+   {
+    "seat": 6,
+    "name": "Big Watch",
+    "pos": "BTN",
+    "startStack": 260,
+    "stack": 250,
+    "inPot": 10,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.861
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "station",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 36,
+     "vpip": 12,
+     "pfr": 3,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 7,
+    "name": "Cardigan",
+    "pos": "SB",
+    "startStack": 311,
+    "stack": 310,
+    "inPot": 1,
+    "folded": true,
+    "read": [
+     {
+      "type": "nit",
+      "p": 0.772
+     },
+     {
+      "type": "abc",
+      "p": 0.103
+     },
+     {
+      "type": "station",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 36,
+     "vpip": 4,
+     "pfr": 2,
+     "showdowns": 3
+    }
+   },
+   {
+    "seat": 8,
+    "name": "Jersey",
+    "pos": "BB",
+    "startStack": 136,
+    "stack": 0,
+    "inPot": 136,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.554
+     },
+     {
+      "type": "abc",
+      "p": 0.257
+     },
+     {
+      "type": "whale",
+      "p": 0.081
+     }
+    ],
+    "observed": {
+     "hands": 10,
+     "vpip": 7,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Cardigan",
+    "type": "sb",
+    "to": 1,
+    "amount": 1
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "Jersey",
+    "type": "bb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Button-Down",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Hoodie",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Ball Cap",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "New Guy",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Jeans",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Big Watch",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Cardigan",
+    "type": "fold",
+    "to": 1,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "Jersey",
+    "type": "check",
+    "to": 2,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 8,
+    "who": "Jersey",
+    "type": "bet",
+    "to": 8,
+    "amount": 8
+   },
+   {
+    "street": "flop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 8,
+    "amount": 8
+   },
+   {
+    "street": "flop",
+    "seat": 3,
+    "who": "Ball Cap",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 4,
+    "who": "New Guy",
+    "type": "call",
+    "to": 8,
+    "amount": 8
+   },
+   {
+    "street": "flop",
+    "seat": 6,
+    "who": "Big Watch",
+    "type": "call",
+    "to": 8,
+    "amount": 8
+   },
+   {
+    "street": "turn",
+    "seat": 8,
+    "who": "Jersey",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "turn",
+    "seat": 0,
+    "who": "You",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "turn",
+    "seat": 4,
+    "who": "New Guy",
+    "type": "bet",
+    "to": 45,
+    "amount": 45
+   },
+   {
+    "street": "turn",
+    "seat": 6,
+    "who": "Big Watch",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "turn",
+    "seat": 8,
+    "who": "Jersey",
+    "type": "call",
+    "to": 45,
+    "amount": 45
+   },
+   {
+    "street": "turn",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 45,
+    "amount": 45
+   },
+   {
+    "street": "river",
+    "seat": 8,
+    "who": "Jersey",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "river",
+    "seat": 0,
+    "who": "You",
+    "type": "bet",
+    "to": 89,
+    "amount": 89
+   },
+   {
+    "street": "river",
+    "seat": 4,
+    "who": "New Guy",
+    "type": "raise",
+    "to": 123,
+    "amount": 123
+   },
+   {
+    "street": "river",
+    "seat": 8,
+    "who": "Jersey",
+    "type": "call",
+    "to": 81,
+    "amount": 81
+   }
+  ],
+  "pot": 471,
+  "heat": 0.135,
+  "heatAt": {
+   "24": 0.13480495875042425
+  },
+  "judge": {
+   "seed": 4873,
+   "samples": 780
+  }
+ },
+ "villainPost": {
+  "seat": 4,
+  "post": [
+   0.017535361943327374,
+   0.017535361943327374,
+   0.8597171044533809,
+   0.017535361943327374,
+   0.017535361943327374,
+   0.017535361943327374,
+   0.017535361943327374,
+   0.017535361943327374,
+   0.017535361943327374
+  ]
+ },
+ "recorded": {
+  "grade": "good",
+  "best": "Fold",
+  "took": "Call $34",
+  "loss": 33.89230769230769,
+  "headline": "Call $34: not graded."
+ },
+ "expect": {
+  "grade": "good",
+  "notNote": "closeCall"
+ },
+ "why": "R6 spot where you are almost never ahead: graded plainly, no 'Close.' line (P7-2)"
+}

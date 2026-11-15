@@ -309,6 +309,9 @@ const signed = (x) => (x >= 0 ? '+' : '-') + '$' + Math.abs(Math.round(x)).toLoc
 // not fetched).
 const RANK_NAME = { A: 'Ace', K: 'King', Q: 'Queen', J: 'Jack', T: 'Ten', 9: 'Nine', 8: 'Eight', 7: 'Seven', 6: 'Six', 5: 'Five', 4: 'Four', 3: 'Three', 2: 'Two' };
 const SUIT_NAME = ['clubs', 'diamonds', 'hearts', 'spades'];
+// a loaded art image is marked, so the card's drawn index can give way to it (QA DK6); load events do not
+// bubble, so this listens in the capture phase
+document.addEventListener('load', (e) => e.target.classList && e.target.classList.contains('trad') && e.target.classList.add('ok'), true);
 const tradImg = (c) => `<img class="trad" src="assets/cards/trad/${RANKS[c >> 2]}${'cdhs'[c & 3]}.webp" width="150" height="210" alt="${RANK_NAME[RANKS[c >> 2]]} of ${SUIT_NAME[c & 3]}" decoding="async" loading="lazy">`;
 function cardHtml(c, art = settings.cardLayout === 'trad') {
   const r = RANKS[c >> 2] === 'T' ? '10' : RANKS[c >> 2];

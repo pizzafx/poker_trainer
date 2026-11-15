@@ -96,6 +96,17 @@ try {
     }
   }
 }
+// Board cards under 40px wide get the small-card layout, decided by the cards' own size, not the
+// viewport (DECK_HANDOFF; QA DK3).
+function sizeBoard() {
+  const b = document.getElementById('board');
+  const c = b && b.querySelector('.card');
+  if (c) b.classList.toggle('sm', c.getBoundingClientRect().width < 40);
+}
+if (typeof ResizeObserver !== 'undefined') addEventListener('DOMContentLoaded', () => {
+  const t = document.getElementById('table');
+  if (t) new ResizeObserver(sizeBoard).observe(t);
+});
 // The card style (two device settings, independent): layout Classic or Split, colour Coloured or White.
 // Each is a class on <body>; the cards are restyled by CSS alone, so a change repaints every card at once.
 function applyDeck() {
@@ -490,6 +501,7 @@ function renderTable() {
     .map((c, k) => (k >= fresh ? cardHtml(c).replace('class="card ', `style="--i:${k - fresh}" class="card new `) : cardHtml(c)))
     .join('');
   shownBoard = s.board.length;
+  sizeBoard();
   const potNow = over ? s.result.pot : potSize(s);
   $('pot').innerHTML = `<small>Pot</small>${money(potNow)}`;
   if (potNow !== shownPot) {
@@ -1856,9 +1868,15 @@ function settingsModal(opts = {}) {
 }
 function openGameModal({ tab = 'game', group = null } = {}) {
   const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
-  // two tiny cards (A♥ K♦) in the style a button would give: its own choice, and the other row's current one
-  const deckPreview = (layout, colour) =>
-    `<span class="pv" data-l="${layout || ''}" data-c="${colour || ''}">${cardsInline([12 * 4 + 2, 11 * 4 + 1])}</span>`;
+  // Card style: one 2x2 radiogroup, rows by layout, columns by colour; each tile shows a real A♥ K♦ in
+  // its style (DECK_HANDOFF §5, revised)
+  const DECKS = [['classic', 'coloured'], ['classic', 'white'], ['split', 'coloured'], ['split', 'white']];
+  const deckName = (l, c) => `${l === 'split' ? 'Split' : 'Classic'}, ${c === 'white' ? 'White' : 'Coloured'}`;
+  const deckTiles = () =>
+    `<div class="cs-picker" role="radiogroup" aria-labelledby="cs-lab">${DECKS.map(([l, c], i) => {
+      const on = settings.cardLayout === l && settings.cardColour === c;
+      return `<button type="button" class="cstile" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" data-i="${i}" aria-label="${deckName(l, c)}"><span class="swatch pv${l === 'split' ? ' deck-split' : ''}${c === 'white' ? ' deck-white' : ''}"><span class="pv-cards">${cardHtml(12 * 4 + 2)}${cardHtml(11 * 4 + 1)}</span></span><span class="nm">${l === 'split' ? 'Split' : 'Classic'} <small>· ${c === 'white' ? 'White' : 'Coloured'}</small>${i === 0 ? '<span class="def">default</span>' : ''}</span></button>`;
+    }).join('')}</div>`;
   const seg = (id, items, cur) => `<div class="seg" role="radiogroup" data-for="${id}">${items.map(([v, l]) => `<button type="button" role="radio" data-v="${v}" aria-checked="${v === cur}" class="${v === cur ? 'on' : ''}">${l}</button>`).join('')}</div><input type="hidden" id="${id}" value="${cur}">`;
   const toggle = (id, on, label) => `<label class="trow" for="${id}"><span>${label}</span><input id="${id}" type="checkbox" class="toggle" ${on ? 'checked' : ''}></label>`;
   openModal(`
@@ -1899,8 +1917,7 @@ function openGameModal({ tab = 'game', group = null } = {}) {
       </div>
       <div class="go-group">
         <div class="go-head"><span class="label">Display</span><span>Saved on this device · applies now</span></div>
-        <div class="go-row"><span class="go-lab">Card layout</span><div class="go-ctl deck-ctl">${seg('s-layout', [['classic', deckPreview('classic', null) + 'Classic'], ['split', deckPreview('split', null) + 'Split']], settings.cardLayout)}</div></div>
-        <div class="go-row"><span class="go-lab">Card colour</span><div class="go-ctl deck-ctl">${seg('s-colour', [['coloured', deckPreview(null, 'coloured') + 'Coloured'], ['white', deckPreview(null, 'white') + 'White']], settings.cardColour)}</div></div>
+        <div class="go-row cs-row"><span class="go-lab" id="cs-lab">Card style</span><div class="go-ctl">${deckTiles()}</div></div>
       </div>
     </details>
     <div class="modal-actions settings-foot">
@@ -1939,21 +1956,30 @@ function openGameModal({ tab = 'game', group = null } = {}) {
       input.dispatchEvent(new Event('change'));
     });
   });
-  // Display: saved and applied at once, no new session
-  const paintPreviews = () =>
-    document.querySelectorAll('#modal-box .pv').forEach((pv) => {
-      const l = pv.dataset.l || settings.cardLayout;
-      const c = pv.dataset.c || settings.cardColour;
-      pv.className = `pv${l === 'split' ? ' deck-split' : ''}${c === 'white' ? ' deck-white' : ''}`;
+  // Card style: saved and applied at once, no new session; arrow keys move in two dimensions and select
+  const tiles = [...document.querySelectorAll('#modal-box .cstile')];
+  const pickDeck = (i, focus) => {
+    [settings.cardLayout, settings.cardColour] = DECKS[i];
+    saveSettings();
+    applyDeck();
+    tiles.forEach((b, k) => {
+      b.setAttribute('aria-checked', k === i);
+      b.tabIndex = k === i ? 0 : -1;
     });
-  paintPreviews();
-  for (const [id, key] of [['s-layout', 'cardLayout'], ['s-colour', 'cardColour']])
-    $(id).addEventListener('change', () => {
-      settings[key] = $(id).value;
-      saveSettings();
-      applyDeck();
-      paintPreviews();
-    });
+    if (focus) tiles[i].focus();
+  };
+  tiles.forEach((b, i) => {
+    b.onclick = () => pickDeck(i, false);
+    b.onkeydown = (e) => {
+      const row = i >> 1;
+      const col = i & 1;
+      const to = { ArrowLeft: row * 2, ArrowRight: row * 2 + 1, ArrowUp: col, ArrowDown: 2 + col }[e.key];
+      if (to === undefined) return;
+      e.preventDefault();
+      e.stopPropagation();
+      pickDeck(to, true);
+    };
+  });
   const read = () => {
     settings.feedback = $('s-fb').value;
     settings.reads = $('s-reads').checked;
@@ -2833,7 +2859,7 @@ function actionSub(rec, f, k) {
   if (f.kind === 'street') return `${NUM_WORDS[live()] || live()} players.`;
   if (f.kind === 'blinds') return s.straddleAmt ? `${actorName(rec, s.straddleSeat)} straddles to $${s.straddleAmt}.` : `${NUM_WORDS[s.n] || s.n} players at the table.`;
   if (f.kind === 'end') {
-    const shows = rec.log.filter((e) => e.kind === 'show' || e.kind === 'win').map((e) => e.text);
+    const shows = rec.log.filter((e) => e.kind === 'show' || e.kind === 'win').map((e) => suitText(e.text));
     return shows.join('. ') + (shows.length ? '.' : '');
   }
   if (f.decision >= 0 && f.before) {

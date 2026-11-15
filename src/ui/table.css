@@ -2601,7 +2601,7 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 /* Split: a big Space Grotesk rank top left, one big suit bottom right */
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b, :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) i, :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) u { position: absolute; text-shadow: none; font-style: normal; text-decoration: none; line-height: 1; opacity: 1; color: inherit; }
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b { left: calc(var(--cw) * 0.1); top: calc(var(--cw) * 0.07); font: 700 calc(var(--cw) * 0.64)/0.9 var(--display); letter-spacing: -0.06em; }
-:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b.ten { font-size: calc(var(--cw) * 0.52); letter-spacing: -0.09em; left: calc(var(--cw) * 0.06); }
+:is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b.ten { font-size: calc(var(--cw) * 0.52); letter-spacing: -0.04em; left: calc(var(--cw) * 0.06); }
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) i, :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) u { display: none; }
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back))::after { position: absolute; right: calc(var(--cw) * 0.06); bottom: calc(var(--cw) * 0.04); font-size: calc(var(--cw) * 0.66); line-height: 1; color: inherit; }
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)).s::after { content: "\2660\FE0E"; }
@@ -2609,16 +2609,10 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)).d::after { content: "\2666\FE0E"; }
 :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)).c::after { content: "\2663\FE0E"; }
 /* under 40px (minis, other players' cards, the phone board): rank and suit stacked and centred */
-:is(.cards-inline, .seat:not(.hero) .cards) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b { left: 0; right: 0; text-align: center; top: calc(var(--cw) * 0.07); font-size: calc(var(--cw) * 0.66); letter-spacing: -0.06em; }
-:is(.cards-inline, .seat:not(.hero) .cards) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b.ten { font-size: calc(var(--cw) * 0.54); letter-spacing: -0.1em; }
-:is(.cards-inline, .seat:not(.hero) .cards) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) i { display: block; left: 0; right: 0; text-align: center; top: calc(var(--cw) * 0.78); font-size: calc(var(--cw) * 0.46); }
-:is(.cards-inline, .seat:not(.hero) .cards) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back))::after { display: none; }
-@media (max-width: 600px) {
-  #board :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b { left: 0; right: 0; text-align: center; top: calc(var(--cw) * 0.07); font-size: calc(var(--cw) * 0.66); letter-spacing: -0.06em; }
-  #board :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b.ten { font-size: calc(var(--cw) * 0.54); letter-spacing: -0.1em; }
-  #board :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) i { display: block; left: 0; right: 0; text-align: center; top: calc(var(--cw) * 0.78); font-size: calc(var(--cw) * 0.46); }
-  #board :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back))::after { display: none; }
-}
+:is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b { left: 0; right: 0; text-align: center; top: calc(var(--cw) * 0.07); font-size: calc(var(--cw) * 0.66); letter-spacing: -0.06em; }
+:is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) b.ten { font-size: calc(var(--cw) * 0.54); letter-spacing: -0.05em; }
+:is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back)) i { display: block; left: 0; right: 0; text-align: center; top: calc(var(--cw) * 0.78); font-size: calc(var(--cw) * 0.46); }
+:is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-split .card:not(.pv .card):not(.back):not(.slot), .pv.deck-split .card:not(.back))::after { display: none; }
 
 /* White: a white face, rank and suit in the suit's ink; the big rank has no shadow */
 :is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)) { background: linear-gradient(180deg, var(--face-top), var(--face-bottom)); box-shadow: 0 calc(var(--cw) * 0.06) calc(var(--cw) * 0.16) var(--c-000b), inset 0 0 0 1px var(--face-edge); }
@@ -2628,6 +2622,27 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 :is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)).c { color: var(--ink-c); }
 :is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)) b, :is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)) i, :is(body.deck-white .card:not(.pv .card):not(.back):not(.slot), .pv.deck-white .card:not(.back)) u { color: inherit; text-shadow: none; }
 
-/* the Display rows: two tiny cards in each button */
-#modal-box.game-modal #gm-game .deck-ctl .seg button { min-height: 40px; display: inline-flex; align-items: center; gap: 8px; }
-.deck-ctl .pv .cards-inline { --cw: 16px; gap: 2px; }
+
+/* Classic under 40px (other players' cards, a small board): no huge rank, the index as on the minis (QA DK2) */
+:is(.seat:not(.hero) .cards, #board.sm) .card:not(.back) u { display: none; }
+:is(.seat:not(.hero) .cards, #board.sm) .card:not(.back) b { font-size: calc(var(--cw) * 0.5); top: calc(var(--cw) * 0.04); left: calc(var(--cw) * 0.12); }
+:is(.seat:not(.hero) .cards, #board.sm) .card:not(.back) i { font-size: calc(var(--cw) * 0.46); top: calc(var(--cw) * 0.62); left: calc(var(--cw) * 0.14); }
+
+/* Card style picker: one 2x2 radiogroup of tiles (DECK_HANDOFF §5, revised) */
+.cs-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 440px; }
+.cstile { position: relative; display: grid; gap: 8px; justify-items: start; padding: 10px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line); cursor: pointer; text-align: left; color: var(--text); font: inherit; min-width: 0; }
+.cstile:hover { border-color: var(--line-2); }
+.cstile .swatch { width: 100%; display: flex; justify-content: center; padding: 10px 0; border-radius: 10px; background: radial-gradient(ellipse at 50% 40%, var(--felt-hi), var(--felt) 55%, var(--felt-deep)); }
+.cstile .pv-cards { display: flex; gap: 6px; --cw: 44px; }
+.cstile .nm { font-size: 14px; font-weight: 600; line-height: 1.2; color: var(--chalk); padding: 0 2px; }
+.cstile .nm small { font-weight: 400; color: var(--slate); }
+.cstile .def { font: 500 10px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate-dim); margin-left: 6px; }
+.cstile[aria-checked="true"] { border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal), 0 0 0 5px var(--signal-wash); }
+.cstile[aria-checked="true"]::after { content: "\2713"; position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--signal); color: var(--signal-ink); font-size: 12px; font-weight: 800; box-shadow: 0 0 0 3px var(--panel-2); }
+.cstile:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+@media (max-width: 600px) {
+  .cstile { padding: 8px; }
+  .cstile .pv-cards { --cw: 40px; gap: 5px; }
+  .cstile .swatch { padding: 8px 0; }
+  .cstile .nm { font-size: 13.5px; }
+}

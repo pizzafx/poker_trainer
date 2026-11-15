@@ -978,7 +978,8 @@ export function applyAnchors(v, s, ctx) {
     const raw = v.options[RAW].type;
     // only the call and the fold it is about; a raise or bet outside that pair keeps its grade (QA F1)
     const q = callQ(v, hf); // the same figure the call's status uses (STRAT P4-2)
-    if ((mine.type === 'call' || mine.type === 'fold') && ((raw === 'fold' && q >= A.price + 0.2) || (raw === 'call' && q <= A.price - 0.2))) {
+    // ...and, as P7-2, never a "Close." line when you are almost never ahead (Q under 5%): graded plainly
+    if ((mine.type === 'call' || mine.type === 'fold') && ((raw === 'fold' && q >= A.price + 0.2) || (raw === 'call' && q <= A.price - 0.2 && q >= 0.05))) {
       v.grade = 'good';
       v.note = 'closeCall';
       v.line = '8a';

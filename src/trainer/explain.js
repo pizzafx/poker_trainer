@@ -286,7 +286,7 @@ export function anchorLine(d) {
     const a4 = v.a4 || {};
     if (a4.raw === 'call') return 'Close. Our estimate and the price disagree here, so nothing is graded.';
     if (d.street === STREET.RIVER) {
-      if (a4.behind > 0) return `Close. The price is right against the bet, but ${a4.behind === 1 ? 'the player' : `the ${a4.behind} players`} still to act can raise or call with better. Nothing here is graded.`;
+      if (a4.behind > 0) return `Close. The price is right against the bet, but ${a4.behind === 1 ? 'the player' : `the ${NUM_WORDS[a4.behind] || a4.behind} players`} still to act can raise or call with better. Nothing here is graded.`;
       return 'Close. Nothing here is graded.';
     }
     return LINE8A;

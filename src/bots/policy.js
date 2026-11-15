@@ -297,7 +297,12 @@ export function preflopPolicy(ctx, P, cls) {
     call = (1 - raise) * inTop(Math.max(pp, rp, sp), width);
     call = Math.max(call, 0.5 * P.anyTwo * (1 - raise)); // A7: and call one raise half as often
     // set-mining (POOL HX1, Nov 2026). Facing one cheap raise (at most 7% of the effective stack), small and middle pairs call.
-    if (P.setMine && classInfo(cls).pair && ctx.toCall <= 0.07 * Math.min(ctx.stack + ctx.myBet, ctx.effAggBB * ctx.bb)) call = Math.max(call, P.setMine * (1 - raise));
+    if (P.setMine && classInfo(cls).pair) {
+      const f = ctx.toCall / Math.min(ctx.stack + ctx.myBet, ctx.effAggBB * ctx.bb);
+      const end = P.setMineEnd ?? 0.1;
+      const wS = clamp((end - f) / (end - 0.07), 0, 1); // tapers from 7% to setMineEnd of the stack, no cliff (POOL batch 5)
+      if (wS > 0) call = Math.max(call, wS * P.setMine * (1 - raise));
+    }
   } else {
     // Facing a 3-bet or more.
     const mix = 0.5 * (rp + pp);
@@ -311,8 +316,11 @@ export function preflopPolicy(ctx, P, cls) {
       const oddsMult = clamp(1 + (0.45 - ctx.odds) * 8, 1, 3);
       const w = P.stackOff * dA * oddsMult * (cold ? 0.7 : 1);
       const go = inTop(sp, w);
-      raise = go * 0.6;
-      call = go * 0.4;
+      // passive types call their stack-offs; facing an all-in, a non-premium re-raise is only an isolation play (POOL batch 5, G5)
+      let share = 0.6 * (P.stackOffRaise ?? 1);
+      if (ctx.aggAllIn && sp <= 0.94) share *= P.isoRaise ?? 0.3; // JJ-99, AQ, AJs, KQs and better still isolate
+      raise = go * share;
+      call = go * (1 - share);
       // POOL batch 4 (with PRO): deep, facing a big 3-bet (not all-in), solid regulars rarely jam a non-premium hand; the rest folds
       if (P.deepJamCap != null && ctx.raises === 2 && !ctx.aggAllIn && ctx.effBB > 40 && sp <= 0.972) raise = Math.min(raise, P.deepJamCap);
       // facing an all-in, the price comes first: under 15% needed is a call with anything, tapering out by 25% (POOL G1)

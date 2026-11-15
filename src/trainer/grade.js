@@ -82,7 +82,7 @@ export function limpOutsideTipFor(v, ctx, name, group) {
 // A soft note on a re-raise of a single raise with a hand outside the Standard facing-a-raise range
 // (suited aces, suited broadways and nines or better exempt); vetoed only when the judge clearly
 // says the re-raise beat calling or folding.
-export function junk3betTipFor(v, ctx, name, group) {
+export function junk3betTipFor(v, ctx, name, group, env) {
   if (v.grade !== 'good' || v.mine < 0 || ctx.street !== STREET.PRE) return null;
   const mine = v.options[v.mine];
   if (mine.type !== 'raise' || ctx.raises !== 1) return null;
@@ -95,7 +95,13 @@ export function junk3betTipFor(v, ctx, name, group) {
   const g = pairedGap(v, v.mine, alt);
   if (g.mean > 2.2 * g.se) return null;
   const cost = -g.mean > 2.2 * g.se ? Math.round(v.options[alt].ev) - Math.round(mine.ev) : 0;
-  return { kind: 'junk3bet', text: `re-raising with ${name} is mostly a bluff, and these players seldom fold to a re-raise; calling or folding is the usual play.${cost > 0 ? ` Here ${v.options[alt].label.toLowerCase()} was about $${cost} better.` : ''}` };
+  const tail = cost > 0 ? ` Here ${v.options[alt].label.toLowerCase()} was about $${cost} better.` : '';
+  // against an opener read as a regular, "they seldom fold" is false: say what a solid player does (STRAT J1)
+  const top = env && ctx.aggressor >= 0 ? env.readOf(ctx.aggressor).ranked[0] : null;
+  if (top && top.p >= 0.5 && ['tag', 'lag', 'gto'].includes(top.id)) {
+    return { kind: 'junk3bet', text: `re-raising with ${name} is mostly a bluff: a solid player folds their worst hands and keeps the ones that have you beaten. Calling or folding is the usual play.${tail}` };
+  }
+  return { kind: 'junk3bet', text: `re-raising with ${name} is mostly a bluff, and these players seldom fold to a re-raise; calling or folding is the usual play.${tail}` };
 }
 
 // A size tip on a value re-raise of a single raise (CEO for the owner, Nov 2026; wording STRAT's to
@@ -184,7 +190,7 @@ export function gradeDecision(s, belief, action, judgeOpts, env) {
     const group = groupOf(positionName(s, HERO));
     // a limp with a hand outside the seat's Standard range gets "most players fold it here", never the
     // raise tip (STRAT G3: never tell a student to raise K5o from UTG+1); inside it, the raise tip
-    tip = limpOutsideTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) ? null : junk3betTipFor(verdict, ctx, name, group)) || size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env);
+    tip = limpOutsideTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) ? null : junk3betTipFor(verdict, ctx, name, group, env)) || size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env);
   } else tip = limpTipFor(verdict, ctx);
   if (tip) verdict.tip = tip;
   return verdict;

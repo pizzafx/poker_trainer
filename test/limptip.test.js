@@ -139,3 +139,13 @@ test('junk 3-bet note: junk gets it; suited aces, suited broadways and 99+ are e
   assert.equal(junk3betTipFor(threeBetVerdict({ raise: 6, call: 1 }), threeCtx, 'J7o', 'bb'), null, 'the judge clearly likes the re-raise');
   assert.equal(junk3betTipFor(threeBetVerdict(), { ...threeCtx, raises: 2 }, 'J7o', 'bb'), null, 'only against a single raise');
 });
+
+// STRAT J1: against an opener read as a regular, "these players seldom fold" is false
+test('junk 3-bet note: against a regular opener it says what a solid player does, not "seldom fold"', () => {
+  const env = (id, p) => ({ readOf: () => ({ ranked: [{ id, p }] }) });
+  const ctx = { ...threeCtx, aggressor: 3 };
+  const reg = junk3betTipFor(threeBetVerdict(), ctx, 'J7o', 'bb', env('tag', 0.7));
+  assert.match(reg.text, /a solid player folds their worst hands and keeps the ones that have you beaten/);
+  assert.doesNotMatch(reg.text, /seldom fold/);
+  for (const [id, p] of [['station', 0.8], ['tag', 0.4]]) assert.match(junk3betTipFor(threeBetVerdict(), ctx, 'J7o', 'bb', env(id, p)).text, /seldom fold/, `${id} ${p}`);
+});

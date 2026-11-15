@@ -165,6 +165,7 @@ export const INVARIANTS = {
     const gap = R(b.ev) - R(m.ev);
     return gap >= v.small * (b.type === m.type ? 1.6 : 1) && !/better by about \$\d+/.test(d.headline || '');
   },
+  'J1 no "seldom fold" in a junk 3-bet tip against an opener read as a regular': (d) => d.tipKind === 'junk3bet' && /seldom fold/.test(d.tip || '') && !!d.villain && (() => { const r = topRead(d, d.villain.nick); return !!r && r.p >= 0.5 && ['tag', 'lag', 'gto'].includes(r.type); })(),
   // ---- pass 7 (QA-VERDICT; STRAT's rulings) ----
   'P7-1 no "bets still to come" on the river': (d) => d.street === STREET.RIVER && /bets still to come/.test(d.anchor || ''),
   'P7-1b line 8a ("bets still to come") only when the judge prefers the fold': (d, v) => /bets still to come/.test(d.anchor || '') && !(v.a4 && v.a4.raw === 'fold'),

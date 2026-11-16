@@ -125,6 +125,49 @@ function rangeLine(d) {
   return s;
 }
 
+// Who the theory line is about: "a calling station" with a firm read (0.5 or more), else "this player" or
+// "these players" (STRAT_THEORY_COPY).
+const SHORT_NAME = { nit: 'nit', abc: 'straightforward player', station: 'calling station', whale: 'gambler', maniac: 'maniac', gto: 'solver-style player', tag: 'solid regular', lag: 'tricky aggressive regular', beginner: 'total beginner' };
+function whoOf(d) {
+  const post = d.villain && d.villain.picture && d.villain.picture.post;
+  if (d.opponents === 1 && post) {
+    let top = 0;
+    for (let t = 1; t < post.length; t++) if (post[t] > post[top]) top = t;
+    if (post[top] >= 0.5) {
+      const nm = SHORT_NAME[TYPE_IDS[top]];
+      return { who: `${/^[aeiou]/.test(nm) ? 'an' : 'a'} ${nm}`, plural: false };
+    }
+  }
+  return d.opponents === 1 ? { who: 'this player', plural: false } : { who: 'these players', plural: true };
+}
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+// Dry: no suit twice before the river, and no three board cards inside a five-rank window (ace high and low).
+export function dryBoard(board, river) {
+  if (!river) {
+    const suits = board.map((c) => c & 3);
+    if (new Set(suits).size < suits.length) return false;
+  }
+  const ranks = [...new Set(board.map((c) => c >> 2))];
+  if (ranks.includes(12)) ranks.push(-1);
+  for (let lo = -1; lo <= 8; lo++) if (ranks.filter((r) => r >= lo && r <= lo + 4).length >= 3) return false;
+  return true;
+}
+// Top two (the board's two highest ranks, one card each) or top set (a pocket pair of the board's top rank).
+export function blockerHand(hole, board) {
+  const br = [...new Set(board.map((c) => c >> 2))].sort((a, b) => b - a);
+  const hr = hole.map((c) => c >> 2);
+  if (hr[0] === hr[1] && hr[0] === br[0]) return 'set';
+  if (br.length >= 2 && hr.includes(br[0]) && hr.includes(br[1]) && hr[0] !== hr[1]) return 'two';
+  return null;
+}
+function callsWith(d) {
+  const b = d.villain && d.villain.picture && d.villain.picture.buckets;
+  const parts = [];
+  if (b && b.weakPair >= 0.1) parts.push('weaker pairs');
+  if (b && b.draw >= 0.1) parts.push('draws');
+  return parts.length ? parts.join(' and ') : 'worse hands';
+}
+
 const THEORY = {
   paidOff:
     'Why theory disagrees: a solver calls here with a hand this strong so that it cannot be bluffed. That protection is worth nothing against a player who does not bluff in this spot. Fold and lose nothing.',
@@ -493,9 +536,15 @@ export function explain(d) {
       const shover = d.villain && d.villain.nick;
       reasons.push(`Facing an all-in there is no later street: it is the price against their range. You need ${share(v.preAllIn.price)}; against what ${d.opponents >= 2 || !shover ? 'they have shown here (the all-in and the call)' : `${shover} shoves with here`} you have ${share(v.preAllIn.E)}.`);
     } else if (v.preShove && category === 'preLoose') reasons.push(`From ${where}, against this action, this hand loses money on average: it is often dominated by what continues.`);
-    else if (category === 'preLoose') reasons.push(`From ${where}, with the action so far, this hand loses money on average: it will often be dominated or out of position in a raked pot.`);
+    else if (category === 'preLoose') {
+      const T = d.table || {};
+      reasons.push(`From ${where}, with the action so far, this hand loses money on average: it will often be dominated${T.oop ? ' or out of position' : ''}${T.raked ? ' in a raked pot' : ''}.`);
+    }
     if (category === 'prePassive') reasons.push(`A raise here gets called by worse hands and gives you the betting lead; just calling lets everyone in cheaply against a hand that plays best against few opponents.`);
-    if (category === 'preTight') reasons.push(`The players in this pot enter with weak hands and pay off after the flop, so this hand is profitable here even though it is a fold at a tougher table.`);
+    if (category === 'preTight') {
+      if (d.raises === 0 && !(d.ctx && d.ctx.limpers > 0)) reasons.push(`This hand is a profitable open from ${where} here, even though a tight chart folds it.`);
+      else reasons.push(`The players in this pot enter with weak hands and pay off after the flop, so this hand is profitable here even though it is a fold at a tougher table.`);
+    }
   }
   // The "theory would call" note only applies when the hand is strong enough that theory would.
   let theory = v.preShove ? null : THEORY[category]; // no multiway or position theory with an all-in in play (STRAT P5-1)
@@ -513,6 +562,44 @@ export function explain(d) {
   }
   // the theory about checking only under a check; under a call where a raise scored best, its own line (STRAT F5)
   if (category === 'missedValue' && theory && m !== 'check') theory = m === 'call' ? 'Why theory disagrees: with a hand this strong, raising builds the pot while worse hands still pay; slow-playing is fine sometimes, not as a habit.' : null;
+  // ...and under a check with two pair or better, a line chosen by the hand (STRAT_THEORY_COPY section 1)
+  else if (category === 'missedValue' && theory && d.tier >= TIER.TWO_PAIR) {
+    const river = d.street === STREET.RIVER;
+    if (d.opponents !== 1 || !dryBoard(d.board, river)) theory = null; // theory bets here too, to charge the draws
+    else if (!d.regularIn) {
+      const { who } = whoOf(d);
+      const bl = blockerHand(d.hole, d.board);
+      theory = bl
+        ? `Why theory disagrees: theory sometimes checks here: your cards block ${bl === 'set' ? 'most' : 'many'} of the hands that would call${river ? '' : ', and on a dry board a free card rarely hurts'}. Against ${who} that doesn't matter: they call with ${callsWith(d)}.`
+        : `Why theory disagrees: on a dry board theory sometimes checks a hand this strong to let worse hands bet or catch up. Against ${who}, betting gets paid more: they call with ${callsWith(d)}.`;
+    }
+  }
+  // preflop: every clause only when it is true (STRAT_THEORY_COPY section 2)
+  const T = d.table || {};
+  if (category === 'prePassive' && !(d.raises >= 1 || (d.raises === 0 && d.position === 'SB'))) theory = null;
+  if (category === 'preRaise' && !(d.raises >= 1)) theory = null;
+  if (category === 'preLoose' && theory) {
+    const parts = [];
+    if (T.n >= 7) parts.push('at a full table');
+    if (T.raked) parts.push('raked');
+    if (T.voluntary >= 2) parts.push('headed for a multiway pot');
+    const list = parts.length <= 2 ? parts.join(' and ') : `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
+    theory = parts.length ? `Why theory disagrees: charts built for raked online six-max or tournament play defend and open wider than this. ${cap(list)}, this hand does not earn its way in.` : null;
+  }
+  if (category === 'preTight' && d.raises === 0 && !(d.ctx && d.ctx.limpers > 0)) theory = null;
+  if (category === 'sizeSmall' && theory) {
+    if (d.street === STREET.PRE) theory = 'Why theory disagrees: at a tough table a smaller raise does the job. These players call bigger raises with worse, so make it bigger.';
+    else if (d.street !== STREET.FLOP) theory = 'Why theory disagrees: theory mixes small bets into a balanced strategy. Callers here pay the same hands at a bigger price, so the small size leaves money behind.';
+  }
+  // "these players" only when there are several (STRAT_THEORY_COPY section 2)
+  if (theory && d.opponents === 1 && (category === 'badBluff' || category === 'overplay')) {
+    const { who } = whoOf(d);
+    theory = theory
+      .replace('These players call too much', `${cap(who)} calls too much`)
+      .replace('When the players left in the pot only continue with hands that beat you', `When ${who} only continues with hands that beat you`)
+      .replace('These players fold the hands you beat and continue with the ones that beat you', `${cap(who)} folds the hands you beat and continues with the ones that beat you`)
+      .replace('Calling keeps their worse hands and bluffs in.', 'Calling keeps their worse hands and bluffs in.');
+  }
   // "when several players check" needs two or more opponents, all checked on this street (STRAT F3)
   if (category === 'missedBluff' && !(d.opponents >= 2 && d.toCall === 0)) theory = null;
   return { category, headline, reasons, theory, cost, anchor: anchorLine(d), anchorExtra: anchorExtra(d) };

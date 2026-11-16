@@ -18,7 +18,7 @@ import { classOf, classNames } from '../src/engine/hands.js';
 import { handFeatures, TIER } from '../src/engine/features.js';
 import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
-import { shownCost } from '../src/trainer/explain.js';
+import { shownCost, dryBoard, blockerHand } from '../src/trainer/explain.js';
 import { pairedGap, redBar } from '../src/trainer/judge.js';
 import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus } from '../src/trainer/grade.js';
 import { disputeReport, disputeText } from '../src/trainer/dispute.js';
@@ -172,6 +172,29 @@ export const INVARIANTS = {
   'P7-4 flatting one raise with a top hand (raisePct >= 0.94) or a paying flat is never red': (d, v, m, b) =>
     d.street === STREET.PRE && m.type === 'call' && d.raises === 1 && b.type === 'raise' && v.grade === 'blunder' &&
     (HERO_PROFILE.raisePct[classOf(d.hole[0], d.hole[1])] >= 0.94 || m.ev >= 0),
+  // ---- "Why theory disagrees" says only what is true (STRAT_THEORY_COPY section 3) ----
+  'T1 "block" only with top two or top set, heads-up, on a dry board; "most" only with top set': (d) => {
+    if (!/block/.test(d.theory || '')) return false;
+    const bl = blockerHand(d.hole, d.board);
+    return !bl || d.tier < TIER.TWO_PAIR || d.opponents !== 1 || !dryBoard(d.board, d.street === STREET.RIVER) || (/block most/.test(d.theory) && bl !== 'set');
+  },
+  'T1b "free card" never on the river': (d) => d.street === STREET.RIVER && /free card/.test(d.theory || ''),
+  'T2 "control the pot" only with one pair (top pair good kicker to an overpair)': (d) => /control the pot/.test(d.theory || '') && d.tier > TIER.OVERPAIR_TPTK,
+  'T3 "they call with ... draws / weaker pairs" only when the picture holds 10% of them': (d) => {
+    const m = /they call with ([^.]*)\./.exec(d.theory || '');
+    if (!m) return false;
+    const b = (d.villain && d.villain.picture && d.villain.picture.buckets) || {};
+    return (/draws/.test(m[1]) && !(b.draw >= 0.1)) || (/weaker pairs/.test(m[1]) && !(b.weakPair >= 0.1));
+  },
+  'T4 "3-bet and 4-bet" or "keeps your range balanced" only facing a raise or completing the small blind': (d) =>
+    /3-bet and 4-bet|keeps your range balanced/.test(d.theory || '') && !(d.raises >= 1 || (d.raises === 0 && d.position === 'SB')),
+  'T5 "full table", "raked" and "out of position" only when true (preflop)': (d) => {
+    if (d.street !== STREET.PRE || !d.table) return false;
+    const t = text(d);
+    const claim = /\. ([^.]*), this hand does not earn its way in/.exec(d.theory || ''); // the table's own clauses
+    return (/full table/.test(t) && !(d.table.n >= 7)) || (!!claim && /raked/i.test(claim[1]) && !d.table.raked) || (!!claim && /multiway/.test(claim[1]) && !(d.table.voluntary >= 2)) || (/raked pot/.test(t) && !d.table.raked) || (/out of position/.test(t) && !d.table.oop);
+  },
+  'T6 "whole range on many boards" only on the flop': (d) => /whole range on many boards/.test(d.theory || '') && d.street !== STREET.FLOP,
   // ---- the yellow band (owner's Option 1; STRAT_YELLOW_BAND section 7) and the red bar x1.5 (section 12) ----
   'R1 red only at or above the red bar, max(12bb, 30% pot), x1.6 for the same kind': (d, v, m, b) =>
     v.grade === 'blunder' && v.loss < redBar(v.bb, v.pot) * (b.type === m.type ? 1.6 : 1) - 1e-6,

@@ -34,6 +34,20 @@ export const GAMES = {
 export const RETIRED_GAMES = { '1/3': '1/2', '3/5': '2/5' };
 export const gameKey = (k) => (GAMES[k] ? k : RETIRED_GAMES[k] || '2/3');
 
+// Facts the "Why theory disagrees" lines may claim (STRAT_THEORY_COPY): players dealt in, a rake taken,
+// how many others have put money in by choice, and whether you act first after the flop against those in.
+export function tableFacts(s, hero) {
+  const r = s.rake;
+  const raked = !!r && ((r.fixed || 0) > 0 || (r.pct || 0) > 0 || (r.promo || 0) > 0);
+  const order = (i) => (i - s.button - 1 + 2 * s.n) % s.n; // after the flop: the small blind first, the button last
+  const voluntary = new Set();
+  for (const h of s.history) if (h.street === STREET.PRE && h.seat !== hero && (h.type === 'call' || h.type === 'raise') && !s.folded[h.seat]) voluntary.add(h.seat);
+  const inPot = [];
+  for (let i = 0; i < s.n; i++) if (i !== hero && !s.folded[i] && (voluntary.has(i) || s.bet[i] > 0 || s.street > STREET.PRE)) inPot.push(i);
+  const oop = inPot.some((i) => order(i) > order(hero));
+  return { n: s.n, raked, voluntary: voluntary.size, oop };
+}
+
 export const RAKES = {
   // Labels say what each structure is; no venue names. Keys are stored in players' saved
   // settings, so they stay as they are ('tsr' is the stepped structure). Listed in the order
@@ -367,6 +381,7 @@ export class Session {
       raises: ctx.raises,
       opponents: live.length,
       regularIn,
+      table: tableFacts(s, HERO),
       verdict,
       villain: villain >= 0 ? { seat: villain, nick: this.name(villain), picture, steaming: this.seats[villain].steaming } : null,
       handText: feats ? describeHand(feats, s.board) : null,

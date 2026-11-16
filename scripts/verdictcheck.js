@@ -20,7 +20,7 @@ import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
 import { shownCost } from '../src/trainer/explain.js';
 import { pairedGap, redBar } from '../src/trainer/judge.js';
-import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption } from '../src/trainer/grade.js';
+import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus } from '../src/trainer/grade.js';
 import { disputeReport, disputeText } from '../src/trainer/dispute.js';
 import { presetRanges, groupOf } from '../src/trainer/ranges.js';
 import { STRONG_LIMP, callQ } from '../src/trainer/grade.js';
@@ -81,7 +81,7 @@ export const INVARIANTS = {
     return false;
   },
   'V14 a flag never names a reference that scores no better': (d, v, m, b) => v.grade !== 'good' && v.rule !== 'strongLimp' && b.ev <= m.ev,
-  'V15 no light-re-raise wording or junk tip for a value re-raise (TT+ AJo+ ATs+ KQo KJs+) of a loose opener': (d, v, m) => d.street === STREET.PRE && (/bluff|light re-raise/.test(d.headline || '') || d.tipKind === 'junk3bet') && m.type === 'raise' && VALUE_VS_LOOSE.has(classNames[classOf(d.hole[0], d.hole[1])]) && d.villain && (() => { const t = topRead(d, d.villain.nick); return t && t.p >= 0.5 && ['maniac', 'lag', 'whale', 'beginner'].includes(t.type); })(),
+  'V15 no light-re-raise wording or junk tip for a value re-raise (TT+ AJo+ ATs+ KQo KJs+) of a loose opener': (d, v, m) => d.street === STREET.PRE && v.note !== 'iso3bet' && (/bluff|light re-raise/.test(d.headline || '') || d.tipKind === 'junk3bet') && m.type === 'raise' && VALUE_VS_LOOSE.has(classNames[classOf(d.hole[0], d.hole[1])]) && d.villain && (() => { const t = topRead(d, d.villain.nick); return t && t.p >= 0.5 && ['maniac', 'lag', 'whale', 'beginner'].includes(t.type); })(),
   // ---- the CEO's list ----
   'C1 "scores higher" only when that play is the judge\'s best and clear of the reference': (d, v) => {
     const h = d.headline || '';
@@ -180,13 +180,34 @@ export const INVARIANTS = {
     d.street === STREET.PRE && m.type === 'raise' && d.raises === 1 && ISO_RERAISE.has(classNames[classOf(d.hole[0], d.hole[1])]) &&
     v.options[v.options.reduce((a, o, i) => (o.ev > v.options[a].ev ? i : a), 0)].type === 'call' && v.grade === 'blunder',
   'YB-B2 a "fine" TT-type re-raise when calling scores more uses PRO\'s words': (d, v) => v.note === 'iso3bet' && !/Re-raising to isolate is also standard/.test(d.headline || ''),
-  'YB-C a play that loses money by itself (against fold/check: >= 5bb, >= half the money in, > 3 SE) is never a plain or anchor-vetoed "fine"': (d, v) => {
+  'YB-C a play that loses money by itself (against fold/check: >= 5bb, >= half the money in, > 3 SE) is never a plain or anchor-vetoed "fine"': (d, v, m) => {
     if (v.grade !== 'good' || ![undefined, null, 'anchor', 'anchorFails', 'anchorEven'].includes(v.note) || !(v.putIn > 0)) return false;
     const give = giveUpOption(v);
     if (give < 0 || give === v.mine) return false;
     const g = pairedGap(v, give, v.mine);
-    return g.mean >= 5 * v.bb && g.mean >= 0.5 * v.putIn && g.mean > 3 * g.se;
+    let loss = g.mean;
+    if (m.type === 'call') {
+      loss = Math.min(loss, v.putIn); // a call loses at most its price by itself (STRAT section 17, C2)
+      if (d.street !== STREET.PRE && v.anchors) {
+        const hf = handFeatures(d.hole, d.board);
+        const st = m.st ?? anchorStatus(m, v, hf, d.opponents);
+        const draw = (hf.ownDrawEquity ?? hf.drawEquity ?? 0) > 0 && hf.tier <= TIER.MIDDLE_PAIR && d.realDraw;
+        if (st === 'works' || (st === 'even' && draw)) return false; // C1b'' (section 18)
+      }
+    } else if (!(m.ev < 0)) return false; // bets and raises lose money on their own mean (section 18)
+    return loss >= 5 * v.bb && loss >= 0.5 * v.putIn && loss > 3 * g.se;
   },
+  'YB-C5 a money-in call loses at most its price': (d, v, m) => v.rule === 'moneyIn' && m.type === 'call' && v.loss > v.putIn + 1e-6,
+  'YB-C6 a money-in flag with you ahead of the price says the later bets take it back': (d, v) => v.rule === 'moneyIn' && (() => {
+    const r = /ahead of (\d+)% of that right now and the price needs (\d+)%/.exec(text(d));
+    return !!r && +r[1] >= +r[2] && !/bets still to come cost more/.test(text(d));
+  })(),
+  'YB-C1b2 no money-in flag on a call rated works, or on a real draw rated even; the flagged call reads as failing': (d, v, m) =>
+    v.rule === 'moneyIn' && m.type === 'call' && d.street !== STREET.PRE && !!v.anchors && (m.st !== 'fails' || /^Close\./.test(d.anchor || '')),
+  'YB-C8 a money-in bet or raise loses money on its own mean': (d, v, m) => v.rule === 'moneyIn' && m.type !== 'call' && !(m.ev < 0),
+  'YB-C3 with two or more opponents the range line never sets one player\'s equity next to the price': (d) => d.opponents >= 2 && (d.reasons || []).some((r) => /^When .* the price needs/.test(r)),
+  'YB-C7 no "up to its price" headline on a money-in flag': (d, v) => v.rule === 'moneyIn' && /up to its price/.test(d.headline || ''),
+  'YB-B4 a TT-type re-raise when calling scores more gets no junk or size re-raise tip': (d, v) => v.iso3bet && ['junk3bet', 'size3bet'].includes(d.tipKind),
   'YB-C2 the money-in flag is yellow, names fold or check ("giving up the pot") and says the play loses money by itself': (d, v) =>
     v.rule === 'moneyIn' && (v.grade !== 'mistake' || v.best !== giveUpOption(v) || !/giving up the pot/.test(d.headline || '') || !(d.reasons || []).some((r) => /loses money by itself/.test(r))),
   'P7-1 no "bets still to come" on the river': (d) => d.street === STREET.RIVER && /bets still to come/.test(d.anchor || ''),
@@ -358,6 +379,7 @@ export function runConfig(cfg) {
         continue;
       }
       const rec = sess.heroAct(choose(cfg.style || 'sensible', sess.heroOptions(), sess.hand.state, rnd));
+      if (cfg.onRecord) cfg.onRecord(rec); // e.g. the flag split (scripts/flagsplit.js)
       decisions++;
       for (const k of checkRecord(rec)) violations.push({ invariant: k, record: rec });
       for (const k of checkModel(rec)) {

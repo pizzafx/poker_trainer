@@ -197,7 +197,7 @@ export function gradeDecision(s, belief, action, judgeOpts, env) {
     const group = groupOf(positionName(s, HERO));
     // a limp with a hand outside the seat's Standard range gets "most players fold it here", never the
     // raise tip (STRAT G3: never tell a student to raise K5o from UTG+1); inside it, the raise tip
-    tip = limpOutsideTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) ? null : junk3betTipFor(verdict, ctx, name, group, env)) || size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env);
+    tip = limpOutsideTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) || verdict.iso3bet ? null : junk3betTipFor(verdict, ctx, name, group, env)) || (verdict.iso3bet ? null : size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env));
   } else tip = limpTipFor(verdict, ctx);
   if (tip) verdict.tip = tip;
   return verdict;
@@ -243,7 +243,23 @@ function moneyInArm(v, s, ctx) {
   const give = giveUpOption(v);
   if (give < 0 || give === v.mine) return;
   const g = pairedGap(v, give, v.mine);
+  // a call loses at most its price by itself: what later streets add is graded there (QA YB-1, as STRAT G4)
+  if (mine.type === 'call') g.mean = Math.min(g.mean, put);
+  // ...and not a call the coach's own estimate says works, or a real draw it calls even: those are not
+  // whole-price losers, their loss is later streets (STRAT C1b'', section 18). A made hand rated "even"
+  // under its price keeps the flag.
+  let callSt = null;
+  if (mine.type === 'call' && s.street !== STREET.PRE && v.anchors) {
+    let opp = 0;
+    for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) opp++;
+    const hf = handFeatures(s.hole[HERO], s.board);
+    callSt = mine.st ?? anchorStatus(mine, v, hf, opp);
+    if (callSt === 'works' || (callSt === 'even' && isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR)) return;
+  }
+  // a bet or raise must lose money on its own mean, too (MATH's guard; STRAT section 18)
+  if (mine.type !== 'call' && !(mine.ev < 0)) return;
   if (!(g.mean >= 5 * s.bbAmt && g.mean >= 0.5 * put && g.mean > 3 * g.se)) return;
+  if (callSt) mine.st = 'fails'; // the estimate line uses the failing wording, never "close" (section 18)
   v.grade = 'mistake';
   v.rule = 'moneyIn';
   v.note = undefined;
@@ -252,6 +268,7 @@ function moneyInArm(v, s, ctx) {
   v.sameKind = false;
   v.loss = g.mean;
   v.se = g.se;
+  delete v.priceCap; // the loss above is already capped at the price; the headline states it plainly
   v.moneyIn = { put: Math.round(put), loss: Math.round(g.mean), give: v.options[give].type }; // R12 does not run here: the 3 SE test is its robustness check
   refreshClose(v);
 }

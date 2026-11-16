@@ -113,8 +113,14 @@ function rangeLine(d) {
   const price = A && A.price !== undefined ? A.price : d.odds;
   if (d.toCall > 0 && d.street === STREET.RIVER) {
     s += ` Your hand beats ${pct(vil.picture.equity)} of that; a call needs ${pct(price)}.`;
+  } else if (d.toCall > 0 && d.opponents >= 2) {
+    // one player's equity is not the call's: the others still in make it worse (STRAT C3, section 17)
+    const others = d.opponents - 1;
+    s += ` Against ${vil.nick}'s range alone you are ahead of ${pct(vil.picture.equity)}; the ${others === 1 ? 'other player' : `${NUM_WORDS[others] || others} others`} still in make${others === 1 ? 's' : ''} it worse.`;
   } else if (d.toCall > 0) {
     s += ` You are ahead of ${pct(vil.picture.equity)} of that right now and the price needs ${pct(price)}.`;
+    // a money-in flag before the river: the later bets are what make the call lose (QA YB-2)
+    if (d.verdict && d.verdict.rule === 'moneyIn' && vil.picture.equity >= price) s += ' The bets still to come cost more than that edge is worth.';
   }
   return s;
 }
@@ -464,7 +470,7 @@ export function explain(d) {
   const reasons = [];
   if (v.iso3bet) reasons.push('Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.');
   // a play that loses money by itself (STRAT_YELLOW_BAND C)
-  if (v.rule === 'moneyIn' && v.moneyIn) reasons.push(`On our read this ${mine.type === 'call' ? 'call' : 'bet'} loses money by itself: about $${v.moneyIn.loss} of the $${v.moneyIn.put} it puts in, compared with ${v.moneyIn.give === 'fold' ? 'folding' : 'checking'}.`);
+  if (v.rule === 'moneyIn' && v.moneyIn) reasons.push(`On our read this ${mine.type === 'call' ? 'call' : 'bet'} loses money by itself: ${v.moneyIn.loss >= 0.95 * v.moneyIn.put ? 'about all' : `about $${v.moneyIn.loss}`} of the $${v.moneyIn.put} it puts in, compared with ${v.moneyIn.give === 'fold' ? 'folding' : 'checking'}.`);
   // R5b's reason under a flagged call of a passive lead into a crowd (STRAT G5)
   if (v.setRaise && best.type === 'call') reasons.push('Calling keeps in the hands you beat; a re-raise folds them.');
   if (v.rule === 'R5b' && best.type === 'fold') reasons.push(`When a passive player leads into a crowd, one pair is often beaten. Folding scores about $${Math.max(0, Math.round(best.ev) - Math.round(mine.ev))} more.`);

@@ -285,7 +285,13 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
   const ownDrawEquity = Math.min(0.6, drawOuts * perCard);
   const overEquity = overOuts * perCard;
 
-  return { tier, strength, raw, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, overEquity, nutFlush };
+  // POOL batch 9: on the river, a hand with nothing that held a flush draw or an open-ended straight draw on the turn
+  let missedDraw = 0;
+  if (board.length === 5 && tier < TIER.WEAK_PAIR) {
+    const t = handFeatures(hole, board.slice(0, 4));
+    if (t.flushDraw > 0 || t.straightDraw === 2) missedDraw = 1;
+  }
+  return { tier, strength, raw, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, overEquity, nutFlush, missedDraw };
 }
 
 export function describeHand(f, board) {

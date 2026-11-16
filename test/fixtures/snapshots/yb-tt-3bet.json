@@ -343,9 +343,8 @@
   "headline": "Raise to $54 (3.0x): fine."
  },
  "expect": {
-  "grade": "good",
-  "best": "Call $18",
-  "note": "iso3bet"
+  "grade": "mistake",
+  "best": "Call $18"
  },
- "why": "TT 3-bets a loose opener when calling scores more, inside the bar at the fixture's samples: 'fine' with PRO's words, not plain 'fine' (STRAT_YELLOW_BAND B)"
+ "why": "TT 3-bets a gto-read opener with one caller: under the POOL batches 7-12 pool the 3-bet trails the call by about $21, beyond the bar, so it is yellow (a record of the move; was inside the bar with PRO's words; STRAT, 16 Nov 2026)"
 }

@@ -86,3 +86,18 @@ test('theory: the river trap line has its own words; a river with three of a sui
   const flush = explain(missedValue({ street: STREET.RIVER, hole: parseCards('2h Th'), board: parseCards('5h Kh 8d 3s Qh'), tier: TIER.STRONG })).theory;
   assert.ok(!/dry/.test(flush || ''), flush);
 });
+
+test("iso3bet: a TT-type re-raise inside the bar gets PRO's words, never plain 'fine' (STRAT_YELLOW_BAND B)", () => {
+  // pinned at the words level: under the POOL batches 7-12 pool no recorded spot keeps such a re-raise inside
+  // the bar (yb-tt-3bet now records the move; STRAT, 16 Nov 2026)
+  const fold = { type: 'fold', label: 'Fold', ev: 0 };
+  const call = { type: 'call', label: 'Call $18', ev: 43 };
+  const raise = { type: 'raise', to: 54, label: 'Raise to $54 (3.0x)', ev: 36 };
+  const d = {
+    street: STREET.PRE, hole: parseCards('Td Ts'), board: [], tier: null, opponents: 1, toCall: 15, raises: 1, pot: 23, odds: 0.4, position: 'HJ',
+    table: { n: 9, raked: true, voluntary: 1, oop: false }, ctx: { limpers: 0 },
+    verdict: { grade: 'good', note: 'iso3bet', iso3bet: true, mine: 2, best: 1, loss: 7, se: 1, small: 9, pot: 23, options: [fold, call, raise] },
+  };
+  const e = explain(d);
+  assert.equal(e.headline, 'Raise to $54 (3.0x): fine. Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.');
+});

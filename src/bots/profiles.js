@@ -55,6 +55,39 @@ const BASE = {
   drawRaiseMult: null, // ...and draw raises times this
   fourBet: 0.008,
   fourBetBluff: 0,
+  // POOL batch 8: the opening order's bonuses (finish() builds openPct from them)
+  openSuited: 0,
+  openPair: 0,
+  openConn: 0,
+  // POOL batches 7-8: the opener facing one 3-bet (unset is today's play): implied-odds flats (tbPlay and its
+  // kinds), offsuit trims (tbOffHi, tbOffLo), 4-bets with AK and suited wheel aces, the offsuit 4-bet bluff trim,
+  // and premiums that never fold to one 3-bet that is not all-in
+  tbPlay: 0,
+  tbSmallPair: 0,
+  tbSC: 0,
+  tbSCLow: 0,
+  tbSuitedAce: 0,
+  tbSuitedBw: 0,
+  tbPlayStart: 0.1,
+  tbPlayEnd: 0.2,
+  tbOffHi: null,
+  tbOffLo: null,
+  tbAK4: 0,
+  tbWheel4: 0,
+  tbOffBluff4: null,
+  premNoFold: 0,
+  // POOL batch 10: checked to, out of position with players still to act (unset: the in-position rule)
+  ctBehindTighten: null,
+  ctBehindShiftMult: 1,
+  // POOL batches 9 and 11: passive players' turn air, turn weak-pair stabs, missed-draw river bluffs, and
+  // calling one raise of their own turn or river bet with top pair or an overpair (unset: today's play)
+  turnAirMult: null,
+  pairStabTurn: null,
+  missBluff: 0,
+  tpRaiseCont: 0,
+  opRaiseCont: 0,
+  tpRaiseContR: 0,
+  opRaiseContR: 0,
   stackOff: 0.012, // share of hands willing to get all-in preflop at 100 big blinds
   // preflop taste: bonuses when ranking hands worth playing
   aceLove: 0,
@@ -176,6 +209,9 @@ const DEFS = {
     mwRaiseCut: 0.85, // POOL M, Nov 2026 (was the shared default)
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
     setMine: 0.7, // POOL HX / batch 4 (Nov 2026)
+    // POOL batches 7-11 (Nov 2026)
+    turnAirMult: 0.45,
+    missBluff: 0.06,
   },
   abc: {
     tbCont: [0.8, 0.68], // POOL opponent package (Nov 2026)
@@ -231,6 +267,13 @@ const DEFS = {
     slowplayFacing: 0.5, // POOL HX / batch 4 (Nov 2026)
     stackOffRaise: 0.5, // POOL batch 5 (Nov 2026)
     btnMult: 1.15, // POOL batch 6 (Nov 2026)
+    // POOL batches 7-11 (Nov 2026)
+    turnAirMult: 0.35,
+    opRaiseCont: 0.6,
+    tpRaiseCont: 0.35,
+    missBluff: 0.3,
+    tpRaiseContR: 0.35,
+    opRaiseContR: 0.6,
   },
   station: {
     blockBet: 0.12, // POOL opponent package (Nov 2026)
@@ -301,6 +344,12 @@ const DEFS = {
     slowplayFacing: 0.65, // POOL HX / batch 4 (Nov 2026)
     stackOffRaise: 0.3, // POOL batch 5 (Nov 2026)
     setMineEnd: 0.125, // POOL batch 5 (Nov 2026)
+    // POOL batches 7-11 (Nov 2026)
+    turnAirMult: 0.35,
+    pairStabTurn: 0.15,
+    missBluff: 0.3,
+    tpRaiseContR: 0.65,
+    opRaiseContR: 0.85,
   },
   whale: {
     blockBet: 0.08, // POOL opponent package (Nov 2026)
@@ -429,7 +478,7 @@ const DEFS = {
     isoRaise: 0.6, // POOL batch 5 (Nov 2026)
   },
   gto: {
-    tbCont: [0.5, 0.42], // POOL opponent package (Nov 2026)
+    tbCont: [0.52, 0.45], // POOL batches 7-11 (Nov 2026)
     tbSize: 0.06, // POOL batch 2 / pass 3 (Nov 2026)
     tbOOP: 0.05, // POOL opponent package (Nov 2026)
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
@@ -438,8 +487,8 @@ const DEFS = {
     blurb: 'Small opens, small range-bets, balanced bluffs and bluff-catches by the chart, whoever he is up against.',
     share: 0.04,
     vpip: [0.17, 0.22, 0.39, 0.34, 0.44],
-    pfr: [0.17, 0.22, 0.39, 0.29, 0.1],
-    isoFactor: 0.8, // POOL A3, Nov 2026: was 0.9
+    pfr: [0.17, 0.22, 0.3, 0.29, 0.1], // POOL batches 7-11 (Nov 2026)
+    isoFactor: 1.0, // POOL batches 7-11 (Nov 2026)
     openLimp: 0,
     overLimp: 0.1,
     openSize: 4,
@@ -453,12 +502,12 @@ const DEFS = {
     threeBetBluff: 0.5,
     callThreeBet: 0.2,
     fourBet: 0.018,
-    fourBetBluff: 0.3,
+    fourBetBluff: 0.15, // POOL batches 7-11 (Nov 2026)
     stackOff: 0.04, // POOL opponent package (Nov 2026)
     textureBlind: 0.1,
     absSens: 0.05,
     neverFold: 0.58,
-    cbet: [0.78, 0.5, 0.28],
+    cbet: [0.78, 0.5, 0.09], // POOL batch 12 (Nov 2026): was [0.78, 0.5, 0.28]
     barrel: [0.55, 0.25],
     stab: [0.45, 0.4, 0.35],
     valueBet: [0.5, 0.54, 0.6],
@@ -484,12 +533,33 @@ const DEFS = {
     mwRaiseCut: 0.6, // POOL M, Nov 2026 (was the shared default)
     mwTrap3: [0.4, 0.1, 0.2], // POOL M, Nov 2026 (was the shared default)
     deepJamCap: 0.1, // POOL HX / batch 4 (Nov 2026)
-    btnMult: 1.25, // POOL batch 6 (Nov 2026)
+    btnMult: 1.6, // POOL batches 7-11 (Nov 2026)
     airRaiseMult: 0.3, // POOL batch 6 (Nov 2026)
     drawRaiseMult: 1.4, // POOL batch 6 (Nov 2026)
     stealDefend: 1.55, // POOL batch 6 (Nov 2026)
     tpCheckRaise: 0.12, // POOL batch 6 (Nov 2026)
     steal3Bet: 2.6, // POOL batch 6 (Nov 2026)
+    // POOL batches 7-11 (Nov 2026)
+    tbPlay: 1,
+    tbSmallPair: 0.8,
+    tbSC: 0.85,
+    tbSCLow: 0.6,
+    tbSuitedAce: 0.55,
+    tbSuitedBw: 0.95,
+    tbPlayStart: 0.1,
+    tbPlayEnd: 0.2,
+    premNoFold: 0.029,
+    openSuited: 0.03,
+    openPair: 0.15,
+    openConn: 0.14,
+    tbOffHi: 0.9,
+    tbOffLo: 0.5,
+    tbAK4: 0.45,
+    tbWheel4: 0.25,
+    mwTightenCheckedTo: 0.01,
+    checkedToShift: [0, -0.06, -0.12],
+    ctBehindTighten: 0.03,
+    ctBehindShiftMult: 0.5,
   },
   tag: {
     tbCont: [0.6, 0.45], // POOL opponent package (Nov 2026)
@@ -501,8 +571,8 @@ const DEFS = {
     blurb: 'Tight-aggressive grinder. Raises his good hands, isolates limpers, folds when a passive player wakes up.',
     share: 0.15,
     vpip: [0.15, 0.2, 0.34, 0.22, 0.3],
-    pfr: [0.13, 0.18, 0.3, 0.15, 0.1],
-    isoFactor: 0.8, // POOL A3, Nov 2026: was 1.0
+    pfr: [0.13, 0.18, 0.25, 0.15, 0.1], // POOL batches 7-11 (Nov 2026)
+    isoFactor: 1.0, // POOL batches 7-11 (Nov 2026)
     openLimp: 0.02,
     overLimp: 0.4,
     openSize: 5,
@@ -513,12 +583,12 @@ const DEFS = {
     threeBet: 0.03, // POOL batch 2 / pass 3 (Nov 2026)
     threeBetBluff: 0.05, // POOL A4, Nov 2026: was 0.12
     callThreeBet: 0.14,
-    fourBet: 0.012,
+    fourBet: 0.0135, // POOL batches 7-11 (Nov 2026)
     fourBetBluff: 0.03,
     stackOff: 0.028, // POOL opponent package (Nov 2026)
     textureBlind: 0.15,
     neverFold: 0.66, // POOL P1v2, Nov 2026: was 0.62
-    cbet: [0.65, 0.35, 0.15],
+    cbet: [0.65, 0.28, 0.07], // POOL batch 12 (Nov 2026): was [0.65, 0.35, 0.15]
     barrel: [0.4, 0.2],
     stab: [0.45, 0.35, 0.2],
     valueBet: [0.5, 0.55, 0.6],
@@ -545,14 +615,34 @@ const DEFS = {
     mwRaiseCut: 0.85, // POOL M, Nov 2026 (was the shared default)
     mwTrap3: [0.6, 0.1, 0.25], // POOL M, Nov 2026 (was the shared default)
     deepJamCap: 0.1, // POOL HX / batch 4 (Nov 2026)
-    btnMult: 1.4, // POOL batch 6 (Nov 2026)
+    btnMult: 1.68, // POOL batches 7-11 (Nov 2026)
     airRaiseMult: 0.3, // POOL batch 6 (Nov 2026)
     drawRaiseMult: 1.4, // POOL batch 6 (Nov 2026)
     stealDefend: 1.3, // POOL batch 6 (Nov 2026)
     tpCheckRaise: 0.1, // POOL batch 6 (Nov 2026)
+    // POOL batches 7-11 (Nov 2026)
+    tbPlay: 1,
+    tbSmallPair: 0.65,
+    tbSC: 0.65,
+    tbSCLow: 0.4,
+    tbSuitedAce: 0.35,
+    tbSuitedBw: 0.8,
+    tbPlayStart: 0.1,
+    tbPlayEnd: 0.2,
+    tbOffHi: 0.55,
+    tbOffLo: 0.22,
+    tbAK4: 0.35,
+    premNoFold: 0.029,
+    openSuited: 0.03,
+    openPair: 0.15,
+    openConn: 0.14,
+    mwTightenCheckedTo: 0.01,
+    checkedToShift: [0, -0.06, -0.12],
+    ctBehindTighten: 0.03,
+    ctBehindShiftMult: 0.5,
   },
   lag: {
-    tbCont: [0.55, 0.5], // POOL opponent package (Nov 2026)
+    tbCont: [0.6, 0.58], // POOL batches 7-11 (Nov 2026)
     tbSize: 0.1, // POOL opponent package (Nov 2026)
     tbOOP: 0.07, // POOL opponent package (Nov 2026)
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
@@ -574,11 +664,11 @@ const DEFS = {
     threeBetBluff: 0.15, // POOL A4, Nov 2026: was 0.3
     callThreeBet: 0.2, // POOL A8, Nov 2026: was 0.16
     fourBet: 0.016,
-    fourBetBluff: 0.12,
+    fourBetBluff: 0.3, // POOL batches 7-11 (Nov 2026)
     stackOff: 0.04, // POOL opponent package (Nov 2026)
     textureBlind: 0.15,
     neverFold: 0.6,
-    cbet: [0.72, 0.42, 0.2],
+    cbet: [0.72, 0.42, 0.12], // POOL batch 12 (Nov 2026): was [0.72, 0.42, 0.2]
     barrel: [0.5, 0.33],
     stab: [0.55, 0.45, 0.3],
     valueBet: [0.48, 0.52, 0.56],
@@ -609,6 +699,25 @@ const DEFS = {
     drawRaiseMult: 1.3, // POOL batch 6 (Nov 2026)
     stealDefend: 1.3, // POOL batch 6 (Nov 2026)
     tpCheckRaise: 0.15, // POOL batch 6 (Nov 2026)
+    // POOL batches 7-11 (Nov 2026)
+    tbPlay: 1,
+    tbSmallPair: 0.8,
+    tbSC: 0.85,
+    tbSCLow: 0.6,
+    tbSuitedAce: 0.55,
+    tbSuitedBw: 0.95,
+    tbPlayStart: 0.1,
+    tbPlayEnd: 0.2,
+    premNoFold: 0.029,
+    tbOffHi: 1,
+    tbOffLo: 0.8,
+    tbAK4: 0.5,
+    tbWheel4: 0.55,
+    tbOffBluff4: 0.5,
+    mwTightenCheckedTo: 0.01,
+    checkedToShift: [0, -0.06, -0.12],
+    ctBehindTighten: 0.03,
+    ctBehindShiftMult: 0.5,
   },
   beginner: {
     tbCont: [0.85, 0.8], // POOL opponent package (Nov 2026)
@@ -689,6 +798,35 @@ const DEFS = {
 // a solid player who adjusts to who they are up against.
 const HERO_DEF = {
   ...DEFS.tag,
+  // the stand-in hero (and the judge's play-out profile) keeps the pre-bundle tag until STRAT and MATH rule
+  // on it: the POOL batches 7-12 tag changes are for the opponents only (POOL, 16 Nov 2026)
+  pfr: [0.13, 0.18, 0.3, 0.15, 0.1],
+  isoFactor: 0.8,
+  btnMult: 1.4,
+  fourBet: 0.012,
+  cbet: [0.65, 0.35, 0.15],
+  tbCont: [0.6, 0.45],
+  openSuited: 0,
+  openPair: 0,
+  openConn: 0,
+  tbPlay: 0,
+  tbSmallPair: 0,
+  tbSC: 0,
+  tbSCLow: 0,
+  tbSuitedAce: 0,
+  tbSuitedBw: 0,
+  tbPlayStart: 0.1,
+  tbPlayEnd: 0.2,
+  tbOffHi: null,
+  tbOffLo: null,
+  tbAK4: 0,
+  tbWheel4: 0,
+  tbOffBluff4: null,
+  premNoFold: 0,
+  ctBehindTighten: null,
+  ctBehindShiftMult: 1,
+  mwTightenCheckedTo: null,
+  checkedToShift: [0, 0, 0],
   name: 'Exploitative baseline',
   share: 0,
   exploit: true,
@@ -730,6 +868,16 @@ function finish(id, def) {
     playScore[k] = s;
   }
   P.raisePct = percentiles(raiseScore);
+  // POOL batch 8: a type's first-in opening order can favour suited hands, pairs and suited connectors over
+  // offsuit high cards (a live regular's open); used for opens and isolation only, raisePct elsewhere
+  if (P.openSuited || P.openPair || P.openConn) {
+    const openScore = new Float64Array(CLASS_COUNT);
+    for (let k = 0; k < CLASS_COUNT; k++) {
+      const c = classInfo(k);
+      openScore[k] = raiseScore[k] + (c.suited ? P.openSuited : 0) + (c.pair ? P.openPair : 0) + (c.suited && c.gap <= 2 && c.lo >= 3 ? P.openConn : 0);
+    }
+    P.openPct = percentiles(openScore);
+  } else P.openPct = P.raisePct;
   P.playPct = percentiles(playScore);
   // Summary indices used by exploit-aware play: how much aggression means, how much they fold.
   const bluffiness =

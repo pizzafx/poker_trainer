@@ -390,7 +390,13 @@ test('F10: the call is never flagged or noted as a miss; the $30 raise is never 
   // the words the app shows: a ringed play's headline is the best-play one (as Session.heroCommit)
   const e = explain(record(call));
   const callText = [bestHeadline(call.v, record(call)) || e.headline, ...(e.reasons || [])].join(' ');
-  assert.ok(!/[Rr]aise/.test(callText), `the call's words name no raise: ${callText}`);
+  // a raise the anchors support (status works) may be named as rating about the same; an unsupported one never
+  // (A3; STRAT, 16 Nov 2026: under the POOL batches 7-12 pool the $30 raise works here, W 60% against 42%)
+  const short = (o) => o.label.replace(/ \(.*\)$/, ''); // the headline's bare name, without the size note
+  const named = call.v.options.filter((o) => o.type === 'raise' && callText.includes(`${short(o)} rates about the same`));
+  for (const o of named) assert.equal(o.st, 'works', `${o.label} is named only if it works: ${callText}`);
+  const rest = named.reduce((t, o) => t.replace(`${short(o)} rates about the same`, ''), callText);
+  assert.ok(!/[Rr]aise/.test(rest), `the call's words name no other raise: ${callText}`);
   for (const r of rows) {
     if (isBig(r.o)) assert.ok(!r.best, `${r.o.label} is not shown as the best play`);
     if (r.v.grade !== 'good') assert.ok(!isBig(r.v.options[r.v.best]), `${r.o.label} is not measured against ${r.v.options[r.v.best].label}`);

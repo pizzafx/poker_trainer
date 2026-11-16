@@ -267,8 +267,9 @@ function preflopSizes(ctx, P, premium) {
   ];
 }
 
+
 export function preflopPolicy(ctx, P, cls) {
-  const rp0 = P.raisePct[cls];
+  const rp0 = ctx.raises === 0 ? (P.openPct || P.raisePct)[cls] : P.raisePct[cls]; // the opening order (profiles.js) is for first-in opens and isolation only (POOL batch 8)
   const sp = STACK_PCT[cls]; // facing-aggression order
   const rp = rp0;
   const pp = P.playPct[cls];
@@ -351,7 +352,27 @@ export function preflopPolicy(ctx, P, cls) {
         if (!ctx.ipVsRaiser) c -= P.tbOOP;
         c -= P.tbSqueeze * (ctx.squeezeCallers || 0);
         c = clamp(c, 0.05, 1);
+        const ci = classInfo(cls);
+        // POOL batch 7 (with PRO): AK 4-bets a share of the time against a 3-bet
+        if (P.tbAK4 && ci.hi === 12 && ci.lo === 11) raise = Math.max(raise, P.tbAK4 * (ci.suited ? 1.5 : 1));
+        // POOL batch 8 (with PRO): solver-minded and loose regulars 4-bet-bluff suited wheel aces (A5s, A4s; A3s/A2s at half)
+        if (P.tbWheel4 && ci.suited && ci.hi === 12 && ci.lo <= 3) raise = Math.max(raise, P.tbWheel4 * (ci.lo >= 2 ? 1 : 0.5));
+        // POOL batch 8 (with PRO): offsuit 4-bet bluffs below AQo (AJo, KQo) are the worst ones: cut them
+        if (P.tbOffBluff4 != null && !ci.suited && !ci.pair && !(ci.hi === 12 && ci.lo >= 10)) raise *= P.tbOffBluff4;
         call = Math.max(0, inTop(sp, openW * c) - raise);
+        // POOL batch 7 (with PRO): offsuit hands below AQo are the ones regulars lose money with against
+        // value-heavy live 3-bets: AJo and KQo continue less, the rest much less
+        if (P.tbOffHi != null && !ci.suited && !ci.pair && !(ci.hi === 12 && ci.lo >= 10)) call *= ci.hi === 12 && ci.lo === 9 || ci.hi === 11 && ci.lo === 10 ? P.tbOffHi : P.tbOffLo;
+        // POOL batch 7 (with PRO): deep, pairs and suited connectors (and suited aces) flat a small 3-bet for
+        // implied odds. Full at a call of tbPlayStart of the effective stack or less, gone by tbPlayEnd.
+        if (P.tbPlay) {
+          const kind = ci.pair ? (ci.lo >= 4 ? 1 : P.tbSmallPair) : ci.suited && ci.gap === 1 && ci.lo >= 3 ? (ci.lo >= 6 ? P.tbSC : P.tbSCLow) : ci.suited && ci.hi === 12 ? P.tbSuitedAce : ci.suited && ci.lo >= 8 ? P.tbSuitedBw ?? 0 : 0;
+          if (kind) {
+            const f = ctx.toCall / effChips;
+            const wS = clamp((P.tbPlayEnd - f) / (P.tbPlayEnd - P.tbPlayStart), 0, 1);
+            if (wS > 0) call = Math.max(call, Math.min(1, kind * (ctx.ipVsRaiser ? 1.25 : 1)) * wS * P.tbPlay * (1 - raise));
+          }
+        }
       } else {
         const cw = P.callThreeBet * (cold ? 0.5 : 1) * (1 + 0.5 * P.callCrowd * ctx.callers);
         call = (1 - raise) * inTop(Math.max(mix, sp), cw);
@@ -359,6 +380,8 @@ export function preflopPolicy(ctx, P, cls) {
         if (ctx.iFlatted && !ctx.iRaised && P.sqCont) call = Math.max(call, (1 - raise) * inTop(Math.max(mix, sp), P.callRaise * P.sqCont));
       }
     }
+    // POOL batch 7: facing one 3-bet (not all-in), JJ+ and AK do not fold, whatever the size
+    if (P.premNoFold && ctx.raises === 2 && !ctx.aggAllIn && sp >= 1 - P.premNoFold) call = Math.max(call, 1 - raise);
     // A1 (POOL, Nov 2026): a limp-reraise is about the strongest thing anyone does at these tables
     // (kings or aces, queens, ace-king): everything but the very top of a range gets out.
     if (ctx.limpReraise && sp < 0.985 && !(ctx.aggAllIn && ctx.odds < 0.25)) { // POOL batch 3, G1r: not against a cheap limp-shove
@@ -462,7 +485,11 @@ export function postflopPolicy(ctx, P, f) {
     const ct = ctx.checkedTo && !ctx.aggressorBehind;
     const lead = ctx.aggressorBehind ? (st === 0 && P.leadIntoRaiserFlop != null ? P.leadIntoRaiserFlop : P.leadIntoRaiser) : 0;
     const m7 = (st > 0 ? P.mwPassiveValue * extra * (ct ? P.m7CheckedTo : 1) : 0) + lead;
-    const valueThr = P.valueBet[st] + (ct && P.mwTightenCheckedTo != null ? P.mwTightenCheckedTo : P.mwTighten) * extra + valueShiftFor(P, ctx) + m7 + (ct ? P.checkedToShift?.[st] ?? 0 : 0);
+    // POOL batch 10 (with PRO): out of position with players still to act, a regular gets only part of the checked-to relaxation
+    const ctBehind = ct && !ctx.inPosition && P.ctBehindTighten != null;
+    const mwT = ct ? (ctBehind ? P.ctBehindTighten : P.mwTightenCheckedTo != null ? P.mwTightenCheckedTo : P.mwTighten) : P.mwTighten;
+    const ctShift = ct ? (P.checkedToShift?.[st] ?? 0) * (ctBehind ? P.ctBehindShiftMult ?? 1 : 1) : 0;
+    const valueThr = P.valueBet[st] + mwT * extra + valueShiftFor(P, ctx) + m7 + ctShift;
     let pValue = soft(S, valueThr, 0.035);
     if (f.tier >= TIER.STRONG) pValue *= 1 - P.slowplay * (st < 2 ? 1 : 0.25);
     // M5: strong hands trap out of position multiway, by where the preflop raiser sits; half as
@@ -482,6 +509,10 @@ export function postflopPolicy(ctx, P, f) {
     // M3: semi-bluffs fall off multiway too, and gutshots (under a quarter of equity) at half the rate.
     if (st < 2 && f.drawEquity >= 0.14) bluff = Math.max(bluff, P.semiBluff * (ctx.aggressorBehind ? 0.4 : 1) * Math.pow(1 - 0.5 * P.mwBluffCut, extra) * (f.drawEquity < 0.25 ? 0.5 : 1));
     // Hands with showdown value mostly check.
+    // POOL batch 9 (with PRO): checked to on the river, passive players bluff some of their missed draws (the one live passive bluff)
+    if (P.missBluff && st === 2 && ct && f.missedDraw) bluff = Math.max(bluff, P.missBluff * Math.pow(1 - P.mwBluffCut, extra));
+    // POOL batch 9: passive players rarely turn pure air into a turn bet
+    if (P.turnAirMult != null && st === 1 && f.tier < TIER.WEAK_PAIR && f.drawEquity < 0.14) bluff *= P.turnAirMult;
     if (f.tier >= TIER.TOP_PAIR_WEAK) bluff *= 0.12;
     else if (f.tier >= TIER.WEAK_PAIR) bluff *= 0.3;
     bluff = clamp(bluff * bluffMultFor(P, ctx), 0, 0.97);
@@ -490,7 +521,8 @@ export function postflopPolicy(ctx, P, f) {
     // river block bets (fix 2): medium hands out of position lead small
     const pBlock = P.blockBet && st === 2 && !ctx.inPosition && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.TOP_PAIR_GOOD ? P.blockBet * Math.max(0, 1 - pValue - pBluff) : 0;
     // checked to on the flop or turn, passive players bet a weak or middle pair "to see where they are" (POOL pass 3)
-    const pPair = P.pairStab && ct && st < 2 && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.MIDDLE_PAIR ? P.pairStab * Math.max(0, 1 - pValue - pBluff - pBlock) : 0;
+    const pairStab = st === 1 && P.pairStabTurn != null ? P.pairStabTurn : P.pairStab; // POOL batch 9: fewer weak-pair stabs on the turn
+    const pPair = pairStab && ct && st < 2 && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.MIDDLE_PAIR ? pairStab * Math.max(0, 1 - pValue - pBluff - pBlock) : 0;
     let bet = pValue + pBluff + pBlock + pPair;
     if (!ctx.canRaise) bet = 0;
     out.raise = bet;
@@ -588,6 +620,15 @@ export function postflopPolicy(ctx, P, f) {
   if (!ctx.canRaise) raise = 0;
   // Once most of the stack is in, strong hands stop folding.
   if (ctx.toCall >= ctx.stack && S >= raiseThr) pCont = 1;
+  // POOL batch 9 (with PRO): recreational players are curious and call one turn raise with top pair more often
+  if (P.tpRaiseCont && st === 1 && facingRaise && ctx.raises === 2 && ctx.iBetThisStreet && f.tier >= TIER.TOP_PAIR_WEAK && f.tier <= TIER.TOP_PAIR_GOOD) pCont = Math.max(pCont, P.tpRaiseCont);
+  // POOL batch 9: a passive player who bet the turn with an overpair or top pair top kicker rarely folds it to one raise
+  if (P.opRaiseCont && st === 1 && facingRaise && ctx.raises === 2 && ctx.iBetThisStreet && f.tier === TIER.OVERPAIR_TPTK) pCont = Math.max(pCont, P.opRaiseCont);
+  // POOL batch 11 (with PRO): the same on the river, where a recreational who bet top pair pays off one raise more often than not
+  if (st === 2 && facingRaise && ctx.raises === 2 && ctx.iBetThisStreet) {
+    if (P.tpRaiseContR && f.tier >= TIER.TOP_PAIR_WEAK && f.tier <= TIER.TOP_PAIR_GOOD) pCont = Math.max(pCont, P.tpRaiseContR);
+    if (P.opRaiseContR && f.tier === TIER.OVERPAIR_TPTK) pCont = Math.max(pCont, P.opRaiseContR);
+  }
   out.raise = raise;
   // Tiny bets (fix 5 v2, QA-VERDICT N3): almost nobody folds at 10 to 1 or better. Facing a single bet as
   // the first to respond (no caller in), the continue share is at least w x (1 - tinyFold x pot odds),

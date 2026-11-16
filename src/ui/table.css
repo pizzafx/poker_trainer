@@ -33,6 +33,12 @@
   --ink-d: #1f63c9;
   --ink-c: #1b7f3d;
   --club-top: #27974a;
+  /* the Online style: four-colour faces, top to bottom; spades charcoal (DECK_HANDOFF Addendum B) */
+  --on-s1: #63676e; --on-s2: #2a2c31;
+  --on-h1: #c8343d; --on-h2: #8a1a22;
+  --on-d1: #3271c4; --on-d2: #1a4687;
+  --on-c1: #2f9a45; --on-c2: #175f26;
+  --on-font: "Noto Serif Ranks", "Times New Roman", Times, serif;
   /* who is still in the hand (header design, Addendum C) */
   --back-rim: #efe9da;
   --back-lattice: #b4e46e2e;
@@ -2666,3 +2672,29 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 
 /* bet chips against a short stack: "$19 ⅓" (Addendum D2) */
 .presets button .frac { margin-left: 4px; font: 500 0.78em/1 var(--mono); color: var(--slate); }
+
+/* ================= Online: four-colour faces, a big serif rank (DECK_HANDOFF Addendum B) =================
+   A small rank and pip in the top-left corner, a large bold white serif rank in the lower centre. The "10" keeps
+   the other ranks' height and is narrowed instead. The big rank sits on a raised baseline so the Q's tail and
+   the J's hook (about 0.24em below it in this face) stay inside the card; every rank is lifted the same, so the
+   tops line up. Under 40px: rank over suit, centred, as in Split. */
+:is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)) { border-radius: calc(var(--cw) * 0.1); color: var(--c-fff); box-shadow: 0 calc(var(--cw) * 0.05) calc(var(--cw) * 0.14) var(--c-000a), inset 0 0 0 1px var(--c-ffffff26), inset 0 1px 0 var(--c-ffffff40); }
+:is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)).s { background: linear-gradient(180deg, var(--on-s1), var(--on-s2)); }
+:is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)).h { background: linear-gradient(180deg, var(--on-h1), var(--on-h2)); }
+:is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)).d { background: linear-gradient(180deg, var(--on-d1), var(--on-d2)); }
+:is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)).c { background: linear-gradient(180deg, var(--on-c1), var(--on-c2)); }
+:is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)) b, :is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)) u { position: absolute; display: block; font-family: var(--on-font); font-stretch: 75%; font-weight: 800; font-style: normal; text-decoration: none; line-height: 1; font-variant-numeric: lining-nums; opacity: 1; color: inherit; }
+:is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)) b { left: calc(var(--cw) * 0.07); right: auto; top: calc(var(--cw) * 0.04); width: calc(var(--cw) * 0.24); text-align: center; font-size: calc(var(--cw) * 0.3); letter-spacing: -0.02em; text-shadow: 0 1px 1px var(--c-0005); transform: none; }
+:is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)) i { position: absolute; display: block; left: calc(var(--cw) * 0.07); right: auto; top: calc(var(--cw) * 0.37); width: calc(var(--cw) * 0.24); text-align: center; font-style: normal; font-size: calc(var(--cw) * 0.24); line-height: 1; color: inherit; text-shadow: 0 1px 1px var(--c-0005); }
+:is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)) u { left: 0; right: 0; top: auto; bottom: calc(var(--cw) * 0.24); text-align: center; padding-left: calc(var(--cw) * 0.16); font-size: calc(var(--cw) * 0.8); letter-spacing: -0.03em; text-shadow: 0 calc(var(--cw) * 0.02) calc(var(--cw) * 0.04) var(--c-0006); transform: none; }
+:is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)) b.ten { left: calc(var(--cw) * 0.07); letter-spacing: -0.08em; transform: scaleX(0.86); transform-origin: 50% 50%; }
+:is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)) u.ten { right: 0; letter-spacing: -0.06em; transform: scaleX(0.84); transform-origin: 58% 50%; }
+:is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back))::after { display: none; }
+:is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)) b { left: 0; right: 0; width: auto; top: calc(var(--cw) * 0.08); font-size: calc(var(--cw) * 0.68); letter-spacing: -0.03em; }
+:is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)) b.ten { transform: scaleX(0.74); }
+:is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)) i { left: 0; right: 0; width: auto; top: calc(var(--cw) * 0.8); font-size: calc(var(--cw) * 0.44); }
+:is(.cards-inline, .seat:not(.hero) .cards, #board.sm) :is(body.deck-online .card:not(.pv .card):not(.back):not(.slot), .pv.deck-online .card:not(.back)) u { display: none; }
+/* your two cards sit side by side, as on the reference sites, so the first card's big rank stays whole */
+body.deck-online .seat.hero .cards .card { transform: rotate(-3deg); }
+body.deck-online .seat.hero .cards .card + .card { margin-left: calc(var(--cw) * 0.02); transform: rotate(3deg) translateY(1px); }
+.cs-picker .cstile.wide { grid-column: 1 / -1; }

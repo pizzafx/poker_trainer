@@ -60,7 +60,7 @@ try {
     }
   }
   // The Traditional deck is gone (Nov 2026): a saved choice of it, or any unknown style, becomes the default
-  if (!['classic', 'split'].includes(settings.cardLayout) || !['coloured', 'white'].includes(settings.cardColour)) {
+  if (!['classic', 'split', 'online'].includes(settings.cardLayout) || !['coloured', 'white'].includes(settings.cardColour)) {
     settings.cardLayout = DEFAULTS.cardLayout;
     settings.cardColour = DEFAULTS.cardColour;
     try {
@@ -119,9 +119,12 @@ if (typeof ResizeObserver !== 'undefined') addEventListener('DOMContentLoaded', 
 });
 // The card style (two device settings, independent): layout Classic or Split, colour Coloured or White.
 // Each is a class on <body>; the cards are restyled by CSS alone, so a change repaints every card at once.
+// Online (four-colour faces, a big serif rank; DECK_HANDOFF Addendum B) has no white version.
 function applyDeck() {
+  const online = settings.cardLayout === 'online';
+  document.body.classList.toggle('deck-online', online);
   document.body.classList.toggle('deck-split', settings.cardLayout === 'split');
-  document.body.classList.toggle('deck-white', settings.cardColour === 'white');
+  document.body.classList.toggle('deck-white', !online && settings.cardColour === 'white');
 }
 applyDeck();
 // A buy-in of 100 big blinds, kept inside the room's range.
@@ -1895,13 +1898,15 @@ function openGameModal({ tab = 'game', group = null } = {}) {
   const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
   // Card style: one 2x2 radiogroup, rows by layout, columns by colour; each tile shows a real A♥ K♦ in
   // its style (DECK_HANDOFF §5, revised)
-  const DECKS = [['classic', 'coloured'], ['classic', 'white'], ['split', 'coloured'], ['split', 'white']];
-  const LAYOUT_NAME = { classic: 'Classic', split: 'Split' };
-  const deckName = (l, c) => `${LAYOUT_NAME[l]}, ${c === 'white' ? 'White' : 'Coloured'}`;
+  const DECKS = [['classic', 'coloured'], ['classic', 'white'], ['split', 'coloured'], ['split', 'white'], ['online', 'coloured']];
+  const LAYOUT_NAME = { classic: 'Classic', split: 'Split', online: 'Online' };
+  const colourName = (l, c) => (l === 'online' ? 'four-colour' : c === 'white' ? 'White' : 'Coloured');
+  const deckName = (l, c) => `${LAYOUT_NAME[l]}, ${colourName(l, c)}`;
   const deckTiles = () =>
     `<div class="cs-picker" role="radiogroup" aria-labelledby="cs-lab">${DECKS.map(([l, c], i) => {
-      const on = settings.cardLayout === l && settings.cardColour === c;
-      return `<button type="button" class="cstile" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" data-i="${i}" aria-label="${deckName(l, c)}"><span class="swatch pv${l === 'split' ? ' deck-split' : ''}${c === 'white' ? ' deck-white' : ''}"><span class="pv-cards">${cardHtml(12 * 4 + 2)}${cardHtml(11 * 4 + 1)}</span></span><span class="nm">${LAYOUT_NAME[l]} <small>· ${c === 'white' ? 'White' : 'Coloured'}</small></span><span class="def"${i === 0 ? '' : ' aria-hidden="true"'}>${i === 0 ? 'default' : '&nbsp;'}</span></button>`;
+      const online = l === 'online';
+      const on = settings.cardLayout === l && (online || settings.cardColour === c);
+      return `<button type="button" class="cstile${online ? ' wide' : ''}" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" data-i="${i}" aria-label="${deckName(l, c)}"><span class="swatch pv${online ? ' deck-online' : ''}${l === 'split' ? ' deck-split' : ''}${c === 'white' ? ' deck-white' : ''}"><span class="pv-cards">${cardHtml(12 * 4 + 2)}${cardHtml(11 * 4 + 1)}</span></span><span class="nm">${LAYOUT_NAME[l]} <small>· ${colourName(l, c)}</small></span><span class="def"${i === 0 ? '' : ' aria-hidden="true"'}>${i === 0 ? 'default' : '&nbsp;'}</span></button>`;
     }).join('')}</div>`;
   const seg = (id, items, cur) => `<div class="seg" role="radiogroup" data-for="${id}">${items.map(([v, l]) => `<button type="button" role="radio" data-v="${v}" aria-checked="${v === cur}" class="${v === cur ? 'on' : ''}">${l}</button>`).join('')}</div><input type="hidden" id="${id}" value="${cur}">`;
   const toggle = (id, on, label) => `<label class="trow" for="${id}"><span>${label}</span><input id="${id}" type="checkbox" class="toggle" ${on ? 'checked' : ''}></label>`;
@@ -1997,10 +2002,11 @@ function openGameModal({ tab = 'game', group = null } = {}) {
   tiles.forEach((b, i) => {
     b.onclick = () => pickDeck(i, false);
     b.onkeydown = (e) => {
-      // rows Classic, Split; columns Coloured, White
+      // rows Classic, Split, Online (one wide tile); columns Coloured, White
       const row = i >> 1;
-      const col = i & 1;
-      const to = { ArrowLeft: row * 2, ArrowRight: row * 2 + 1, ArrowUp: col, ArrowDown: 2 + col }[e.key];
+      const col = i === 4 ? 0 : i & 1;
+      const at = (r, c2) => (r >= 2 ? 4 : r * 2 + c2);
+      const to = { ArrowLeft: at(row, 0), ArrowRight: at(row, 1), ArrowUp: at(Math.max(0, row - 1), col), ArrowDown: at(Math.min(2, row + 1), col) }[e.key];
       if (to === undefined) return;
       e.preventDefault();
       e.stopPropagation();

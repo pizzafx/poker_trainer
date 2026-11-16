@@ -339,8 +339,8 @@ research_notes/ raw notes from each research thread
 
 The code is MIT licensed: see [`LICENSE`](LICENSE). The research report and notes in
 `reports/` and `research_notes/` are included for reference and are not covered by it.
-The two web fonts in `assets/fonts/` (Space Grotesk and IBM Plex Mono) are under the SIL Open
-Font License 1.1, not MIT; their licence texts are beside them.
+The web fonts in `assets/fonts/` (Space Grotesk, IBM Plex Mono, and a subset of Noto Serif for the
+Online card style) are under the SIL Open Font License 1.1, not MIT; their licence texts are beside them.
 
 ## Ideas for later
 

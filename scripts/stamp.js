@@ -61,7 +61,7 @@ const put = (p, text) => {
 }
 
 // 1. fonts.css points at the font files with their versions.
-const FONTS = ['assets/fonts/space-grotesk-var.woff2', 'assets/fonts/IBMPlexMono-Medium-Latin1.woff2'];
+const FONTS = ['assets/fonts/space-grotesk-var.woff2', 'assets/fonts/IBMPlexMono-Medium-Latin1.woff2', 'assets/fonts/noto-serif-ranks.woff2'];
 let fontsCss = read('src/ui/fonts.css');
 for (const f of FONTS) {
   const name = f.split('/').pop().replace(/\./g, '\\.');

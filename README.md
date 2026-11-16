@@ -341,7 +341,6 @@ The code is MIT licensed: see [`LICENSE`](LICENSE). The research report and note
 `reports/` and `research_notes/` are included for reference and are not covered by it.
 The two web fonts in `assets/fonts/` (Space Grotesk and IBM Plex Mono) are under the SIL Open
 Font License 1.1, not MIT; their licence texts are beside them.
-Card art (Traditional deck) by the project owner.
 
 ## Ideas for later
 

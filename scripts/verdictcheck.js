@@ -187,13 +187,14 @@ export const INVARIANTS = {
     return (/draws/.test(m[1]) && !(b.draw >= 0.1)) || (/weaker pairs/.test(m[1]) && !(b.weakPair >= 0.1));
   },
   'T4 "3-bet and 4-bet" or "keeps your range balanced" only facing a raise or completing the small blind': (d) =>
-    /3-bet and 4-bet|keeps your range balanced/.test(d.theory || '') && !(d.raises >= 1 || (d.raises === 0 && d.position === 'SB')),
+    /3-bet and 4-bet|keeps your range balanced/.test(d.theory || '') && !(d.raises >= 1 || (d.raises === 0 && ['SB', 'BTN/SB'].includes(d.position))),
   'T5 "full table", "raked" and "out of position" only when true (preflop)': (d) => {
     if (d.street !== STREET.PRE || !d.table) return false;
     const t = text(d);
     const claim = /\. ([^.]*), this hand does not earn its way in/.exec(d.theory || ''); // the table's own clauses
     return (/full table/.test(t) && !(d.table.n >= 7)) || (!!claim && /raked/i.test(claim[1]) && !d.table.raked) || (!!claim && /multiway/.test(claim[1]) && !(d.table.voluntary >= 2)) || (/raked pot/.test(t) && !d.table.raked) || (/out of position/.test(t) && !d.table.oop);
   },
+  'T5b heads-up, out of position after the flop exactly when you are the button (the small blind)': (d) => d.street === STREET.PRE && !!d.table && d.table.n === 2 && d.table.oop !== ['BTN', 'SB', 'BTN/SB', 'SB/BTN'].includes(d.position),
   'T6 "whole range on many boards" only on the flop': (d) => /whole range on many boards/.test(d.theory || '') && d.street !== STREET.FLOP,
   // ---- the yellow band (owner's Option 1; STRAT_YELLOW_BAND section 7) and the red bar x1.5 (section 12) ----
   'R1 red only at or above the red bar, max(12bb, 30% pot), x1.6 for the same kind': (d, v, m, b) =>
@@ -228,7 +229,14 @@ export const INVARIANTS = {
   'YB-C1b2 no money-in flag on a call rated works, or on a real draw rated even; the flagged call reads as failing': (d, v, m) =>
     v.rule === 'moneyIn' && m.type === 'call' && d.street !== STREET.PRE && !!v.anchors && (m.st !== 'fails' || /^Close\./.test(d.anchor || '')),
   'YB-C8 a money-in bet or raise loses money on its own mean': (d, v, m) => v.rule === 'moneyIn' && m.type !== 'call' && !(m.ev < 0),
-  'YB-C3 with two or more opponents the range line never sets one player\'s equity next to the price': (d) => d.opponents >= 2 && (d.reasons || []).some((r) => /^When .* the price needs/.test(r)),
+  'YB-C3 with two or more opponents the range line never sets one player\'s equity next to the price': (d) => d.opponents >= 2 && (d.reasons || []).some((r) => /^When .*(the price needs|a call needs)/.test(r)),
+  // ---- STRAT YB-6: the anchor veto's words match the estimate line ----
+  'YB-V1 "this is close" only under an estimate line that is close or about even': (d, v) => /estimate below this is close/.test(d.headline || '') && !(v.anchorWhy === 'even' && d.anchor),
+  'YB-V2 "close" in an anchor veto only for an even veto': (d, v) => v.note === 'anchor' && /is close/.test(d.headline || '') && v.anchorWhy !== 'even',
+  'YB-V3 "estimate below" always has an estimate line under it': (d) => /estimate below/.test(d.headline || '') && !d.anchor,
+  'YB-V4 a "works" veto sits under a works line, a "does not work" veto under a failing one': (d, v) => v.note === 'anchor' && !!d.anchor && (
+    (v.anchorWhy === 'works' && /does not work|Do not bluff|mostly call with better|Not at this price|needs more folds than you get\.$/.test(d.anchor) && !/bet for value|A bigger/.test(d.anchor)) ||
+    (v.anchorWhy === 'fails' && /bet for value/.test(d.anchor))),
   'YB-C7 no "up to its price" headline on a money-in flag': (d, v) => v.rule === 'moneyIn' && /up to its price/.test(d.headline || ''),
   'YB-B4 a TT-type re-raise when calling scores more gets no junk or size re-raise tip': (d, v) => v.iso3bet && ['junk3bet', 'size3bet'].includes(d.tipKind),
   'YB-C2 the money-in flag is yellow, names fold or check ("giving up the pot") and says the play loses money by itself': (d, v) =>

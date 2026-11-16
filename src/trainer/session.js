@@ -39,7 +39,9 @@ export const gameKey = (k) => (GAMES[k] ? k : RETIRED_GAMES[k] || '2/3');
 export function tableFacts(s, hero) {
   const r = s.rake;
   const raked = !!r && ((r.fixed || 0) > 0 || (r.pct || 0) > 0 || (r.promo || 0) > 0);
-  const order = (i) => (i - s.button - 1 + 2 * s.n) % s.n; // after the flop: the small blind first, the button last
+  // after the flop: the small blind first, the button last; heads-up the button is the small blind and acts
+  // first (QA T-1)
+  const order = (i) => (s.n === 2 ? (i === s.button ? 0 : 1) : (i - s.button - 1 + 2 * s.n) % s.n);
   const voluntary = new Set();
   for (const h of s.history) if (h.street === STREET.PRE && h.seat !== hero && (h.type === 'call' || h.type === 'raise') && !s.folded[h.seat]) voluntary.add(h.seat);
   const inPot = [];

@@ -79,3 +79,10 @@ test('theory: preflop clauses only when true', () => {
   assert.match(explain(preflop('prePassive')).theory || '', /keeps your range balanced/);
   assert.equal(explain(preflop('prePassive', { raises: 0, toCall: 2 })).theory, null);
 });
+
+test('theory: the river trap line has its own words; a river with three of a suit never says "dry" (STRAT T-2)', () => {
+  const river = explain(missedValue({ street: STREET.RIVER, hole: parseCards('Ac 2d'), board: parseCards('Ah 2c Qd 7s 9h') })).theory;
+  assert.equal(river, 'Why theory disagrees: on the river theory sometimes checks a hand this strong so that worse hands bet. Against a calling station, betting gets paid more: they call with weaker pairs.');
+  const flush = explain(missedValue({ street: STREET.RIVER, hole: parseCards('2h Th'), board: parseCards('5h Kh 8d 3s Qh'), tier: TIER.STRONG })).theory;
+  assert.ok(!/dry/.test(flush || ''), flush);
+});

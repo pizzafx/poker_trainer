@@ -1133,9 +1133,12 @@ export function applyAnchors(v, s, ctx) {
   }
   // A2, reference: an unsupported bet or raise is never the play a flag is measured against
   if (v.options[v.best].type === 'raise' && !supported(v.options[v.best])) {
+    const from = v.best;
     regrade(supported);
     if (v.grade === 'good') {
       v.note = 'anchor';
+      v.anchorWhy = 'A2'; // which veto, for the copy (STRAT YB-6)
+      v.anchorFrom = from;
       v.line = 'auto';
       return;
     }
@@ -1163,6 +1166,7 @@ export function applyAnchors(v, s, ctx) {
   if (veto) {
     v.grade = 'good';
     v.note = 'anchor';
+    v.anchorWhy = own && s1 === 'works' ? 'works' : !own && s1 === 'fails' ? 'fails' : 'even'; // for the copy (STRAT YB-6)
     v.line = 'auto';
   } else v.line = s1 === 'even' ? null : 'auto';
 }

@@ -111,7 +111,11 @@ function rangeLine(d) {
   // the same effective price as the coach's estimate (all-in capped; STRAT F6)
   const A = d.verdict && d.verdict.anchors;
   const price = A && A.price !== undefined ? A.price : d.odds;
-  if (d.toCall > 0 && d.street === STREET.RIVER) {
+  if (d.toCall > 0 && d.street === STREET.RIVER && d.opponents >= 2) {
+    // one player's range is not the call's: the others still in make it worse (STRAT C3, on the river too)
+    const others = d.opponents - 1;
+    s += ` Against ${vil.nick}'s range alone your hand beats ${pct(vil.picture.equity)}; the ${others === 1 ? 'other player' : `${NUM_WORDS[others] || others} others`} still in make${others === 1 ? 's' : ''} it worse.`;
+  } else if (d.toCall > 0 && d.street === STREET.RIVER) {
     s += ` Your hand beats ${pct(vil.picture.equity)} of that; a call needs ${pct(price)}.`;
   } else if (d.toCall > 0 && d.opponents >= 2) {
     // one player's equity is not the call's: the others still in make it worse (STRAT C3, section 17)
@@ -223,11 +227,20 @@ function goodHeadline(v, mine, best, d = {}) {
     return `${mine.label}: fine. It ${higher ? 'scores higher' : 'is close to the best'} against these players, but by the estimate below it only works if they keep playing this way; ${bare(best).toLowerCase()} is the standard play.`;
   }
   if (v.note === 'anchor') {
-    // the bars' gap stated, then why it is not flagged (QA F2)
-    const alt = gap(best) > 0 && best !== mine ? best : top;
-    return gap(alt) > 0
-      ? `${mine.label}: fine. (${bare(alt)} ${more(alt)} on the bars, but by the coach's estimate below this is close, so it is not flagged.)`
-      : `${mine.label}: fine. (By the coach's estimate below this is close, so it is not flagged.)`;
+    // the bars' gap stated, then why it is not flagged (QA F2), in words that match the estimate line under
+    // it: only an "even" veto is "close" (STRAT YB-6); with no line under it, nothing cites one
+    const from = v.anchorWhy === 'A2' && v.options[v.anchorFrom] ? v.options[v.anchorFrom] : null;
+    const alt = from || (gap(best) > 0 && best !== mine ? best : top);
+    const bars = gap(alt) > 0 ? `${bare(alt)} ${more(alt)} on the bars, but ` : '';
+    const lined = !!anchorLine(d);
+    if (!lined) return gap(alt) > 0 ? `${mine.label}: fine. (${bare(alt)} ${more(alt)} on the bars, but it is not flagged.)` : `${mine.label}: fine.`;
+    const playWord = mine.type === 'call' ? 'call' : d.toCall > 0 ? 'raise' : 'bet';
+    let why;
+    if (v.anchorWhy === 'works') why = `by the coach's estimate below your ${playWord} works, so it is not flagged`;
+    else if (v.anchorWhy === 'fails') why = `by the coach's estimate below ${bare(alt).toLowerCase()} does not work here, so this is not flagged`;
+    else if (v.anchorWhy === 'A2') why = `by the coach's estimate below it does not work; against ${bare(best).toLowerCase()} this gives up too little to flag`;
+    else why = "by the coach's estimate below this is close, so it is not flagged";
+    return `${mine.label}: fine. (${bars ? bars + why : why[0].toUpperCase() + why.slice(1)}.)`;
   }
   if (v.note === 'closeCall') return `${mine.label}: not graded.`;
   if (v.note === 'preSize') return `${mine.label}: fine. (${bare(best)} ${more(best, 'scores about the same')}; using one size with all your hands is the better habit.)`;
@@ -398,7 +411,7 @@ export function anchorLine(d) {
     } else {
       line = `At ${$(mine)} ${foldsP(mine.F)}, against ${share(ref.F, false)} at ${$(ref)}: the bigger ${kw} folds out the worse hands you want to keep in.`;
     }
-  } else if (ref !== mine && ref.type === 'raise' && v.grade !== 'good' && (mine.type !== 'raise' || ref.to !== mine.to)) {
+  } else if (ref !== mine && ref.type === 'raise' && (v.grade !== 'good' || v.note === 'anchor') && (mine.type !== 'raise' || ref.to !== mine.to)) {
     const b = bet(ref);
     line = `${d.toCall > 0 ? `A raise to $${ref.to}` : `A bet of $${ref.to - (d.currentBet || 0)}`}: ${b[0].toLowerCase()}${b.slice(1)}`;
   } else if (mine.type === 'raise') line = bet(mine);
@@ -571,12 +584,14 @@ export function explain(d) {
       const bl = blockerHand(d.hole, d.board);
       theory = bl
         ? `Why theory disagrees: theory sometimes checks here: your cards block ${bl === 'set' ? 'most' : 'many'} of the hands that would call${river ? '' : ', and on a dry board a free card rarely hurts'}. Against ${who} that doesn't matter: they call with ${callsWith(d)}.`
-        : `Why theory disagrees: on a dry board theory sometimes checks a hand this strong to let worse hands bet or catch up. Against ${who}, betting gets paid more: they call with ${callsWith(d)}.`;
+        : river
+          ? `Why theory disagrees: on the river theory sometimes checks a hand this strong so that worse hands bet. Against ${who}, betting gets paid more: they call with ${callsWith(d)}.` // STRAT T-2
+          : `Why theory disagrees: on a dry board theory sometimes checks a hand this strong to let worse hands bet or catch up. Against ${who}, betting gets paid more: they call with ${callsWith(d)}.`;
     }
   }
   // preflop: every clause only when it is true (STRAT_THEORY_COPY section 2)
   const T = d.table || {};
-  if (category === 'prePassive' && !(d.raises >= 1 || (d.raises === 0 && d.position === 'SB'))) theory = null;
+  if (category === 'prePassive' && !(d.raises >= 1 || (d.raises === 0 && ['SB', 'BTN/SB'].includes(d.position)))) theory = null; // heads-up the small blind is 'BTN/SB'
   if (category === 'preRaise' && !(d.raises >= 1)) theory = null;
   if (category === 'preLoose' && theory) {
     const parts = [];

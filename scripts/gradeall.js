@@ -7,7 +7,7 @@ import { buildContext } from '../src/bots/policy.js';
 import { TYPE_IDS, PROFILES } from '../src/bots/profiles.js';
 import { HandBelief, newRead, posterior } from '../src/trainer/belief.js';
 import { RAKES } from '../src/trainer/session.js';
-import { pairedGap } from '../src/trainer/judge.js';
+import { pairedGap, redBar } from '../src/trainer/judge.js';
 import { temper } from '../src/trainer/grade.js';
 
 // The judge's verdict for choice `c`, from a judgement of every option.
@@ -26,7 +26,7 @@ export function verdictFor(v0, c, s) {
     v.se = g.se;
     if (g.mean > 2.2 * g.se) {
       const k = v.sameKind ? 1.6 : 1;
-      if (g.mean >= Math.max(8 * bb, 0.2 * pot) * k) v.grade = 'blunder';
+      if (g.mean >= redBar(bb, pot) * k) v.grade = 'blunder';
       else if (g.mean >= Math.max(3 * bb, 0.1 * pot) * k) v.grade = 'mistake';
     }
   }

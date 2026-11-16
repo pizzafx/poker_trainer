@@ -340,7 +340,7 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   const sig = loss > 2.2 * se;
   let grade = 'good';
   if (mine >= 0 && mine !== best && sig) {
-    const big = Math.max(8 * bb, 0.2 * pot) * (sameKind ? 1.6 : 1);
+    const big = redBar(bb, pot) * (sameKind ? 1.6 : 1);
     const small = Math.max(3 * bb, 0.1 * pot) * (sameKind ? 1.6 : 1);
     if (loss >= big) grade = 'blunder';
     else if (loss >= small) grade = 'mistake';
@@ -380,6 +380,10 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
 }
 
 // How much better option `a` did than option `b` on the same run-outs, with its standard error.
+// The red bar: a loss this large is a blunder (x1.6 for the same kind of play). The owner raised it x1.5
+// from max(8bb, 20% of the pot), Nov 2026 (STRAT_YELLOW_BAND section 12).
+export const redBar = (bb, pot) => Math.max(12 * bb, 0.3 * pot);
+
 export function pairedGap(v, a, b) {
   // A verdict built by hand (tests) has no runs: use its values and its own standard error.
   if (!v.runs) return { mean: v.options[a].ev - v.options[b].ev, se: v.se || 0 };

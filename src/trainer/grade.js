@@ -7,7 +7,7 @@ import { handFeatures, TIER, isRealDraw } from '../engine/features.js';
 import { classOf, classNames } from '../engine/hands.js';
 import { buildContext, POS } from '../bots/policy.js';
 import { HERO_PROFILE } from '../bots/profiles.js';
-import { judgeDecision, pairedGap, refreshClose, tiltedEvs } from './judge.js';
+import { judgeDecision, pairedGap, refreshClose, tiltedEvs, redBar } from './judge.js';
 import { groupOf, presetRanges, presetRaised, expandRange } from './ranges.js';
 
 const HERO = 0;
@@ -264,7 +264,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   const weak = hf && hf.tier <= TIER.MIDDLE_PAIR;
   const bb = s.bbAmt;
   const small = Math.max(3 * bb, 0.1 * v.pot);
-  const big = Math.max(8 * bb, 0.2 * v.pot);
+  const big = redBar(bb, v.pot);
   const mine = v.options[v.mine];
   const isRaise = (o) => o.type === 'raise';
   const best = () => v.options[v.best];
@@ -1068,7 +1068,7 @@ export function applyAnchors(v, s, ctx) {
       const g = pairedGap(v, alt, v.mine);
       const k = v.sameKind ? 1.6 : 1;
       const small = v.small;
-      const big = Math.max(8 * s.bbAmt, 0.2 * v.pot);
+      const big = redBar(s.bbAmt, v.pot);
       // only ever smaller than before
       const RANK = { good: 0, mistake: 1, blunder: 2 };
       const g2 = !(g.mean > 2.2 * g.se) || g.mean < small * k ? 'good' : g.mean >= big * k ? 'blunder' : 'mistake';

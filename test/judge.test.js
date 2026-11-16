@@ -86,12 +86,13 @@ test('judge: same spot and seed give the same verdict', () => {
   assert.equal(v1.grade, v2.grade);
 });
 
-test('judge: the nuts facing a bet never folds, and folding them is a blunder', () => {
+test('judge: the nuts facing a bet never folds, and folding them is flagged', () => {
   const { s, belief } = nuts();
   const v = judgeDecision(s, 0, belief, { type: 'fold' }, { samples: 400, seed: 3 });
   assert.notEqual(v.options[v.best].type, 'fold');
   assert.equal(v.options[v.mine].type, 'fold');
-  assert.equal(v.grade, 'blunder');
+  // about $33 at $3 big blinds: red under the old bar (8bb), yellow under the owner's 12bb red bar (Nov 2026)
+  assert.ok(['mistake', 'blunder'].includes(v.grade), v.grade);
   const call = v.options.find((o) => o.type === 'call');
   assert.ok(call.ev > 0, 'calling with the nuts wins money');
 });

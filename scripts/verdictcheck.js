@@ -19,7 +19,7 @@ import { handFeatures, TIER } from '../src/engine/features.js';
 import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
 import { shownCost } from '../src/trainer/explain.js';
-import { pairedGap } from '../src/trainer/judge.js';
+import { pairedGap, redBar } from '../src/trainer/judge.js';
 import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption } from '../src/trainer/grade.js';
 import { disputeReport, disputeText } from '../src/trainer/dispute.js';
 import { presetRanges, groupOf } from '../src/trainer/ranges.js';
@@ -172,7 +172,9 @@ export const INVARIANTS = {
   'P7-4 flatting one raise with a top hand (raisePct >= 0.94) or a paying flat is never red': (d, v, m, b) =>
     d.street === STREET.PRE && m.type === 'call' && d.raises === 1 && b.type === 'raise' && v.grade === 'blunder' &&
     (HERO_PROFILE.raisePct[classOf(d.hole[0], d.hole[1])] >= 0.94 || m.ev >= 0),
-  // ---- the yellow band (owner's Option 1; STRAT_YELLOW_BAND section 7) ----
+  // ---- the yellow band (owner's Option 1; STRAT_YELLOW_BAND section 7) and the red bar x1.5 (section 12) ----
+  'R1 red only at or above the red bar, max(12bb, 30% pot), x1.6 for the same kind': (d, v, m, b) =>
+    v.grade === 'blunder' && v.loss < redBar(v.bb, v.pot) * (b.type === m.type ? 1.6 : 1) - 1e-6,
   'YB-A "calling also works" only for AA, KK, QQ, AKs and AKo': (d, v) => v.note === 'callAlso' && !PREMIUM_RERAISE.has(classNames[classOf(d.hole[0], d.hole[1])]),
   'YB-B a TT-type re-raise of one raise when calling scores more is never red': (d, v, m) =>
     d.street === STREET.PRE && m.type === 'raise' && d.raises === 1 && ISO_RERAISE.has(classNames[classOf(d.hole[0], d.hole[1])]) &&

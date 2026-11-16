@@ -138,7 +138,7 @@
     <tr><th></th><th>Meaning</th><th>When</th></tr>
     <tr><td><span class="dot" style="background:var(--signal)"></span>Green</td><td>Fine</td><td>Your play was the best option, or too close to the best to tell apart.</td></tr>
     <tr><td><span class="dot" style="background:var(--warn)"></span>Yellow</td><td>Mistake</td><td>It gives up at least 3 big blinds and at least 10% of the pot compared with the best option.</td></tr>
-    <tr><td><span class="dot" style="background:var(--bad)"></span>Red</td><td>Blunder</td><td>It gives up at least 8 big blinds and at least 20% of the pot.</td></tr>
+    <tr><td><span class="dot" style="background:var(--bad)"></span>Red</td><td>Blunder</td><td>It gives up at least 12 big blinds and at least 30% of the pot.</td></tr>
   </table>
   <p>On top of that, the gap has to be well clear of the simulation's margin of error, and it has to hold up when the opponents are made to call a little looser and a little tighter and their ranges are read a little stronger and weaker (see <a href="#bots">below</a>). If your play is only worse under some of those versions, it is not graded. Choosing a different bet size needs a bigger gap before it is flagged and is never red; with one pair you are compared with bets up to three-quarters of the pot, and with several players in, a bet of 45% of the pot or more is never called too small. Folding before the flop is only flagged with a hand in the Tight range for your seat, and never worse than a mistake.</p>
   <p>Grading runs in the background, so the table never freezes while the coach is thinking.</p>

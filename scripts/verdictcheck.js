@@ -237,6 +237,8 @@ export const INVARIANTS = {
   'YB-V4 a "works" veto sits under a works line, a "does not work" veto under a failing one': (d, v) => v.note === 'anchor' && !!d.anchor && (
     (v.anchorWhy === 'works' && /does not work|Do not bluff|mostly call with better|Not at this price|needs more folds than you get\.$/.test(d.anchor) && !/bet for value|A bigger/.test(d.anchor)) ||
     (v.anchorWhy === 'fails' && /bet for value/.test(d.anchor))),
+  'F1b "bluffs this often" only against a range shown with 25% or more nothing plus draws (STRAT, POOL batch 12)': (d) => /bluffs this often/.test(d.anchor || '') && !!(d.villain && d.villain.picture && d.villain.picture.buckets) && Math.round(100 * (d.villain.picture.buckets.air + d.villain.picture.buckets.draw)) < 25,
+  'YB-V4b "does not work" in the headline never sits over a break-even line': (d) => /estimate below it does not work/.test(d.headline || '') && /about breaks even|That is thin|: close\.$/.test(d.anchor || ''),
   'YB-C7 no "up to its price" headline on a money-in flag': (d, v) => v.rule === 'moneyIn' && /up to its price/.test(d.headline || ''),
   'YB-B4 a TT-type re-raise when calling scores more gets no junk or size re-raise tip': (d, v) => v.iso3bet && ['junk3bet', 'size3bet'].includes(d.tipKind),
   'YB-C2 the money-in flag is yellow, names fold or check ("giving up the pot") and says the play loses money by itself': (d, v) =>

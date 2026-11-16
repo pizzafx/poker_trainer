@@ -221,7 +221,12 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'anchorHabit' || v.note === 'anchorEven' || v.note === 'sizePeak') return `${mine.label}: fine.`;
   if (v.note === 'anchorFails') {
     // "gives up less" only when it scores below the reference (STRAT F4)
-    if (mine.ev < best.ev) return `${mine.label}: fine. (It gives up less than the coach flags, but by the estimate below it does not work.)`; // the coach's estimate below says why
+    // over a break-even line it "only breaks even", never "does not work" (QA-VERDICT YB-V4b)
+    // the reason follows the line shown: a break-even line (status even, or folds and need rounding to the same
+    // 5%) gets STRAT's even wording (YB-6b)
+    if (mine.ev < best.ev) return mine.st === 'even' || /about breaks even|That is thin/.test(anchorLine(d) || '')
+      ? `${mine.label}: fine. (It gives up less than the coach flags, and by the estimate below it about breaks even.)`
+      : `${mine.label}: fine. (It gives up less than the coach flags, but by the estimate below it does not work.)`;
     // "scores higher" only when it is the judge's best with no option too close to tell apart
     const higher = v.options.every((o) => o.ev <= mine.ev) && !mine.close;
     return `${mine.label}: fine. It ${higher ? 'scores higher' : 'is close to the best'} against these players, but by the estimate below it only works if they keep playing this way; ${bare(best).toLowerCase()} is the standard play.`;
@@ -335,6 +340,15 @@ const LINE9 = 'Bigger bets score higher only because these opponents call any si
 
 // "an ace or a king": your hole cards above the board's top card, in words
 const RANK_WORD = { A: 'an ace', K: 'a king', Q: 'a queen', J: 'a jack', T: 'a ten', 9: 'a nine', 8: 'an eight', 7: 'a seven', 6: 'a six', 5: 'a five', 4: 'a four', 3: 'a three' };
+// "your overcard (an ace)" / "your overcards" / "your other outs", as the hole cards above the board count (STRAT)
+function overWords(d) {
+  if (!d.hole || !d.board || !d.board.length) return 'your other outs still come';
+  const top = Math.max(...d.board.map((c) => c >> 2));
+  const over = d.hole.filter((c) => c >> 2 > top);
+  if (over.length >= 2) return 'your overcards still come';
+  if (over.length === 1) return `your overcard (${RANK_WORD['23456789TJQKA'[over[0] >> 2]]}) still comes`;
+  return 'your other outs still come';
+}
 function overcardWords(d) {
   if (!d.hole || !d.board || !d.board.length) return null;
   const top = Math.max(...d.board.map((c) => c >> 2));
@@ -381,6 +395,16 @@ export function anchorLine(d) {
       if (thin) return `When called you are ${aheadP(o.W, '')} and need ${share(o.need)}. That is thin: ${checkFine ? 'a small bet or a check are both fine' : 'a smaller bet is fine too'}.`;
       if (s === 'works') return `When this ${kw} is called you are ${aheadP(o.W, now)} and need ${share(o.need)}. These players call with worse: bet for value.`;
       return `When this ${kw} is called you are ${aheadP(o.W, now)} and need ${share(o.need)}. They mostly call with better hands.`;
+    }
+    // a real draw works on folds plus its own chance when called (grade.js anchorStatus): never "needs more folds
+    // than you get" under folds short of the need (QA-VERDICT YB-V4)
+    if (s === 'works' && isRealDraw(hf) && o.F < o.alpha) {
+      // which part of the draw rule fired (STRAT): the draw's equity covers the price, or the folds are within
+      // 5 points of the need
+      const Fs = `${foldsP(o.F)[0].toUpperCase()}${foldsP(o.F).slice(1)} and this ${kw} needs ${share(o.alpha, false)}`;
+      return hf.drawEquity >= (o.need ?? 1 / (opp + 1))
+        ? `${Fs}; called, ${r5(hf.drawEquity) > r5(hf.ownDrawEquity) ? `your draw or ${overWords(d)}` : 'your draw still comes'} in ${often(hf.drawEquity)}. Together that is enough.` // the grading's figure; "your draw" alone only at the draw's own equity (P4-2)
+        : `${Fs}: close enough, and your draw adds to it.`;
     }
     if (s === 'works') return `${foldsP(o.F)[0].toUpperCase()}${foldsP(o.F).slice(1)} and this ${kw} needs ${share(o.alpha, false)}. A bigger ${kw} needs more folds than you get.`;
     if (s === 'even' || r5(o.F) === r5(o.alpha)) return `This ${kw} about breaks even on folds: you get ${share(o.F, false)} and need ${share(o.alpha, false)}. Fine, not needed.`;
@@ -446,7 +470,8 @@ export function anchorLine(d) {
       const b = pic && pic.buckets;
       const loose = b ? Math.round(100 * (b.air + b.draw)) : 100;
       if (['nit', 'abc', 'station', 'beginner'].includes(type) && loose < 15) line = `You are ${aheadP(A.Q, '')} here and need ${need} at this price. Good players bluff just enough to make this close. This player's bets are nearly always real. Fold.`;
-      else if (['maniac', 'lag', 'whale'].includes(type)) line = `Even against a player who bluffs this often, you are not ahead often enough at this price. Fold.`;
+      // "this often" only when the range shown really is loose: 25% or more nothing plus draws (STRAT, POOL batch 12)
+      else if (['maniac', 'lag', 'whale'].includes(type) && loose >= 25) line = `Even against a player who bluffs this often, you are not ahead often enough at this price. Fold.`;
       else line = `You are ${aheadP(A.Q, '')} here and need ${need} at this price; not enough. Fold.`;
     }
     else line = `You are ${aheadP(A.Q, '')} here and need ${need} at this price: close.`;

@@ -1,0 +1,369 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "yb-ats-3bet",
+ "hole": "Ah Th",
+ "board": "",
+ "pot": 25,
+ "action": {
+  "type": "raise",
+  "to": 54
+ },
+ "took": "Raise to $54 (3.0x)",
+ "samples": 2100,
+ "judgeSeed": 3676,
+ "table": {
+  "game": "casino",
+  "blinds": [
+   1,
+   2
+  ],
+  "straddle": 0,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 28,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "BTN",
+    "startStack": 200,
+    "stack": 200,
+    "inPot": 0,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Cardigan",
+    "pos": "SB",
+    "startStack": 200,
+    "stack": 199,
+    "inPot": 1,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.408
+     },
+     {
+      "type": "station",
+      "p": 0.236
+     },
+     {
+      "type": "nit",
+      "p": 0.144
+     }
+    ],
+    "observed": {
+     "hands": 0,
+     "vpip": 0,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Jersey",
+    "pos": "BB",
+    "startStack": 289,
+    "stack": 287,
+    "inPot": 2,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.843
+     },
+     {
+      "type": "whale",
+      "p": 0.035
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 27,
+     "vpip": 13,
+     "pfr": 1,
+     "showdowns": 6
+    },
+    "steaming": true
+   },
+   {
+    "seat": 3,
+    "name": "Shades",
+    "pos": "UTG",
+    "startStack": 385,
+    "stack": 385,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.474
+     },
+     {
+      "type": "lag",
+      "p": 0.399
+     },
+     {
+      "type": "gto",
+      "p": 0.019
+     }
+    ],
+    "observed": {
+     "hands": 27,
+     "vpip": 6,
+     "pfr": 5,
+     "showdowns": 2
+    }
+   },
+   {
+    "seat": 4,
+    "name": "Jeans",
+    "pos": "UTG+1",
+    "startStack": 178,
+    "stack": 178,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.427
+     },
+     {
+      "type": "abc",
+      "p": 0.248
+     },
+     {
+      "type": "lag",
+      "p": 0.135
+     }
+    ],
+    "observed": {
+     "hands": 9,
+     "vpip": 2,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Party Crew",
+    "pos": "UTG+2",
+    "startStack": 170,
+    "stack": 168,
+    "inPot": 2,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.781
+     },
+     {
+      "type": "abc",
+      "p": 0.071
+     },
+     {
+      "type": "whale",
+      "p": 0.041
+     }
+    ],
+    "observed": {
+     "hands": 27,
+     "vpip": 12,
+     "pfr": 1,
+     "showdowns": 4
+    }
+   },
+   {
+    "seat": 6,
+    "name": "Big Watch",
+    "pos": "LJ",
+    "startStack": 852,
+    "stack": 850,
+    "inPot": 2,
+    "folded": false,
+    "read": [
+     {
+      "type": "whale",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 27,
+     "vpip": 22,
+     "pfr": 4,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 7,
+    "name": "Golf Shirt",
+    "pos": "HJ",
+    "startStack": 180,
+    "stack": 162,
+    "inPot": 18,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.461
+     },
+     {
+      "type": "station",
+      "p": 0.161
+     },
+     {
+      "type": "whale",
+      "p": 0.119
+     }
+    ],
+    "observed": {
+     "hands": 0,
+     "vpip": 0,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 8,
+    "name": "Hoodie",
+    "pos": "CO",
+    "startStack": 135,
+    "stack": 135,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.594
+     },
+     {
+      "type": "lag",
+      "p": 0.274
+     },
+     {
+      "type": "gto",
+      "p": 0.025
+     }
+    ],
+    "observed": {
+     "hands": 27,
+     "vpip": 7,
+     "pfr": 4,
+     "showdowns": 2
+    },
+    "steaming": true
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Cardigan",
+    "type": "sb",
+    "to": 1,
+    "amount": 1
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Jersey",
+    "type": "bb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Shades",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Jeans",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Party Crew",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Big Watch",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Golf Shirt",
+    "type": "raise",
+    "to": 18,
+    "amount": 18
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "Hoodie",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   }
+  ],
+  "pot": 25,
+  "heat": 0.209,
+  "heatAt": {},
+  "judge": {
+   "seed": 3676,
+   "samples": 2100
+  }
+ },
+ "villainPost": {
+  "seat": 7,
+  "post": [
+   0.09362607588086173,
+   0.4611254100612605,
+   0.160551709575214,
+   0.11853734693640273,
+   0.08234080766674044,
+   0.018873649002747177,
+   0.027197702871278994,
+   0.018873649002747177,
+   0.018873649002747177
+  ]
+ },
+ "recorded": {
+  "grade": "blunder",
+  "best": "Call $18",
+  "took": "Raise to $54 (3.0x)",
+  "loss": 24.592380952380953,
+  "headline": "Blunder: raise to $54 (3.0x) costs about $25 compared with call $18."
+ },
+ "expect": {
+  "grade": "mistake",
+  "best": "Call $18",
+  "flag": "iso3bet"
+ },
+ "why": "ATs 3-bets one raise for -$17 against a +$10 call (was red): yellow at most (STRAT_YELLOW_BAND B, the owner's Option 1)"
+}

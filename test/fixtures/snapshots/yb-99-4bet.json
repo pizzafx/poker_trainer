@@ -1,0 +1,419 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "yb-99-4bet",
+ "hole": "9h 9c",
+ "board": "",
+ "pot": 225,
+ "action": {
+  "type": "raise",
+  "to": 390
+ },
+ "took": "Raise to $390 (3.0x)",
+ "samples": 3000,
+ "judgeSeed": 10101,
+ "table": {
+  "game": "casino",
+  "blinds": [
+   2,
+   5
+  ],
+  "straddle": 10,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 77,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "HJ",
+    "startStack": 1000,
+    "stack": 970,
+    "inPot": 30,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Big Watch",
+    "pos": "CO",
+    "startStack": 1287,
+    "stack": 1287,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.861
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "station",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 42,
+     "vpip": 21,
+     "pfr": 2,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Button-Down",
+    "pos": "BTN",
+    "startStack": 290,
+    "stack": 260,
+    "inPot": 30,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.83
+     },
+     {
+      "type": "nit",
+      "p": 0.047
+     },
+     {
+      "type": "station",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 23,
+     "vpip": 5,
+     "pfr": 1,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 3,
+    "name": "Loud Guy",
+    "pos": "SB",
+    "startStack": 1115,
+    "stack": 985,
+    "inPot": 130,
+    "folded": false,
+    "read": [
+     {
+      "type": "maniac",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 76,
+     "vpip": 44,
+     "pfr": 29,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 4,
+    "name": "Ball Cap",
+    "pos": "BB",
+    "startStack": 1416,
+    "stack": 1411,
+    "inPot": 5,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "station",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 76,
+     "vpip": 18,
+     "pfr": 4,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Party Crew",
+    "pos": "UTG",
+    "startStack": 1533,
+    "stack": 1523,
+    "inPot": 10,
+    "folded": true,
+    "read": [
+     {
+      "type": "whale",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 18,
+     "vpip": 14,
+     "pfr": 1,
+     "showdowns": 5
+    }
+   },
+   {
+    "seat": 6,
+    "name": "Golf Shirt",
+    "pos": "UTG+1",
+    "startStack": 1150,
+    "stack": 1140,
+    "inPot": 10,
+    "folded": true,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.443
+     },
+     {
+      "type": "abc",
+      "p": 0.434
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 18,
+     "vpip": 8,
+     "pfr": 0,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 7,
+    "name": "Cardigan",
+    "pos": "UTG+2",
+    "startStack": 1660,
+    "stack": 1650,
+    "inPot": 10,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "station",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 76,
+     "vpip": 27,
+     "pfr": 4,
+     "showdowns": 5
+    }
+   },
+   {
+    "seat": 8,
+    "name": "New Guy",
+    "pos": "LJ",
+    "startStack": 193,
+    "stack": 193,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.606
+     },
+     {
+      "type": "nit",
+      "p": 0.247
+     },
+     {
+      "type": "station",
+      "p": 0.039
+     }
+    ],
+    "observed": {
+     "hands": 7,
+     "vpip": 0,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Loud Guy",
+    "type": "sb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Ball Cap",
+    "type": "bb",
+    "to": 5,
+    "amount": 5
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Party Crew",
+    "type": "straddle",
+    "to": 10,
+    "amount": 10
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Golf Shirt",
+    "type": "call",
+    "to": 10,
+    "amount": 10
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Cardigan",
+    "type": "call",
+    "to": 10,
+    "amount": 10
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "New Guy",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "raise",
+    "to": 30,
+    "amount": 30
+   },
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Big Watch",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Button-Down",
+    "type": "call",
+    "to": 30,
+    "amount": 30
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Loud Guy",
+    "type": "raise",
+    "to": 130,
+    "amount": 128
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Ball Cap",
+    "type": "fold",
+    "to": 5,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Party Crew",
+    "type": "fold",
+    "to": 10,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Golf Shirt",
+    "type": "fold",
+    "to": 10,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Cardigan",
+    "type": "fold",
+    "to": 10,
+    "amount": 0
+   }
+  ],
+  "pot": 225,
+  "heat": 0.17,
+  "heatAt": {
+   "7": 0.16962660286114384,
+   "8": 0.16962660286114384,
+   "9": 0.16962660286114384
+  },
+  "judge": {
+   "seed": 10101,
+   "samples": 3000
+  }
+ },
+ "villainPost": {
+  "seat": 3,
+  "post": [
+   0.017241379310344827,
+   0.017241379310344827,
+   0.017241379310344827,
+   0.017241379310344827,
+   0.8620689655172413,
+   0.017241379310344827,
+   0.017241379310344827,
+   0.017241379310344827,
+   0.017241379310344827
+  ]
+ },
+ "recorded": {
+  "grade": "good",
+  "best": "Call $100",
+  "took": "Raise to $390 (3.0x)",
+  "loss": 163.335,
+  "headline": "Raise to $390 (3.0x): fine. (Calling also works here.)"
+ },
+ "expect": {
+  "grade": "blunder",
+  "best": "Call $100",
+  "notNote": "callAlso"
+ },
+ "why": "QA runs8: 99 4-bets to $390 for -$156 against a +$8 call: red, no longer 'calling also works' (STRAT_YELLOW_BAND A)"
+}

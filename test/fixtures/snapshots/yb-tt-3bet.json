@@ -1,0 +1,351 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "yb-tt-3bet",
+ "hole": "Td Ts",
+ "board": "",
+ "pot": 41,
+ "action": {
+  "type": "raise",
+  "to": 54
+ },
+ "took": "Raise to $54 (3.0x)",
+ "samples": 2100,
+ "judgeSeed": 7342,
+ "table": {
+  "game": "casino",
+  "blinds": [
+   2,
+   3
+  ],
+  "straddle": 0,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 56,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "HJ",
+    "startStack": 500,
+    "stack": 500,
+    "inPot": 0,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Jeans",
+    "pos": "CO",
+    "startStack": 1120,
+    "stack": 1120,
+    "inPot": 0,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.849
+     },
+     {
+      "type": "abc",
+      "p": 0.029
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 55,
+     "vpip": 28,
+     "pfr": 2,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Big Watch",
+    "pos": "BTN",
+    "startStack": 285,
+    "stack": 285,
+    "inPot": 0,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.849
+     },
+     {
+      "type": "whale",
+      "p": 0.028
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 55,
+     "vpip": 29,
+     "pfr": 1,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 3,
+    "name": "New Guy",
+    "pos": "SB",
+    "startStack": 450,
+    "stack": 448,
+    "inPot": 2,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.525
+     },
+     {
+      "type": "station",
+      "p": 0.335
+     },
+     {
+      "type": "whale",
+      "p": 0.033
+     }
+    ],
+    "observed": {
+     "hands": 14,
+     "vpip": 7,
+     "pfr": 0,
+     "showdowns": 3
+    }
+   },
+   {
+    "seat": 4,
+    "name": "Golf Shirt",
+    "pos": "BB",
+    "startStack": 1067,
+    "stack": 1064,
+    "inPot": 3,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.857
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     },
+     {
+      "type": "station",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 26,
+     "vpip": 17,
+     "pfr": 4,
+     "showdowns": 4
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Hoodie",
+    "pos": "UTG",
+    "startStack": 799,
+    "stack": 781,
+    "inPot": 18,
+    "folded": false,
+    "read": [
+     {
+      "type": "gto",
+      "p": 0.704
+     },
+     {
+      "type": "tag",
+      "p": 0.137
+     },
+     {
+      "type": "lag",
+      "p": 0.051
+     }
+    ],
+    "observed": {
+     "hands": 55,
+     "vpip": 7,
+     "pfr": 6,
+     "showdowns": 5
+    }
+   },
+   {
+    "seat": 6,
+    "name": "Loud Guy",
+    "pos": "UTG+1",
+    "startStack": 552,
+    "stack": 534,
+    "inPot": 18,
+    "folded": false,
+    "read": [
+     {
+      "type": "maniac",
+      "p": 0.772
+     },
+     {
+      "type": "abc",
+      "p": 0.047
+     },
+     {
+      "type": "lag",
+      "p": 0.045
+     }
+    ],
+    "observed": {
+     "hands": 6,
+     "vpip": 1,
+     "pfr": 1,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 7,
+    "name": "Shades",
+    "pos": "UTG+2",
+    "startStack": 495,
+    "stack": 495,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.556
+     },
+     {
+      "type": "lag",
+      "p": 0.202
+     },
+     {
+      "type": "gto",
+      "p": 0.122
+     }
+    ],
+    "observed": {
+     "hands": 12,
+     "vpip": 0,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 8,
+    "name": "Button-Down",
+    "pos": "LJ",
+    "startStack": 500,
+    "stack": 500,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.443
+     },
+     {
+      "type": "tag",
+      "p": 0.215
+     },
+     {
+      "type": "station",
+      "p": 0.12
+     }
+    ],
+    "observed": {
+     "hands": 2,
+     "vpip": 0,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "New Guy",
+    "type": "sb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Golf Shirt",
+    "type": "bb",
+    "to": 3,
+    "amount": 3
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Hoodie",
+    "type": "raise",
+    "to": 18,
+    "amount": 18
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Loud Guy",
+    "type": "call",
+    "to": 18,
+    "amount": 18
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Shades",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "Button-Down",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   }
+  ],
+  "pot": 41,
+  "heat": 0.003,
+  "heatAt": {},
+  "judge": {
+   "seed": 7342,
+   "samples": 2100
+  }
+ },
+ "villainPost": {
+  "seat": 5,
+  "post": [
+   0.017857148346606382,
+   0.017857148346606382,
+   0.017857148346606382,
+   0.017857148346606382,
+   0.017857148346606382,
+   0.7044134542295877,
+   0.13740897672137117,
+   0.05103467896940282,
+   0.017857148346606382
+  ]
+ },
+ "recorded": {
+  "grade": "good",
+  "best": "Call $18",
+  "took": "Raise to $54 (3.0x)",
+  "loss": 21.267619047619046,
+  "headline": "Raise to $54 (3.0x): fine."
+ },
+ "expect": {
+  "grade": "good",
+  "best": "Call $18",
+  "note": "iso3bet"
+ },
+ "why": "TT 3-bets a loose opener when calling scores more, inside the bar at the fixture's samples: 'fine' with PRO's words, not plain 'fine' (STRAT_YELLOW_BAND B)"
+}

@@ -67,5 +67,7 @@ for (const f of files) {
     if (e.best) assert.equal(r.best, e.best, `${tag}: best`);
     if (e.ref !== undefined) assert.equal(r.ref, e.ref, `${tag}: reference`);
     if (e.notNote) assert.notEqual(r.verdict.note, e.notNote, `${tag}: note`);
+    if (e.note) assert.equal(r.verdict.note, e.note, `${tag}: note`);
+    if (e.flag) assert.ok(r.verdict[e.flag], `${tag}: ${e.flag}`);
   });
 }

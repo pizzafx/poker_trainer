@@ -70,6 +70,14 @@ test('grading: verdicts are consistent with their own numbers', () => {
       assert.ok(Math.abs(v.loss - Math.max(0, v.options[v.best].ev - v.options[v.mine].ev)) < 1e-6, 'strong-limp loss is the raise gap, never below zero');
       continue;
     }
+    if (v.rule === 'moneyIn') {
+      // a play that loses money by itself (STRAT_YELLOW_BAND C): yellow, against folding or checking, at least
+      // 5bb and half the money put in; it may sit under the bar by design
+      assert.equal(v.grade, 'mistake');
+      assert.ok(['fold', 'check'].includes(v.options[v.best].type), 'the money-in flag is against giving up');
+      assert.ok(v.loss >= 5 * facts.bb - 1e-9 && v.loss >= 0.5 * v.putIn - 1e-9);
+      continue;
+    }
     if (v.grade !== 'good') {
       assert.notEqual(v.best, v.mine, 'a flagged play is not the best option');
       assert.ok(v.loss > 0);

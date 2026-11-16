@@ -174,6 +174,13 @@ function preAllInFacts(v, s, ctx) {
   v.preAllIn = { E: (call.ev + put) / P, price: put / P };
 }
 
+// Queens or better and ace-king: the hands PRO's review exempts when re-raising (STRAT_YELLOW_BAND A;
+// this replaced a raisePct >= 0.96 line that also took in 88-JJ, AQs and AJs and missed AKo).
+export const PREMIUM_RERAISE = new Set(['AA', 'KK', 'QQ', 'AKs', 'AKo']);
+// 88-JJ, AJs+, ATs, AQo+ and KQs re-raising one raise when calling scores more: graded, but never red
+// (the owner's Option 1, STRAT_YELLOW_BAND B; the mirror of P7-4). AKs and AKo are in the set above.
+export const ISO_RERAISE = new Set(['JJ', 'TT', '99', '88', 'AQs', 'AJs', 'ATs', 'AQo', 'KQs']);
+
 export function gradeDecision(s, belief, action, judgeOpts, env) {
   const ctx = buildContext(s);
   const verdict = judgeDecision(s, HERO, belief, action, judgeOpts);
@@ -206,6 +213,47 @@ const sameOption = (vv, o) => vv.options.findIndex((x) => x.type === o.type && (
 export function temper(v, s, ctx, action, judgeOpts, env) {
   guardrails(v, s, ctx, action, judgeOpts, env);
   if (v.mine >= 0 && v.anchors && s.street !== STREET.PRE) applyAnchors(v, s, ctx);
+  moneyInArm(v, s, ctx);
+}
+
+// A play that loses money by itself is never "fine" (STRAT and MATH, STRAT_YELLOW_BAND C): measured against
+// giving up (folding, or checking when nobody has bet), when the play loses at least 5bb, at least half the
+// money it puts in, and more than 3 standard errors, the grade is yellow. Never red. It runs last:
+// a designed pass, the scenario test's "fragile" or "unclear", and a close call all stand; only a plain
+// "fine" (inside the bar) or an anchor veto is overturned.
+const MONEY_IN_OPEN = new Set([undefined, null, 'anchor', 'anchorFails', 'anchorEven']);
+export function moneyPutIn(s, mine) {
+  if (mine.type === 'call') return Math.min(s.currentBet - s.bet[HERO], s.stacks[HERO]);
+  if (mine.type === 'raise') return mine.to - s.bet[HERO];
+  return 0;
+}
+// The option that gives up: fold when facing a bet, else check.
+export function giveUpOption(v) {
+  const f = v.options.findIndex((o) => o.type === 'fold');
+  return f >= 0 ? f : v.options.findIndex((o) => o.type === 'check');
+}
+function moneyInArm(v, s, ctx) {
+  if (v.mine < 0) return;
+  const mine = v.options[v.mine];
+  const put = moneyPutIn(s, mine);
+  v.putIn = Math.round(put * 100) / 100; // kept on the record for the checker (YB-C)
+  v.bb = s.bbAmt;
+  if (v.grade !== 'good' || !MONEY_IN_OPEN.has(v.note)) return;
+  if (!(put > 0)) return;
+  const give = giveUpOption(v);
+  if (give < 0 || give === v.mine) return;
+  const g = pairedGap(v, give, v.mine);
+  if (!(g.mean >= 5 * s.bbAmt && g.mean >= 0.5 * put && g.mean > 3 * g.se)) return;
+  v.grade = 'mistake';
+  v.rule = 'moneyIn';
+  v.note = undefined;
+  v.best = give;
+  v.ref = 'giveUp';
+  v.sameKind = false;
+  v.loss = g.mean;
+  v.se = g.se;
+  v.moneyIn = { put: Math.round(put), loss: Math.round(g.mean), give: v.options[give].type }; // R12 does not run here: the 3 SE test is its robustness check
+  refreshClose(v);
 }
 
 function guardrails(v, s, ctx, action, judgeOpts, env) {
@@ -413,6 +461,12 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
       return;
     }
   }
+  // STRAT_YELLOW_BAND B: a TT-type re-raise of one raise when calling scores more. Inside the bar it is
+  // "fine" with PRO's words; beyond it, graded but capped at yellow (below, after the premium passes).
+  if (pre && isRaise(mine) && ctx.raises === 1 && best().type === 'call' && ISO_RERAISE.has(classNames[classOf(s.hole[HERO][0], s.hole[HERO][1])])) {
+    v.iso3bet = true;
+    if (v.grade === 'good' && !v.note) v.note = 'iso3bet';
+  }
   if (v.grade === 'good') return;
 
   if (pre) {
@@ -429,7 +483,8 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
       capYellow();
     }
     // Queens or better and ace-king: re-raising when a call scores best is fine.
-    if (isRaise(mine) && ctx.raises >= 1 && premium >= 0.96 && best().type === 'call') return pass('callAlso');
+    if (isRaise(mine) && ctx.raises >= 1 && PREMIUM_RERAISE.has(name) && best().type === 'call') return pass('callAlso');
+    if (v.iso3bet) capYellow();
     // A re-raise with a hand outside the top few percent is a bluff: compare with the best
     // option that is not a raise.
     if (lightReraise && isRaise(best()) && regrade((o) => !isRaise(o), 'preBluff', 'noRaise')) {
@@ -455,7 +510,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
       capYellow();
     }
     // Re-raising queens or better or ace-king is never a blunder, except into a nit.
-    if (isRaise(mine) && premium >= 0.96 && !aggNit) capYellow();
+    if (isRaise(mine) && PREMIUM_RERAISE.has(name) && !aggNit) capYellow();
     // Raise sizes before the flop are never flagged: one size for all hands is the right habit,
     // and the judge's preferred size moves with the hand (a size tell if copied).
     //    Only within the same-kind yellow bar; beyond it the size is graded as usual (STRAT, QA M2a).

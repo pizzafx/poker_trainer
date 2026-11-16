@@ -159,6 +159,8 @@ function goodHeadline(v, mine, best, d = {}) {
   // "scores about $X more", or the fallback wording when the gap is within the bar
   const more = (o, within) => (gap(o) > bar(o) || !within ? (gap(o) > 0 ? `scores about $${gap(o)} more` : 'scores about the same') : within);
   const who = d.opponents === 1 ? 'this player' : 'these players';
+  // PRO's words for a TT-type re-raise when calling scores more (STRAT_YELLOW_BAND B), ahead of any tip
+  if (v.note === 'iso3bet') return `${mine.label}: fine. Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.`;
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
   // ...unless the scenario test left it not graded (R5b goes through it since P3-1): then the not-graded line
   if (v.rule === 'R5b' && v.note !== 'unclear' && v.note !== 'closeCall') return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`; // STRAT M5c
@@ -452,7 +454,7 @@ export function explain(d) {
   const m = kind(mine);
   const b = kind(best);
   const word = v.grade === 'blunder' ? 'Blunder' : 'Mistake';
-  const ref = v.ref === 'quarterPot' ? `the best bet of at least a quarter of the pot (${bare(best).toLowerCase()})` : v.ref === 'habit' ? `${best.label.toLowerCase()} (the best play the coach teaches here)` : v.ref === 'robust' ? `${best.label.toLowerCase()} (it beats your play under every read)` : v.ref === 'anchor' ? `${best.label.toLowerCase()} (the best play that works against anyone)` : v.ref === 'noRaise' ? `${best.label.toLowerCase()} (the best play that is not a raise)` : v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
+  const ref = v.ref === 'quarterPot' ? `the best bet of at least a quarter of the pot (${bare(best).toLowerCase()})` : v.ref === 'habit' ? `${best.label.toLowerCase()} (the best play the coach teaches here)` : v.ref === 'robust' ? `${best.label.toLowerCase()} (it beats your play under every read)` : v.ref === 'anchor' ? `${best.label.toLowerCase()} (the best play that works against anyone)` : v.ref === 'noRaise' ? `${best.label.toLowerCase()} (the best play that is not a raise)` : v.ref === 'giveUp' ? `${best.label.toLowerCase()} (giving up the pot)` : v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
   const capped = v.priceCap !== undefined && Math.round(best.ev) - Math.round(mine.ev) > cost;
   const headline = v.dominated
     ? `${word}: ${mine.label.toLowerCase()} scores at least $${cost} below the best play here under every reasonable read of these players.`
@@ -460,6 +462,9 @@ export function explain(d) {
       ? `${word}: ${mine.label.toLowerCase()} costs up to its price compared with ${ref}; what happens on later streets is graded there.`
       : `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}.`;
   const reasons = [];
+  if (v.iso3bet) reasons.push('Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.');
+  // a play that loses money by itself (STRAT_YELLOW_BAND C)
+  if (v.rule === 'moneyIn' && v.moneyIn) reasons.push(`On our read this ${mine.type === 'call' ? 'call' : 'bet'} loses money by itself: about $${v.moneyIn.loss} of the $${v.moneyIn.put} it puts in, compared with ${v.moneyIn.give === 'fold' ? 'folding' : 'checking'}.`);
   // R5b's reason under a flagged call of a passive lead into a crowd (STRAT G5)
   if (v.setRaise && best.type === 'call') reasons.push('Calling keeps in the hands you beat; a re-raise folds them.');
   if (v.rule === 'R5b' && best.type === 'fold') reasons.push(`When a passive player leads into a crowd, one pair is often beaten. Folding scores about $${Math.max(0, Math.round(best.ev) - Math.round(mine.ev))} more.`);

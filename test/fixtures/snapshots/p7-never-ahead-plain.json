@@ -504,7 +504,7 @@
   "headline": "Call $34: not graded."
  },
  "expect": {
-  "grade": "good",
+  "grade": "mistake",
   "notNote": "closeCall"
  },
  "why": "R6 spot where you are almost never ahead: graded plainly, no 'Close.' line (P7-2)"

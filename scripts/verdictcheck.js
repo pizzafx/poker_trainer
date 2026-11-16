@@ -166,7 +166,11 @@ export const INVARIANTS = {
     return gap >= v.small * (b.type === m.type ? 1.6 : 1) && !/better by about \$\d+/.test(d.headline || '');
   },
   'J1 no "seldom fold" in a junk 3-bet tip against an opener read as a regular': (d) => d.tipKind === 'junk3bet' && /seldom fold/.test(d.tip || '') && !!d.villain && (() => { const r = topRead(d, d.villain.nick); return !!r && r.p >= 0.5 && ['tag', 'lag', 'gto'].includes(r.type); })(),
+  'J1b a junk 3-bet tip against an opener read as a regular says neither "solid" nor "bluff"': (d) => d.tipKind === 'junk3bet' && /solid|bluff/.test(d.tip || '') && !!d.villain && (() => { const r = topRead(d, d.villain.nick); return !!r && r.p >= 0.5 && ['tag', 'lag', 'gto'].includes(r.type); })(),
   // ---- pass 7 (QA-VERDICT; STRAT's rulings) ----
+  'P7-4 flatting one raise with a top hand (raisePct >= 0.94) or a paying flat is never red': (d, v, m, b) =>
+    d.street === STREET.PRE && m.type === 'call' && d.raises === 1 && b.type === 'raise' && v.grade === 'blunder' &&
+    (HERO_PROFILE.raisePct[classOf(d.hole[0], d.hole[1])] >= 0.94 || m.ev >= 0),
   'P7-1 no "bets still to come" on the river': (d) => d.street === STREET.RIVER && /bets still to come/.test(d.anchor || ''),
   'P7-1b line 8a ("bets still to come") only when the judge prefers the fold': (d, v) => /bets still to come/.test(d.anchor || '') && !(v.a4 && v.a4.raw === 'fold'),
   'P7-2 no "Close." line when you are almost never ahead': (d, v) => /^Close\./.test(d.anchor || '') && v.anchors && v.anchors.Q !== undefined && callQOf(d, v) < 0.05,

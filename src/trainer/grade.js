@@ -445,6 +445,9 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     // Flatting one raise with jacks or better, ace-king or ace-queen suited instead of re-raising
     // is a style choice: never flagged (PRO review, item 9; the squeeze size made it come up).
     if (mine.type === 'call' && ctx.raises === 1 && isRaise(best()) && ['AA', 'KK', 'QQ', 'JJ', 'AKs', 'AKo', 'AQs'].includes(name)) return pass('flatOk');
+    // Flatting one raise with a top hand (88+, AJs+, ATs, AQo+, KQs), or a flat that pays on its own,
+    // is missed value at worst, never a blunder (STRAT P7-4, the owner's ruling).
+    if (mine.type === 'call' && ctx.raises === 1 && isRaise(best()) && (premium >= 0.94 || mine.ev >= 0)) capYellow();
     // Folds: first in, only flagged with a hand in the Tight preset for the seat (so the presets
     // and the coach agree); facing a raise, only with a hand in the top 35%. Never red.
     if (mine.type === 'fold') {

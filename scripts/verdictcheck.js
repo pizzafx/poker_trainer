@@ -194,7 +194,7 @@ export const INVARIANTS = {
     const claim = /\. ([^.]*), this hand does not earn its way in/.exec(d.theory || ''); // the table's own clauses
     return (/full table/.test(t) && !(d.table.n >= 7)) || (!!claim && /raked/i.test(claim[1]) && !d.table.raked) || (!!claim && /multiway/.test(claim[1]) && !(d.table.voluntary >= 2)) || (/raked pot/.test(t) && !d.table.raked) || (/out of position/.test(t) && !d.table.oop);
   },
-  'T5b heads-up, out of position after the flop exactly when you are the button (the small blind)': (d) => d.street === STREET.PRE && !!d.table && d.table.n === 2 && d.table.oop !== ['BTN', 'SB', 'BTN/SB', 'SB/BTN'].includes(d.position),
+  'T5b heads-up, out of position after the flop exactly when you are the big blind': (d) => d.street === STREET.PRE && !!d.table && d.table.n === 2 && d.table.oop !== (d.position === 'BB'),
   'T6 "whole range on many boards" only on the flop': (d) => /whole range on many boards/.test(d.theory || '') && d.street !== STREET.FLOP,
   // ---- the yellow band (owner's Option 1; STRAT_YELLOW_BAND section 7) and the red bar x1.5 (section 12) ----
   'R1 red only at or above the red bar, max(12bb, 30% pot), x1.6 for the same kind': (d, v, m, b) =>

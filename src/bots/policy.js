@@ -252,6 +252,7 @@ function preflopSizes(ctx, P, premium) {
     normal = roundChips(ctx.currentBet * 2.4);
     big = ctx.maxTo;
   }
+  if (P.jam4All && ctx.raises === 2) return [{ to: ctx.maxTo, p: 1 }]; // POOL batch 13: a maniac's 4-bet is a shove
   // Only value raises (or short stacks) turn into shoves at 40% of the stack; others at 65%.
   // non-premium 4-bets keep their normal size when deep (POOL G2)
   const commit = (!premium && ctx.effBB > 40 ? (ctx.raises >= 2 ? 0.45 : 0.65) : 0.4) * ctx.maxTo; // POOL batch 3, G4: a 4-bet past 45% of the stack is a shove
@@ -357,9 +358,19 @@ export function preflopPolicy(ctx, P, cls) {
         if (P.tbAK4 && ci.hi === 12 && ci.lo === 11) raise = Math.max(raise, P.tbAK4 * (ci.suited ? 1.5 : 1));
         // POOL batch 8 (with PRO): solver-minded and loose regulars 4-bet-bluff suited wheel aces (A5s, A4s; A3s/A2s at half)
         if (P.tbWheel4 && ci.suited && ci.hi === 12 && ci.lo <= 3) raise = Math.max(raise, P.tbWheel4 * (ci.lo >= 2 ? 1 : 0.5));
+        // POOL batch 13 (with PRO): a maniac ships a wide 4-bet: premiums, pairs, suited aces, Broadway, some junk.
+        // jam4Mix: [QQ+/AK, JJ-TT, 99-66, suited ace, suited Broadway, AQo/AJo/KQo, the rest]
+        if (P.jam4Mix) {
+          const J = P.jam4Mix, nm = ci.name;
+          const g = (ci.pair && ci.hi >= 10) || (ci.hi === 12 && ci.lo === 11) ? 0 : ci.pair && ci.hi >= 8 ? 1 : ci.pair && ci.hi >= 4 ? 2 : ci.pair ? 6 : ci.suited && ci.hi === 12 ? 3 : ci.suited && ci.lo >= 8 ? 4 : nm === 'AQo' || nm === 'AJo' || nm === 'KQo' ? 5 : 6;
+          // deeper than 100bb the non-pair groups taper toward jam4DeepMult at 150bb (with PRO): they flat instead
+          const deep = P.jam4DeepMult != null && g >= 3 ? 1 + (P.jam4DeepMult - 1) * clamp((ctx.effAggBB - 100) / 50, 0, 1) : 1;
+          raise = Math.max(raise, J[g] * deep);
+        }
         // POOL batch 8 (with PRO): offsuit 4-bet bluffs below AQo (AJo, KQo) are the worst ones: cut them
         if (P.tbOffBluff4 != null && !ci.suited && !ci.pair && !(ci.hi === 12 && ci.lo >= 10)) raise *= P.tbOffBluff4;
         call = Math.max(0, inTop(sp, openW * c) - raise);
+        if (P.tbFloor) call = Math.max(call, P.tbFloor * (1 - raise)); // POOL batch 13: a maniac rarely folds to one 3-bet
         // POOL batch 7 (with PRO): offsuit hands below AQo are the ones regulars lose money with against
         // value-heavy live 3-bets: AJo and KQo continue less, the rest much less
         if (P.tbOffHi != null && !ci.suited && !ci.pair && !(ci.hi === 12 && ci.lo >= 10)) call *= ci.hi === 12 && ci.lo === 9 || ci.hi === 11 && ci.lo === 10 ? P.tbOffHi : P.tbOffLo;

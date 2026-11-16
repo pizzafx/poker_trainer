@@ -88,6 +88,12 @@ const BASE = {
   opRaiseCont: 0,
   tpRaiseContR: 0,
   opRaiseContR: 0,
+  // POOL batch 13: a maniac facing one 3-bet (unset: off): a per-group 4-bet floor (jam4Mix, tapered past 100bb
+  // toward jam4DeepMult for the non-pair groups), a continue floor (tbFloor), and 4-bets that are always all-in
+  jam4Mix: null,
+  tbFloor: 0,
+  jam4All: false,
+  jam4DeepMult: null,
   stackOff: 0.012, // share of hands willing to get all-in preflop at 100 big blinds
   // preflop taste: bonuses when ranking hands worth playing
   aceLove: 0,
@@ -476,6 +482,11 @@ const DEFS = {
     mwBehind: 0.015, // POOL M, Nov 2026 (was the shared default)
     mwCaller: 0.01, // POOL M, Nov 2026 (was the shared default)
     isoRaise: 0.6, // POOL batch 5 (Nov 2026)
+    // POOL batch 13 (Nov 2026): the maniac's answer to a 3-bet
+    jam4Mix: [1, 0.8, 0.4, 0.3, 0.25, 0.25, 0.03],
+    tbFloor: 0.6,
+    jam4All: true,
+    jam4DeepMult: 0.3,
   },
   gto: {
     tbCont: [0.52, 0.45], // POOL batches 7-11 (Nov 2026)

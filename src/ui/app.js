@@ -367,6 +367,13 @@ function renderStats() {
 // down by just that much. Seats are measured as they would sit without that move, so the
 // decision is the same each time it is made.
 let placardRoom = 0;
+let seatRoom = 0; // fitTable(): the top seat's overshoot above the table (QA TC1)
+// the table's top margin: the stylesheet's, plus the room the placard and the top seat need
+function setTableTop() {
+  const table = $('table');
+  table.style.marginTop = '';
+  if (placardRoom + seatRoom) table.style.marginTop = parseFloat(getComputedStyle(table).marginTop) + placardRoom + seatRoom + 'px';
+}
 function fitPlacard() {
   const el = $('placard');
   const table = $('table');
@@ -385,10 +392,12 @@ function fitPlacard() {
       for (const b of hits(a)) room = Math.max(room, Math.ceil(a.bottom + 8 - b.top));
     }
   }
-  if (room === placardRoom) return;
+  if (room === placardRoom) {
+    fitTable(); // after each render: the seats are drawn now, so the top seat's overshoot can be measured (QA TC1)
+    return;
+  }
   placardRoom = room;
-  table.style.marginTop = '';
-  if (room) table.style.marginTop = parseFloat(getComputedStyle(table).marginTop) + room + 'px';
+  setTableTop();
   fitTable();
 }
 
@@ -2589,18 +2598,41 @@ function fitTable() {
   const stage = $('stage');
   if (!FIT.matches) {
     stage.style.removeProperty('--fit-h');
+    if (seatRoom) {
+      seatRoom = 0;
+      setTableTop();
+    }
     return;
   }
   const key = stage.offsetWidth + 'x' + stage.offsetHeight; // outer size: a scrollbar coming and going does not reset it
   if (key !== fitKey) {
     fitKey = key;
     fitDock = 0;
+    if (seatRoom) {
+      seatRoom = 0;
+      setTableTop();
+    }
   }
   const bottom = $('bottom');
   fitDock = Math.max(fitDock, bottom.offsetHeight + parseFloat(getComputedStyle(bottom).marginTop));
   const cs = getComputedStyle(stage);
   const avail = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - parseFloat(getComputedStyle($('table')).marginTop) - fitDock - 2;
   stage.style.setProperty('--fit-h', Math.max(0, Math.floor(avail)) + 'px');
+  // QA TC1: on short windows the top seat's cards reach above the table's box and under the header.
+  // Move the table down by that overshoot (4px to spare) and take it off the height; the seats then
+  // sit lower in a smaller table, so one pass clears them. Like fitDock, it only grows for one size.
+  const limit = stage.getBoundingClientRect().top - stage.scrollTop + 4;
+  let top = Infinity;
+  for (const el of document.querySelectorAll('#seats .seat *')) {
+    const b = el.getBoundingClientRect();
+    if (b.width && b.height) top = Math.min(top, b.top);
+  }
+  const over = Math.ceil(limit - top);
+  if (over > 0 && top !== Infinity) {
+    seatRoom += over;
+    setTableTop();
+    stage.style.setProperty('--fit-h', Math.max(0, Math.floor(avail - over)) + 'px');
+  }
 }
 {
   const ro = new ResizeObserver(() => {

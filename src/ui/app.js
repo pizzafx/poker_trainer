@@ -240,6 +240,8 @@ const HABITS = {
   wideOpen: 'Opened a hand outside the Standard range for the seat',
   junk3bet: 'Re-raised with a hand that is mostly a bluff here',
   size3bet: 'Re-raised for value at a size outside the usual band',
+  isoLimp: 'Limped behind with a hand that raises over limpers',
+  wideLimp: 'Limped behind with a hand outside the Standard range',
 };
 let habits = {};
 try {
@@ -730,7 +732,7 @@ function renderActions() {
 
 const tipLine = (d, cls = 'tip-line') =>
   d.tip
-    ? `<p class="${cls}"><b class="tip-label">Tip:</b> ${esc(d.tip)}${d.tipKind === 'wideOpen' && d.position ? ` <button type="button" class="link-btn edit-ranges" data-edit-ranges="${groupOf(d.position)}">Edit ranges for ${esc(d.position)} ›</button>` : ''}</p>`
+    ? `<p class="${cls}"><b class="tip-label">Tip:</b> ${esc(d.tip)}${(d.tipKind === 'wideOpen' || d.tipKind === 'wideLimp') && d.position ? ` <button type="button" class="link-btn edit-ranges" data-edit-ranges="${groupOf(d.position)}">Edit ranges for ${esc(d.position)} ›</button>` : ''}</p>`
     : '';
 // The coach's note on a fine verdict, without the "X: fine." it starts with (QA K1: the review shows it
 // under the fine row, as the strip and the panel do).
@@ -955,6 +957,8 @@ function takeNews() {
 const STRIP_TIP = {
   limp: (t) => `Tip: raise to $${t.to} instead of limping`,
   wideOpen: (t) => `Tip: usually a fold from ${t.where}`,
+  isoLimp: (t) => `Tip: raise to $${t.to} over the limpers`,
+  wideLimp: () => 'Tip: usually a fold behind limpers',
   junk3bet: () => 'Tip: too weak to re-raise; call or fold',
   size3bet: (t) => (t.band === 'regulars' ? 'Tip: about 3.5–4x against regulars' : 'Tip: bigger, about 4–5x plus 1x per caller'),
 };

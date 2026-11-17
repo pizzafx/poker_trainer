@@ -20,7 +20,7 @@ import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
 import { shownCost, dryBoard, blockerHand } from '../src/trainer/explain.js';
 import { pairedGap, redBar } from '../src/trainer/judge.js';
-import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest } from '../src/trainer/grade.js';
+import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest, ISO_LIMP, outsideBehindLimpers } from '../src/trainer/grade.js';
 // the bet an estimate line is about: "A bet of $X:" names it; otherwise hero's bet or raise, else the reference (QA-VERDICT)
 function namedBet(d, v) {
   const m = (d.anchor || '').match(/^A bet of \$(\d+):/);
@@ -144,7 +144,7 @@ export const INVARIANTS = {
     const other = Math.max(...v.options.filter((o) => o.type !== 'raise').map((o) => o.ev));
     return top.type === 'raise' && top.ev - other > v.small;
   })(),
-  'N2 no range-based preflop tip with 3 or fewer players dealt in': (d) => ['limp', 'wideOpen', 'junk3bet', 'size3bet'].includes(d.tipKind) && d.snapshot && d.snapshot.seats.length <= 3,
+  'N2 no range-based preflop tip with 3 or fewer players dealt in': (d) => ['limp', 'wideOpen', 'junk3bet', 'size3bet', 'isoLimp', 'wideLimp'].includes(d.tipKind) && d.snapshot && d.snapshot.seats.length <= 3,
   'N3 a missed-bluff flag names a reference bet of at least 25% of the pot': (d, v, m, b) => v.grade !== 'good' && d.category === 'missedBluff' && m.type === 'check' && b.type === 'raise' && d.toCall === 0 && b.to / Math.max(1, v.pot) < 0.25,
   'N4 no "sound value size" pass with two pair or better': (d, v) => v.note === 'sizeOk' && d.tier >= TIER.TWO_PAIR,
   'N4b sizing never red with two pair or better multiway': (d, v, m, b) => d.tier >= TIER.TWO_PAIR && d.opponents >= 2 && m.type === 'raise' && b.type === 'raise' && v.grade === 'blunder',
@@ -267,6 +267,17 @@ export const INVARIANTS = {
   },
   'D1 the draw test charges an all-in no raise share (QA-VERDICT)': (d, v) => v.options.some((o) => /^All-in/.test(o.label) && o.F !== undefined && drawTest(o, { ownDrawEquity: 0.3 }, 2) && drawTest(o, { ownDrawEquity: 0.3 }, 2).R !== 0),
   'D2b "too big to lean on your draw" only over a real draw, and never where the folds cover the need (STRAT D2)': (d, v) => /too big to lean on your draw/.test(d.anchor || '') && (!isRealDraw(handFeatures(d.hole, d.board)) || (() => { const o = namedBet(d, v); return !!o && o.F >= o.alpha; })()),
+  // ---- STRAT L2, L3: the behind-limpers tips ----
+  'L2 isoLimp only for the L2 hands, with the best raise ahead of the limp by more than 2.2 SE': (d, v) => {
+    if (d.tipKind !== 'isoLimp') return false;
+    const name = classNames[classOf(d.hole[0], d.hole[1])];
+    let br = -1;
+    v.options.forEach((o, i) => { if (o.type === 'raise' && (br < 0 || o.ev > v.options[br].ev)) br = i; });
+    const g = br >= 0 ? pairedGap(v, br, v.mine) : { mean: 0, se: 1 };
+    return !ISO_LIMP.has(name) || !(g.mean > 2.2 * g.se);
+  },
+  'L3 wideLimp only for a hand outside the behind-limpers Standard range': (d) => d.tipKind === 'wideLimp' && !outsideBehindLimpers(classNames[classOf(d.hole[0], d.hole[1])], groupOf(d.position)),
+  'L23 a behind-limpers tip only with one or more limpers and no raise': (d) => ['isoLimp', 'wideLimp'].includes(d.tipKind) && !(d.ctx && d.ctx.limpers >= 1 && d.ctx.raises === 0),
   'C8c no money-in flag over a works status or a works line': (d, v) => v.rule === 'moneyIn' && (v.options[v.mine].st === 'works' || (v.options[v.mine].type === 'raise' && v.options[v.mine].st === 'even' && d.tier <= TIER.MIDDLE_PAIR && /your draw comes in/.test(d.anchor || '')) || /Together that is enough|bet for value|A bigger (bet|raise) needs more folds|Call\.$/.test(d.anchor || '')),
   'YB-C7 no "up to its price" headline on a money-in flag': (d, v) => v.rule === 'moneyIn' && /up to its price/.test(d.headline || ''),
   'YB-B4 a TT-type re-raise when calling scores more gets no junk or size re-raise tip': (d, v) => v.iso3bet && ['junk3bet', 'size3bet'].includes(d.tipKind),

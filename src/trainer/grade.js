@@ -8,7 +8,7 @@ import { classOf, classNames } from '../engine/hands.js';
 import { buildContext, POS } from '../bots/policy.js';
 import { HERO_PROFILE } from '../bots/profiles.js';
 import { judgeDecision, pairedGap, refreshClose, tiltedEvs, redBar } from './judge.js';
-import { groupOf, presetRanges, presetRaised, expandRange } from './ranges.js';
+import { groupOf, presetRanges, presetRaised, expandRange, LIMPER_OFFSUIT } from './ranges.js';
 
 const HERO = 0;
 
@@ -77,6 +77,52 @@ export function limpOutsideTipFor(v, ctx, name, group) {
     if (g.mean > 2.2 * g.se) cost = Math.round(v.options[fold].ev) - Math.round(mine.ev);
   }
   return { kind: 'wideOpen', where, text: `${name} is outside the Standard range from ${where}; most players fold it here.${cost > 0 ? ` Here folding was about $${cost} better.` : ''}` };
+}
+
+// Behind limpers (STRAT L2, L3; for Drills P1 and P2): tips only, never flags. Common conditions: preflop,
+// no raise yet, one or more limpers, you limp too, not from the blinds, graded fine, and not a hand the
+// strongLimp rule covers.
+export const ISO_LIMP = new Set(['AJo', 'ATo', 'KQo', 'KJo', '88', '77']);
+const LIMPER_KEEP = { default: new Set(expandRange(LIMPER_OFFSUIT.default)), button: new Set(expandRange(LIMPER_OFFSUIT.button)) };
+const behindLimpers = (v, ctx, name) => {
+  if (v.grade !== 'good' || v.mine < 0 || ctx.street !== STREET.PRE) return false;
+  if (v.options[v.mine].type !== 'call' || ctx.raises !== 0 || !(ctx.limpers >= 1)) return false;
+  if (ctx.pos !== POS.EP && ctx.pos !== POS.MP && ctx.pos !== POS.LP) return false;
+  return !STRONG_LIMP.has(name);
+};
+// L3: the hand is outside the Standard range behind limpers from this seat: not in the seat's Standard
+// range, or offsuit and below the offsuit hands kept behind limpers
+export const outsideBehindLimpers = (name, group) =>
+  !!STANDARD_FIRST[group] && (!STANDARD_FIRST[group].includes(name) || (name.endsWith('o') && !LIMPER_KEEP[group === 'button' ? 'button' : 'default'].has(name)));
+export function wideLimpTipFor(v, ctx, name, group) {
+  if (!behindLimpers(v, ctx, name) || !outsideBehindLimpers(name, group)) return null;
+  const mine = v.options[v.mine];
+  const fold = v.options.findIndex((o) => o.type === 'fold');
+  let cost = 0;
+  if (fold >= 0) {
+    // vetoed only when the judge clearly says the limp beat folding
+    const lf = pairedGap(v, v.mine, fold);
+    if (lf.mean > 2.2 * lf.se && lf.mean > 1) return null;
+    const g = pairedGap(v, fold, v.mine);
+    if (g.mean > 2.2 * g.se) cost = Math.round(v.options[fold].ev) - Math.round(mine.ev);
+  }
+  const where = SEAT_WORDS[group];
+  return { kind: 'wideLimp', where, text: `${name} is outside the Standard range behind limpers from ${where}; most players fold it here.${cost > 0 ? ` Here folding was about $${cost} better.` : ''}` };
+}
+// L2: an isolation hand limping behind, when the best raise clearly beats the limp
+export function isoLimpTipFor(v, ctx, name) {
+  if (!behindLimpers(v, ctx, name) || !ISO_LIMP.has(name)) return null;
+  const mine = v.options[v.mine];
+  const raises = v.options.map((o, i) => [o, i]).filter(([o]) => o.type === 'raise');
+  if (!raises.length) return null;
+  let br = raises[0][1];
+  for (const [o, i] of raises) if (o.ev > v.options[br].ev) br = i;
+  const g = pairedGap(v, br, v.mine);
+  if (!(g.mean > 2.2 * g.se)) return null;
+  if (raises.some(([o]) => o.ev < mine.ev - 0.5)) return null; // no raise scores clearly below the limp
+  const to = raises[0][0].to;
+  const cost = Math.round(v.options[br].ev) - Math.round(mine.ev);
+  return { kind: 'isoLimp', to, text: `raising over the limpers, to about $${to}, usually does better than limping behind with ${name}: you isolate weaker hands and keep the lead. Here raising was about $${cost} better.` };
 }
 
 // A soft note on a re-raise of a single raise with a hand outside the Standard facing-a-raise range
@@ -197,7 +243,7 @@ export function gradeDecision(s, belief, action, judgeOpts, env) {
     const group = groupOf(positionName(s, HERO));
     // a limp with a hand outside the seat's Standard range gets "most players fold it here", never the
     // raise tip (STRAT G3: never tell a student to raise K5o from UTG+1); inside it, the raise tip
-    tip = limpOutsideTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) || verdict.iso3bet ? null : junk3betTipFor(verdict, ctx, name, group, env)) || (verdict.iso3bet ? null : size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env));
+    tip = limpOutsideTipFor(verdict, ctx, name, group) || wideLimpTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || isoLimpTipFor(verdict, ctx, name) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) || verdict.iso3bet ? null : junk3betTipFor(verdict, ctx, name, group, env)) || (verdict.iso3bet ? null : size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env));
   } else tip = limpTipFor(verdict, ctx);
   if (tip) verdict.tip = tip;
   return verdict;

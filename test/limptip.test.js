@@ -90,9 +90,11 @@ test('limp tip: in a real session it appears on first-in limps and never counts 
       const d = sess.heroAct(a);
       const first = s.street === 0 && d.ctx.raises === 0 && d.ctx.limpers === 0 && d.ctx.pos <= POS.LP && a.type === 'call';
       if (first && d.verdict.grade === 'good') openLimps++;
+      // behind limpers, the L2/L3 tips (STRAT) may show too: still only on a limp outside the blinds
+      const behindLimp = s.street === 0 && d.ctx.raises === 0 && d.ctx.limpers > 0 && d.ctx.pos <= POS.LP && a.type === 'call';
       if (d.tip) {
         tips++;
-        assert.ok(first, 'only first-in limps outside the blinds');
+        assert.ok(first || (behindLimp && ['isoLimp', 'wideLimp'].includes(d.tip.kind || d.tipKind)), 'only limps outside the blinds: first in, or behind limpers with an L2/L3 tip');
         assert.equal(d.verdict.grade, 'good');
         assert.equal(d.cost, 0);
       }
@@ -148,4 +150,34 @@ test('junk 3-bet note: against a regular opener it says what a solid player does
   assert.match(reg.text, /^re-raising with J7o against a regular rarely pays: they fold their worst hands and keep the ones that have you beaten/);
   assert.doesNotMatch(reg.text, /seldom fold/);
   for (const [id, p] of [['station', 0.8], ['tag', 0.4]]) assert.match(junk3betTipFor(threeBetVerdict(), ctx, 'J7o', 'bb', env(id, p)).text, /seldom fold/, `${id} ${p}`);
+});
+
+// STRAT L2, L3: behind limpers (Drills P1 and P2); tips only, grades unchanged
+import { isoLimpTipFor, wideLimpTipFor } from '../src/trainer/grade.js';
+const behind = (pos, limpers = 1) => ({ street: STREET.PRE, raises: 0, limpers, pos });
+
+test('L2: AJo on the button behind two limpers, the raise clearly ahead of the limp, gets the isolation tip', () => {
+  const tip = isoLimpTipFor(verdict({ limp: 2, r12: 6, r18: 5, se: 1 }), behind(POS.LP, 2), 'AJo');
+  assert.ok(tip);
+  assert.equal(tip.kind, 'isoLimp');
+  assert.equal(tip.text, 'raising over the limpers, to about $12, usually does better than limping behind with AJo: you isolate weaker hands and keep the lead. Here raising was about $4 better.');
+  // not when the raise is inside the noise, or when a raise scores clearly below the limp
+  assert.equal(isoLimpTipFor(verdict({ limp: 2, r12: 3, r18: 2.5, se: 1 }), behind(POS.LP, 2), 'AJo'), null);
+  assert.equal(isoLimpTipFor(verdict({ limp: 2, r12: 6, r18: 1, se: 1 }), behind(POS.LP, 2), 'AJo'), null);
+});
+
+test('L2: 66 behind limpers (set value) and AKo (the strongLimp rule) get no isolation tip; first in is the limp tip', () => {
+  assert.equal(isoLimpTipFor(verdict({ limp: 2, r12: 6, se: 1 }), behind(POS.LP, 2), '66'), null);
+  assert.equal(isoLimpTipFor(verdict({ limp: 2, r12: 6, se: 1 }), behind(POS.LP, 1), 'AKo'), null);
+  assert.equal(isoLimpTipFor(verdict({ limp: 2, r12: 6, se: 1 }), behind(POS.LP, 0), 'AJo'), null);
+  assert.equal(isoLimpTipFor(verdict({ limp: 2, r12: 6, se: 1 }), { ...behind(POS.LP, 1), pos: POS.SB }, 'AJo'), null);
+});
+
+test('L3: K5o in the cutoff behind a limper gets the behind-limpers fold note; vetoed only when the limp clearly beats folding', () => {
+  const tip = wideLimpTipFor(verdict({ limp: -1, r12: -2, r18: -3, se: 0.2 }), behind(POS.LP, 1), 'K5o', 'cutoff');
+  assert.ok(tip);
+  assert.equal(tip.kind, 'wideLimp');
+  assert.equal(tip.text, 'K5o is outside the Standard range behind limpers from the cutoff; most players fold it here. Here folding was about $1 better.');
+  assert.equal(wideLimpTipFor(verdict({ limp: 3, se: 0.5 }), behind(POS.LP, 1), 'K5o', 'cutoff'), null, 'the limp clearly beat folding');
+  assert.equal(wideLimpTipFor(verdict({ limp: -1, se: 0.2 }), behind(POS.LP, 1), 'AJs', 'cutoff'), null, 'inside the range');
 });

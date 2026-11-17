@@ -482,6 +482,9 @@ function renderTable() {
     if (over && s.result.won[i] > 0) cls.push('winner');
     if (p.steaming) cls.push('steaming');
     if (over && s.result.showdown && !s.folded[i] && i !== HERO) cls.push('shown');
+    // a winner whose cards are face-up (shown down, or revealed): "wins $X" in the plate, no chip on the felt,
+    // where it could cover the cards (DESIGN)
+    const wonUp = over && i !== HERO && s.result.won[i] > 0 && ((s.result.showdown && !s.folded[i]) || reveal);
     if (i !== HERO && x > 52) cls.push('east'); // right-hand seats: a face-up pair extends leftward (DESIGN)
     let cards = '';
     if (i === HERO) cards = holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('');
@@ -512,7 +515,7 @@ function renderTable() {
       <div class="cards">${cards}</div>
       <div class="avatar${vp ? ' has-vpip' : ''}" style="--h:${p.hue ?? 160}${vp ? `;--v:${vp.pct};--vc:${vp.color}` : ''}">${i === HERO ? '' : avatarArt(p)}${badge}${p.steaming ? '<span class="steam-dot" title="On tilt"></span>' : ''}</div>
       <div class="plate">${i === HERO && isBtn ? '<div class="dealer mine" title="You are on the button">D</div>' : ''}<div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>${i !== HERO && !drill && newSeats.get(i) === h.no ? '<span class="new-tag" title="New player this hand">NEW</span>' : ''}
-      <div class="stack">${money(stack)}${h.raiser === i ? '<span class="raiser-tag">Raiser</span>' : ''}</div>${read}</div>${i === HERO ? madeHand() : ''}${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP <span class="num">${vp.pct}%</span></b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vpipVerdict(vp.pct)}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${p.steaming ? '<div class="tilt">Tilt</div>' : ''}${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
+      ${wonUp ? `<div class="stack won"><span class="what">wins</span> ${money(s.result.won[i])}</div>` : `<div class="stack">${money(stack)}${h.raiser === i ? '<span class="raiser-tag">Raiser</span>' : ''}</div>`}${read}</div>${i === HERO ? madeHand() : ''}${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP <span class="num">${vp.pct}%</span></b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vpipVerdict(vp.pct)}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${p.steaming ? '<div class="tilt">Tilt</div>' : ''}${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
     if (isBtn && i !== HERO) {
       const dx = 50 + G.dealer[0] * Math.cos(ang + 0.2);
       const dy = G.cy + G.dealer[1] * Math.sin(ang + 0.2);
@@ -525,7 +528,7 @@ function renderTable() {
     const by = G.cy + (up ? G.chip[2] + G.chipTop * Math.sin(ang) ** 4 : G.chip[1]) * Math.sin(ang) - G.chipLift * level;
     let chip = '';
     if (over) {
-      if (s.result.won[i] > 0) chip = `<span class="what">wins</span>${money(s.result.won[i])}`;
+      if (s.result.won[i] > 0 && !wonUp) chip = `<span class="what">wins</span>${money(s.result.won[i])}`;
     } else {
       const e = lastStreetAction(s, i);
       if (e) {

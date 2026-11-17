@@ -2731,3 +2731,7 @@ body.deck-online .seat.hero .cards .card + .card { margin-left: calc(var(--cw) *
 @media (max-width: 600px) {
   .seat:not(.east):not(.hero):has(.cards .unseen) .avatar .badge.pos, .seat.shown:not(.east):not(.hero) .avatar .badge.pos { left: auto; right: calc(50% + 2px); }
 }
+/* a face-up winner's "wins $X" in the plate, in place of the stack line (DESIGN): the chip's words and lime dot */
+.seat .stack.won { display: flex; align-items: center; justify-content: center; gap: 0.35em; color: var(--good); font-family: var(--mono); font-weight: 500; }
+.seat .stack.won::before { content: ""; flex: none; width: 0.62em; height: 0.62em; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--c-a8f5cc), var(--c-2f9e68)); box-shadow: inset 0 0 0 1px var(--c-ffffffb0); }
+.seat .stack.won .what { color: inherit; font-weight: 500; }

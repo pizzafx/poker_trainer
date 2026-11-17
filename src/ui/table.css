@@ -1395,6 +1395,8 @@ a.brand:hover { color: var(--accent); }
 .seat.folded:not(.hero):not(.shown) .read,
 .seat.folded:not(.hero):not(.shown) .cards,
 .seat.folded:not(.hero):not(.shown) .vpip { display: none; }
+/* ...unless Show opponents' cards reveals them (marked, dimmed: .unseen) */
+.seat.folded:not(.hero):not(.shown) .cards:has(.unseen) { display: flex; }
 .seat.folded:not(.hero):not(.shown) .avatar { transform: scale(0.75); }
 .seat.folded:not(.hero):not(.shown) .nick { color: var(--c-64776f); font-weight: 500; }
 .seat .made { display: none; }
@@ -2031,6 +2033,10 @@ body.replaying #ranges .chips:has([data-street]) { display: none; }
 .raiser-tag { display: inline-block; margin-left: 0.5cqw; padding: 0 0.45cqw; border-radius: 4px; background: var(--rail); border: 1px solid var(--line-2); color: var(--chalk); font: 500 clamp(8px, 0.75cqw, 9.5px)/1.5 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; vertical-align: 0.1em; }
 .unseen { display: contents; }
 .unseen .card { opacity: 0.72; outline: 1.5px dashed var(--chalk); outline-offset: 1px; }
+/* a folded player's cards, when shown: dimmer, the outline kept (DESIGN) */
+.seat.folded .unseen .card, .was-folded .unseen .card { opacity: 0.45; }
+/* minis in the log and the summary: a 1px outline on the card's edge */
+.cards-inline .unseen .card { outline-width: 1px; outline-offset: 0; }
 #ranges .rc.real { outline: 2px dashed var(--chalk); outline-offset: -2px; }
 #ranges .what-had { margin: 10px 0; padding: 12px 14px; background: var(--panel); border: 1px dashed var(--line-2); border-radius: 12px; color: var(--slate); font-size: 13px; }
 #ranges .what-had b { display: flex; align-items: center; gap: 8px; color: var(--chalk); }

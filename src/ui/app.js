@@ -25,7 +25,7 @@ const SUIT_CLS = ['c', 'd', 'h', 's'];
 
 // What a new player starts on: $1/$2 with a 100-big-blind buy-in ($200) and a typical capped rake.
 // Players who already have saved settings keep theirs.
-const DEFAULTS = { v: 3, game: APP_GAME.game, maxBuy: APP_GAME.heroBuy, rake: APP_GAME.rake, table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, rake5: true, rake25: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450, sideW: null, cardLayout: 'classic', cardColour: 'coloured' };
+const DEFAULTS = { v: 3, game: APP_GAME.game, maxBuy: APP_GAME.heroBuy, rake: APP_GAME.rake, table: 'typical', onlyRange: true, ranges: presetRanges('standard'), rangesRaised: presetRaised('standard'), rangesLive: true, rake5: true, rake25: true, mode: 'casino', home: { sb: 1, bb: 2, buy: 200, counts: { station: 2, nit: 1, maniac: 1, abc: 1, beginner: 1, tag: 1 } }, feedback: 'now', reads: true, speed: 450, sideW: null, cardLayout: 'classic', cardColour: 'coloured', showOpp: false };
 let settings = { ...DEFAULTS };
 let firstVisit = true; // nothing saved yet: deal straight in and show the one-time hint
 try {
@@ -319,6 +319,23 @@ function cardHtml(c) {
   return `<span class="card ${SUIT_CLS[c & 3]}"><b${r === '10' ? ' class="ten"' : ''}>${r}</b><i>${sym}</i><u${r === '10' ? ' class="ten"' : ''}>${r}</u></span>`;
 }
 const backHtml = () => '<span class="card back"></span>';
+// Cards a real table would not show (Show opponents' cards, or the replayer's Show all cards): marked, and
+// read out as such (DESIGN)
+const RANK_WORDS = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace'];
+const SUIT_WORDS = ['clubs', 'diamonds', 'hearts', 'spades'];
+const cardWords = (c) => `${RANK_WORDS[c >> 2]} of ${SUIT_WORDS[c & 3]}`;
+const unseenHtml = (seat, cards) => `<span class="unseen" role="img" aria-label="Seat ${seat + 1}: ${cards.map(cardWords).join(', ')}, not shown at the table">${cards.map((c) => cardHtml(c)).join('')}</span>`;
+// After you fold or the hand ends (never while you are in it), with the setting on; the replayer has its own switch
+const revealOpp = (h) => !!h && !h.replay && settings.showOpp && (h.over || h.state.folded[HERO]);
+// the opponents' cards a real table did not show, for the hand's summary and its log (shown: seats that showed down)
+const heldSeats = (h, shown = []) => {
+  const s = h.state;
+  const out = [];
+  for (let i = 0; i < s.n; i++) if (i !== HERO && s.hole[i] && !shown.includes(i) && !(s.result && s.result.showdown && !s.folded[i])) out.push(i);
+  return out;
+};
+const heldRows = (h, shown) => (revealOpp(h) ? heldSeats(h, shown).map((i) => `<div><span class="label">${esc(sess.seats[i].nick)} held</span><span class="cards-inline${h.state.folded[i] ? ' was-folded' : ''}">${unseenHtml(i, holeOrder(h.state.hole[i]))}</span></div>`).join('') : '');
+const heldLines = (h) => heldSeats(h).map((i) => `<div class="hl-ln quiet"><i class="hl-dot"></i><span class="hl-t">${esc(sess.seats[i].nick)} held</span><span class="cards-inline${h.state.folded[i] ? ' was-folded' : ''}">${unseenHtml(i, holeOrder(h.state.hole[i]))}</span></div>`).join('');
 const cardsInline = (cs) => `<span class="cards-inline">${cs.map((c) => cardHtml(c)).join('')}</span>`;
 
 // ---------------------------------------------------------------- rendering
@@ -446,6 +463,7 @@ function renderTable() {
   const n = s.n;
   const over = h.over;
   let seatsHtml = '';
+  const reveal = h.showAll || revealOpp(h);
   // Phones get a tall oval table (see the phone block at the end of table.css).
   const G = PHONE.matches ? PHONE_GEOM : WIDE_GEOM;
   for (let i = 0; i < n; i++) {
@@ -466,8 +484,8 @@ function renderTable() {
     if (over && s.result.showdown && !s.folded[i] && i !== HERO) cls.push('shown');
     let cards = '';
     if (i === HERO) cards = holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('');
-    else if (!s.folded[i]) cards = over && s.result.showdown ? holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('') : h.showAll ? `<span class="unseen">${holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('')}</span>` : backHtml() + backHtml();
-    else if (h.showAll && s.hole[i]) cards = `<span class="unseen">${holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('')}</span>`;
+    else if (!s.folded[i]) cards = over && s.result.showdown ? holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('') : reveal ? unseenHtml(i, holeOrder(s.hole[i])) : backHtml() + backHtml();
+    else if (reveal && s.hole[i]) cards = unseenHtml(i, holeOrder(s.hole[i]));
     let read = '';
     if (i !== HERO && settings.reads) {
       const r = sess.readOf(i);
@@ -1253,6 +1271,7 @@ function renderLog() {
   const card = handCardHtml({
     s, seats: sess.seats, decisions: h.decisions, bb: s.bbAmt, no: h.no, position: positionName(s, HERO), over, net: over && h.summary ? h.summary.net : 0,
     shows, showdown: over && s.result && s.result.showdown, live: !over, pending: thinking ? pendingAction : null, links, why: true,
+    held: over && revealOpp(h) ? heldLines(h) : '',
     actions: rec ? `<div class="hl-acts"><button type="button" data-hl="summary">Summary</button><button type="button" class="primary" data-hl="replay">Replay hand ${h.no}</button></div>` : '',
   });
   el.innerHTML = `<p class="label hl-label">${over ? 'Last hand' : 'This hand'}</p>${card}${drill ? '' : earlierHtml()}`;
@@ -1351,6 +1370,7 @@ function openReview(stored = false) {
     <div><span class="label">Your hand</span>${cardsInline(holeOrder(s.hole[HERO]))}</div>
     ${s.board.length ? `<div><span class="label">Board</span>${cardsInline(s.board)}</div>` : ''}
     ${shown.map((i) => `<div><span class="label">${esc(sess.seats[i].nick)} showed</span>${cardsInline(holeOrder(s.hole[i]))}</div>`).join('')}
+    ${heldRows(h, shown)}
     ${wins.length ? `<p class="rv-vs">${esc(suitText(wins.join('. ')))}.</p>` : ''}
   </div>`;
   const firstFlag = ds.find((d) => d.verdict.grade !== 'good');
@@ -1958,6 +1978,7 @@ function openGameModal({ tab = 'game', group = null } = {}) {
       <div class="go-group">
         <div class="go-head"><span class="label">Display</span><span>Saved on this device · applies now</span></div>
         <div class="go-row cs-row"><span class="go-lab" id="cs-lab">Card style</span><div class="go-ctl">${deckTiles()}</div></div>
+        <div class="go-row tog">${toggle('s-opp', settings.showOpp, "Show opponents' cards")}<p class="go-hint">After you fold or the hand ends. Cards a real table wouldn't show are marked.</p></div>
       </div>
     </details>
     <div class="modal-actions settings-foot">
@@ -1996,6 +2017,12 @@ function openGameModal({ tab = 'game', group = null } = {}) {
       input.dispatchEvent(new Event('change'));
     });
   });
+  // Show opponents' cards: saved and applied at once, like the card style
+  $('s-opp').onchange = () => {
+    settings.showOpp = $('s-opp').checked;
+    saveSettings();
+    if (sess && sess.hand) render();
+  };
   // Card style: saved and applied at once, no new session; arrow keys move in two dimensions and select
   const tiles = [...document.querySelectorAll('#modal-box .cstile')];
   const pickDeck = (i, focus) => {
@@ -3484,7 +3511,7 @@ function handCardHtml(p) {
     .filter((st) => st === 0 || s.board.length >= [0, 3, 4, 5][st])
     .map((st) => `<div class="hl-st"><div class="hl-head"><span class="label">${SD_LABEL[st]}</span>${st ? cardsInline(streetCards(st)) : ''}<span class="hl-pot">pot $${potAt[st] ?? running}</span></div>${lines[st].map(lineHtml).join('')}</div>`)
     .join('');
-  const show = p.over && p.shows && p.shows.length ? `<div class="hl-st"><div class="hl-head"><span class="label">${p.showdown ? 'Showdown' : 'Result'}</span></div>${p.shows.map((t) => `<div class="hl-ln quiet"><i class="hl-dot"></i><span class="hl-t">${esc(suitText(t))}</span></div>`).join('')}<div class="hl-ln result"><span class="hl-t">Your result</span><b class="mono">${p.net === 0 ? '$0' : signed(p.net).replace('-', '−')}</b></div></div>` : '';
+  const show = p.over && p.shows && p.shows.length ? `<div class="hl-st"><div class="hl-head"><span class="label">${p.showdown ? 'Showdown' : 'Result'}</span></div>${p.shows.map((t) => `<div class="hl-ln quiet"><i class="hl-dot"></i><span class="hl-t">${esc(suitText(t))}</span></div>`).join('')}${p.held || ''}<div class="hl-ln result"><span class="hl-t">Your result</span><b class="mono">${p.net === 0 ? '$0' : signed(p.net).replace('-', '−')}</b></div></div>` : '';
   const flagged = decisions.filter((d) => d.verdict.grade !== 'good');
   const sub = p.live || !p.over
     ? `$${s.sbAmt}/$${bb} · you ${p.live ? 'have' : 'had'} ${money(s.stacks[HERO])}`

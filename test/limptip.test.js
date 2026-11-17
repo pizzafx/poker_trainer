@@ -177,7 +177,7 @@ test('L3: K5o in the cutoff behind a limper gets the behind-limpers fold note; v
   const tip = wideLimpTipFor(verdict({ limp: -1, r12: -2, r18: -3, se: 0.2 }), behind(POS.LP, 1), 'K5o', 'cutoff');
   assert.ok(tip);
   assert.equal(tip.kind, 'wideLimp');
-  assert.equal(tip.text, 'K5o is outside the Standard range behind limpers from the cutoff; most players fold it here. Here folding was about $1 better.');
+  assert.equal(tip.text, 'K5o is outside the Standard range behind limpers from the cutoff: it is usually a fold here. Here folding was about $1 better.');
   assert.equal(wideLimpTipFor(verdict({ limp: 3, se: 0.5 }), behind(POS.LP, 1), 'K5o', 'cutoff'), null, 'the limp clearly beat folding');
   assert.equal(wideLimpTipFor(verdict({ limp: -1, se: 0.2 }), behind(POS.LP, 1), 'AJs', 'cutoff'), null, 'inside the range');
 });
@@ -193,4 +193,32 @@ test('L2 fixture: KJo in the hijack limping behind an abc limper gets the isolat
   assert.equal(v.grade, 'good');
   assert.equal(v.tip && v.tip.kind, 'isoLimp');
   assert.match(v.tip.text, /^raising over the limpers, to about \$15, usually does better than limping behind with KJo: you isolate weaker hands and keep the lead\. Here raising was about \$\d+ better\.$/);
+});
+
+test('L2: behind 3 or more limpers, 77, 88, ATo and KJo get no isolation tip; AJo and KQo still do (PRO)', () => {
+  const v = () => verdict({ limp: 2, r12: 6, r18: 5, se: 1 });
+  for (const nm of ['77', '88', 'ATo', 'KJo']) {
+    assert.equal(isoLimpTipFor(v(), behind(POS.LP, 3), nm), null, nm);
+    assert.equal(isoLimpTipFor(v(), behind(POS.LP, 2), nm)?.kind, 'isoLimp', nm);
+  }
+  for (const nm of ['AJo', 'KQo']) assert.equal(isoLimpTipFor(v(), behind(POS.LP, 4), nm)?.kind, 'isoLimp', nm);
+});
+
+test('L3a: no behind-limpers fold tip when the judge clearly prefers a raise to both folding and the limp (STRAT)', () => {
+  // the best raise $6 over the limp and $7 over folding, clear of 2.2 SE: silent
+  assert.equal(wideLimpTipFor(verdict({ limp: -1, r12: 6, r18: 5, se: 0.5 }), behind(POS.LP, 1), 'K5o', 'cutoff'), null);
+  // the raise ahead but inside the noise, or by under $1: the tip stays
+  assert.equal(wideLimpTipFor(verdict({ limp: -1, r12: 0.5, r18: 0, se: 0.5 }), behind(POS.LP, 1), 'K5o', 'cutoff')?.kind, 'wideLimp');
+  assert.equal(wideLimpTipFor(verdict({ limp: -1, r12: 6, r18: 0, se: 5 }), behind(POS.LP, 1), 'K5o', 'cutoff')?.kind, 'wideLimp');
+});
+
+test('L3b: suited aces, 54s+ connectors and 64s+ one-gappers get no fold tip from middle position, the cutoff or the button; early position unchanged (STRAT)', () => {
+  const v = () => verdict({ limp: -1, r12: -2, r18: -3, se: 0.2 });
+  assert.equal(wideLimpTipFor(v(), behind(POS.MP, 1), 'A6s', 'middle'), null);
+  assert.equal(wideLimpTipFor(v(), behind(POS.MP, 1), '54s', 'middle'), null);
+  assert.equal(wideLimpTipFor(v(), behind(POS.LP, 1), '64s', 'cutoff'), null);
+  assert.equal(wideLimpTipFor(v(), behind(POS.EP, 1), 'A6s', 'early')?.kind, 'wideLimp');
+  assert.equal(wideLimpTipFor(v(), behind(POS.EP, 1), '64s', 'early')?.kind, 'wideLimp');
+  // outside the exemption: 53s (a one-gapper below 64s), 43s (a connector below 54s), J7s
+  for (const nm of ['53s', '43s', 'J7s']) assert.equal(wideLimpTipFor(v(), behind(POS.LP, 1), nm, 'button')?.kind, 'wideLimp', nm);
 });

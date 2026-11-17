@@ -83,6 +83,8 @@ export function limpOutsideTipFor(v, ctx, name, group) {
 // no raise yet, one or more limpers, you limp too, not from the blinds, graded fine, and not a hand the
 // strongLimp rule covers.
 export const ISO_LIMP = new Set(['AJo', 'ATo', 'KQo', 'KJo', '88', '77']);
+// with 3+ limpers a raise rarely isolates: over-limping small pairs is the live play, and ATo/KJo are dominated multiway (PRO, STRAT)
+export const ISO_LIMP_FEW = new Set(['ATo', 'KJo', '88', '77']);
 const LIMPER_KEEP = { default: new Set(expandRange(LIMPER_OFFSUIT.default)), button: new Set(expandRange(LIMPER_OFFSUIT.button)) };
 const behindLimpers = (v, ctx, name) => {
   if (v.grade !== 'good' || v.mine < 0 || ctx.street !== STREET.PRE) return false;
@@ -94,10 +96,33 @@ const behindLimpers = (v, ctx, name) => {
 // range, or offsuit and below the offsuit hands kept behind limpers
 export const outsideBehindLimpers = (name, group) =>
   !!STANDARD_FIRST[group] && (!STANDARD_FIRST[group].includes(name) || (name.endsWith('o') && !LIMPER_KEEP[group === 'button' ? 'button' : 'default'].has(name)));
+// L3b: over-limping these multiway from middle position, the cutoff or the button is accepted live play
+// (set and draw value, as the small pairs): suited aces, suited connectors 54s+, suited one-gappers 64s+
+const RANKS = '23456789TJQKA';
+export const suitedLimpHand = (name) => {
+  if (!name.endsWith('s')) return false;
+  const hi = RANKS.indexOf(name[0]);
+  const lo = RANKS.indexOf(name[1]);
+  return hi === 12 || (lo >= 2 && (hi - lo === 1 || hi - lo === 2));
+};
+// the highest-scoring raise, or -1
+const bestRaise = (v) => {
+  let br = -1;
+  v.options.forEach((o, i) => { if (o.type === 'raise' && (br < 0 || o.ev > v.options[br].ev)) br = i; });
+  return br;
+};
+// L3a: the judge clearly prefers a raise to both folding and the limp (2.2 SE and $1 each)
+export const raiseClears = (v, fold) => {
+  const br = bestRaise(v);
+  if (br < 0) return false;
+  return [v.mine, fold].filter((i) => i >= 0).every((i) => { const g = pairedGap(v, br, i); return g.mean > 2.2 * g.se && g.mean > 1; });
+};
 export function wideLimpTipFor(v, ctx, name, group) {
   if (!behindLimpers(v, ctx, name) || !outsideBehindLimpers(name, group)) return null;
+  if (group !== 'early' && suitedLimpHand(name)) return null; // L3b (STRAT)
   const mine = v.options[v.mine];
   const fold = v.options.findIndex((o) => o.type === 'fold');
+  if (raiseClears(v, fold)) return null; // L3a: never "a fold" where raising is clearly best (STRAT)
   let cost = 0;
   if (fold >= 0) {
     // vetoed only when the judge clearly says the limp beat folding
@@ -107,11 +132,12 @@ export function wideLimpTipFor(v, ctx, name, group) {
     if (g.mean > 2.2 * g.se) cost = Math.round(v.options[fold].ev) - Math.round(mine.ev);
   }
   const where = SEAT_WORDS[group];
-  return { kind: 'wideLimp', where, text: `${name} is outside the Standard range behind limpers from ${where}; most players fold it here.${cost > 0 ? ` Here folding was about $${cost} better.` : ''}` };
+  return { kind: 'wideLimp', where, text: `${name} is outside the Standard range behind limpers from ${where}: it is usually a fold here.${cost > 0 ? ` Here folding was about $${cost} better.` : ''}` };
 }
 // L2: an isolation hand limping behind, when the best raise clearly beats the limp
 export function isoLimpTipFor(v, ctx, name) {
   if (!behindLimpers(v, ctx, name) || !ISO_LIMP.has(name)) return null;
+  if (ctx.limpers >= 3 && ISO_LIMP_FEW.has(name)) return null;
   const mine = v.options[v.mine];
   const raises = v.options.map((o, i) => [o, i]).filter(([o]) => o.type === 'raise');
   if (!raises.length) return null;

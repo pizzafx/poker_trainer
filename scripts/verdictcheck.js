@@ -20,7 +20,7 @@ import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
 import { shownCost, dryBoard, blockerHand } from '../src/trainer/explain.js';
 import { pairedGap, redBar } from '../src/trainer/judge.js';
-import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest, ISO_LIMP, outsideBehindLimpers } from '../src/trainer/grade.js';
+import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest, ISO_LIMP, ISO_LIMP_FEW, outsideBehindLimpers, raiseClears, suitedLimpHand } from '../src/trainer/grade.js';
 // the bet an estimate line is about: "A bet of $X:" names it; otherwise hero's bet or raise, else the reference (QA-VERDICT)
 function namedBet(d, v) {
   const m = (d.anchor || '').match(/^A bet of \$(\d+):/);
@@ -276,6 +276,10 @@ export const INVARIANTS = {
     const g = br >= 0 ? pairedGap(v, br, v.mine) : { mean: 0, se: 1 };
     return !ISO_LIMP.has(name) || !(g.mean > 2.2 * g.se);
   },
+  'L2b no isoLimp for 77, 88, ATo or KJo behind 3 or more limpers (PRO)': (d) => d.tipKind === 'isoLimp' && !!(d.ctx && d.ctx.limpers >= 3) && ISO_LIMP_FEW.has(classNames[classOf(d.hole[0], d.hole[1])]),
+  'L3a no wideLimp when the best raise beats fold and the limp by 2.2 SE and $1 (STRAT)': (d, v) => d.tipKind === 'wideLimp' && raiseClears(v, v.options.findIndex((o) => o.type === 'fold')),
+  'L3b no wideLimp for suited aces, 54s+ connectors or 64s+ one-gappers from middle position, the cutoff or the button (STRAT)': (d) => d.tipKind === 'wideLimp' && groupOf(d.position) !== 'early' && suitedLimpHand(classNames[classOf(d.hole[0], d.hole[1])]),
+  'L3c the behind-limpers fold tip never says "most players fold it here" (STRAT)': (d) => d.tipKind === 'wideLimp' && /most players fold it here/.test(d.tip || d.tipText || ''),
   'L3 wideLimp only for a hand outside the behind-limpers Standard range': (d) => d.tipKind === 'wideLimp' && !outsideBehindLimpers(classNames[classOf(d.hole[0], d.hole[1])], groupOf(d.position)),
   'L23 a behind-limpers tip only with one or more limpers and no raise': (d) => ['isoLimp', 'wideLimp'].includes(d.tipKind) && !(d.ctx && d.ctx.limpers >= 1 && d.ctx.raises === 0),
   'C8c no money-in flag over a works status or a works line': (d, v) => v.rule === 'moneyIn' && (v.options[v.mine].st === 'works' || (v.options[v.mine].type === 'raise' && v.options[v.mine].st === 'even' && d.tier <= TIER.MIDDLE_PAIR && /your draw comes in/.test(d.anchor || '')) || /Together that is enough|bet for value|A bigger (bet|raise) needs more folds|Call\.$/.test(d.anchor || '')),

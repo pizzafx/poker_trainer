@@ -240,7 +240,7 @@ const HABITS = {
   wideOpen: 'Opened a hand outside the Standard range for the seat',
   junk3bet: 'Re-raised with a hand that is mostly a bluff here',
   size3bet: 'Re-raised for value at a size outside the usual band',
-  isoLimp: 'Limped behind with a hand that raises over limpers',
+  isoLimp: 'Limped behind where raising over the limpers did better',
   wideLimp: 'Limped behind with a hand outside the Standard range',
 };
 let habits = {};

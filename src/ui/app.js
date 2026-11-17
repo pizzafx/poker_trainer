@@ -485,7 +485,8 @@ function renderTable() {
     if (over && s.result.showdown && !s.folded[i] && i !== HERO) cls.push('shown');
     // a winner whose cards are face-up (shown down, or revealed): "wins $X" in the plate, no chip on the felt,
     // where it could cover the cards (DESIGN)
-    const wonUp = over && i !== HERO && s.result.won[i] > 0 && ((s.result.showdown && !s.folded[i]) || reveal);
+    // (your own cards are always face-up: the same rule for you, DESIGN TB2)
+    const wonUp = over && s.result.won[i] > 0 && (i === HERO || (s.result.showdown && !s.folded[i]) || reveal);
     if (i !== HERO && x > 52) cls.push('east'); // right-hand seats: a face-up pair extends leftward (DESIGN)
     let cards = '';
     if (i === HERO) cards = holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('');

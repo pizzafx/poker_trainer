@@ -4,7 +4,7 @@
 import { STREET } from '../engine/game.js';
 import { TIER, isRealDraw } from '../engine/features.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
-import { anchorStatus, needOf } from './grade.js';
+import { anchorStatus, needOf, drawTest } from './grade.js';
 
 export const CATEGORIES = {
   paidOff: 'Paying off: calling when their bet or raise is almost always the goods',
@@ -340,15 +340,6 @@ const LINE9 = 'Bigger bets score higher only because these opponents call any si
 
 // "an ace or a king": your hole cards above the board's top card, in words
 const RANK_WORD = { A: 'an ace', K: 'a king', Q: 'a queen', J: 'a jack', T: 'a ten', 9: 'a nine', 8: 'an eight', 7: 'a seven', 6: 'a six', 5: 'a five', 4: 'a four', 3: 'a three' };
-// "your overcard (an ace)" / "your overcards" / "your other outs", as the hole cards above the board count (STRAT)
-function overWords(d) {
-  if (!d.hole || !d.board || !d.board.length) return 'your other outs still come';
-  const top = Math.max(...d.board.map((c) => c >> 2));
-  const over = d.hole.filter((c) => c >> 2 > top);
-  if (over.length >= 2) return 'your overcards still come';
-  if (over.length === 1) return `your overcard (${RANK_WORD['23456789TJQKA'[over[0] >> 2]]}) still comes`;
-  return 'your other outs still come';
-}
 function overcardWords(d) {
   if (!d.hole || !d.board || !d.board.length) return null;
   const top = Math.max(...d.board.map((c) => c >> 2));
@@ -396,21 +387,14 @@ export function anchorLine(d) {
       if (s === 'works') return `When this ${kw} is called you are ${aheadP(o.W, now)} and need ${share(o.need)}. These players call with worse: bet for value.`;
       return `When this ${kw} is called you are ${aheadP(o.W, now)} and need ${share(o.need)}. They mostly call with better hands.`;
     }
-    // a real draw works on folds plus its own chance when called (grade.js anchorStatus): never "needs more folds
-    // than you get" under folds short of the need (QA-VERDICT YB-V4)
-    if (s === 'works' && isRealDraw(hf) && o.F < o.alpha) {
-      // which part of the draw rule fired (STRAT): the draw's equity covers the price, or the folds are within
-      // 5 points of the need
-      const Fs = `${foldsP(o.F)[0].toUpperCase()}${foldsP(o.F).slice(1)} and this ${kw} needs ${share(o.alpha, false)}`;
-      return hf.drawEquity >= (o.need ?? 1 / (opp + 1))
-        ? `${Fs}; called, ${r5(hf.drawEquity) > r5(hf.ownDrawEquity) ? `your draw or ${overWords(d)}` : 'your draw still comes'} in ${often(hf.drawEquity)}. Together that is enough.` // the grading's figure; "your draw" alone only at the draw's own equity (P4-2)
-        : `${Fs}: close enough, and your draw adds to it.`;
-    }
+    // a real draw below top pair, up to 1.05x the pot: the combined test's two inputs and its verdict (MATH 19b,
+    // STRAT); past that the draw does not count and the bluff wording below applies
+    const dt = isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR ? drawTest(o0, hf, opp) : null;
+    if (dt && dt.e > 0) return `${foldsP(o.F)[0].toUpperCase()}${foldsP(o.F).slice(1)}; called, your draw comes in ${often(hf.ownDrawEquity)}. Together that is ${s === 'works' ? 'enough' : s === 'even' ? 'about even' : 'not enough'}.`;
     if (s === 'works') return `${foldsP(o.F)[0].toUpperCase()}${foldsP(o.F).slice(1)} and this ${kw} needs ${share(o.alpha, false)}. A bigger ${kw} needs more folds than you get.`;
     if (s === 'even' || r5(o.F) === r5(o.alpha)) return `This ${kw} about breaks even on folds: you get ${share(o.F, false)} and need ${share(o.alpha, false)}. Fine, not needed.`;
     // a big real draw is not a bluff: say what the draw still does when called (STRAT M4)
     if (o.alpha < 0.05) return `This ${kw} is tiny next to the pot: it needs almost no folds, but they ${o.F < 0.05 ? 'almost never fold' : `fold only ${often(o.F)}`}.`;
-    if (isRealDraw(hf) && hf.drawEquity >= 0.25) return `${kw === 'bet' ? 'Betting' : 'Raising'} needs folds ${often(o.alpha)} and they rarely fold; called, your draw still comes in ${often(hf.ownDrawEquity)}. Checking or calling to see the card is fine.`;
     return `${kw === 'bet' ? 'Betting' : 'Raising'} here needs everyone to fold ${often(o.alpha)}; ${o.F < 0.05 ? 'they almost never do' : o.F > 0.95 ? 'they nearly always do' : `they fold only ${often(o.F)}`}. Do not bluff this field.`;
   };
   let line = null;
@@ -420,7 +404,9 @@ export function anchorLine(d) {
     // never under 5% or over 95%, so those cases do not reach this line)
     const W = mine.W;
     const nowS = river ? '' : ' now';
-    const called = W === null || W === undefined || W < 0.05 ? 'Called, you are almost never ahead' : W > 0.95 ? `Called, you are almost always ahead${nowS}` : `Called, you are ahead${nowS} ${share(W)}`;
+    // a draw quotes its outs, never "ahead now" (STRAT, QA-VERDICT C8a-W1)
+    const drawing = !river && isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR;
+    const called = drawing ? `Called, your draw comes in ${share(hf.ownDrawEquity)}` : W === null || W === undefined || W < 0.05 ? 'Called, you are almost never ahead' : W > 0.95 ? `Called, you are almost always ahead${nowS}` : `Called, you are ahead${nowS} ${share(W)}`;
     const folds = mine.F < 0.05 ? 'almost no one folds' : mine.F > 0.95 ? 'nearly everyone folds' : `everyone folds ${share(mine.F)}`;
     // the middle sentence alone when the headline above already says "not a habit to build"
     const mid = `${called}; ${folds}, and it needs ${share(mine.alpha, false)}.`;

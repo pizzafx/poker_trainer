@@ -20,7 +20,14 @@ import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
 import { shownCost, dryBoard, blockerHand } from '../src/trainer/explain.js';
 import { pairedGap, redBar } from '../src/trainer/judge.js';
-import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus } from '../src/trainer/grade.js';
+import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest } from '../src/trainer/grade.js';
+// the bet an estimate line is about: "A bet of $X:" names it; otherwise hero's bet or raise, else the reference (QA-VERDICT)
+function namedBet(d, v) {
+  const m = (d.anchor || '').match(/^A bet of \$(\d+):/);
+  if (m) return v.options.find((o) => o.type === 'raise' && o.to - (d.currentBet || 0) === +m[1]) || null;
+  const mine = v.options[v.mine];
+  return mine && mine.type === 'raise' ? mine : v.options[v.best] && v.options[v.best].type === 'raise' ? v.options[v.best] : null;
+}
 import { disputeReport, disputeText } from '../src/trainer/dispute.js';
 import { presetRanges, groupOf } from '../src/trainer/ranges.js';
 import { STRONG_LIMP, callQ } from '../src/trainer/grade.js';
@@ -127,7 +134,12 @@ export const INVARIANTS = {
   // ---- STRAT's fix spec ----
   'S1 R5b only on a lead or bet, never a raise of your own bet': (d, v) => v.rule === 'R5b' && d.ctx && (d.ctx.iBetThisStreet || d.ctx.raises > 1),
   'S2 no draw habit note or draw line unless there is a flush or straight draw': (d, v) => (/draw/i.test(v.habit || '') || /Your draw comes in/.test(d.anchor || '')) && !realDraw(d),
-  'S3 "Do not bluff" never with a real draw of 25% or more': (d) => /Do not bluff/.test(d.anchor || '') && realDraw(d) && handFeatures(d.hole, d.board).drawEquity >= 0.25,
+  // ...except over 1.05x the pot, where the draw does not count and the bluff wording is the rule (MATH 19b, STRAT)
+  'S3 "Do not bluff" never with a real draw of 25% or more (up to 1.05x pot)': (d, v) => {
+    if (!(/Do not bluff/.test(d.anchor || '') && realDraw(d) && handFeatures(d.hole, d.board).drawEquity >= 0.25)) return false;
+    const o = namedBet(d, v);
+    return !(o && o.alpha !== undefined && o.alpha / (1 - o.alpha) > 1.05);
+  },
   // ---- QA-VERDICT pass 2 ----
   'N1 no ≈ on an option that beats the reference by more than the bar': (d, v) => v.options.some((o, i) => i !== v.best && o.close && o.ev - v.options[v.best].ev > v.small),
   'N1b "light re-raise is close to the best" never over a re-raise above the bar': (d, v) => /light re-raise is close to the best/.test(d.headline || '') && (() => {
@@ -239,6 +251,24 @@ export const INVARIANTS = {
     (v.anchorWhy === 'fails' && /bet for value/.test(d.anchor))),
   'F1b "bluffs this often" only against a range shown with 25% or more nothing plus draws (STRAT, POOL batch 12)': (d) => /bluffs this often/.test(d.anchor || '') && !!(d.villain && d.villain.picture && d.villain.picture.buckets) && Math.round(100 * (d.villain.picture.buckets.air + d.villain.picture.buckets.draw)) < 25,
   'YB-V4b "does not work" in the headline never sits over a break-even line': (d) => /estimate below it does not work/.test(d.headline || '') && /about breaks even|That is thin|: close\.$/.test(d.anchor || ''),
+  // ---- STRAT 19 / MATH 19a (QA-C8a) ----
+  'C8b the "Together" verdict matches the combined test on the bet the line names (MATH 19b)': (d, v) => {
+    const m = (d.anchor || '').match(/Together that is (enough|about even|not enough)\./);
+    if (!m) return false;
+    const o = namedBet(d, v);
+    const t = o && drawTest(o, { ownDrawEquity: handFeatures(d.hole, d.board).ownDrawEquity }, d.opponents || 1);
+    return !t || t.e === 0 || { enough: 'works', 'about even': 'even', 'not enough': 'fails' }[m[1]] !== t.st;
+  },
+  'P4-3 before the river, a bet or raise line for a draw with 25% or more own outs (up to 1.05x pot) says "your draw" (QA-VERDICT C8a-W1)': (d, v) => {
+    if (d.street === STREET.RIVER || !d.anchor || /needs more folds than you get/.test(d.anchor)) return false;
+    if (!/\b(bet|raise|Betting|Raising)\b/.test(d.anchor) || /^When /.test(d.anchor)) return false;
+    const hf = handFeatures(d.hole, d.board);
+    if (!(hf.ownDrawEquity >= 0.25) || hf.tier > TIER.MIDDLE_PAIR) return false;
+    const o = namedBet(d, v);
+    if (!o || o.alpha === undefined || o.alpha / (1 - o.alpha) > 1.05) return false;
+    return !/your draw/.test(d.anchor);
+  },
+  'C8c no money-in flag over a works status or a works line': (d, v) => v.rule === 'moneyIn' && (v.options[v.mine].st === 'works' || (v.options[v.mine].type === 'raise' && v.options[v.mine].st === 'even' && d.tier <= TIER.MIDDLE_PAIR && /your draw comes in/.test(d.anchor || '')) || /Together that is enough|bet for value|A bigger (bet|raise) needs more folds|Call\.$/.test(d.anchor || '')),
   'YB-C7 no "up to its price" headline on a money-in flag': (d, v) => v.rule === 'moneyIn' && /up to its price/.test(d.headline || ''),
   'YB-B4 a TT-type re-raise when calling scores more gets no junk or size re-raise tip': (d, v) => v.iso3bet && ['junk3bet', 'size3bet'].includes(d.tipKind),
   'YB-C2 the money-in flag is yellow, names fold or check ("giving up the pot") and says the play loses money by itself': (d, v) =>

@@ -249,12 +249,17 @@ function moneyInArm(v, s, ctx) {
   // whole-price losers, their loss is later streets (STRAT C1b'', section 18). A made hand rated "even"
   // under its price keeps the flag.
   let callSt = null;
-  if (mine.type === 'call' && s.street !== STREET.PRE && v.anchors) {
+  if ((mine.type === 'call' || mine.type === 'raise') && s.street !== STREET.PRE && v.anchors) {
     let opp = 0;
     for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) opp++;
     const hf = handFeatures(s.hole[HERO], s.board);
-    callSt = mine.st ?? anchorStatus(mine, v, hf, opp);
-    if (callSt === 'works' || (callSt === 'even' && isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR)) return;
+    const st = mine.st ?? anchorStatus(mine, v, hf, opp);
+    // a bet or raise the estimate rates as working is never a money-in flag: the anchors only veto (STRAT 19, point 2)
+    if (mine.type === 'raise' && (st === 'works' || (st === 'even' && isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR))) return; // and a draw's even band, as calls (MATH 19a)
+    if (mine.type === 'call') {
+      callSt = st;
+      if (callSt === 'works' || (callSt === 'even' && isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR)) return;
+    }
   }
   // a bet or raise must lose money on its own mean, too (MATH's guard; STRAT section 18)
   if (mine.type !== 'call' && !(mine.ev < 0)) return;
@@ -361,7 +366,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     // A draw bet up to the pot that the anchors count as working is exempt (F04, with STRAT's
     // conditions): folds within 5 points of what it needs, or the draw's own equity covering it, the
     // same rule as anchorStatus for draws. Overbets keep the note.
-    const supported = () => o.F !== undefined && betFrac(o) <= 1.05 && (o.F >= o.alpha - 0.05 || hf.drawEquity >= (o.need ?? 1 / (opp + 1)));
+    const supported = () => o.F !== undefined && betFrac(o) <= 1.05 && drawCovers(o, hf, opp); // the combined test, works (MATH 19b)
     // "wins only when it hits" needs no made pair: a pair plus a draw has showdown value (STRAT)
     if (draw && tier <= TIER.HIGH_CARD && live.some((i) => readAs(i, ['station'])) && !supported()) return 'drawStation';
     if (draw && tier <= TIER.HIGH_CARD && betFrac(o) > 1.05) return 'drawOverbet';
@@ -597,7 +602,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     if (ref.F === undefined) return false;
     const g = pairedGap(v, v.best, v.mine);
     if (!(g.mean >= 3 * small && g.mean > 2.2 * g.se)) return false;
-    if (forDraw) return ctx.inPosition && hf.drawEquity >= (ref.need ?? 1 / (opp + 1));
+    if (forDraw) return ctx.inPosition && drawCovers(ref, hf, opp); // the combined test, as anchorStatus (MATH 19b)
     return anchorStatus(ref, v, hf, opp) === 'works';
   };
   // R4. Draws multiway are never flagged for checking or calling (except the costly check above).
@@ -943,6 +948,23 @@ function thinValue(v, s, env, bar) {
 // draw equity; a weak or middle pair with a real draw, ahead now or coming in, Q + (1 - Q) x draw;
 // anything else, Q (top pair or better with a draw is judged as a made hand).
 const ownDraw = (hf) => hf.ownDrawEquity ?? hf.drawEquity ?? 0;
+// MATH (STRAT_YELLOW_BAND 19b): a draw's bet or raise against checking, over one street, per unit of the pot P
+// before it: gain = F(1-e)P + C*B(eK - 1) - R(B + eP), with F, R, C the fold, raise and call shares, K = 1/need,
+// and e the draw's own outs (none past 1.05x the pot; overcards never count). Works at gain >= 0, even down to
+// -5% of (P + B) (the fold rule's 5 points in dollars), fails below.
+export function drawTest(o, hf, opp) {
+  if (o.F === undefined || o.alpha === undefined || o.alpha >= 1) return null;
+  const P = 1;
+  const B = o.alpha / (1 - o.alpha);
+  const F = o.F;
+  const R = o.R || 0;
+  const C = o.C ?? Math.max(0, 1 - F - R);
+  const e = B <= 1.05 ? ownDraw(hf) : 0;
+  const K = 1 / (o.need ?? 1 / (opp + 1));
+  const gain = F * (1 - e) * P + C * B * (e * K - 1) - R * (B + e * P);
+  return { gain, F, R, C, e, K, B, st: gain >= 0 ? 'works' : gain >= -0.05 * (P + B) ? 'even' : 'fails' };
+}
+export const drawCovers = (o, hf, opp) => drawTest(o, hf, opp)?.st === 'works';
 export function callQ(v, hf) {
   const A = v.anchors;
   if (!A || A.Q === undefined) return undefined;
@@ -963,7 +985,7 @@ export function anchorStatus(o, v, hf, opp) {
   const river = v.street === STREET.RIVER;
   if (o.type === 'raise') {
     if (o.F === undefined) return null;
-    if (draw) return o.F >= o.alpha - 0.05 || hf.drawEquity >= (o.need ?? 1 / (opp + 1)) ? 'works' : 'fails';
+    if (draw) return drawTest(o, hf, opp)?.st ?? 'fails'; // folds and the draw's own outs together (MATH 19b)
     if (hf.tier >= TIER.WEAK_PAIR) {
       if (!o.called) return 'even';
       const e = se(o.W, o.called);

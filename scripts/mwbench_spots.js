@@ -106,7 +106,9 @@ export const EXPECT = {
   F03: { accept: ['bet:0.45-1.05'], flag: ['check'] },       // †
   // STRAT (Nov 2026): a draw bet up to the pot that the anchors count as working is exempt from the
   // "not a habit" note ($15: 30% against 25%; $25: 34% against 35%); bigger sizes keep it.
-  F04: { accept: ['check', 'bet:0.3-0.8'], note: { 'bet:0.9-1.6': 'mwHabit' }, neverBest: ['bet:0.9-1.6'] },                 // R4; STRAT, 13 Nov: 3/4 pot (the judge's $35 = 76%) is a standard semi-bluff size the anchors support
+  // STRAT 19b (16 Nov 2026): the habit note covers overbets only (1.06-1.6x pot); a pot-sized semi-bluff the
+  // combined draw test rates as working is exempt under the :364 rule (up to 1.05x)
+  F04: { accept: ['check', 'bet:0.3-0.8'], note: { 'bet:1.06-1.6': 'mwHabit' }, neverBest: ['bet:0.9-1.6'] },                 // R4; STRAT, 13 Nov: 3/4 pot (the judge's $35 = 76%) is a standard semi-bluff size the anchors support
   F05: { accept: ['check', 'bet:0.3-0.4'] },
   F06: { accept: ['check'] },
   F07: { accept: ['bet:0.6-1.6'], flag: ['check'] },          // set: not onePair, R1 does not apply

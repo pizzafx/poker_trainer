@@ -350,7 +350,7 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     if (!A || c.type !== 'raise') return {};
     const a = A[i];
     const B = c.to - s.bet[hero];
-    return { F: a.allFold / Math.max(1, n), R: a.raised / Math.max(1, n), alpha: B / (pot + B), W: a.called ? a.ahead / a.called : null, need: a.called ? a.need / a.called : null, called: a.called };
+    return { F: a.allFold / Math.max(1, n), R: a.raised / Math.max(1, n), C: a.called / Math.max(1, n), alpha: B / (pot + B), W: a.called ? a.ahead / a.called : null, need: a.called ? a.need / a.called : null, called: a.called };
   };
   const raiseIdx = cands.map((c, i) => (c.type === 'raise' ? i : -1)).filter((i) => i >= 0);
   const verdict = {

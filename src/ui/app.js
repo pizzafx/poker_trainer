@@ -505,7 +505,7 @@ function renderTable() {
     }
     const stack = over ? s.stacks[i] : s.stacks[i];
     const isBtn = pos === 'BTN' || pos === 'BTN/SB';
-    const badge = `<span class="badge pos${isBtn ? ' btn' : ''}">${pos}</span>`;
+    const badge = `<span class="badge pos${isBtn ? ' btn' : ''}"${isBtn ? ` title="${i === HERO ? 'You are' : 'On'} the button"` : ''}>${pos}</span>`;
     // VPIP (how often they voluntarily put money in), once there are enough hands to mean something.
     let vp = null;
     if (i !== HERO && p.notes.hands >= 8) {
@@ -516,13 +516,10 @@ function renderTable() {
     seatsHtml += `<div class="${cls.join(' ')}" style="left:${x}%;top:${y}%" data-seat="${i}"${i === HERO ? '' : ' role="button" tabindex="0"'}>
       <div class="cards">${cards}</div>
       <div class="avatar${vp ? ' has-vpip' : ''}" style="--h:${p.hue ?? 160}${vp ? `;--v:${vp.pct};--vc:${vp.color}` : ''}">${i === HERO ? '' : avatarArt(p)}${badge}${p.steaming ? '<span class="steam-dot" title="On tilt"></span>' : ''}</div>
-      <div class="plate">${i === HERO && isBtn ? '<div class="dealer mine" title="You are on the button">D</div>' : ''}<div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>${i !== HERO && !drill && newSeats.get(i) === h.no ? '<span class="new-tag" title="New player this hand">NEW</span>' : ''}
+      <div class="plate"><div class="nick">${esc(p.nick)}${i === HERO ? badge : ''}</div>${i !== HERO && !drill && newSeats.get(i) === h.no ? '<span class="new-tag" title="New player this hand">NEW</span>' : ''}
       ${wonUp ? `<div class="stack won"><span class="what">wins</span> ${money(s.result.won[i])}</div>` : `<div class="stack">${money(stack)}${h.raiser === i ? '<span class="raiser-tag">Raiser</span>' : ''}</div>`}${read}</div>${i === HERO ? madeHand() : ''}${vp ? `<div class="vpip" style="--vc:${vp.color}"><b>${vp.pct}%</b> VPIP<div class="vpip-tip"><b>VPIP <span class="num">${vp.pct}%</span></b>Put money in voluntarily in ${p.notes.vpip} of the ${p.notes.hands} hands you have watched. ${vpipVerdict(vp.pct)}</div></div>` : ''}${i === HERO ? '' : `<div class="tip ${y < 45 ? 'below' : ''}">${p.steaming ? '<div class="tilt">Tilt</div>' : ''}${tendencies(p).map((t) => `<div>${esc(t)}</div>`).join('')}<div>${esc(readLine(i))}</div><div class="tip-more">Click for details</div></div>`}</div>`;
-    if (isBtn && i !== HERO) {
-      const dx = 50 + G.dealer[0] * Math.cos(ang + 0.2);
-      const dy = G.cy + G.dealer[1] * Math.sin(ang + 0.2);
-      seatsHtml += `<div class="dealer" style="left:${dx}%;top:${dy}%">D</div>`;
-    }
+    // The button is the BTN badge itself, styled as the dealer button (DESIGN TB1): no floating D, which no
+    // single placement keeps clear of chips, cards and plates at every table size and width
     // Chips / last action, drawn between the seat and the middle.
     const level = Math.cos(ang) ** 8; // 1 for a seat level with the middle, near 0 elsewhere
     const bx = 50 + (G.chip[0] + G.chipOut * level) * Math.cos(ang);

@@ -10,6 +10,8 @@
   --warn: #f2b04a;
   --bad: #f0685f;
   --stack: #f3f0e8;
+  --btn-fill: #f3f0e8; /* the button's badge: the dealer button (DESIGN TB1) */
+  --btn-ink: #13210a;
   /* brand palette */
   --night: #0d1513;
   --panel-3: #22332e;
@@ -2735,3 +2737,5 @@ body.deck-online .seat.hero .cards .card + .card { margin-left: calc(var(--cw) *
 .seat .stack.won { display: flex; align-items: center; justify-content: center; gap: 0.35em; color: var(--good); font-family: var(--mono); font-weight: 500; }
 .seat .stack.won::before { content: ""; flex: none; width: 0.62em; height: 0.62em; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--c-a8f5cc), var(--c-2f9e68)); box-shadow: inset 0 0 0 1px var(--c-ffffffb0); }
 .seat .stack.won .what { color: inherit; font-weight: 500; }
+/* the button: its position badge is the dealer button, white with dark text, the badges' own shape (DESIGN TB1) */
+.avatar .badge.pos.btn, .nick .badge.pos.btn { background: var(--btn-fill); color: var(--btn-ink); border-color: var(--btn-fill); }

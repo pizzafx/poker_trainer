@@ -2713,3 +2713,15 @@ body.deck-online .seat.hero .cards .card + .card { margin-left: calc(var(--cw) *
 @media (max-width: 600px) {
   .seat:not(.hero) .cards:has(.unseen) { --cw: 22px; margin-left: -2px; top: -10px; }
 }
+/* ...anchored to the avatar's centre, so the position badge at its top-left stays clear; on the right-hand
+   seats the pair's right edge sits on the centre and it extends leftward, never past the screen (DESIGN) */
+.seat:not(.hero) .cards:has(.unseen), .seat.shown:not(.hero) .cards { margin-left: 0; }
+.seat.east:not(.hero) .cards:has(.unseen), .seat.shown.east:not(.hero) .cards { left: auto; right: 50%; margin-left: 0; }
+@media (max-width: 600px) {
+  .seat:not(.hero) .cards:has(.unseen), .seat.shown:not(.hero) .cards { margin-left: 0; }
+}
+/* ...and there the position badge moves to the avatar's top-right, clear of the pair */
+.seat.east:not(.hero):has(.cards .unseen) .avatar .badge.pos, .seat.shown.east:not(.hero) .avatar .badge.pos { left: auto; right: -1.9cqw; z-index: 3; }
+@media (max-width: 600px) {
+  .seat.east:not(.hero):has(.cards .unseen) .avatar .badge.pos, .seat.shown.east:not(.hero) .avatar .badge.pos { left: auto; right: -14px; }
+}

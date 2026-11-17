@@ -482,6 +482,7 @@ function renderTable() {
     if (over && s.result.won[i] > 0) cls.push('winner');
     if (p.steaming) cls.push('steaming');
     if (over && s.result.showdown && !s.folded[i] && i !== HERO) cls.push('shown');
+    if (i !== HERO && x > 52) cls.push('east'); // right-hand seats: a face-up pair extends leftward (DESIGN)
     let cards = '';
     if (i === HERO) cards = holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('');
     else if (!s.folded[i]) cards = over && s.result.showdown ? holeOrder(s.hole[i]).map((c) => cardHtml(c)).join('') : reveal ? unseenHtml(i, holeOrder(s.hole[i])) : backHtml() + backHtml();

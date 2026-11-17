@@ -324,7 +324,8 @@ const backHtml = () => '<span class="card back"></span>';
 const RANK_WORDS = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace'];
 const SUIT_WORDS = ['clubs', 'diamonds', 'hearts', 'spades'];
 const cardWords = (c) => `${RANK_WORDS[c >> 2]} of ${SUIT_WORDS[c & 3]}`;
-const unseenHtml = (seat, cards) => `<span class="unseen" role="img" aria-label="Seat ${seat + 1}: ${cards.map(cardWords).join(', ')}, not shown at the table">${cards.map((c) => cardHtml(c)).join('')}</span>`;
+// named by the player's nick: seat numbers are not shown anywhere (QA OC1)
+const unseenHtml = (seat, cards) => `<span class="unseen" role="img" aria-label="${esc((sess && sess.seats[seat] && sess.seats[seat].nick) || `Seat ${seat + 1}`)}: ${cards.map(cardWords).join(', ')}, not shown at the table">${cards.map((c) => cardHtml(c)).join('')}</span>`;
 // After you fold or the hand ends (never while you are in it), with the setting on; the replayer has its own switch
 const revealOpp = (h) => !!h && !h.replay && settings.showOpp && (h.over || h.state.folded[HERO]);
 // the opponents' cards a real table did not show, for the hand's summary and its log (shown: seats that showed down)

@@ -487,6 +487,10 @@ const DEFS = {
     tbFloor: 0.6,
     jam4All: true,
     jam4DeepMult: 0.3,
+    // POOL batch 14 (QA-OPP M1): the floors taper with a big 3-bet's price instead of a fold cliff at 30% of the stack
+    bigFloorSpan: 0.5,
+    bigFloorMin: 0.2,
+    bigFloorBase: 0.7,
   },
   gto: {
     tbCont: [0.52, 0.45], // POOL batches 7-11 (Nov 2026)

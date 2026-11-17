@@ -269,6 +269,12 @@ function preflopSizes(ctx, P, premium) {
 }
 
 
+// POOL batch 13: the maniac's 4-bet groups [QQ+/AK, JJ-TT, 99-66, suited ace, suited Broadway, AQo/AJo/KQo, the rest]
+function jamGroup(ci) {
+  const nm = ci.name;
+  return (ci.pair && ci.hi >= 10) || (ci.hi === 12 && ci.lo === 11) ? 0 : ci.pair && ci.hi >= 8 ? 1 : ci.pair && ci.hi >= 4 ? 2 : ci.pair ? 6 : ci.suited && ci.hi === 12 ? 3 : ci.suited && ci.lo >= 8 ? 4 : nm === 'AQo' || nm === 'AJo' || nm === 'KQo' ? 5 : 6;
+}
+
 export function preflopPolicy(ctx, P, cls) {
   const rp0 = ctx.raises === 0 ? (P.openPct || P.raisePct)[cls] : P.raisePct[cls]; // the opening order (profiles.js) is for first-in opens and isolation only (POOL batch 8)
   const sp = STACK_PCT[cls]; // facing-aggression order
@@ -331,6 +337,25 @@ export function preflopPolicy(ctx, P, cls) {
       call = go * (1 - share);
       // POOL batch 4 (with PRO): deep, facing a big 3-bet (not all-in), solid regulars rarely jam a non-premium hand; the rest folds
       if (P.deepJamCap != null && ctx.raises === 2 && !ctx.aggAllIn && ctx.effBB > 40 && sp <= 0.972) raise = Math.min(raise, P.deepJamCap);
+      // POOL batch 14 (QA-OPP M1): a maniac facing a big 3-bet (a call of 30%+ of the stack) keeps batch 13's floors,
+      // tapered by price, so its fold rate rises smoothly with the 3-bet's size instead of jumping at 30%
+      if (P.tbFloor && ctx.iRaised && ctx.raises === 2 && !ctx.aggAllIn) {
+        const f = ctx.toCall / effChips;
+        const t = clamp(1 - (f - 0.3) / (P.bigFloorSpan ?? 0.4), P.bigFloorMin ?? 0, 1);
+        const ci = classInfo(cls);
+        let mix = 0;
+        if (P.jam4Mix) {
+          const g = jamGroup(ci);
+          const deep = P.jam4DeepMult != null && g >= 3 ? 1 + (P.jam4DeepMult - 1) * clamp((ctx.effAggBB - 100) / 50, 0, 1) : 1;
+          mix = P.jam4Mix[g] * deep * (g >= 3 ? t : 1);
+        }
+        const rA = Math.max(raise, mix);
+        const cA = Math.max(call, (P.bigFloorBase ?? P.tbFloor) * t * (1 - rA));
+        // the stack-off branch's own extra jams phase in from 30% to 40% of the stack (PRO); hands not yet jamming call
+        const w = clamp((f - 0.3) / 0.1, 0, 1);
+        raise = Math.min(rA, mix + w * (rA - mix));
+        call = Math.min(1 - raise, cA + (rA - raise));
+      }
       // facing an all-in, the price comes first: under 15% needed is a call with anything, tapering out by 25% (POOL G1)
       if (ctx.aggAllIn) {
         const wP = clamp((0.25 - ctx.odds) / 0.1, 0, 1);
@@ -361,8 +386,7 @@ export function preflopPolicy(ctx, P, cls) {
         // POOL batch 13 (with PRO): a maniac ships a wide 4-bet: premiums, pairs, suited aces, Broadway, some junk.
         // jam4Mix: [QQ+/AK, JJ-TT, 99-66, suited ace, suited Broadway, AQo/AJo/KQo, the rest]
         if (P.jam4Mix) {
-          const J = P.jam4Mix, nm = ci.name;
-          const g = (ci.pair && ci.hi >= 10) || (ci.hi === 12 && ci.lo === 11) ? 0 : ci.pair && ci.hi >= 8 ? 1 : ci.pair && ci.hi >= 4 ? 2 : ci.pair ? 6 : ci.suited && ci.hi === 12 ? 3 : ci.suited && ci.lo >= 8 ? 4 : nm === 'AQo' || nm === 'AJo' || nm === 'KQo' ? 5 : 6;
+          const J = P.jam4Mix, g = jamGroup(ci);
           // deeper than 100bb the non-pair groups taper toward jam4DeepMult at 150bb (with PRO): they flat instead
           const deep = P.jam4DeepMult != null && g >= 3 ? 1 + (P.jam4DeepMult - 1) * clamp((ctx.effAggBB - 100) / 50, 0, 1) : 1;
           raise = Math.max(raise, J[g] * deep);

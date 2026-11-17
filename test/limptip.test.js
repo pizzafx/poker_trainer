@@ -181,3 +181,16 @@ test('L3: K5o in the cutoff behind a limper gets the behind-limpers fold note; v
   assert.equal(wideLimpTipFor(verdict({ limp: 3, se: 0.5 }), behind(POS.LP, 1), 'K5o', 'cutoff'), null, 'the limp clearly beat folding');
   assert.equal(wideLimpTipFor(verdict({ limp: -1, se: 0.2 }), behind(POS.LP, 1), 'AJs', 'cutoff'), null, 'inside the range');
 });
+
+// STRAT: one real judged L2 spot, so the isolation tip is pinned end to end (the judge, the grade and
+// the tip chain), not only on a hand-built verdict. KJo in the hijack behind one abc limper; the seed
+// is fixed, and the dollar figures are left free so small judge changes do not break it.
+import { gradeDecision } from '../src/trainer/grade.js';
+import { build } from '../scripts/gradeall.js';
+test('L2 fixture: KJo in the hijack limping behind an abc limper gets the isolation tip, graded fine', () => {
+  const { s, belief, env } = build({ id: 'l2-kjo-hj', button: 2, hole: 'Kd Jc', board: '', seats: { 7: 'abc' }, line: '7c' });
+  const v = gradeDecision(s, belief, { type: 'call' }, { samples: 1500, seed: 1 }, env);
+  assert.equal(v.grade, 'good');
+  assert.equal(v.tip && v.tip.kind, 'isoLimp');
+  assert.match(v.tip.text, /^raising over the limpers, to about \$15, usually does better than limping behind with KJo: you isolate weaker hands and keep the lead\. Here raising was about \$\d+ better\.$/);
+});

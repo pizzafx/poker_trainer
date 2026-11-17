@@ -29,6 +29,8 @@ function namedBet(d, v) {
   return mine && mine.type === 'raise' ? mine : v.options[v.best] && v.options[v.best].type === 'raise' ? v.options[v.best] : null;
 }
 import { disputeReport, disputeText } from '../src/trainer/dispute.js';
+import { gradeDecision } from '../src/trainer/grade.js';
+import { HandBelief } from '../src/trainer/belief.js';
 import { presetRanges, groupOf } from '../src/trainer/ranges.js';
 import { STRONG_LIMP, callQ } from '../src/trainer/grade.js';
 const callQOf = (d, v) => (d.street === STREET.PRE ? v.anchors.Q : callQ(v, handFeatures(d.hole, d.board)));
@@ -455,7 +457,18 @@ export function runConfig(cfg) {
         sess.stepBot();
         continue;
       }
-      const rec = sess.heroAct(choose(cfg.style || 'sensible', sess.heroOptions(), sess.hand.state, rnd));
+      const act = choose(cfg.style || 'sensible', sess.heroOptions(), sess.hand.state, rnd);
+      const job = structuredClone(sess.gradeJob(act)); // the grading input, for LD1 below
+      const rec = sess.heroAct(act);
+      // LD1 (QA-VERDICT): a grade never depends on the time budget. Every flag and every play a veto check
+      // passed is graded again with no budget; when the base run reached the same samples both times
+      // (identical base values), the grade must match.
+      if (rec.verdict && (rec.verdict.grade !== 'good' || ['fragile', 'unclear', 'passedBluff'].includes(rec.verdict.note))) {
+        const belief = HandBelief.fromPlain(job.belief);
+        const v0 = gradeDecision(job.state, belief, job.action, { ...job.opts, budgetMs: 0 }, { belief, readOf: (i) => job.reads[i], name: (i) => job.names[i] });
+        const same = v0.samples === rec.verdict.samples && v0.options.length === rec.verdict.options.length && v0.options.every((o, i) => o.ev === rec.verdict.options[i].ev);
+        if (same && v0.grade !== rec.verdict.grade) violations.push({ invariant: 'LD1 a grade does not depend on the time budget (same base run, same grade)', record: rec });
+      }
       if (cfg.onRecord) cfg.onRecord(rec); // e.g. the flag split (scripts/flagsplit.js)
       decisions++;
       for (const k of checkRecord(rec)) violations.push({ invariant: k, record: rec });

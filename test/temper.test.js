@@ -187,3 +187,16 @@ test('temper: a regraded flag must clear its own margin of error', () => {
   run(spot, v, { type: 'check' });
   assert.equal(v.grade, 'good');
 });
+
+// LD1 (QA-VERDICT, MATH, CEO): the re-runs that test a flag never run on the time budget, and take their
+// share of the samples the base run actually reached
+import { reRunOpts } from '../src/trainer/grade.js';
+test('LD1: flag re-runs get no time budget; their samples follow the base run, floored at 200 or the share', () => {
+  const o = { samples: 600, budgetMs: 2000, seed: 3 };
+  assert.deepEqual(reRunOpts(o, 300, { samples: 600 }), { samples: 300, budgetMs: 0, seed: 3 }); // the base run finished
+  assert.equal(reRunOpts(o, 300, { samples: 480 }).samples, 240); // it reached 80%
+  assert.equal(reRunOpts(o, 300, { samples: 224 }).samples, 200); // never under 200...
+  assert.equal(reRunOpts(o, 150, { samples: 224 }).samples, 150); // ...or under the share, if that is smaller
+  assert.equal(reRunOpts(o, 150, { samples: 600 }).samples, 150);
+  assert.equal(reRunOpts({ samples: 600 }, 300, { samples: 600 }).budgetMs, 0);
+});

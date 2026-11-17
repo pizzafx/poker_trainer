@@ -275,6 +275,15 @@ export function gradeDecision(s, belief, action, judgeOpts, env) {
   return verdict;
 }
 
+// The re-runs that test a flag (the scenario test, the preflop "fragile" check, the river "passed bluff"
+// check) ignore the time budget: a run cut short is noisier, and one noisy re-run was enough to drop a real
+// flag, so a slow device saw fewer flags (QA-VERDICT LD1, MATH, CEO). Each runs its share of the samples the
+// base run actually reached (the base run keeps the budget), never fewer than 200 or the share itself.
+export function reRunOpts(judgeOpts, want, v) {
+  const reached = v && v.samples && judgeOpts.samples ? Math.min(1, v.samples / judgeOpts.samples) : 1;
+  return { ...judgeOpts, budgetMs: 0, samples: Math.max(Math.min(want, 200), Math.round(want * reached)) };
+}
+
 // Guardrails on a verdict, so the trainer does not teach habits that only work on bots
 // and does not flag plays a competent player would defend. Multiway rules: MULTIWAY_COACH_SPEC.md
 // (FINAL, Nov 2026), R1-R11; the scenario test at the end is MATH_MULTIWAY 2b.
@@ -611,7 +620,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     if (isRaise(mine) && isRaise(best()) && v.loss < small * 1.6) return pass('preSize');
     // The flag must survive opponents being a little looser and a little tighter than assumed.
     for (const shift of [-0.05, 0.05]) {
-      const v2 = judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, ...(judgeOpts.budgetMs ? { budgetMs: judgeOpts.budgetMs / 4 } : {}), samples: Math.round(judgeOpts.samples / 2), shift });
+      const v2 = judgeDecision(s, HERO, env.belief, action, { ...reRunOpts(judgeOpts, Math.round(judgeOpts.samples / 2), v), shift });
       const b2 = sameOption(v2, v.options[v.best]);
       const m2 = sameOption(v2, mine);
       if (b2 >= 0 && m2 >= 0 && v2.options[b2].ev - v2.options[m2].ev < small * 0.5) return pass('fragile');
@@ -780,7 +789,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     // On the river the flag stands only if the bet still beats the check by the bar when the players
     // call a little wider (R12's "calls wider" scenario; POOL and STRAT G6). Otherwise it is the pass.
     if (river && env) {
-      const vw = judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, ...(judgeOpts.budgetMs ? { budgetMs: judgeOpts.budgetMs / 5 } : {}), samples: Math.round(judgeOpts.samples / 2), shift: -0.05 });
+      const vw = judgeDecision(s, HERO, env.belief, action, { ...reRunOpts(judgeOpts, Math.round(judgeOpts.samples / 2), v), shift: -0.05 });
       const b2 = sameOption(vw, best());
       const m2 = sameOption(vw, mine);
       if (b2 >= 0 && m2 >= 0 && vw.options[b2].ev - vw.options[m2].ev < small) return pass('passedBluff');
@@ -826,9 +835,9 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   const baseBar = small * (v.sameKind ? 1.6 : 1);
   // a quarter of the samples each at six players or more (speed; the base run is one of the scenarios)
   const half = Math.round(judgeOpts.samples / (opp + 1 >= 6 ? 4 : 2));
-  const reOpts = judgeOpts.budgetMs ? { budgetMs: judgeOpts.budgetMs / 5 } : {}; // each re-run gets a fifth of the budget
-  const runs = [-0.05, 0.05].map((shift) => judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, ...reOpts, samples: half, shift }));
-  if (opp + 1 < 6 && v.loss <= 3 * baseBar) runs.push(judgeDecision(s, HERO, env.belief, action, { ...judgeOpts, ...reOpts, samples: half, heroProfile: THIN_HERO }));
+  const reOpts = reRunOpts(judgeOpts, half, v); // no time budget (LD1)
+  const runs = [-0.05, 0.05].map((shift) => judgeDecision(s, HERO, env.belief, action, { ...reOpts, shift }));
+  if (opp + 1 < 6 && v.loss <= 3 * baseBar) runs.push(judgeDecision(s, HERO, env.belief, action, { ...reOpts, heroProfile: THIN_HERO }));
   // each re-run's values lined up with this verdict's options by kind and size, not by position
   const aligned = runs.map((r) => v.options.map((o) => sameOption(r, o))).map((ix, k) => (ix.every((i) => i >= 0) ? ix.map((i) => runs[k].options[i].ev) : null));
   const scen = [v.options.map((o) => o.ev), ...aligned.filter(Boolean)];

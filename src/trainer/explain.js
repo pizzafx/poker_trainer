@@ -390,6 +390,9 @@ export function anchorLine(d) {
     // a real draw below top pair, up to 1.05x the pot: the combined test's two inputs and its verdict (MATH 19b,
     // STRAT); past that the draw does not count and the bluff wording below applies
     const dt = isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR ? drawTest(o0, hf, opp) : null;
+    // a real draw past the pot that fails on folds is never called a bluff (STRAT D2): too big to lean on the draw;
+    // one that works or breaks even on folds keeps the folds wording below
+    if (dt && dt.e === 0 && s === 'fails') return `This is too big to lean on your draw: it needs everyone to fold ${often(o.alpha)}, ${o.F < 0.05 ? 'and almost no one folds' : `and they fold only ${often(o.F)}`}. With a draw, ${d.toCall > 0 ? 'calling is cheaper' : 'bet smaller or check'}.`;
     if (dt && dt.e > 0) return `${foldsP(o.F)[0].toUpperCase()}${foldsP(o.F).slice(1)}; called, your draw comes in ${often(hf.ownDrawEquity)}. Together that is ${s === 'works' ? 'enough' : s === 'even' ? 'about even' : 'not enough'}.`;
     if (s === 'works') return `${foldsP(o.F)[0].toUpperCase()}${foldsP(o.F).slice(1)} and this ${kw} needs ${share(o.alpha, false)}. A bigger ${kw} needs more folds than you get.`;
     if (s === 'even' || r5(o.F) === r5(o.alpha)) return `This ${kw} about breaks even on folds: you get ${share(o.F, false)} and need ${share(o.alpha, false)}. Fine, not needed.`;

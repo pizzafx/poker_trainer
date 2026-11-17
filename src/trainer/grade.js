@@ -957,8 +957,10 @@ export function drawTest(o, hf, opp) {
   const P = 1;
   const B = o.alpha / (1 - o.alpha);
   const F = o.F;
-  const R = o.R || 0;
-  const C = o.C ?? Math.max(0, 1 - F - R);
+  // an all-in cannot be raised: a raise behind it is a call of hero's chips (QA-VERDICT D1)
+  const allIn = /^All-in/.test(o.label || '');
+  const R = allIn ? 0 : o.R || 0;
+  const C = allIn ? Math.max(0, 1 - F) : o.C ?? Math.max(0, 1 - F - R);
   const e = B <= 1.05 ? ownDraw(hf) : 0;
   const K = 1 / (o.need ?? 1 / (opp + 1));
   const gain = F * (1 - e) * P + C * B * (e * K - 1) - R * (B + e * P);

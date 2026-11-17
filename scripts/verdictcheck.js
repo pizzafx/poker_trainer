@@ -15,7 +15,7 @@ import { Session } from '../src/trainer/session.js';
 import { STREET } from '../src/engine/game.js';
 import { cardStr } from '../src/engine/cards.js';
 import { classOf, classNames } from '../src/engine/hands.js';
-import { handFeatures, TIER } from '../src/engine/features.js';
+import { handFeatures, TIER, isRealDraw } from '../src/engine/features.js';
 import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
 import { shownCost, dryBoard, blockerHand } from '../src/trainer/explain.js';
@@ -134,12 +134,9 @@ export const INVARIANTS = {
   // ---- STRAT's fix spec ----
   'S1 R5b only on a lead or bet, never a raise of your own bet': (d, v) => v.rule === 'R5b' && d.ctx && (d.ctx.iBetThisStreet || d.ctx.raises > 1),
   'S2 no draw habit note or draw line unless there is a flush or straight draw': (d, v) => (/draw/i.test(v.habit || '') || /Your draw comes in/.test(d.anchor || '')) && !realDraw(d),
-  // ...except over 1.05x the pot, where the draw does not count and the bluff wording is the rule (MATH 19b, STRAT)
-  'S3 "Do not bluff" never with a real draw of 25% or more (up to 1.05x pot)': (d, v) => {
-    if (!(/Do not bluff/.test(d.anchor || '') && realDraw(d) && handFeatures(d.hole, d.board).drawEquity >= 0.25)) return false;
-    const o = namedBet(d, v);
-    return !(o && o.alpha !== undefined && o.alpha / (1 - o.alpha) > 1.05);
-  },
+  // a real draw below top pair is never called a bluff, at any size (STRAT D2); 25%+ draws with a pair as well (S3)
+  'S3 "Do not bluff" never with a real draw of 25% or more': (d) => /Do not bluff/.test(d.anchor || '') && realDraw(d) && handFeatures(d.hole, d.board).drawEquity >= 0.25,
+  'S3b "Do not bluff" never over a real draw below top pair (STRAT D2)': (d) => /Do not bluff/.test(d.anchor || '') && d.street !== STREET.PRE && d.tier <= TIER.MIDDLE_PAIR && isRealDraw(handFeatures(d.hole, d.board)),
   // ---- QA-VERDICT pass 2 ----
   'N1 no ≈ on an option that beats the reference by more than the bar': (d, v) => v.options.some((o, i) => i !== v.best && o.close && o.ev - v.options[v.best].ev > v.small),
   'N1b "light re-raise is close to the best" never over a re-raise above the bar': (d, v) => /light re-raise is close to the best/.test(d.headline || '') && (() => {
@@ -268,6 +265,8 @@ export const INVARIANTS = {
     if (!o || o.alpha === undefined || o.alpha / (1 - o.alpha) > 1.05) return false;
     return !/your draw/.test(d.anchor);
   },
+  'D1 the draw test charges an all-in no raise share (QA-VERDICT)': (d, v) => v.options.some((o) => /^All-in/.test(o.label) && o.F !== undefined && drawTest(o, { ownDrawEquity: 0.3 }, 2) && drawTest(o, { ownDrawEquity: 0.3 }, 2).R !== 0),
+  'D2b "too big to lean on your draw" only over a real draw, and never where the folds cover the need (STRAT D2)': (d, v) => /too big to lean on your draw/.test(d.anchor || '') && (!isRealDraw(handFeatures(d.hole, d.board)) || (() => { const o = namedBet(d, v); return !!o && o.F >= o.alpha; })()),
   'C8c no money-in flag over a works status or a works line': (d, v) => v.rule === 'moneyIn' && (v.options[v.mine].st === 'works' || (v.options[v.mine].type === 'raise' && v.options[v.mine].st === 'even' && d.tier <= TIER.MIDDLE_PAIR && /your draw comes in/.test(d.anchor || '')) || /Together that is enough|bet for value|A bigger (bet|raise) needs more folds|Call\.$/.test(d.anchor || '')),
   'YB-C7 no "up to its price" headline on a money-in flag': (d, v) => v.rule === 'moneyIn' && /up to its price/.test(d.headline || ''),
   'YB-B4 a TT-type re-raise when calling scores more gets no junk or size re-raise tip': (d, v) => v.iso3bet && ['junk3bet', 'size3bet'].includes(d.tipKind),

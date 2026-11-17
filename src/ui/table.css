@@ -2033,8 +2033,8 @@ body.replaying #ranges .chips:has([data-street]) { display: none; }
 .raiser-tag { display: inline-block; margin-left: 0.5cqw; padding: 0 0.45cqw; border-radius: 4px; background: var(--rail); border: 1px solid var(--line-2); color: var(--chalk); font: 500 clamp(8px, 0.75cqw, 9.5px)/1.5 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; vertical-align: 0.1em; }
 .unseen { display: contents; }
 .unseen .card { opacity: 0.72; outline: 1.5px dashed var(--chalk); outline-offset: 1px; }
-/* a folded player's cards, when shown: dimmer, the outline kept (DESIGN) */
-.seat.folded .unseen .card, .was-folded .unseen .card { opacity: 0.45; }
+/* a folded player's cards, when shown: dimmer, the outline kept (DESIGN: 0.6, readable on a phone) */
+.seat.folded .unseen .card, .was-folded .unseen .card { opacity: 0.6; }
 /* minis in the log and the summary: a 1px outline on the card's edge */
 .cards-inline .unseen .card { outline-width: 1px; outline-offset: 0; }
 #ranges .rc.real { outline: 2px dashed var(--chalk); outline-offset: -2px; }
@@ -2704,3 +2704,12 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 body.deck-online .seat.hero .cards .card { transform: rotate(-3deg); }
 body.deck-online .seat.hero .cards .card + .card { margin-left: calc(var(--cw) * 0.02); transform: rotate(3deg) translateY(1px); }
 .cs-picker .cstile.wide { grid-column: 1 / -1; }
+
+/* Show opponents' cards (DESIGN): a seat's face-up pair never overlaps, revealed or shown down: the showdown
+   size and a 2px gap, so both ranks read */
+.seat:not(.hero) .cards:has(.unseen) { --cw: 3.4cqw; top: -0.6cqw; margin-left: 1cqw; }
+.seat:not(.hero) .cards:has(.unseen) .card + .card,
+.seat.shown:not(.hero) .cards .card + .card { margin-left: 2px; transform: none; }
+@media (max-width: 600px) {
+  .seat:not(.hero) .cards:has(.unseen) { --cw: 22px; margin-left: -2px; top: -10px; }
+}

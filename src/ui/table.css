@@ -2720,8 +2720,14 @@ body.deck-online .seat.hero .cards .card + .card { margin-left: calc(var(--cw) *
 @media (max-width: 600px) {
   .seat:not(.hero) .cards:has(.unseen), .seat.shown:not(.hero) .cards { margin-left: 0; }
 }
-/* ...and there the position badge moves to the avatar's top-right, clear of the pair */
-.seat.east:not(.hero):has(.cards .unseen) .avatar .badge.pos, .seat.shown.east:not(.hero) .avatar .badge.pos { left: auto; right: -1.9cqw; z-index: 3; }
+/* ...and there the position badge starts 2px right of the pair (the avatar's centre), so a long label grows
+   rightward, clear of the cards */
+.seat.east:not(.hero):has(.cards .unseen) .avatar .badge.pos, .seat.shown.east:not(.hero) .avatar .badge.pos { left: calc(50% + 2px); right: auto; z-index: 3; }
 @media (max-width: 600px) {
-  .seat.east:not(.hero):has(.cards .unseen) .avatar .badge.pos, .seat.shown.east:not(.hero) .avatar .badge.pos { left: auto; right: -14px; }
+  .seat.east:not(.hero):has(.cards .unseen) .avatar .badge.pos, .seat.shown.east:not(.hero) .avatar .badge.pos { left: calc(50% + 2px); right: auto; }
+}
+/* on a left-hand seat with a face-up pair, the badge ends 2px left of the pair, so a long label grows leftward */
+.seat:not(.east):not(.hero):has(.cards .unseen) .avatar .badge.pos, .seat.shown:not(.east):not(.hero) .avatar .badge.pos { left: auto; right: calc(50% + 2px); z-index: 3; }
+@media (max-width: 600px) {
+  .seat:not(.east):not(.hero):has(.cards .unseen) .avatar .badge.pos, .seat.shown:not(.east):not(.hero) .avatar .badge.pos { left: auto; right: calc(50% + 2px); }
 }

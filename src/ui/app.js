@@ -2528,8 +2528,11 @@ function playersModal(type = 'station') {
     };
     $('t-cancel').onclick = closeModal;
     $('t-save').onclick = () => {
+      for (const k of Object.keys(draft)) if (!Object.keys(draft[k]).length) delete draft[k];
+      // nothing changed: Done just closes, and the session carries on (QA)
+      const canon = (o) => JSON.stringify(Object.keys(o).sort().map((k) => [k, Object.keys(o[k]).sort().map((c) => [c, o[k][c]])]));
+      if (canon(draft) === canon(tuning)) return closeModal();
       tuning = draft;
-      for (const k of Object.keys(tuning)) if (!Object.keys(tuning[k]).length) delete tuning[k];
       try {
         localStorage.setItem('trainer-tuning', JSON.stringify(tuning));
       } catch {

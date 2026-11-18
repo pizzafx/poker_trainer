@@ -142,6 +142,12 @@ const BASE = {
   m7CheckedTo: 1, // share of M7a (mwPassiveValue) kept when checked to
   mwTightenCheckedTo: null, // mwTighten when checked to (null: the usual mwTighten)
   checkedToShift: [0, 0, 0], // value-threshold shift when checked to [flop, turn, river]
+  // POOL batch 15 (the owner's hand 421): first to act after a checked-through street, or on a limped pot's flop,
+  // counts as checked to for value bets (probeCT); slowplay and the multiway trap are x ctSlowMult when checked to;
+  // a strong hand's flop lead into the raiser on a drawy board uses donkWet instead of donk
+  probeCT: false,
+  ctSlowMult: null,
+  donkWet: null,
   leadIntoRaiserFlop: null, // the flop's lead-into-the-preflop-raiser term (null: leadIntoRaiser)
   ledRaiseRespect: 0, // call-threshold increase when raised after leading this street
   leadBluffMult: 1, // multiplier on bluff-leads into the aggressor
@@ -166,6 +172,9 @@ const DEFS = {
     sqCont: 0.6, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.06, 0.07], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Tight-passive nit',
+    probeCT: true, // POOL batch 15
+    ctSlowMult: 0.6, // POOL batch 15
+    checkedToShift: [0, -0.05, -0.1], // POOL batch 15
     blurb: 'Waits for big hands. Limps a lot, rarely raises, and when the money goes in he has it.',
     share: 0.13,
     vpip: [0.15, 0.16, 0.18, 0.17, 0.22], // POOL A2, Nov 2026: was [0.12, 0.14, 0.17, 0.15, 0.2]
@@ -230,6 +239,9 @@ const DEFS = {
     leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.05, 0.09], // POOL overcall, owner-approved 13 Nov 2026 (river .07 -> .09, POOL correction)
     name: 'Straightforward recreational',
+    probeCT: true, // POOL batch 15
+    ctSlowMult: 0.5, // POOL batch 15
+    donkWet: 0.65, // POOL batch 15
     blurb: 'Plays his cards face up: bets when he hits, gives up when he misses, limps along a lot.',
     share: 0.375, // MATH's S (CEO for the owner, Nov 2026): six points from station; POOL Nov 2026 was 0.315
     vpip: [0.41, 0.42, 0.44, 0.43, 0.48], // POOL A2, Nov 2026: was [0.26, 0.29, 0.34, 0.32, 0.38]
@@ -291,6 +303,9 @@ const DEFS = {
     mwOvercall: [0, 0.03, 0.13], // POOL overcall, owner-approved 13 Nov 2026
     ocSize: 0.25, // POOL overcall: a pot-sized overcall hits harder than a half-pot one
     name: 'Loose-passive calling station',
+    probeCT: true, // POOL batch 15
+    ctSlowMult: 0.5, // POOL batch 15
+    donkWet: 0.7, // POOL batch 15
     blurb: 'Sees a lot of flops and hates folding a pair or a draw. Rarely raises without a big hand.',
     share: 0.16, // MATH's S (CEO for the owner, Nov 2026): six points to abc; POOL Nov 2026 was 0.22
     vpip: [0.66, 0.67, 0.69, 0.68, 0.72], // POOL A2, Nov 2026: was [0.5, 0.53, 0.58, 0.55, 0.62]
@@ -366,6 +381,9 @@ const DEFS = {
     leadIntoRaiserFlop: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.02, 0.13], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Gambler',
+    probeCT: true, // POOL batch 15
+    ctSlowMult: 0.5, // POOL batch 15
+    donkWet: 0.8, // POOL batch 15
     blurb: 'Here to play pots. Any two cards, calls far too much, and fires off the odd wild bluff.',
     share: 0.06,
     vpip: [0.62, 0.66, 0.72, 0.7, 0.75],
@@ -499,6 +517,8 @@ const DEFS = {
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.28, 0.25], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Solver-style player',
+    probeCT: true, // POOL batch 15
+    ctSlowMult: 0.5, // POOL batch 15
     blurb: 'Small opens, small range-bets, balanced bluffs and bluff-catches by the chart, whoever he is up against.',
     share: 0.04,
     vpip: [0.17, 0.22, 0.39, 0.34, 0.44],
@@ -583,6 +603,8 @@ const DEFS = {
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.07, 0.1], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Solid regular',
+    probeCT: true, // POOL batch 15
+    ctSlowMult: 0.5, // POOL batch 15
     blurb: 'Tight-aggressive grinder. Raises his good hands, isolates limpers, folds when a passive player wakes up.',
     share: 0.15,
     vpip: [0.15, 0.2, 0.34, 0.22, 0.3],
@@ -663,6 +685,8 @@ const DEFS = {
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.1, 0.1], // POOL overcall, owner-approved 13 Nov 2026 (river .09 -> .10, POOL correction)
     name: 'Tricky aggressive regular',
+    probeCT: true, // POOL batch 15
+    ctSlowMult: 0.5, // POOL batch 15
     blurb: 'Plays many hands in position and applies pressure, but picks his spots better than the maniac.',
     share: 0.04,
     vpip: [0.24, 0.3, 0.48, 0.3, 0.38],
@@ -745,6 +769,9 @@ const DEFS = {
     leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.08, 0.15], // POOL overcall, owner-approved 13 Nov 2026 (river .12 -> .15, POOL correction)
     name: 'Total beginner',
+    probeCT: true, // POOL batch 15
+    ctSlowMult: 0.5, // POOL batch 15
+    donkWet: 0.8, // POOL batch 15
     blurb: 'Still learning. Plays most hands, limps, bets small, calls with any piece of the board, and gets scared off by big bets.',
     share: 0, // never dealt into the casino pool; you seat them in a home game
     vpip: [0.55, 0.58, 0.62, 0.65, 0.7],

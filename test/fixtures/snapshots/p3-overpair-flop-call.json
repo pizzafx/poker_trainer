@@ -430,7 +430,10 @@
   "headline": "Blunder: call $40 costs up to its price compared with fold; what happens on later streets is graded there."
  },
  "expect": {
-  "notGrade": "blunder",
+  "notGrade": [
+   "blunder",
+   "mistake"
+  ],
   "best": "Fold"
  },
  "why": "AA calling a station's one flop bet on K-K-7: yellow at most (P3-2)"

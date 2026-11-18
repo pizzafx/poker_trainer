@@ -106,6 +106,8 @@ export function boardTexture(board) {
 
 // Returns { tier, strength, score, cat, flushDraw, straightDraw, outs, drawEquity, label }.
 // flushDraw: 0 none, 1 flush draw, 2 nut flush draw. straightDraw: 0 none, 1 gutshot, 2 open-ended.
+function boardPairRank(tex) { let r = -1; for (let k = 12; k >= 0; k--) if (tex.rankCount[k] >= 2) { r = k; break; } return r; }
+
 export function handFeatures(hole, board, tex = boardTexture(board)) {
   const cards = [hole[0], hole[1], ...board];
   const score = evaluate(cards);
@@ -143,6 +145,13 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
       }
       else if (myPair < 0) tier = highCardTier;
       else if (boardCat === CATEGORY.TWO_PAIR && score === boardScore) tier = highCardTier;
+      // POOL batch 15 (the CEO, hand 421): on a paired board, two pair made with BOTH hole cards, each above the
+      // board pair (AJ on A-J-9-8-8), is a real two pair, not one pair. Two pair that uses the board pair stays one pair.
+      else if (boardCat === CATEGORY.PAIR && h1 !== h2 && tex.rankCount[h1] === 1 && tex.rankCount[h2] === 1 && h2 > boardPairRank(tex)) {
+        tier = TIER.TWO_PAIR;
+        if (h1 === boardRanksDesc[0] && h2 === boardRanksDesc[1]) rel = 1.03;
+        else if (h1 !== boardRanksDesc[0]) rel = 0.94;
+      }
       else tier = pairTier(myPair, h1, h2, boardRanksDesc);
       break;
     case CATEGORY.TRIPS:

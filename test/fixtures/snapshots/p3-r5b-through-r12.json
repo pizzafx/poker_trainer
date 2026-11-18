@@ -446,7 +446,7 @@
   "headline": "Mistake: call $9 costs about $7 compared with fold."
  },
  "expect": {
-  "notGrade": "blunder"
+  "grade": "mistake"
  },
  "why": "R5b call of a passive lead goes through the scenario test; yellow at most (P3-1)"
 }

@@ -197,6 +197,7 @@ export function buildContext(s, seat = s.toAct) {
       if (k > connected) connected = k;
     }
     ctx.wet = Math.max(...suits) >= 2 && connected >= 3;
+    ctx.drawy = Math.max(...suits) >= 2 || connected >= 3; // POOL batch 15: two-tone or connected (a draw is possible)
   }
   ctx.toActBehind = ctx.toCall > 0 ? toActBehind : 0;
   return ctx;
@@ -446,6 +447,11 @@ export function preflopPolicy(ctx, P, cls) {
   } else {
     out.call = Math.min(call, 1 - raise);
     out.fold = Math.max(0, 1 - raise - out.call);
+    // aces and kings never fold before the flop (the smooth policy leaves a ~0.05% fold tail; QA-OPP gate 18-38)
+    if (sp > 0.99 && out.fold > 0) {
+      out.call += out.fold;
+      out.fold = 0;
+    }
   }
   if (raise > 0) out.sizes = preflopSizes(ctx, P, sp > 0.972);
   return out;
@@ -517,7 +523,10 @@ export function postflopPolicy(ctx, P, f) {
     // Revision D: checked to me (not a lead into the last aggressor), the others have shown weakness, so
     // M7a and mwTighten are scaled by m7CheckedTo / mwTightenCheckedTo and a per-street shift applies; a
     // flop lead into the preflop raiser uses leadIntoRaiserFlop (turn and river leads keep M7).
-    const ct = ctx.checkedTo && !ctx.aggressorBehind;
+    // POOL batch 15 (owner's hand 421): first to act after a street that was checked through (a probe), the table
+    // has shown the same weakness as a check to me, so types with probeCT get the checked-to relaxation too
+    // ... and on a limped pot's flop (no aggressor at all), first to act is the same spot (QA-OPP)
+    const ct = (ctx.checkedTo || (P.probeCT && ((st > 0 && ctx.prevChecked) || (st === 0 && !ctx.preflopRaised)))) && !ctx.aggressorBehind;
     const lead = ctx.aggressorBehind ? (st === 0 && P.leadIntoRaiserFlop != null ? P.leadIntoRaiserFlop : P.leadIntoRaiser) : 0;
     const m7 = (st > 0 ? P.mwPassiveValue * extra * (ct ? P.m7CheckedTo : 1) : 0) + lead;
     // POOL batch 10 (with PRO): out of position with players still to act, a regular gets only part of the checked-to relaxation
@@ -526,14 +535,18 @@ export function postflopPolicy(ctx, P, f) {
     const ctShift = ct ? (P.checkedToShift?.[st] ?? 0) * (ctBehind ? P.ctBehindShiftMult ?? 1 : 1) : 0;
     const valueThr = P.valueBet[st] + mwT * extra + valueShiftFor(P, ctx) + m7 + ctShift;
     let pValue = soft(S, valueThr, 0.035);
-    if (f.tier >= TIER.STRONG) pValue *= 1 - P.slowplay * (st < 2 ? 1 : 0.25);
+    // POOL batch 15 (QA-OPP P2): once the table has checked to me or checked a street through, strong hands slowplay
+    // less: slowplay x ctSlowMult (0.5; the nit 0.6), the river already uses 0.25
+    const slowMult = st < 2 ? (ct && P.ctSlowMult != null ? P.ctSlowMult : 1) : 0.25;
+    if (f.tier >= TIER.STRONG) pValue *= 1 - P.slowplay * slowMult;
     // M5: strong hands trap out of position multiway, by where the preflop raiser sits; half as
     // often on a wet board. Trapping only ever adds checks.
     if (P.mwTrap3 && !ctx.inPosition && extra >= 1 && f.tier >= TIER.STRONG && st < 2) {
       let rate = ctx.aggressorBehind ? P.mwTrap3[0] : ctx.initiative ? P.mwTrap3[1] : P.mwTrap3[2];
+      if (ct && P.ctSlowMult != null) rate *= P.ctSlowMult; // POOL batch 15 (P2)
       if (ctx.wet) rate *= 0.5;
-      pValue *= ctx.aggressorBehind ? Math.min(P.donk, 1 - rate) : 1 - rate;
-    } else if (ctx.aggressorBehind) pValue *= P.donk;
+      pValue *= ctx.aggressorBehind ? Math.min(st === 0 && ctx.drawy && P.donkWet != null ? P.donkWet : P.donk, 1 - rate) : 1 - rate;
+    } else if (ctx.aggressorBehind) pValue *= st === 0 && ctx.drawy && P.donkWet != null ? P.donkWet : P.donk; // POOL batch 15 (PRO): lead strong hands more on a drawy flop
 
     let bluff;
     if (ctx.initiative) bluff = st === 0 ? P.cbet[Math.min(extra, 2)] : P.barrel[st - 1];
@@ -557,7 +570,7 @@ export function postflopPolicy(ctx, P, f) {
     const pBlock = P.blockBet && st === 2 && !ctx.inPosition && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.TOP_PAIR_GOOD ? P.blockBet * Math.max(0, 1 - pValue - pBluff) : 0;
     // checked to on the flop or turn, passive players bet a weak or middle pair "to see where they are" (POOL pass 3)
     const pairStab = st === 1 && P.pairStabTurn != null ? P.pairStabTurn : P.pairStab; // POOL batch 9: fewer weak-pair stabs on the turn
-    const pPair = pairStab && ct && st < 2 && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.MIDDLE_PAIR ? pairStab * Math.max(0, 1 - pValue - pBluff - pBlock) : 0;
+    const pPair = pairStab && ctx.checkedTo && !ctx.aggressorBehind && st < 2 && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.MIDDLE_PAIR ? pairStab * Math.max(0, 1 - pValue - pBluff - pBlock) : 0;
     let bet = pValue + pBluff + pBlock + pPair;
     if (!ctx.canRaise) bet = 0;
     out.raise = bet;

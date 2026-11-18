@@ -63,7 +63,8 @@ for (const f of files) {
     const e = fx.expect || {};
     const tag = `${fx.name}: ${r.verdict.options.map((o) => `${o.label} ${o.ev.toFixed(1)}`).join(' | ')}`;
     if (e.grade) assert.equal(r.grade, e.grade, `${tag}: grade`);
-    if (e.notGrade) assert.notEqual(r.grade, e.notGrade, `${tag}: grade`);
+    // notGrade: one grade, or a list of grades, the verdict must not have
+    for (const g of [].concat(e.notGrade || [])) assert.notEqual(r.grade, g, `${tag}: grade`);
     if (e.best) assert.equal(r.best, e.best, `${tag}: best`);
     if (e.ref !== undefined) assert.equal(r.ref, e.ref, `${tag}: reference`);
     if (e.notNote) assert.notEqual(r.verdict.note, e.notNote, `${tag}: note`);

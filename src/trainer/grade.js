@@ -257,7 +257,10 @@ export const PREMIUM_RERAISE = new Set(['AA', 'KK', 'QQ', 'AKs', 'AKo']);
 export const ISO_RERAISE = new Set(['JJ', 'TT', '99', '88', 'AQs', 'AJs', 'ATs', 'AQo', 'KQs']);
 
 export function gradeDecision(s, belief, action, judgeOpts, env) {
-  return gradeVerdict(judgeDecision(s, HERO, belief, action, judgeOpts), s, action, judgeOpts, env);
+  const v = judgeDecision(s, HERO, belief, action, judgeOpts);
+  // debug (QA-VERDICT, MATH; LD1 option F): the samples the base run wanted, beside v.samples (what it reached)
+  v.samplesWanted = judgeOpts.samples;
+  return gradeVerdict(v, s, action, judgeOpts, env);
 }
 
 // The guardrails and the tip on a verdict already judged: the play's own grading path after the judge.
@@ -854,7 +857,11 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   // each re-run's values lined up with this verdict's options by kind and size, not by position
   const aligned = runs.map((r) => v.options.map((o) => sameOption(r, o))).map((ix, k) => (ix.every((i) => i >= 0) ? ix.map((i) => runs[k].options[i].ev) : null));
   const scen = [v.options.map((o) => o.ev), ...aligned.filter(Boolean)];
-  if (v.runs && v.runs.sample) scen.push(tiltedEvs(v, 2), tiltedEvs(v, 0.5));
+  const scenLabels = ['base', ...['calls-5', 'calls+5', 'thin hero'].filter((_, k) => k < aligned.length && aligned[k])];
+  if (v.runs && v.runs.sample) {
+    scen.push(tiltedEvs(v, 2), tiltedEvs(v, 0.5));
+    scenLabels.push('ranges x2', 'ranges x0.5');
+  }
   const usable = v.options.map((o, i) => i !== v.mine && !habitOf(o) && allowed(o));
   const gaps = v.options.map((o, a) => (usable[a] ? pairedGap(v, a, v.mine) : null));
   v.scenarios = scen.length; // the scenario test ran (checked by scripts/verdictcheck.js, P3-1b)
@@ -866,6 +873,10 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     small,
     notHabit: v.options.map((o) => !habitOf(o)),
   });
+  // debug (QA-VERDICT, MATH; LD1 option F): each scenario's gap from your play to the option the test is about
+  // (the one it names, else the judge's best), so an un-graded flag shows which read failed
+  const scenRef = r.pick >= 0 ? r.pick : v.best;
+  v.scenGaps = scen.map((e, k) => ({ label: scenLabels[k], gap: +(e[scenRef] - e[v.mine]).toFixed(2) }));
   // a costly multiway check stands only if the scenarios name that same bet (amended R1/R4)
   if (v.costly && (r.pick !== v.costly.ref || r.near)) return pass(v.costly.note);
   if (r.pick >= 0) {

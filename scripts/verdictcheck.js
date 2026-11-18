@@ -280,6 +280,10 @@ export const INVARIANTS = {
     return +m[2] !== y || !(name === bareTop || generic);
   },
   'YB-T2b no "on the bars" in a headline': (d) => /on the bars/.test(d.headline || ''),
+  // LD1 option F (debug): a verdict that ran the scenario test carries one labelled gap per scenario, base first,
+  // and every verdict says how many samples it wanted
+  'F1 the scenario test leaves its labelled gaps, base first; samplesWanted is set': (d, v) =>
+    !(v.samplesWanted > 0) || (v.scenarios > 0 && !(Array.isArray(v.scenGaps) && v.scenGaps.length === v.scenarios && v.scenGaps[0].label === 'base' && v.scenGaps.every((g) => g.label && Number.isFinite(g.gap)))),
   // STRAT (the open tip): "only from later seats" only when a later seat's Standard range has the hand
   'OT1 an open tip says "only from later seats" only when a later seat opens the hand': (d) => {
     if (d.tipKind !== 'wideOpen' || !/only from later seats/.test(d.tip || '')) return false;

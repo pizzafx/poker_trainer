@@ -9,6 +9,7 @@ import { CONTROLS } from '../trainer/tuning.js';
 import { CATEGORIES, shownCost } from '../trainer/explain.js';
 import { DRILLS } from '../trainer/drills.js';
 import { createDrill } from './drill.js';
+import { createCountdown, countdownDue, armWindow as armMs } from './countdown.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
 import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '../trainer/dispute.js';
@@ -715,15 +716,36 @@ function renderActions() {
     const net = h.summary.net;
     const msg = net > 0 ? `You won ${money(net)}.` : net < 0 ? `You lost ${money(-net)}.` : 'No change to your stack.';
     const low = sess.heroStack < sess.heroBuy;
-    // While the table is about to deal on its own there is no button to reach for: a late click would
-    // land on Fold or Call in the new hand (QA NH1). "Next hand" appears when the table holds.
-    const nextBtn = `<button class="primary" id="a-next">${drill ? 'Next spot' : 'Next hand'}<kbd>Space</kbd></button>`;
+    // After a hand with nothing flagged, "Next hand" counts down for 3s and then deals on its own (DESIGN,
+    // NEXT_HAND_HANDOFF). It sits over Call and Raise, never over Fold, and a late click on it is a deal the player
+    // asked for (QA NH1). A flagged hand, a low stack or a held table shows the plain button.
     const dealing = autoDealDue(h) && !autoHeld;
-    el.innerHTML = `<div class="act-row over">
-      ${dealing ? `<span class="dealing" id="a-dealing" role="status">Dealing the ${drill ? 'next spot' : 'next hand'}… <kbd>Space</kbd></span>` : nextBtn}
-      ${dealing ? '' : drill ? '<button id="a-exit">Exit drill</button>' : low ? `<button id="a-top">Top up to ${money(sess.heroBuy)}</button>` : ''}
+    el.innerHTML = dealing
+      ? `<div class="act-row over counting"><span class="hint">${msg}</span>${countdownBtn()}</div>`
+      : `<div class="act-row over">
+      ${nextBtnHtml()}
+      ${drill ? '<button id="a-exit">Exit drill</button>' : low ? `<button id="a-top">Top up to ${money(sess.heroBuy)}</button>` : ''}
       <span class="hint">${msg}</span></div>`;
-    if ($('a-next')) $('a-next').onclick = nextHand;
+    if ($('a-next')) {
+      $('a-next').onclick = () => nextHand();
+      // a finger or mouse resting on the button as the fill ends can never become an auto-deal
+      // and a press that never becomes a click (dragged off, cancelled) holds the table, as Esc does (DESIGN)
+      if (dealing) {
+        $('a-next').onpointerdown = () => {
+          if (!autoCd) return;
+          autoCd.freeze();
+          const b = $('a-next');
+          const end = (e) => {
+            document.removeEventListener('pointerup', end, true);
+            document.removeEventListener('pointercancel', end, true);
+            if (e.type === 'pointercancel' || !(b.isConnected && b.contains(e.target))) holdAutoDeal();
+          };
+          document.addEventListener('pointerup', end, true);
+          document.addEventListener('pointercancel', end, true);
+        };
+      }
+      if (dealing) paintCountdown();
+    }
     // pressing Top up or Exit drill holds the auto-deal; the deal is then the player's
     for (const id of ['a-top', 'a-exit']) if ($(id)) $(id).onpointerdown = holdAutoDeal;
     if ($('a-top')) $('a-top').onclick = () => { sess.topUp(); render(); };
@@ -1522,14 +1544,41 @@ let dealtAt = -Infinity;
 let dealtAuto = false;
 function holdAutoDeal() {
   autoHeld = true;
-  clearTimeout(timer);
-  // the deal is now the player's: "Dealing…" becomes the "Next hand" button, in place
-  const d = $('a-dealing');
-  if (d) {
-    d.outerHTML = `<button class="primary" id="a-next">${drill ? 'Next spot' : 'Next hand'}<kbd>Space</kbd></button>`;
-    $('a-next').onclick = nextHand;
+  stopAuto();
+  // the deal is now the player's: the over row as a held table shows it, the plain "Next hand" plus Exit drill or
+  // Top up where they apply (QA NH2); focus stays on "Next hand" if it was on the countdown
+  const d = $('a-next');
+  if (d && d.classList.contains('nh')) {
+    const focused = document.activeElement === d;
+    renderActions();
+    if (focused && $('a-next')) $('a-next').focus({ preventScroll: true });
   }
 }
+const nextBtnHtml = () => `<button class="primary" id="a-next">${drill ? 'Next spot' : 'Next hand'}${TOUCH.matches ? '' : '<kbd>Space</kbd>'}</button>`;
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)');
+// the countdown button: the label, and a lime copy of it revealed from the left (or, with reduced motion, "3s")
+function countdownBtn() {
+  const word = drill ? 'Next spot' : 'Next hand';
+  const inner = `${word}${TOUCH.matches ? '' : '<kbd>Space</kbd>'}<span class="secs"></span>`;
+  return `<button id="a-next" class="nh${REDUCED.matches ? ' still' : ''}" aria-label="${word}. Deals on its own in 3 seconds."><span class="lbl">${inner}</span><span class="fill" aria-hidden="true">${inner}</span></button>`;
+}
+let autoCd = null; // the running countdown, for one hand
+function paintCountdown() {
+  const b = $('a-next');
+  if (!autoCd || !b || !b.classList.contains('nh')) return;
+  const { p, left } = autoCd.info();
+  b.style.setProperty('--p', REDUCED.matches ? 0 : p);
+  const s = REDUCED.matches ? `${Math.max(1, Math.ceil(left / 1000))}s` : '';
+  b.querySelectorAll('.secs').forEach((e) => (e.textContent = s));
+}
+function stopAuto() {
+  clearTimeout(timer);
+  if (autoCd) autoCd.stop();
+  autoCd = null;
+}
+// paused while a pop-up, the hand history, the replayer or Drill is open, or the tab is hidden
+const autoBlocked = () => !$('modal').classList.contains('hidden') || !!RP || document.body.classList.contains('in-history') || document.body.classList.contains('in-drill') || document.hidden;
+document.addEventListener('visibilitychange', () => autoCd && autoCd.check());
 // Fold, Call and Raise are armed only by a fresh interaction after a deal (CEO, QA NH1):
 // - a touch that started before the buttons appeared never counts, and nothing for 600ms;
 // - a mouse click: nothing for 1.2s after a deal the table made on its own (the player may still be
@@ -1542,10 +1591,10 @@ const justDealt = () => {
   if (keyAct) return false;
   const since = performance.now() - dealtAt;
   if (lastDown.type === 'touch' || lastDown.type === 'pen') return lastDown.t < dealtAt || since < 600;
-  return since < (dealtAuto ? 1200 : 400);
+  return since < armMs('mouse', dealtAuto);
 };
 // how long after the deal the buttons stay unarmed, for the dimmed look
-const armWindow = () => (lastDown.type === 'touch' || lastDown.type === 'pen' ? 600 : dealtAuto ? 1200 : 400);
+const armWindow = () => armMs(lastDown.type, dealtAuto);
 let armTimer = null;
 function showArming(el) {
   clearTimeout(armTimer);
@@ -1563,20 +1612,35 @@ function markDealt(auto = false) {
 // buy-in: then it waits, with Top up on offer. Top up is shown only while the table waits, never where
 // Fold, Call and Raise are about to appear (QA NH1).
 const lowStack = () => !!sess && !drill && sess.heroStack < sess.heroBuy / 2;
-const autoDealDue = (h) => !h.decisions.some((d) => d.verdict.grade !== 'good') && !lowStack();
+const autoDealDue = (h) => countdownDue(h.decisions, lowStack());
 
 function scheduleAuto() {
   clearTimeout(timer);
   if (autoHeld) return;
   const h = sess.hand;
-  const last = h.decisions[h.decisions.length - 1];
-  if (!autoDealDue(h)) return; // anything flagged holds the table
-  const wait = h.state.folded[HERO] ? 700 : 1800; // a moment to see the result
-  timer = setTimeout(() => {
-    if (!$('modal').classList.contains('hidden')) return; // a pop-up is open: wait for Space
-    if (autoHeld) return; // the player took the deal (Top up, Exit drill)
-    nextHand(true);
-  }, wait);
+  if (!autoDealDue(h)) return stopAuto(); // anything flagged holds the table
+  // the same hand's countdown carries on from where it was (a closed pop-up, history or replayer)
+  if (autoCd && autoCd.hand === h) return autoCd.check();
+  stopAuto();
+  const cd = createCountdown({
+    now: () => performance.now(),
+    schedule: (f) => requestAnimationFrame(f),
+    cancel: (id) => cancelAnimationFrame(id),
+    blocked: autoBlocked,
+    onTick: () => {
+      // the table moved on without us (a new session, a recovered table): stop quietly
+      if (autoCd !== cd || sess.hand !== h || sess.status() !== 'over') return cd.stop();
+      paintCountdown();
+    },
+    onDone: () => {
+      if (autoCd !== cd || sess.hand !== h || autoHeld) return;
+      autoCd = null;
+      nextHand(true);
+    },
+  });
+  cd.hand = h;
+  autoCd = cd;
+  cd.start();
 }
 
 let thinking = false; // a decision is being graded in the worker
@@ -1637,6 +1701,7 @@ function nextHand(auto = false) {
   dropPendingGrade();
   if (RP || document.body.classList.contains('in-history')) return;
   if (sess.status() !== 'over') return;
+  stopAuto();
   closeReview();
   if (drill) return nextSpot(auto === true);
   const tapHint = tapHintPending;
@@ -1736,7 +1801,7 @@ function elsewhere(why) {
     elsewherePending = why;
     return;
   }
-  clearTimeout(timer);
+  stopAuto();
   dropPendingGrade();
   let el = $('elsewhere');
   if (!el) {
@@ -1879,6 +1944,11 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (RP && document.body.classList.contains('replaying')) return replayKey(e);
+  // Esc holds the countdown: the plain "Next hand" waits for the player (DESIGN)
+  if (e.key === 'Escape' && autoCd && sess.status() === 'over') {
+    holdAutoDeal();
+    return;
+  }
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
   // A focused button, link or seat (other than the action buttons) keeps its own keys: Enter and
   // Space always, and the letter shortcuts too when it was reached with Tab. A button that merely
@@ -1897,7 +1967,7 @@ document.addEventListener('keydown', (e) => {
     }
   }
   else if (k === ' ' || k === 'n' || k === 'enter') {
-    if ($('a-next') || $('a-dealing')) {
+    if ($('a-next')) {
       e.preventDefault();
       nextHand();
     }

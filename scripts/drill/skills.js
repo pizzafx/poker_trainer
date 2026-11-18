@@ -1,0 +1,140 @@
+// Drill bank: the Tier 1 skills. For each, the candidate test at a hero decision (the "tight node predicates"),
+// the answer family its rule names, its tier, leak key and rule line, and what makes a spot of it tricky
+// (difficulty 3: the surface points the other way). Predicates follow MATH's gate runs (15 Nov) and STRAT's and
+// PRO's later rulings.
+
+import { classOf, classNames } from '../../src/engine/hands.js';
+import { STREET, positionName } from '../../src/engine/game.js';
+import { TIER, isRealDraw } from '../../src/engine/features.js';
+import { presetRanges, groupOf } from '../../src/trainer/ranges.js';
+import { ISO_LIMP_FEW, anchorStatus } from '../../src/trainer/grade.js';
+
+const STD = presetRanges('standard');
+const PASSIVE = new Set(['nit', 'abc', 'station', 'beginner']);
+const CALLERS = new Set(['station', 'abc', 'beginner', 'whale']);
+export const live = (s) => {
+  const o = [];
+  for (let i = 1; i < s.n; i++) if (!s.folded[i]) o.push(i);
+  return o;
+};
+const limpers = (s) => s.history.filter((h) => h.type === 'call' && h.street === STREET.PRE && !s.folded[h.seat]).length;
+const handName = (s) => classNames[classOf(s.hole[0][0], s.hole[0][1])];
+const RANKS = '23456789TJQKA';
+// a scary board for a one-pair value bet: three of a suit, four to a straight, or paired (CURR)
+export function scaryBoard(board) {
+  const suits = [0, 0, 0, 0];
+  for (const c of board) suits[c & 3]++;
+  if (Math.max(...suits) >= 3) return true;
+  const ranks = board.map((c) => c >> 2);
+  if (new Set(ranks).size < ranks.length) return true;
+  const u = [...new Set(ranks.map((r) => r + 1).concat(ranks.includes(12) ? [0] : []))].sort((a, b) => a - b);
+  for (let lo = 0; lo <= 9; lo++) if (u.filter((r) => r >= lo && r <= lo + 4).length >= 4) return true;
+  return false;
+}
+
+export const SKILLS = {
+  D1: {
+    tier: 1,
+    name: "Don't pay off big late bets",
+    leak: 'paidOff',
+    rule: 'A passive player’s big turn or river bet is rarely a bluff. One pair usually folds.',
+    want: 'fold',
+    match: (s, ctx, f, types) => {
+      if (s.street !== STREET.TURN && s.street !== STREET.RIVER) return false;
+      if (!(ctx.toCall > 0) || ctx.aggressor <= 0) return false;
+      const before = ctx.pot - ctx.toCall;
+      if (before < 15 * ctx.bb) return false; // pot of 15bb or more at the bet (CURR)
+      if (!(ctx.toCall >= 0.5 * before || ctx.raises >= 2)) return false;
+      if (f.tier < TIER.WEAK_PAIR || f.tier > TIER.TOP_PAIR_GOOD) return false;
+      if (!PASSIVE.has(types[ctx.aggressor])) return false;
+      return ctx.stack >= 10 * ctx.bb;
+    },
+    // tricky (CURR, STRAT sign-off 18 Nov): top pair good kicker, a pair plus a real draw whose call the combined
+    // test (19b) rates as not enough, or a bet of 50-60% of the pot; a passive player's big bet is the textbook case,
+    // a station's included. (A pair plus a draw that covers the price is rejected from D1 in the bank script.)
+    tricky: (s, ctx, f, types, drawSt) => {
+      const before = ctx.pot - ctx.toCall;
+      const frac = before > 0 ? ctx.toCall / before : 0;
+      return f.tier === TIER.TOP_PAIR_GOOD || (isRealDraw(f) && drawSt === 'fails') || (frac >= 0.5 && frac <= 0.6);
+    },
+  },
+  V1: {
+    tier: 1,
+    name: 'Value-bet top pair vs callers', // CURR, CEO-approved 17 Nov (was "thin")
+    leak: 'missedValue',
+    rule: 'Callers call with worse: bet top pair when it’s checked to you, even with a weak kicker or on a scary board. Checking gives up that value, and against these players it is often a real mistake.',
+    want: 'raise',
+    match: (s, ctx, f, types) => {
+      if (s.street === STREET.PRE || ctx.toCall > 0 || !ctx.canRaise) return false;
+      // top pair only, weak or good kicker (CURR, CEO-approved 17 Nov), on batch 15's hand classes
+      if (f.tier < TIER.TOP_PAIR_WEAK || f.tier > TIER.TOP_PAIR_GOOD) return false;
+      const o = live(s);
+      if (o.length < 1 || o.length > 2) return false;
+      return o.every((i) => CALLERS.has(types[i]));
+    },
+    // tricky (CURR, 18 Nov): a weak kicker, or a scary board (three of a suit, four to a straight, paired)
+    tricky: (s, ctx, f) => f.tier <= TIER.TOP_PAIR_WEAK || scaryBoard(s.board),
+  },
+  P2: {
+    tier: 1,
+    name: 'Fold the junk',
+    leak: 'preLoose',
+    rule: 'Off-range hands lose money even when it’s cheap to come in. Fold them.',
+    want: 'fold',
+    gate: { preBase: 0.4, preShift: 0.4, screenPre: 0.2 }, // fold-or-limp margins; screen at half the margin (MATH)
+    match: (s, ctx) => {
+      // first in only (CURR): nobody has limped or raised
+      if (s.street !== STREET.PRE || ctx.raises !== 0 || !(ctx.toCall > 0) || limpers(s) > 0) return false;
+      const g = groupOf(positionName(s, 0));
+      if (g === 'bb') return false;
+      return !STD[g].includes(handName(s));
+    },
+    // tricky (CURR, 18 Nov): playable-looking junk (suited, both cards 9 or higher, connected or one-gapped), or
+    // first in from the cutoff or the button
+    tricky: (s) => {
+      const n = handName(s);
+      const hi = RANKS.indexOf(n[0]);
+      const lo = RANKS.indexOf(n[1]);
+      const g = groupOf(positionName(s, 0));
+      return n.endsWith('s') || (hi >= 7 && lo >= 7) || (hi !== lo && hi - lo <= 2) || g === 'cutoff' || g === 'button';
+    },
+  },
+  P1: {
+    tier: 1,
+    name: 'Raise over limpers',
+    leak: 'prePassive',
+    rule: 'Raise limpers with your good hands, bigger for each limper. Don’t limp behind with them.',
+    want: 'raise',
+    gate: { Npre: 16000, NpreMax: 20000 }, // the 4 SE test needs 16,000 (MATH)
+    match: (s, ctx) => {
+      if (s.street !== STREET.PRE || ctx.raises !== 0 || limpers(s) < 1) return false;
+      const g = groupOf(positionName(s, 0));
+      if (g === 'bb' || g === 'sb') return false;
+      const n = handName(s);
+      if (!['AJo', 'ATo', 'KQo', 'KJo', '77', '88'].includes(n)) return false;
+      // PRO (Nov 2026): with three or more limpers a raise rarely isolates; 77, 88, ATo and KJo are left out
+      return !(limpers(s) >= 3 && ISO_LIMP_FEW.has(n));
+    },
+    // tricky (CURR, 18 Nov): 77-88, or raising from early or middle position; one limper with AJo/KQo in the cutoff
+    // or on the button is the textbook case
+    tricky: (s) => ['77', '88'].includes(handName(s)) || ['early', 'middle'].includes(groupOf(positionName(s, 0))),
+  },
+};
+
+// Difficulty (CURR, 18 Nov): 3 when a tricky feature is present; 1 when not and the worst-scenario margin is at least
+// 1.5x the gate's floor (postflop 3 bars; raise-or-limp 1.5bb; fold-or-limp 0.6bb); 2 otherwise
+export function difficultyOf(skill, tricky, pre, r) {
+  if (tricky) return 3;
+  const floor = pre ? (skill.gate && skill.gate.preBase) || 1 : 2;
+  return (pre ? r.marginBb : r.marginBars) >= 1.5 * floor - 1e-9 ? 1 : 2;
+}
+
+// D1 with a pair and a real draw (CURR, STRAT 18 Nov): the call's own combined-test status (19b), from the coach's
+// grade of the call. 'works' (the draw covers the price) and 'even' (about even) reject the spot from D1: Drill never
+// marks a fold right while the coach's line says calling is fine. 'fails' (not enough) makes it tricky.
+export function d1DrawStatus(f, callVerdict, opp) {
+  if (!f || f.tier < TIER.WEAK_PAIR || !isRealDraw(f) || !callVerdict) return null;
+  const ci = callVerdict.options.findIndex((o) => o.type === 'call');
+  return ci >= 0 ? anchorStatus(callVerdict.options[ci], callVerdict, f, opp) : null;
+}
+export const d1DrawRejects = (st) => st === 'works' || st === 'even';

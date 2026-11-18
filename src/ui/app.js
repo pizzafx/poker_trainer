@@ -8,6 +8,7 @@ import { PROFILES, TYPE_IDS, baseDef, currentDef, applyOverrides } from '../bots
 import { CONTROLS } from '../trainer/tuning.js';
 import { CATEGORIES, shownCost } from '../trainer/explain.js';
 import { DRILLS } from '../trainer/drills.js';
+import { createDrill } from './drill.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
 import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '../trainer/dispute.js';
@@ -1405,7 +1406,7 @@ function openReview(stored = false) {
         ${d.theory ? `<details class="rv-theory"><summary>Why theory disagrees ›</summary><p>${esc(d.theory)}</p></details>` : ''}
         <div class="rv-acts">
           ${d.villain ? `<button type="button" class="btn small" data-range="${d.villain.seat}">See ${esc(d.villain.nick)}'s range</button>` : ''}
-          ${d.category && DRILLS[d.category] ? `<button type="button" class="btn small" data-drill="${d.category}">Drill this leak</button>` : ''}
+          ${drillable(d.category) ? `<button type="button" class="btn small" data-drill="${d.category}">Drill this leak</button>` : ''}
           <button type="button" class="btn small quiet" data-dispute="${d.id}">Disagree?</button>
         </div>
       </div></details>`;
@@ -1665,7 +1666,15 @@ function quickSim(hands = 40) {
   advance();
 }
 
-function startDrill(cat) {
+// "Drill this leak": once Drill home is live (a bank has shipped), Practice on the leak's shipped skill, and the
+// button is hidden for a leak with none; before that, the old leak drill (DESIGN, DRILL_SPEC 2.5)
+const drillable = (cat) => !!cat && (drillLive ? drillUI.leaks().includes(cat) : !!DRILLS[cat]);
+async function startDrill(cat) {
+  if (drillLive) {
+    const skill = await drillUI.skillForLeak(cat);
+    if (skill) openDrill(skill);
+    return;
+  }
   dropPendingGrade();
   clearTimeout(timer);
   closeModal();
@@ -1721,7 +1730,12 @@ function holdTable(steal = false) {
   });
 }
 let blockKeys = null;
+let elsewherePending = null; // the table was taken while Drill was open: shown on the way back (Drill is exempt)
 function elsewhere(why) {
+  if (document.body.classList.contains('in-drill')) {
+    elsewherePending = why;
+    return;
+  }
   clearTimeout(timer);
   dropPendingGrade();
   let el = $('elsewhere');
@@ -1854,6 +1868,14 @@ document.addEventListener('keydown', (e) => {
   }
   if (document.body.classList.contains('in-history')) {
     if (e.key === 'Escape') closeHistory();
+    return;
+  }
+  if (document.body.classList.contains('in-drill')) {
+    if (e.key === 'Escape') {
+      const sheet = $('drill').querySelector('.dr-sheet-bg');
+      if (sheet) sheet.remove();
+      else closeDrill();
+    } else drillUI.key(e);
     return;
   }
   if (RP && document.body.classList.contains('replaying')) return replayKey(e);
@@ -2463,7 +2485,7 @@ function reviewModal() {
   // One row per leak across all sessions: name, total cost, count, Drill. The costliest leads.
   const allHtml = all
     .map(([cat, e], i) => `<div class="leak-row${i === 0 ? ' top' : ''}"><div class="lr-main"><span class="lr-name">${esc(CATEGORIES[cat] || cat)}</span><span class="lr-count">${e.count} time${e.count === 1 ? '' : 's'}</span></div>
-      <span class="lr-cost">${money(e.loss)}</span><button class="drill-btn${i === 0 ? ' primary' : ''}" data-cat="${cat}">Drill</button></div>`)
+      <span class="lr-cost">${money(e.loss)}</span>${drillable(cat) ? `<button class="drill-btn${i === 0 ? ' primary' : ''}" data-cat="${cat}">Drill</button>` : ''}</div>`)
     .join('');
   openModal(`
     <h1>Leak review</h1>
@@ -2746,6 +2768,7 @@ function setSide(w) {
 $('btn-players').onclick = () => playersModal();
 $('btn-review').onclick = () => sess && reviewModal();
 $('btn-history').onclick = () => openHistory();
+$('btn-drill').onclick = () => openDrill();
 $('btn-settings').onclick = () => settingsModal();
 // "Edit my ranges ›" (Hand log) and "Edit ranges for CO ›" (the outside-Standard tip): My ranges on that seat
 document.addEventListener('click', (e) => {
@@ -3117,7 +3140,7 @@ function renderReplayCoach() {
     const head = `<div class="rp-card-head">${markHtml(d)}<div><b>${esc(mine ? mine.label : '')}</b><small>${esc(actionSub(rec, f, RP.i))}</small></div><span class="grade ${gradeCls(d)}">${gradeWord(d)}</span></div>`;
     if (v.grade !== 'good') {
       html = `<div class="rp-card ${v.grade}">${head}<div class="rv-body">${flagBlock(d)}
-        <div class="rv-acts">${d.villain ? `<button type="button" class="btn small" data-rseat="${d.villain.seat}">See ${esc(d.villain.nick)}'s range</button>` : ''}${d.category && DRILLS[d.category] ? `<button type="button" class="btn small" data-drill="${d.category}">Drill this leak</button>` : ''}${d.snapshot ? '<button type="button" class="btn small quiet" data-rdispute="1">Disagree?</button>' : ''}</div></div></div>`;
+        <div class="rv-acts">${d.villain ? `<button type="button" class="btn small" data-rseat="${d.villain.seat}">See ${esc(d.villain.nick)}'s range</button>` : ''}${drillable(d.category) ? `<button type="button" class="btn small" data-drill="${d.category}">Drill this leak</button>` : ''}${d.snapshot ? '<button type="button" class="btn small quiet" data-rdispute="1">Disagree?</button>' : ''}</div></div></div>`;
     } else if (d.tip) {
       html = `<div class="rp-card tip">${head}<div class="rv-body"><h2>${esc(d.headline)}</h2>${tipLine(d)}</div></div>`;
     } else {
@@ -3269,6 +3292,82 @@ const histFilters = [
 ];
 let histFilter = 'all';
 let histCache = null;
+
+// ---------------- Drill (the offline spot bank; src/ui/drill.js) ----------------
+const drillStore = (() => {
+  try {
+    return localStorage;
+  } catch {
+    return null;
+  }
+})();
+function drillToast(text) {
+  let el = $('drill-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'drill-toast';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.classList.add('on');
+  clearTimeout(drillToast.t);
+  drillToast.t = setTimeout(() => el.classList.remove('on'), 2400);
+}
+// "Disagree?" on a Drill spot: the spot's full record to copy or save (the spot keeps its score)
+function drillDisputeModal(rep) {
+  const text = JSON.stringify(rep, null, 1);
+  openModal(`<h1>Think this spot is wrong? Say so.</h1>
+    <p class="sub">It makes a report of the spot for you to send us. Your score stands; the summary marks the spot.</p>
+    <label class="d-label" for="dd-why">Why? <small>(optional)</small></label>
+    <textarea id="dd-why" class="input" rows="3" maxlength="1500" placeholder="For example: this player never folds here."></textarea>
+    <details class="d-preview"><summary>What the report contains</summary><p class="hint">The spot's id, the cards, the board, every action, the reads shown, every option with its bb figure and your answer. No personal information.</p><pre id="dd-text"></pre></details>
+    <div class="modal-actions"><span id="dd-status" class="hint" role="status" aria-live="polite"></span><button id="dd-close" class="quiet">Close</button><button id="dd-save">Save as file</button><button class="primary" id="dd-copy">Copy report</button></div>`);
+  const build = () => JSON.stringify({ ...rep, why: $('dd-why').value.trim() || undefined }, null, 1);
+  $('dd-text').textContent = text;
+  $('dd-why').oninput = () => ($('dd-text').textContent = build());
+  $('dd-close').onclick = closeModal;
+  $('dd-copy').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(build());
+      $('dd-status').textContent = 'Copied. Paste it into a message to us.';
+    } catch {
+      $('dd-status').textContent = 'Copy is blocked here: open "What the report contains" and copy the text.';
+    }
+  };
+  $('dd-save').onclick = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([build()], { type: 'application/json' }));
+    a.download = `drill-report-${rep.id}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+}
+const drillUI = createDrill({ el: $('drill'), cardHtml, cardsInline, esc, toast: drillToast, onExit: () => closeDrill(), onDispute: drillDisputeModal, storage: drillStore });
+let drillLive = false; // Drill home is live once a bank has shipped
+drillUI.hasBank().then((ok) => {
+  drillLive = ok;
+  $('btn-drill').classList.toggle('hidden', !ok);
+});
+async function openDrill(pin = null) {
+  closeModal();
+  hideReview();
+  clearTimeout(timer);
+  $('drill').classList.remove('hidden');
+  document.body.classList.add('in-drill');
+  await drillUI.open({ pin });
+}
+function closeDrill() {
+  $('drill').classList.add('hidden');
+  document.body.classList.remove('in-drill');
+  render();
+  if (elsewherePending) {
+    const why = elsewherePending;
+    elsewherePending = null;
+    elsewhere(why);
+  }
+}
 
 async function openHistory() {
   RP = null;

@@ -16,7 +16,7 @@
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/space-grotesk-var.woff2?v=86547af457" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="src/ui/fonts.css?v=1b671c242f">
-<link rel="stylesheet" href="src/ui/table.css?v=631c82bf7b">
+<link rel="stylesheet" href="src/ui/table.css?v=3b9c82d372">
 </head>
 <body>
 <!-- Drawn avatars, one symbol per look (assets/avatars/sprite.svg, inlined so <use href="#av-id"> works). -->
@@ -45,6 +45,7 @@
     <div class="top-actions">
       <button id="btn-history">Hand history<small class="m-only">Step back through any of your last 100 hands</small></button>
       <button id="btn-review">Leak review<small class="m-only">Where your money is going, biggest leak first</small></button>
+      <button id="btn-drill" class="hidden">Drill<small class="m-only">Practice spots and a daily ten</small></button>
       <span class="vsep d-only" aria-hidden="true"></span>
       <button id="btn-players" class="ico" title="Players" aria-label="Players"><span class="d-only"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.4"/><path d="M2.8 19.5c.6-3.6 3.1-5.5 6.2-5.5s5.6 1.9 6.2 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.2 14.2c2.6.1 4.4 1.8 5 5.1"/></svg></span><span class="m-txt">Players</span><small class="m-only">Who they are and how they play; change anything</small></button>
       <button id="btn-settings" class="ico" title="Your game and ranges" aria-label="Your game and ranges"><span class="d-only"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg></span><span class="m-txt">Your game and ranges</span><small class="m-only">Stakes, table, and the hands you play from each seat</small></button>
@@ -98,6 +99,7 @@
 </main>
 <div id="review" class="hidden" role="dialog" aria-label="Hand review"></div>
 <div id="history" class="hidden" role="dialog" aria-label="Hand history"></div>
+<div id="drill" class="hidden" role="dialog" aria-label="Drill"></div>
 <div id="modal" class="hidden"><div id="modal-box" role="dialog" aria-modal="true" tabindex="-1"></div></div>
 <script type="importmap">
 {
@@ -105,6 +107,9 @@
   "./src/bots/policy.js": "./src/bots/policy.js?v=a50bed494d",
   "./src/bots/profiles.js": "./src/bots/profiles.js?v=500b702695",
   "./src/data/preflop.js": "./src/data/preflop.js?v=9a6872fc8f",
+  "./src/drill/card.js": "./src/drill/card.js?v=b2d42060ce",
+  "./src/drill/game.js": "./src/drill/game.js?v=fc4e734d62",
+  "./src/drill/learn.js": "./src/drill/learn.js?v=9b43a45565",
   "./src/engine/cards.js": "./src/engine/cards.js?v=c682fd982e",
   "./src/engine/evaluator.js": "./src/engine/evaluator.js?v=86610f512a",
   "./src/engine/features.js": "./src/engine/features.js?v=01bdaaa86f",
@@ -124,12 +129,13 @@
   "./src/trainer/replay.js": "./src/trainer/replay.js?v=09b1feab9d",
   "./src/trainer/session.js": "./src/trainer/session.js?v=64321c0779",
   "./src/trainer/tuning.js": "./src/trainer/tuning.js?v=ac5d58551d",
-  "./src/trainer/version.js": "./src/trainer/version.js?v=038acf8c1e",
+  "./src/trainer/version.js": "./src/trainer/version.js?v=5f0046ea00",
+  "./src/ui/drill.js": "./src/ui/drill.js?v=5c5527a1eb",
   "./src/ui/presets.js": "./src/ui/presets.js?v=6a951228d7",
   "./src/ui/store.js": "./src/ui/store.js?v=78c7440b74"
  }
 }
 </script>
-<script type="module" src="src/ui/app.js?v=b974072456"></script>
+<script type="module" src="src/ui/app.js?v=b130dcd17e"></script>
 </body>
 </html>

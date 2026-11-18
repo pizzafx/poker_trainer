@@ -189,4 +189,50 @@ export class RangeTrack {
     }
     return tot > 0 ? below / tot : 0.5;
   }
+
+  // What a bet of `betFrac` of the pot by `seat` (holding bin `bin`) meets: `called`, the chance at least one
+  // opponent who can still act calls or raises; `ahead`, the chance the hand beats everyone who does, given
+  // that someone does; `aheadNow`, the chance it beats every live range as it stands.
+  betRead(s, seat, bin, betFrac) {
+    const r = RANK[bin];
+    const size = betFrac < 0.4 ? 0 : betFrac < 0.8 ? 1 : 2;
+    const st = s.street - 1;
+    let live = 0;
+    for (let i = 0; i < s.n; i++) if (!s.folded[i]) live++;
+    const key = 24 + ((st * 2 + (live >= 3 ? 1 : 0)) * 3 + size) * 2;
+    const call = this.t.lik[key][1];
+    const raise = this.t.lik[key][2];
+    let noneCalls = 1;
+    let noneBeats = 1;
+    let aheadNow = 1;
+    for (let p = 0; p < s.n; p++) {
+      if (p === seat || s.folded[p]) continue;
+      const o = p * B;
+      let tot = 0;
+      let below = 0;
+      let ctot = 0;
+      let cbelow = 0;
+      for (let i = 0; i < B; i++) {
+        const w = this.h[o + i];
+        const c = w * Math.min(1, call[i] + raise[i]);
+        tot += w;
+        ctot += c;
+        if (RANK[i] < r) {
+          below += w;
+          cbelow += c;
+        } else if (RANK[i] === r) {
+          below += 0.5 * w;
+          cbelow += 0.5 * c;
+        }
+      }
+      if (!(tot > 0)) continue;
+      aheadNow *= below / tot;
+      if (s.allIn[p]) continue; // cannot call; already in for the showdown
+      const pc = ctot / tot;
+      noneCalls *= 1 - pc;
+      noneBeats *= 1 - (ctot - cbelow) / tot; // no opponent both continues and beats the hand
+    }
+    const called = 1 - noneCalls;
+    return { called, ahead: called > 1e-9 ? (noneBeats - noneCalls) / called : 0.5, aheadNow };
+  }
 }

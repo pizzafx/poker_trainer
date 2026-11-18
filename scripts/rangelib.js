@@ -7,7 +7,7 @@ import { binOf } from '../src/bots/rangetrack.js';
 
 // onPoint({ s, seat, sit, sess, bins, tex }) before a postflop action; onAct({ seat, sit, e, bin }) after it;
 // onStreet({ s, prevBins, bins, len }) when the board has grown (bins of every live player before and after).
-export function walk({ seed, table = 'typical', hands, trackers, onPoint, onAct, onStreet, onFlop, noBelief = false }) {
+export function walk({ seed, table = 'typical', hands, trackers, onPoint, onAct, onStreet, onFlop, onHandEnd, noBelief = false }) {
   const sess = new Session({ game: APP_GAME.game, rake: APP_GAME.rake, heroBuy: APP_GAME.heroBuy, seed, samples: 60, table, seats: 8 });
   for (let hno = 0; hno < hands; hno++) {
     sess.freshStack();
@@ -45,8 +45,9 @@ export function walk({ seed, table = 'typical', hands, trackers, onPoint, onAct,
       if (sit) {
         const e = s.history[hl];
         for (const t of trackers) t.act(seat, sit, e);
-        if (onAct) onAct({ seat, sit, e, bin });
+        if (onAct) onAct({ seat, sit, e, bin, s, bins });
       }
     }
+    if (onHandEnd) onHandEnd({ s });
   }
 }

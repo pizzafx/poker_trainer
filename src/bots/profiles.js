@@ -947,9 +947,10 @@ const HERO_DEF = {
   raiseBluff: [0.04, 0.025, 0.006],
   // mwOvercall comes from the tag, [0, .07, .10]: a solid player folds one pair more behind a bet
   // and a call (POOL, 13 Nov 2026).
-  // POOL batch 18 (PRO): the opponent-only fields stay off the stand-in until STRAT and MATH rule
-  tpLabel: null,
-  valueMd: null,
+  // POOL batch 18: the stand-in takes the tag's tpLabel 0.25 and valueMd 0.87 (STRAT and MATH, 18 Nov 2026, after
+  // QA-VERDICT's budget-off flip check: 0.27% of grades); test/heroprofile.test.js names both
+  tpLabel: 0.25,
+  valueMd: 0.87,
 };
 
 export const TYPE_IDS = Object.keys(DEFS);

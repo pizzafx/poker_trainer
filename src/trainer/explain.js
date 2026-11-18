@@ -2,7 +2,8 @@
 // note on where the money-making play differs from what game theory would do.
 
 import { STREET } from '../engine/game.js';
-import { TIER, isRealDraw } from '../engine/features.js';
+import { TIER, isRealDraw, handFeatures, boardTexture } from '../engine/features.js';
+import { CATEGORY, evaluate } from '../engine/evaluator.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
 import { anchorStatus, needOf, drawTest } from './grade.js';
 
@@ -202,6 +203,21 @@ const THEORY = {
   other: null,
 };
 
+// STRAT (YB-T1 vs U1): a board that devalues a hand below a straight takes it out of the "strong hand for value"
+// copy: four to a straight, four of a suit, or three of a suit with three to a straight. Two edges (STRAT): on four of
+// a suit a straight is guarded too (a flush is not); and a hand that only plays the board counts as below a straight
+export function t1Board(hole, board) {
+  if (!Array.isArray(hole) || !Array.isArray(board) || board.length < 3) return true;
+  const t = boardTexture(board);
+  let cat = handFeatures(hole, board).cat;
+  if (board.length === 5) {
+    if (evaluate([...hole, ...board]) === evaluate(board)) cat = Math.min(cat, CATEGORY.TRIPS); // the hero plays the board
+  }
+  const guardUpTo = t.maxSuit >= 4 ? CATEGORY.STRAIGHT : CATEGORY.TRIPS; // the highest category the guard covers
+  if (cat > guardUpTo) return true;
+  return !(t.connected >= 4 || t.maxSuit >= 4 || (t.maxSuit >= 3 && t.connected >= 3));
+}
+
 // A note on a fine (or not graded) verdict never hides a gap above the yellow bar behind "a little",
 // "about the same" or "scores higher": it states the dollar figure, rounded as the bars show it
 // (STRAT, QA Q1, Nov 2026). `v.small` is the yellow bar the guardrails used.
@@ -212,6 +228,22 @@ function goodHeadline(v, mine, best, d = {}) {
   // "scores about $X more", or the fallback wording when the gap is within the bar
   const more = (o, within) => (gap(o) > bar(o) || !within ? (gap(o) > 0 ? `scores about $${gap(o)} more` : 'scores about the same') : within);
   const who = d.opponents === 1 ? 'this player' : 'these players';
+  // STRAT YB-T2: the "scores more" clause names the option that really scores highest; the same kind of play at
+  // another size is "a bigger bet, about $X" (or smaller)
+  const topName = () => {
+    if (top.type === 'raise' && mine.type === 'raise' && top !== mine) {
+      const amt = d.toCall > 0 ? `to about $${Math.round(top.to)}` : `about $${Math.round(top.to - (d.currentBet || 0))}`;
+      const kind = d.toCall > 0 ? 'raise' : 'bet';
+      return `A ${top.to > mine.to ? 'bigger' : 'smaller'} ${kind}, ${amt},`;
+    }
+    return bare(top);
+  };
+  // STRAT YB-T1: a two-pair-or-better bet or raise, against players all read as passive, where checking scores
+  // highest: never advise the trap with a dollar figure (checking-to-trap rests on them betting for you)
+  // STRAT's ruling on YB-T1 vs U1 (18 Nov): only when the check's gap is within the yellow bar (a gap above it is
+  // always stated), and never on a board that devalues the hand (t1Board)
+  const PASSIVE = ['abc', 'station', 'nit', 'beginner', 'whale'];
+  const passiveTrap = mine.type === 'raise' && top.type === 'check' && (d.tier ?? -1) >= TIER.TWO_PAIR && Array.isArray(d.liveTypes) && d.liveTypes.length > 0 && d.liveTypes.every((t2) => PASSIVE.includes(t2)) && gap(top) <= bar() && t1Board(d.hole, d.board);
   // PRO's words for a TT-type re-raise when calling scores more (STRAT_YELLOW_BAND B), ahead of any tip
   if (v.note === 'iso3bet') return `${mine.label}: fine. Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.`;
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
@@ -235,8 +267,10 @@ function goodHeadline(v, mine, best, d = {}) {
     // the bars' gap stated, then why it is not flagged (QA F2), in words that match the estimate line under
     // it: only an "even" veto is "close" (STRAT YB-6); with no line under it, nothing cites one
     const from = v.anchorWhy === 'A2' && v.options[v.anchorFrom] ? v.options[v.anchorFrom] : null;
+    // the option the veto is about (the reference, or A2's unsupported play), and the clause naming the top option
     const alt = from || (gap(best) > 0 && best !== mine ? best : top);
-    const bars = gap(alt) > 0 ? `${bare(alt)} ${more(alt)} on the bars, but ` : '';
+    if (passiveTrap) return `${mine.label}: fine. (Betting a strong hand for value is the standard play against these players. Checking to trap scores about the same against these bots, but it relies on them betting for you.)`;
+    const bars = gap(top) > 0 && top !== mine ? `${topName()} ${more(top)} against these bots, but ` : '';
     const lined = !!anchorLine(d);
     // A2 (STRAT, YB-V4b): "the coach's estimate below" only when the line below is about the option it names;
     // otherwise the unsupported play is named plainly, and the comparison that decides the grade is its own sentence
@@ -244,12 +278,13 @@ function goodHeadline(v, mine, best, d = {}) {
       const named = (anchorLine(d) || '').match(/^A bet of \$(\d+):/);
       const lineAbout = from === mine || (named && from.type === 'raise' && Math.round(from.to - (d.currentBet || 0)) === +named[1]);
       const ing = { fold: 'folding', check: 'checking', call: 'calling' }[mine.type] || 'this';
-      const lead = gap(alt) > 0 ? `${bare(alt)} ${more(alt)} against these bots, but ` : '';
-      if (!lineAbout) return `${mine.label}: fine. (${lead ? lead + 'it is not a play that works against anyone here' : `${bare(alt)} is not a play that works against anyone here`}. Against ${bare(best).toLowerCase()}, ${ing} gives up too little to flag.)`;
-      const w = `by the coach's estimate below it does not work; against ${bare(best).toLowerCase()} this gives up too little to flag`;
+      const lead = bars;
+      const it = from === top ? 'it' : bare(from).toLowerCase();
+      if (!lineAbout) return `${mine.label}: fine. (${lead ? `${lead}${it}` : bare(from)} is not a play that works against anyone here. Against ${bare(best).toLowerCase()}, ${ing} gives up too little to flag.)`;
+      const w = `by the coach's estimate below ${it} does not work; against ${bare(best).toLowerCase()} this gives up too little to flag`;
       return `${mine.label}: fine. (${lead ? lead + w : w[0].toUpperCase() + w.slice(1)}.)`;
     }
-    if (!lined) return gap(alt) > 0 ? `${mine.label}: fine. (${bare(alt)} ${more(alt)} on the bars, but it is not flagged.)` : `${mine.label}: fine.`;
+    if (!lined) return gap(top) > 0 && top !== mine ? `${mine.label}: fine. (${topName()} ${more(top)} against these bots, but it is not flagged.)` : `${mine.label}: fine.`;
     const playWord = mine.type === 'call' ? 'call' : d.toCall > 0 ? 'raise' : 'bet';
     let why;
     if (v.anchorWhy === 'works') why = `by the coach's estimate below your ${playWord} works, so it is not flagged`;
@@ -258,6 +293,9 @@ function goodHeadline(v, mine, best, d = {}) {
     else why = "by the coach's estimate below this is close, so it is not flagged";
     return `${mine.label}: fine. (${bars ? bars + why : why[0].toUpperCase() + why.slice(1)}.)`;
   }
+  // STRAT YB-T1, the scenario test's form: the grading state kept, no figure for the check
+  if (passiveTrap && v.note === 'unclear') return `${mine.label}: not graded. Betting a strong hand for value is the standard play against these players; checking to trap scores about the same here.`;
+  if (passiveTrap && v.note === 'fragile') return `${mine.label}: fine. (Betting a strong hand for value is the standard play against these players; checking to trap scores about the same here.)`;
   if (v.note === 'closeCall') return `${mine.label}: not graded.`;
   if (v.note === 'preSize') return `${mine.label}: fine. (${bare(best)} ${more(best, 'scores about the same')}; using one size with all your hands is the better habit.)`;
   if (v.note === 'semiBluff') return `${mine.label}: fine. (With a draw this good, betting is standard against players who can fold.)`;
@@ -424,7 +462,17 @@ export function anchorLine(d) {
     const folds = mine.F < 0.05 ? 'almost no one folds' : mine.F > 0.95 ? 'nearly everyone folds' : `everyone folds ${share(mine.F)}`;
     // the middle sentence alone when the headline above already says "not a habit to build"
     const mid = `${called}; ${folds}, and it needs ${share(mine.alpha, false)}.`;
-    line = v.note === 'mwHabit' ? mid : `Scores higher only against these opponents. ${mid} Not a habit.`;
+    // a draw's bet over 1.05x the pot: the draw does not count (D2), so neither its outs nor a separate need
+    // are quoted (STRAT, QA YB-D2c)
+    const over = drawing && mine.alpha !== undefined && mine.alpha / (1 - mine.alpha) > 1.05;
+    const d2 = `a bet this big needs everyone to fold ${share(mine.alpha)}, and ${mine.F < 0.05 ? 'almost no one folds' : `they fold only ${share(mine.F)}`}. With a draw, ${d.toCall > 0 ? 'calling is cheaper' : 'bet smaller or check'}.`;
+    // at or under 1.05x the pot a draw's line is the combined test's (MATH 19b), verdict by the sign of its gain,
+    // with no separate need (STRAT, QA YB-C8d)
+    const dt19 = drawing && !over ? drawTest(mine, hf, d.opponents || 1) : null;
+    const combined = dt19 && dt19.e > 0 ? `${foldsP(mine.F)[0].toUpperCase()}${foldsP(mine.F).slice(1)}; called, your draw comes in ${often(hf.ownDrawEquity)}. Together that is ${dt19.st === 'works' ? 'enough' : dt19.st === 'even' ? 'about even' : 'not enough'}.` : null;
+    if (over) line = v.note === 'mwHabit' ? d2[0].toUpperCase() + d2.slice(1) : `Not a habit to build: ${d2}`;
+    else if (combined) line = v.note === 'mwHabit' ? combined : `${combined} Not a habit to build.`;
+    else line = v.note === 'mwHabit' ? mid : `Scores higher only against these opponents. ${mid} Not a habit.`;
   } else if (ref !== mine && ref.type === 'raise' && mine.type === 'raise' && v.grade !== 'good' && ref.F !== undefined && mine.F !== undefined) {
     // a size flagged against another size: what the size changes
     const $ = (o) => `$${o.to - (d.currentBet || 0)}`;
@@ -502,7 +550,8 @@ export function shownCost(v) {
   if (v.grade === 'good' || v.mine < 0) return 0;
   if (v.dominated) return v.dominated; // behind the best play by at least this much under every read
   const gap = Math.max(0, Math.round(v.options[v.best].ev) - Math.round(v.options[v.mine].ev));
-  return v.priceCap !== undefined ? Math.min(gap, Math.round(v.priceCap)) : gap; // a call costs at most its price (STRAT G4)
+  const cap = v.priceCap ?? v.moneyInCap; // a call costs at most its price (STRAT G4; the money-in arm too, QA-VERDICT V4)
+  return cap !== undefined ? Math.min(gap, Math.round(cap)) : gap;
 }
 
 export function explain(d) {
@@ -542,11 +591,13 @@ export function explain(d) {
   const b = kind(best);
   const word = v.grade === 'blunder' ? 'Blunder' : 'Mistake';
   const ref = v.ref === 'quarterPot' ? `the best bet of at least a quarter of the pot (${bare(best).toLowerCase()})` : v.ref === 'habit' ? `${best.label.toLowerCase()} (the best play the coach teaches here)` : v.ref === 'robust' ? `${best.label.toLowerCase()} (it beats your play under every read)` : v.ref === 'anchor' ? `${best.label.toLowerCase()} (the best play that works against anyone)` : v.ref === 'noRaise' ? `${best.label.toLowerCase()} (the best play that is not a raise)` : v.ref === 'giveUp' ? `${best.label.toLowerCase()} (giving up the pot)` : v.ref === 'upTo75' ? `the best bet up to three-quarters of the pot (${bare(best).toLowerCase()})` : v.ref === 'upToPot' ? `the best bet up to the size of the pot (${bare(best).toLowerCase()})` : best.label.toLowerCase();
-  const capped = v.priceCap !== undefined && Math.round(best.ev) - Math.round(mine.ev) > cost;
+  // a call whose cost is capped at its price (rule 7, or the money-in arm) states that cost, and that later
+  // streets are graded there; never "up to its price" (STRAT YB-1 / section 17 C2, QA YB-C3)
+  const capped = (v.priceCap ?? v.moneyInCap) !== undefined && Math.round(best.ev) - Math.round(mine.ev) > cost;
   const headline = v.dominated
     ? `${word}: ${mine.label.toLowerCase()} scores at least $${cost} below the best play here under every reasonable read of these players.`
     : capped
-      ? `${word}: ${mine.label.toLowerCase()} costs up to its price compared with ${ref}; what happens on later streets is graded there.`
+      ? `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}; what happens on later streets is graded there.`
       : `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}.`;
   const reasons = [];
   if (v.iso3bet) reasons.push('Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.');

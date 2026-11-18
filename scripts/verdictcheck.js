@@ -18,7 +18,7 @@ import { classOf, classNames } from '../src/engine/hands.js';
 import { handFeatures, TIER, isRealDraw } from '../src/engine/features.js';
 import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
-import { shownCost, dryBoard, blockerHand } from '../src/trainer/explain.js';
+import { shownCost, dryBoard, blockerHand, t1Board } from '../src/trainer/explain.js';
 import { pairedGap, redBar } from '../src/trainer/judge.js';
 import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest, ISO_LIMP, ISO_LIMP_FEW, outsideBehindLimpers, raiseClears, suitedLimpHand } from '../src/trainer/grade.js';
 // the bet an estimate line is about: "A bet of $X:" names it; otherwise hero's bet or raise, else the reference (QA-VERDICT)
@@ -252,6 +252,57 @@ export const INVARIANTS = {
   // STRAT (YB-V4b): "the coach's estimate below" only when the line below describes the option it refers to;
   // an A2 headline naming a raise never cites a line about calling or holding
   'YB-V4c an A2 headline cites the estimate below only when that line is about the option it names': (d) => /estimate below it does not work/.test(d.headline || '') && d.verdict && d.verdict.anchorWhy === 'A2' && /^You are ahead about/.test(d.anchor || ''),
+  // ---- STRAT YB-T1, YB-T2 (QA-VERDICT runs32) ----
+  'YB-T1 no check dollar figure under a two-pair+ bet or raise when every opponent still in is read as passive': (d, v) => {
+    const mine = v.options[v.mine];
+    if (!mine || mine.type !== 'raise' || !(d.tier >= TIER.TWO_PAIR) || !Array.isArray(d.liveTypes) || !d.liveTypes.length) return false;
+    if (!d.liveTypes.every((t) => ['abc', 'station', 'nit', 'beginner', 'whale'].includes(t))) return false;
+    // STRAT (YB-T1 vs U1): a gap above the bar is always stated, and a devaluing board takes the hand out of T1
+    const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
+    if (Math.max(0, Math.round(top.ev) - Math.round(mine.ev)) > (v.small || 0) || !t1Board(d.hole, d.board)) return false;
+    return /Check scores about \$\d+ more|a check is better by/i.test(d.headline || '');
+  },
+  'YB-T1c the "strong hand for value" copy only with the check within the bar, on a board that does not devalue the hand': (d, v) => {
+    if (!/Betting a strong hand for value is the standard play/.test(d.headline || '')) return false;
+    const mine = v.options[v.mine];
+    const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
+    return Math.max(0, Math.round(top.ev) - Math.round(mine.ev)) > (v.small || 0) || !t1Board(d.hole, d.board);
+  },
+  'YB-T2 an anchor-veto "X scores about $Y more" names the top option, with Y = top - mine': (d, v) => {
+    if (v.note !== 'anchor') return false;
+    const m = (d.headline || '').match(/\(([^()]+?) scores about \$(\d+) more/);
+    if (!m) return false;
+    const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
+    const y = Math.max(0, Math.round(top.ev) - Math.round(v.options[v.mine].ev));
+    const name = m[1].trim();
+    const bareTop = top.label.replace(/\s*\([^)]*\)\s*$/, '');
+    const generic = /^A (bigger|smaller) (bet|raise), /.test(name) && top.type === 'raise';
+    return +m[2] !== y || !(name === bareTop || generic);
+  },
+  'YB-T2b no "on the bars" in a headline': (d) => /on the bars/.test(d.headline || ''),
+  // STRAT (the open tip): "only from later seats" only when a later seat's Standard range has the hand
+  'OT1 an open tip says "only from later seats" only when a later seat opens the hand': (d) => {
+    if (d.tipKind !== 'wideOpen' || !/only from later seats/.test(d.tip || '')) return false;
+    const name = classNames[classOf(d.hole[0], d.hole[1])];
+    const group = groupOf(d.position);
+    const later = { early: ['middle', 'cutoff', 'button'], middle: ['cutoff', 'button'], cutoff: ['button'] }[group] || [];
+    const std = presetRanges('standard');
+    return !later.some((g) => std[g] && std[g].includes(name));
+  },
+  // STRAT (YB-1 / section 17 C2, QA YB-C3; D2 on the habit path, QA YB-D2c)
+  'YB-C3b no "up to its price" in any headline': (d) => /up to its price/.test(d.headline || ''),
+  'YB-C3c a money-in call flag reads "costs about $X", X = min(loss, money put in) within $1': (d, v) => {
+    if (v.rule !== 'moneyIn' || v.grade === 'good' || !v.moneyIn || v.options[v.mine].type !== 'call') return false;
+    const m = (d.headline || '').match(/costs about \$(\d+)/);
+    return !m || Math.abs(+m[1] - Math.min(v.moneyIn.loss, v.moneyIn.put)) > 1;
+  },
+  'YB-D2c a draw bet over 1.05x pot never quotes "your draw comes in" on the habit line': (d, v) => {
+    const mine = v.options[v.mine];
+    if (!mine || mine.type !== 'raise' || mine.alpha === undefined || !(mine.alpha / (1 - mine.alpha) > 1.05)) return false;
+    if (v.habit !== 'drawOverbet' && v.habitOut !== 'drawOverbet') return false;
+    if (d.street === STREET.RIVER || !(handFeatures(d.hole, d.board).ownDrawEquity >= 0.14)) return false;
+    return /your draw comes in/.test(d.anchor || '') || !/With a draw, (bet smaller or check|calling is cheaper)/.test(d.anchor || '');
+  },
   'YB-V4b "does not work" in the headline never sits over a break-even line': (d) => /estimate below it does not work/.test(d.headline || '') && /about breaks even|That is thin|: close\.$/.test(d.anchor || ''),
   // ---- STRAT 19 / MATH 19a (QA-C8a) ----
   'C8b the "Together" verdict matches the combined test on the bet the line names (MATH 19b)': (d, v) => {

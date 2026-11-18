@@ -200,6 +200,31 @@ export function buildContext(s, seat = s.toAct) {
     ctx.wet = Math.max(...suits) >= 2 && connected >= 3;
     ctx.drawy = Math.max(...suits) >= 2 || connected >= 3; // POOL batch 15: two-tone or connected (a draw is possible)
   }
+  // POOL batch 18 (the owner's hand 461): has the betting capped the others since the scary card came? For the
+  // flush and the straight parts of the board markdown, the street the current level arrived on, and then the
+  // number of whole streets checked through since (-1 once anyone bet or raised on it or after it, this street too).
+  {
+    const lvl = (k) => {
+      const b = s.board.slice(0, k), su = [0, 0, 0, 0];
+      let mask = 0;
+      for (const c of b) { su[c & 3]++; mask |= 1 << (c >> 2); }
+      const r = ((mask << 1) | ((mask >> 12) & 1)) & 0x3fff;
+      let con = 0;
+      for (let lo = 0; lo <= 9; lo++) { let q = 0; for (let i = 0; i < 5; i++) if (r & (1 << (lo + i))) q++; if (q > con) con = q; }
+      return { fl: Math.max(...su) >= 4 ? 2 : Math.max(...su) === 3 ? 1 : 0, st: con >= 4 ? 2 : con === 3 && k >= 4 ? 1 : 0 };
+    };
+    const L = [3, 4, 5].filter((k) => k <= s.board.length).map(lvl);
+    const aggOn = (st) => s.history.some((h) => h.street === st && (h.type === 'bet' || h.type === 'raise'));
+    const quiet = (key) => {
+      const now = L[L.length - 1]?.[key] || 0;
+      if (!now) return -1;
+      const a = STREET.FLOP + L.findIndex((x) => x[key] === now);
+      for (let st = a; st <= s.street; st++) if (aggOn(st)) return -1;
+      return s.street - a;
+    };
+    ctx.quietFlush = quiet('fl');
+    ctx.quietStraight = quiet('st');
+  }
   ctx.toActBehind = ctx.toCall > 0 ? toActBehind : 0;
   return ctx;
 }
@@ -515,10 +540,43 @@ function mixWeights(a, wa, b, wb) {
   return out;
 }
 
+// POOL batch 18 (the owner's hand 461, PRO's value floors and ceilings): when nobody has bet yet this street, the
+// scary-board markdown is too big for one pair, and it ignores the action.
+//  1. One pair betting for value: the three-flush markdown x0.85 becomes x valueMd (per type, 0.86-0.92) and the
+//     four-straight x0.72 moves with it (0.92 -> 0.82). Regulars keep more of the markdown than recreational players.
+//  2. Then each part keeps only a share k of itself: k = MD_KEEP_FULL^q after q whole streets checked through since
+//     the card, never under MD_KEEP_MIN; MD_KEEP_NOW checked to me last on the card's street; 1 once anyone bet or
+//     raised since the card. A four-flush or four-straight uses the square root of k (one-card hands check more).
+//     Holding a card of the flush suit (a blocker) keeps MD_SUIT of the flush k.
+// Facing a bet the full markdown stays: the bettor's range is not capped. The paired-board markdown is not touched.
+export const ODDS_FLOOR_AT = 0.1, ODDS_FLOOR = 0.98;
+export const MD_KEEP_FULL = 0.7, MD_KEEP_NOW = 0.7, MD_SUIT = 0.75, MD_KEEP_MIN = 0.5;
+function mdKeep(q, ctx) {
+  if (q < 0) return 1;
+  if (q === 0) return ctx.checkedTo && ctx.inPosition ? MD_KEEP_NOW : 1;
+  return Math.max(MD_KEEP_MIN, MD_KEEP_FULL ** q);
+}
+function boardAwareStrength(ctx, f, P = {}) {
+  let mf = f.mdFlush ?? 1, ms = f.mdStraight ?? 1;
+  if (ctx.toCall > 0 || (mf === 1 && ms === 1)) return f.strength;
+  const S0 = f.strength / (mf * ms);
+  const four = mf < 0.7, fourS = ms < 0.9; // four to a flush (x0.55/0.62); four to a straight (x0.72/0.82)
+  if (f.tier <= TIER.OVERPAIR_TPTK) { // one pair only (PRO: two pair and sets on four-liners have no floor)
+    const vm = P.valueMd ?? 0.85; // per type: the one-pair three-flush multiplier when betting (0.85 = the static markdown)
+    if (mf === 0.85) mf = vm;
+    if (ms === 0.72) ms = 0.72 + ((vm - 0.85) / 0.07) * 0.1; // 0.85 → 0.72, 0.92 → 0.82
+  }
+  const kf = mdKeep(ctx.quietFlush ?? -1, ctx) * (f.holdsSuit ? MD_SUIT : 1), ks = mdKeep(ctx.quietStraight ?? -1, ctx);
+  const nf = 1 - (1 - mf) * (four ? Math.sqrt(kf) : kf), ns = 1 - (1 - ms) * (fourS ? Math.sqrt(ks) : ks);
+  return S0 * nf * ns;
+}
 export function postflopPolicy(ctx, P, f) {
   const st = ctx.street - 1; // 0 flop, 1 turn, 2 river
   const extra = Math.max(0, ctx.nOpp - 1);
-  const S = f.strength;
+  // POOL batch 18: shrink the flush and straight markdowns once the betting caps the others' ranges
+  // POOL batch 18 (PRO's TPWK floors): recreational players bet "top pair" by its label more than by its kicker, so
+  // with nobody betting yet on the turn or river a weak-kicker top pair moves toward top pair good kicker by tpLabel
+  const S = boardAwareStrength(ctx, f, P) * (P.tpLabel && f.tier === TIER.TOP_PAIR_WEAK && ctx.toCall === 0 && st > 0 ? 1 + P.tpLabel * 0.167 : 1);
   const out = { fold: 0, check: 0, call: 0, raise: 0, sizes: null };
 
   if (ctx.toCall === 0) {
@@ -714,6 +772,10 @@ export function postflopPolicy(ctx, P, f) {
     const g = f.tier >= TIER.TOP_PAIR_WEAK && f.tier <= TIER.OVERPAIR_TPTK ? 0 : f.tier === TIER.MIDDLE_PAIR ? 1 : f.tier === TIER.WEAK_PAIR ? 2 : -1;
     if (g >= 0 && w > 0) pCont = Math.max(pCont, w * (bf <= 0.12 ? Math.max(P.smallCont[g], 0.95) : P.smallCont[g])); // at 8:1 or better any pair calls 95%+, overcalls too (POOL)
   }
+  // POOL batch 18 (PRO's A on 05-28, CEO): at 10:1 or better on the effective call (the call is 10% of the final pot
+  // or less, e.g. the last chips against a bigger all-in), any pair or real draw continues; raises and overcalls too.
+  // PRO: the pair must use a hole card (a board pair alone is tier HIGH_CARD or AIR, so it is out); no draws on the river
+  if (ctx.odds <= ODDS_FLOOR_AT && (f.tier >= TIER.WEAK_PAIR || (st < 2 && isRealDraw(f)))) pCont = Math.max(pCont, ODDS_FLOOR);
   // POOL batch 17 (PRO ceiling 6, B clarification 17 Nov 2026): calling off a stack or 30bb+ with no pair and no real
   // draw is capped per type at airCallOff [ace/king-high, worse], halved against two or more opponents
   // (PRO: only with 20bb+ at stake, as rule 3; the cap holds for raise and call together)

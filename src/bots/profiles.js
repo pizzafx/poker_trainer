@@ -162,6 +162,8 @@ const BASE = {
   stackOffRaiseNP: null, // POOL batch 16b: a stack-off re-raise share below QQ+/AK (station, nit)
   stackOffRaiseJJ: null, // ...and JJ's own share (the nit)
   airCallOff: null, // POOL batch 17: a cap on calling off a stack or 30bb+ with air [ace/king-high, worse]
+  valueMd: null, // POOL batch 18: the one-pair three-flush markdown when betting with nobody in yet (null: the static 0.85)
+  tpLabel: null, // POOL batch 18: weak-kicker top pair counts toward top pair good kicker when betting the turn or river (recreational players bet the label)
   leadIntoRaiserFlop: null, // the flop's lead-into-the-preflop-raiser term (null: leadIntoRaiser)
   ledRaiseRespect: 0, // call-threshold increase when raised after leading this street
   leadBluffMult: 1, // multiplier on bluff-leads into the aggressor
@@ -180,6 +182,7 @@ const BASE = {
 
 const DEFS = {
   nit: {
+    valueMd: 0.92, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tbCont: [0.55, 0.4], // POOL opponent package (Nov 2026)
     tbSize: 0.05, // POOL opponent package (Nov 2026)
     blockBet: 0.04, // POOL opponent package (Nov 2026)
@@ -204,7 +207,7 @@ const DEFS = {
     openLimp: 0.9,
     openSize: 5.5,
     sizeTell: 0.8,
-    limpTrap: 0.25,
+    limpTrap: 0.015, // POOL batch 18 (PRO P-V: a nit raises AA/KK first in 98%; was 0.25)
     callRaise: 0.07,
     callElastic: 0.5, // POOL A5, Nov 2026: was 0.7
     limpCall: 1.1,
@@ -250,6 +253,7 @@ const DEFS = {
     missBluff: 0.06,
   },
   abc: {
+    valueMd: 0.92, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tbCont: [0.8, 0.68], // POOL opponent package (Nov 2026)
     tbSize: 0.05, // POOL opponent package (Nov 2026)
     blockBet: 0.1, // POOL opponent package (Nov 2026)
@@ -261,6 +265,7 @@ const DEFS = {
     mwOvercall: [0, 0.05, 0.09], // POOL overcall, owner-approved 13 Nov 2026 (river .07 -> .09, POOL correction)
     name: 'Straightforward recreational',
     airCallOff: [0.04, 0.04], // POOL batch 17
+    tpLabel: 0.8, // POOL batch 18 (PRO's TPWK floors)
     smallCont: [0.92,  0.84,  0.64], // POOL batch 16
     initSlow: true, // POOL batch 16
     trapOnce: 0.1, // POOL batch 16
@@ -320,6 +325,7 @@ const DEFS = {
     opRaiseContR: 0.6,
   },
   station: {
+    valueMd: 0.9, // POOL batch 18 (PRO's scary-board floors and ceilings)
     blockBet: 0.12, // POOL opponent package (Nov 2026)
     sqCont: 1.5, // POOL opponent package (Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
@@ -330,6 +336,7 @@ const DEFS = {
     ocSize: 0.25, // POOL overcall: a pot-sized overcall hits harder than a half-pot one
     name: 'Loose-passive calling station',
     airCallOff: [0.3, 0.1], // POOL batch 17
+    tpLabel: 0.5, // POOL batch 18
     stackOffRaiseNP: 0.05, // POOL batch 16b
     smallCont: [0.97,  0.88,  0.72], // POOL batch 16
     initSlow: true, // POOL batch 16
@@ -405,6 +412,8 @@ const DEFS = {
     opRaiseContR: 0.85,
   },
   whale: {
+    valueMd: 0.86, // POOL batch 18 (PRO's scary-board floors and ceilings)
+    tpLabel: 0.3, // POOL batch 18
     blockBet: 0.08, // POOL opponent package (Nov 2026)
     sqCont: 1.6, // POOL opponent package (Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
@@ -480,6 +489,7 @@ const DEFS = {
     setMineEnd: 0.125, // POOL batch 5 (Nov 2026)
   },
   maniac: {
+    valueMd: 0.9, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tbCont: [0.75, 0.65], // POOL opponent package (Nov 2026)
     tbSize: 0.05, // POOL opponent package (Nov 2026)
     sqCont: 0.8, // POOL opponent package (Nov 2026)
@@ -546,6 +556,7 @@ const DEFS = {
     bigFloorBase: 0.7,
   },
   gto: {
+    valueMd: 0.86, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tbCont: [0.52, 0.45], // POOL batches 7-11 (Nov 2026)
     tbSize: 0.06, // POOL batch 2 / pass 3 (Nov 2026)
     tbOOP: 0.05, // POOL opponent package (Nov 2026)
@@ -638,6 +649,8 @@ const DEFS = {
     ctBehindShiftMult: 0.5,
   },
   tag: {
+    valueMd: 0.87, // POOL batch 18 (PRO's scary-board floors and ceilings)
+    tpLabel: 0.25, // POOL batch 18
     tbCont: [0.6, 0.45], // POOL opponent package (Nov 2026)
     tbSize: 0.1, // POOL opponent package (Nov 2026)
     tbOOP: 0.07, // POOL opponent package (Nov 2026)
@@ -724,6 +737,7 @@ const DEFS = {
     ctBehindShiftMult: 0.5,
   },
   lag: {
+    valueMd: 0.85, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tbCont: [0.6, 0.58], // POOL batches 7-11 (Nov 2026)
     tbSize: 0.1, // POOL opponent package (Nov 2026)
     tbOOP: 0.07, // POOL opponent package (Nov 2026)
@@ -808,6 +822,8 @@ const DEFS = {
     ctBehindShiftMult: 0.5,
   },
   beginner: {
+    valueMd: 0.88, // POOL batch 18 (PRO's scary-board floors and ceilings)
+    tpLabel: 0.5, // POOL batch 18
     tbCont: [0.85, 0.8], // POOL opponent package (Nov 2026)
     tbSize: 0.03, // POOL opponent package (Nov 2026)
     blockBet: 0.12, // POOL opponent package (Nov 2026)
@@ -931,6 +947,9 @@ const HERO_DEF = {
   raiseBluff: [0.04, 0.025, 0.006],
   // mwOvercall comes from the tag, [0, .07, .10]: a solid player folds one pair more behind a bet
   // and a call (POOL, 13 Nov 2026).
+  // POOL batch 18 (PRO): the opponent-only fields stay off the stand-in until STRAT and MATH rule
+  tpLabel: null,
+  valueMd: null,
 };
 
 export const TYPE_IDS = Object.keys(DEFS);

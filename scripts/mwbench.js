@@ -49,7 +49,10 @@ for (const spot of SPOTS.filter((x) => !ids || ids.includes(x.id))) {
     for (const r of rows) {
       if (r.v.grade === 'good') continue;
       const ref = r.v.options[r.v.best];
-      if (!matches(`${ex.quote.split(':')[0]}:${+ex.quote.split(':')[1] - 0.06}-${+ex.quote.split(':')[1] + 0.06}`, ref, s, pot)) problems.push(`${short(r.o)}: quotes ${short(ref)}, want ${ex.quote}`);
+      // one quote, or a list of acceptable ones; quoteMax caps a bet quote as a share of the pot
+      const ok = [].concat(ex.quote).some((q) => matches(`${q.split(':')[0]}:${+q.split(':')[1] - 0.06}-${+q.split(':')[1] + 0.06}`, ref, s, pot));
+      if (!ok) problems.push(`${short(r.o)}: quotes ${short(ref)}, want ${[].concat(ex.quote).join(' or ')}`);
+      if (ex.quoteMax != null && ref.type === 'raise' && s.currentBet === 0 && ref.to / pot > ex.quoteMax + 1e-9) problems.push(`${short(r.o)}: quotes ${short(ref)}, above ${ex.quoteMax} of the pot`);
     }
   }
   // POOL's regressions on the opponent model (kept with the benchmark)

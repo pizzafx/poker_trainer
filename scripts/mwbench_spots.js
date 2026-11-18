@@ -133,7 +133,7 @@ export const EXPECT = {
   T04: { accept: ['bet:0.6-1.05'], softFlag: ['check'] },    // two pair: R1 does not apply; STRAT, 13 Nov: in a $13 pot the bar is the $9 floor, so a flag or the fragile waiver both pass
   T05: { accept: ['call', 'fold', 'raise'], note: { raise: 'mwHabit' }, neverBest: ['raise'] }, // owner: R7 note, never flagged; R5b
   // On the river with one pair the multiway sizing floor is 30% of the pot (STRAT, Nov 2026): $40 is good.
-  R01: { accept: ['bet:0.3-0.8'], flag: ['check'], maxGrade: { check: 'mistake' }, quote: 'bet:0.74' }, // owner: check yellow; R3 quotes $90, $60 good
+  R01: { accept: ['bet:0.3-0.8'], flag: ['check'], maxGrade: { check: 'mistake' }, quote: ['bet:0.33', 'bet:0.5', 'bet:0.74'], quoteMax: 0.75 }, // owner: check yellow; R3 quotes a bet of 33-74% of the pot (STRAT, batch 16), never above 75%
   R02: { accept: ['check'] },
   // 13 Nov 2026 (QA M1): R7 waives only plays within the yellow bar of the best other option. The
   // $100 raise (+$3 over the call) keeps the note; the shove ($64 below the call) is graded, red.

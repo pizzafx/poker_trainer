@@ -181,6 +181,7 @@ export function buildContext(s, seat = s.toAct) {
   // this postflop street before me?
   ctx.checkedTo = s.history.some((h) => h.street === s.street && h.street > STREET.PRE);
   ctx.iChecked = s.history.some((h) => h.street === s.street && h.street > STREET.PRE && h.seat === seat && h.type === 'check'); // POOL batch 6
+  ctx.iCheckedPrev = s.street > STREET.FLOP && s.history.some((h) => h.street === s.street - 1 && h.seat === seat && h.type === 'check'); // POOL batch 16
   ctx.preflopRaised = s.history.some((h) => h.street === STREET.PRE && h.type === 'raise');
   {
     const suits = [0, 0, 0, 0];
@@ -333,6 +334,9 @@ export function preflopPolicy(ctx, P, cls) {
       const go = inTop(sp, w);
       // passive types call their stack-offs; facing an all-in, a non-premium re-raise is only an isolation play (POOL batch 5, G5)
       let share = 0.6 * (P.stackOffRaise ?? 1);
+      // POOL batch 16b (PRO, rule 4 / ceiling 10): a station or nit facing a stack-off decision re-raises only with
+      // QQ+/AK; below that it calls or folds (the nit keeps a little JJ: stackOffRaiseJJ)
+      if (P.stackOffRaiseNP != null && sp < 0.975) share = 0.6 * (sp > 0.97 && P.stackOffRaiseJJ != null ? P.stackOffRaiseJJ : P.stackOffRaiseNP);
       if (ctx.aggAllIn && sp <= 0.94) share *= P.isoRaise ?? 0.3; // JJ-99, AQ, AJs, KQs and better still isolate
       raise = go * share;
       call = go * (1 - share);
@@ -537,13 +541,19 @@ export function postflopPolicy(ctx, P, f) {
     let pValue = soft(S, valueThr, 0.035);
     // POOL batch 15 (QA-OPP P2): once the table has checked to me or checked a street through, strong hands slowplay
     // less: slowplay x ctSlowMult (0.5; the nit 0.6), the river already uses 0.25
-    const slowMult = st < 2 ? (ct && P.ctSlowMult != null ? P.ctSlowMult : 1) : 0.25;
+    // POOL batch 16 (PRO's shape b): also after my own bet or raise on the previous street (or as the preflop raiser
+    // on the flop): the table has called, so strong hands keep betting
+    const slowCut = (ct || (P.initSlow && ctx.initiative)) && P.ctSlowMult != null;
+    // POOL batch 16 (PRO's trap-once): a trips+ hand I already checked last street, with the street checked through,
+    // has had its trap; now it bets (slowplay x trapOnce)
+    const trappedOnce = P.trapOnce != null && st > 0 && ctx.prevChecked && ctx.iCheckedPrev && f.prevTier >= TIER.STRONG;
+    const slowMult = trappedOnce ? P.trapOnce : st < 2 ? (slowCut ? P.ctSlowMult : 1) : 0.25;
     if (f.tier >= TIER.STRONG) pValue *= 1 - P.slowplay * slowMult;
     // M5: strong hands trap out of position multiway, by where the preflop raiser sits; half as
     // often on a wet board. Trapping only ever adds checks.
     if (P.mwTrap3 && !ctx.inPosition && extra >= 1 && f.tier >= TIER.STRONG && st < 2) {
       let rate = ctx.aggressorBehind ? P.mwTrap3[0] : ctx.initiative ? P.mwTrap3[1] : P.mwTrap3[2];
-      if (ct && P.ctSlowMult != null) rate *= P.ctSlowMult; // POOL batch 15 (P2)
+      if (trappedOnce) rate *= P.trapOnce; else if (slowCut) rate *= P.ctSlowMult; // POOL batch 15 (P2), batch 16 (initiative, trap-once)
       if (ctx.wet) rate *= 0.5;
       pValue *= ctx.aggressorBehind ? Math.min(st === 0 && ctx.drawy && P.donkWet != null ? P.donkWet : P.donk, 1 - rate) : 1 - rate;
     } else if (ctx.aggressorBehind) pValue *= st === 0 && ctx.drawy && P.donkWet != null ? P.donkWet : P.donk; // POOL batch 15 (PRO): lead strong hands more on a drawy flop
@@ -599,6 +609,7 @@ export function postflopPolicy(ctx, P, f) {
   if (ctx.callersIn > 0 && P.mwOvercall && (P.mwOvercall?.[st] ?? 0)) {
     const ocBf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall * (1 + ctx.callersIn));
     oc = (P.mwOvercall?.[st] ?? 0) * ctx.callersIn * (P.ocSize ? Math.pow(Math.max(0.25, ocBf) / 0.5, P.ocSize) : 1);
+    if (P.ocStrongMult != null && f.tier >= TIER.OVERPAIR_TPTK && ocBf <= 0.6) oc *= P.ocStrongMult; // POOL batch 16 (14-13): against a bet of about half pot or less, an overpair or TPTK+ is not a marginal overcall
   }
   if (facingRaise && ctx.iBetThisStreet) mw += P.ledRaiseRespect;
   const respect = respectFor(P, ctx, st);
@@ -642,9 +653,13 @@ export function postflopPolicy(ctx, P, f) {
   if (st < 2 && f.drawEquity > 0) {
     // Draws continue when the price is right; loose players chase without the price.
     const need = ctx.odds * P.chase;
-    pCont = Math.max(pCont, soft(f.drawEquity, need, 0.03));
+    // POOL batch 16 (rule 3 A's): once the call is 30%+ of the stack, only real draw outs count (overcards don't),
+    // so ace-high doesn't call off a stack as a "draw"
+    const bigCall = P.realDrawOnStack && ctx.toCall >= 0.3 * (ctx.stack + ctx.myBet);
+    pCont = Math.max(pCont, soft(bigCall ? f.ownDrawEquity ?? f.drawEquity : f.drawEquity, need, 0.03));
   }
-  if (st === 0 && ctx.inPosition && !facingRaise && ctx.odds <= 0.3) pCont = Math.max(pCont, P.float * Math.pow(1 - P.mwBluffCut, extra)); // M4
+  // M4 floats; POOL batch 16: not for a call of 30%+ of the stack
+  if (st === 0 && ctx.inPosition && !facingRaise && ctx.odds <= 0.3 && !(P.realDrawOnStack && ctx.toCall >= 0.3 * (ctx.stack + ctx.myBet))) pCont = Math.max(pCont, P.float * Math.pow(1 - P.mwBluffCut, extra));
   let pBluffRaise = 0;
   if (S < callThr) {
     pBluffRaise = P.raiseBluff[st];
@@ -686,6 +701,14 @@ export function postflopPolicy(ctx, P, f) {
     const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall);
     const w = clamp((0.25 - bf) / 0.1, 0, 1);
     if (w > 0) pCont = Math.max(pCont, w * (1 - P.tinyFold * ctx.odds));
+  }
+  // POOL batch 16 (PRO's ceilings): facing one small bet (1/3 pot or less, 4:1 or better), a pair continues at least
+  // smallCont [top pair+, middle pair, weak pair], fading out by a half-pot bet. Overcalls included; raises not.
+  if (!facingRaise && P.smallCont && !(P.smallContFirstOnly && ctx.callersIn > 0)) { // the solver-style type folds overcalls as equilibrium does
+    const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall * (1 + (ctx.callersIn || 0))); // against the pot before the bet and any calls, so an overcall is never treated as cheaper
+    const w = clamp((0.5 - bf) / 0.16, 0, 1);
+    const g = f.tier >= TIER.TOP_PAIR_WEAK && f.tier <= TIER.OVERPAIR_TPTK ? 0 : f.tier === TIER.MIDDLE_PAIR ? 1 : f.tier === TIER.WEAK_PAIR ? 2 : -1;
+    if (g >= 0 && w > 0) pCont = Math.max(pCont, w * (bf <= 0.12 ? Math.max(P.smallCont[g], 0.95) : P.smallCont[g])); // at 8:1 or better any pair calls 95%+, overcalls too (POOL)
   }
   out.call = (1 - raise) * pCont;
   out.fold = Math.max(0, 1 - out.raise - out.call);

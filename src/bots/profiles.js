@@ -148,6 +148,19 @@ const BASE = {
   probeCT: false,
   ctSlowMult: null,
   donkWet: null,
+  // POOL batch 16 (PRO's review): a checked-to slowplay cut also after your own aggression (initSlow); a monster
+  // checked once already bets at trapOnce's slowplay share; a floor on continuing against a bet of a third of the pot
+  // or less, by pair class [top+, middle, weak] (smallCont; smallContFirstOnly: as the first defender only); a draw
+  // facing a call of 30%+ of the stack counts its own outs and does not float (realDrawOnStack); ocStrongMult: an
+  // overpair or TPTK+ overcalling a bet of about half pot or less is not a marginal overcall
+  initSlow: false,
+  trapOnce: null,
+  smallCont: null,
+  smallContFirstOnly: false,
+  realDrawOnStack: false,
+  ocStrongMult: null,
+  stackOffRaiseNP: null, // POOL batch 16b: a stack-off re-raise share below QQ+/AK (station, nit)
+  stackOffRaiseJJ: null, // ...and JJ's own share (the nit)
   leadIntoRaiserFlop: null, // the flop's lead-into-the-preflop-raiser term (null: leadIntoRaiser)
   ledRaiseRespect: 0, // call-threshold increase when raised after leading this street
   leadBluffMult: 1, // multiplier on bluff-leads into the aggressor
@@ -172,8 +185,14 @@ const DEFS = {
     sqCont: 0.6, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.06, 0.07], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Tight-passive nit',
+    stackOffRaiseNP: 0.05, // POOL batch 16b
+    stackOffRaiseJJ: 0.25, // POOL batch 16b
+    smallCont: [0.84,  0.4,  0.2], // POOL batch 16
+    initSlow: true, // POOL batch 16
+    trapOnce: 0.1, // POOL batch 16
+    realDrawOnStack: true, // POOL batch 16
     probeCT: true, // POOL batch 15
-    ctSlowMult: 0.6, // POOL batch 15
+    ctSlowMult: 0.4, // POOL batch 15; .6 -> .4 batch 16
     checkedToShift: [0, -0.05, -0.1], // POOL batch 15
     blurb: 'Waits for big hands. Limps a lot, rarely raises, and when the money goes in he has it.',
     share: 0.13,
@@ -239,6 +258,10 @@ const DEFS = {
     leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.05, 0.09], // POOL overcall, owner-approved 13 Nov 2026 (river .07 -> .09, POOL correction)
     name: 'Straightforward recreational',
+    smallCont: [0.92,  0.84,  0.64], // POOL batch 16
+    initSlow: true, // POOL batch 16
+    trapOnce: 0.1, // POOL batch 16
+    realDrawOnStack: true, // POOL batch 16
     probeCT: true, // POOL batch 15
     ctSlowMult: 0.5, // POOL batch 15
     donkWet: 0.65, // POOL batch 15
@@ -303,6 +326,11 @@ const DEFS = {
     mwOvercall: [0, 0.03, 0.13], // POOL overcall, owner-approved 13 Nov 2026
     ocSize: 0.25, // POOL overcall: a pot-sized overcall hits harder than a half-pot one
     name: 'Loose-passive calling station',
+    stackOffRaiseNP: 0.05, // POOL batch 16b
+    smallCont: [0.97,  0.88,  0.72], // POOL batch 16
+    initSlow: true, // POOL batch 16
+    trapOnce: 0.1, // POOL batch 16
+    realDrawOnStack: true, // POOL batch 16
     probeCT: true, // POOL batch 15
     ctSlowMult: 0.5, // POOL batch 15
     donkWet: 0.7, // POOL batch 15
@@ -381,6 +409,9 @@ const DEFS = {
     leadIntoRaiserFlop: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.02, 0.13], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Gambler',
+    smallCont: [0.97,  0.94,  0.9], // POOL batch 16
+    initSlow: true, // POOL batch 16
+    trapOnce: 0.1, // POOL batch 16
     probeCT: true, // POOL batch 15
     ctSlowMult: 0.5, // POOL batch 15
     donkWet: 0.8, // POOL batch 15
@@ -517,6 +548,12 @@ const DEFS = {
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.28, 0.25], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Solver-style player',
+    smallCont: [0.88,  0.55,  0], // POOL batch 16
+    initSlow: true, // POOL batch 16
+    trapOnce: 0.1, // POOL batch 16
+    realDrawOnStack: true, // POOL batch 16
+    ocStrongMult: 0.4, // POOL batch 16
+    smallContFirstOnly: true, // POOL batch 16
     probeCT: true, // POOL batch 15
     ctSlowMult: 0.5, // POOL batch 15
     blurb: 'Small opens, small range-bets, balanced bluffs and bluff-catches by the chart, whoever he is up against.',
@@ -603,6 +640,10 @@ const DEFS = {
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.07, 0.1], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Solid regular',
+    smallCont: [0.88,  0.5,  0], // POOL batch 16
+    initSlow: true, // POOL batch 16
+    trapOnce: 0.1, // POOL batch 16
+    realDrawOnStack: true, // POOL batch 16
     probeCT: true, // POOL batch 15
     ctSlowMult: 0.5, // POOL batch 15
     blurb: 'Tight-aggressive grinder. Raises his good hands, isolates limpers, folds when a passive player wakes up.',
@@ -685,6 +726,10 @@ const DEFS = {
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.1, 0.1], // POOL overcall, owner-approved 13 Nov 2026 (river .09 -> .10, POOL correction)
     name: 'Tricky aggressive regular',
+    smallCont: [0.88,  0.6,  0.3], // POOL batch 16
+    initSlow: true, // POOL batch 16
+    trapOnce: 0.1, // POOL batch 16
+    realDrawOnStack: true, // POOL batch 16
     probeCT: true, // POOL batch 15
     ctSlowMult: 0.5, // POOL batch 15
     blurb: 'Plays many hands in position and applies pressure, but picks his spots better than the maniac.',
@@ -769,6 +814,10 @@ const DEFS = {
     leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.08, 0.15], // POOL overcall, owner-approved 13 Nov 2026 (river .12 -> .15, POOL correction)
     name: 'Total beginner',
+    smallCont: [0.95,  0.88,  0.7], // POOL batch 16
+    initSlow: true, // POOL batch 16
+    trapOnce: 0.1, // POOL batch 16
+    realDrawOnStack: true, // POOL batch 16
     probeCT: true, // POOL batch 15
     ctSlowMult: 0.5, // POOL batch 15
     donkWet: 0.8, // POOL batch 15
@@ -869,6 +918,8 @@ const HERO_DEF = {
   ctBehindShiftMult: 1,
   mwTightenCheckedTo: null,
   checkedToShift: [0, 0, 0],
+  // The stand-in adopts the tag's batch 15-16 fields (CEO, 18 Nov 2026: QA verified batch 15's grading with them).
+  // test/heroprofile.test.js pins the whole profile, so any later change to the stand-in has to be deliberate.
   name: 'Exploitative baseline',
   share: 0,
   exploit: true,

@@ -170,7 +170,8 @@ export function junk3betTipFor(v, ctx, name, group, env) {
   const tail = cost > 0 ? ` Here ${v.options[alt].label.toLowerCase()} was about $${cost} better.` : '';
   // against an opener read as a regular, "they seldom fold" is false: say what a solid player does (STRAT J1)
   const top = env && ctx.aggressor >= 0 ? env.readOf(ctx.aggressor).ranked[0] : null;
-  if (top && top.p >= 0.5 && ['tag', 'lag', 'gto'].includes(top.id)) {
+  // the read as the player sees it (rounded to 0.1%, as the snapshot keeps it): a read shown at 50% is a regular here
+  if (top && Math.round(top.p * 1000) / 1000 >= 0.5 && ['tag', 'lag', 'gto'].includes(top.id)) {
     return { kind: 'junk3bet', text: `re-raising with ${name} against a regular rarely pays: they fold their worst hands and keep the ones that have you beaten. Calling or folding is the usual play.${tail}` };
   }
   return { kind: 'junk3bet', text: `re-raising with ${name} is mostly a bluff, and these players seldom fold to a re-raise; calling or folding is the usual play.${tail}` };

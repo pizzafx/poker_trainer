@@ -300,7 +300,10 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
     const t = handFeatures(hole, board.slice(0, 4));
     if (t.flushDraw > 0 || t.straightDraw === 2) missedDraw = 1;
   }
-  return { tier, strength, raw, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, overEquity, nutFlush, missedDraw };
+  // POOL batch 16 (PRO's trap-once): for a strong hand on the turn or river, its tier on the previous board
+  let prevTier = -1;
+  if (board.length >= 4 && tier >= TIER.STRONG) prevTier = handFeatures(hole, board.slice(0, board.length - 1)).tier;
+  return { tier, strength, raw, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, overEquity, nutFlush, missedDraw, prevTier };
 }
 
 export function describeHand(f, board) {

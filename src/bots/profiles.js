@@ -161,6 +161,7 @@ const BASE = {
   ocStrongMult: null,
   stackOffRaiseNP: null, // POOL batch 16b: a stack-off re-raise share below QQ+/AK (station, nit)
   stackOffRaiseJJ: null, // ...and JJ's own share (the nit)
+  airCallOff: null, // POOL batch 17: a cap on calling off a stack or 30bb+ with air [ace/king-high, worse]
   leadIntoRaiserFlop: null, // the flop's lead-into-the-preflop-raiser term (null: leadIntoRaiser)
   ledRaiseRespect: 0, // call-threshold increase when raised after leading this street
   leadBluffMult: 1, // multiplier on bluff-leads into the aggressor
@@ -185,6 +186,7 @@ const DEFS = {
     sqCont: 0.6, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.06, 0.07], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Tight-passive nit',
+    airCallOff: [0.03, 0.03], // POOL batch 17
     stackOffRaiseNP: 0.05, // POOL batch 16b
     stackOffRaiseJJ: 0.25, // POOL batch 16b
     smallCont: [0.84,  0.4,  0.2], // POOL batch 16
@@ -217,7 +219,7 @@ const DEFS = {
     neverFold: 0.66, // POOL P1v2, Nov 2026: was 0.6
     cbet: [0.45, 0.22, 0.1],
     barrel: [0.14, 0.04],
-    stab: [0.14, 0.1, 0.04],
+    stab: [0.055, 0.1, 0.04], // POOL batch 17 (was [0.14, 0.1, 0.04])
     valueBet: [0.58, 0.62, 0.7],
     semiBluff: 0.12,
     slowplay: 0.4,
@@ -258,6 +260,7 @@ const DEFS = {
     leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.05, 0.09], // POOL overcall, owner-approved 13 Nov 2026 (river .07 -> .09, POOL correction)
     name: 'Straightforward recreational',
+    airCallOff: [0.04, 0.04], // POOL batch 17
     smallCont: [0.92,  0.84,  0.64], // POOL batch 16
     initSlow: true, // POOL batch 16
     trapOnce: 0.1, // POOL batch 16
@@ -312,7 +315,7 @@ const DEFS = {
     turnAirMult: 0.35,
     opRaiseCont: 0.6,
     tpRaiseCont: 0.35,
-    missBluff: 0.3,
+    missBluff: 0.15, // POOL batch 17 (was 0.3)
     tpRaiseContR: 0.35,
     opRaiseContR: 0.6,
   },
@@ -326,6 +329,7 @@ const DEFS = {
     mwOvercall: [0, 0.03, 0.13], // POOL overcall, owner-approved 13 Nov 2026
     ocSize: 0.25, // POOL overcall: a pot-sized overcall hits harder than a half-pot one
     name: 'Loose-passive calling station',
+    airCallOff: [0.3, 0.1], // POOL batch 17
     stackOffRaiseNP: 0.05, // POOL batch 16b
     smallCont: [0.97,  0.88,  0.72], // POOL batch 16
     initSlow: true, // POOL batch 16
@@ -396,7 +400,7 @@ const DEFS = {
     // POOL batches 7-11 (Nov 2026)
     turnAirMult: 0.35,
     pairStabTurn: 0.15,
-    missBluff: 0.3,
+    missBluff: 0.15, // POOL batch 17 (was 0.3)
     tpRaiseContR: 0.65,
     opRaiseContR: 0.85,
   },

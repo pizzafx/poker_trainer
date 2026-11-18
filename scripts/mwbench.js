@@ -5,7 +5,7 @@
 //   node scripts/mwbench.js [spotIds,comma] [--verbose]
 // Exit code 1 if anything fails.
 import { STREET } from '../src/engine/game.js';
-import { judgeDecision } from '../src/trainer/judge.js';
+import { judgeDecision, pairedGap } from '../src/trainer/judge.js';
 import { samplesFor } from '../src/trainer/session.js';
 import { gradeAll, matches, build } from './gradeall.js';
 import { SPOTS, EXPECT } from './mwbench_spots.js';
@@ -41,7 +41,19 @@ for (const spot of SPOTS.filter((x) => !ids || ids.includes(x.id))) {
   each(ex.accept, (r, tok) => (r.v.grade !== 'good' ? `accept ${tok}, got ${r.v.grade} (vs ${short(r.o === r.v.options[r.v.best] ? r.o : r.v.options[r.v.best])})` : null));
   each(ex.flag, (r, tok) => (r.v.grade === 'good' ? `flag ${tok}, got good${r.v.note ? ` (${r.v.note})` : ''}` : null));
   each(ex.softFlag, (r, tok) => (r.v.grade === 'blunder' ? `softFlag ${tok}, got red` : r.best && r.v.note !== 'mwHabit' ? `softFlag ${tok}, shown as best play` : null));
-  each(ex.neverBest, (r, tok) => (r.best ? `neverBest ${tok}, shown as best play` : null));
+  // neverBest is tolerant (STRAT, batch 17): it fails only when the best bet in the band beats the best size outside
+  // it by more than max($1, 2 SE of their paired gap); within that it is a tie
+  each(ex.neverBest, (r, tok) => {
+    if (!r.best) return null;
+    const v = r.v;
+    let out = -1;
+    v.options.forEach((o, i) => {
+      if (o.type === r.o.type && !matches(tok, o, s, pot) && (out < 0 || o.ev > v.options[out].ev)) out = i;
+    });
+    if (out < 0) return `neverBest ${tok}, shown as best play`;
+    const g = pairedGap(v, v.mine, out);
+    return g.mean > Math.max(1, 2 * g.se) ? `neverBest ${tok}, shown as best play by $${g.mean.toFixed(1)} (2 SE $${(2 * g.se).toFixed(1)})` : null;
+  });
   for (const [tok, note] of Object.entries(ex.note || {})) each([tok], (r) => (r.v.note !== note ? `note ${tok} should be ${note}, got ${r.v.note || 'none'} (${r.v.grade})` : null));
   for (const [tok, g] of Object.entries(ex.maxGrade || {})) each([tok], (r) => (RANK[r.v.grade] > RANK[g] ? `maxGrade ${tok} ${g}, got ${r.v.grade}` : null));
   if (ex.noGrade) for (const r of rows) if (r.v.grade !== 'good') problems.push(`${short(r.o)}: noGrade spot, got ${r.v.grade}`);

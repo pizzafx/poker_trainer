@@ -3,7 +3,7 @@
 // The same function drives the bots, the range tracker (as a likelihood) and the judge.
 
 import { legal, potSize, STREET } from '../engine/game.js';
-import { TIER } from '../engine/features.js';
+import { TIER, isRealDraw } from '../engine/features.js';
 
 import { EQ_HEADS_UP } from '../data/preflop.js';
 import { classInfo, classIndex, CLASS_COUNT } from '../engine/hands.js';
@@ -656,7 +656,11 @@ export function postflopPolicy(ctx, P, f) {
     // POOL batch 16 (rule 3 A's): once the call is 30%+ of the stack, only real draw outs count (overcards don't),
     // so ace-high doesn't call off a stack as a "draw"
     const bigCall = P.realDrawOnStack && ctx.toCall >= 0.3 * (ctx.stack + ctx.myBet);
-    pCont = Math.max(pCont, soft(bigCall ? f.ownDrawEquity ?? f.drawEquity : f.drawEquity, need, 0.03));
+    // POOL batch 17 (PRO, the missedBluff check): a real draw keeps its full equity (overcards included); a gutshot gets
+    // half credit for its overcards; overcards alone count nothing
+    const own = f.ownDrawEquity ?? f.drawEquity;
+    const eqBig = isRealDraw(f) ? f.drawEquity : f.straightDraw === 1 ? own + 0.5 * (f.overEquity || 0) : own;
+    pCont = Math.max(pCont, soft(bigCall ? eqBig : f.drawEquity, need, 0.03));
   }
   // M4 floats; POOL batch 16: not for a call of 30%+ of the stack
   if (st === 0 && ctx.inPosition && !facingRaise && ctx.odds <= 0.3 && !(P.realDrawOnStack && ctx.toCall >= 0.3 * (ctx.stack + ctx.myBet))) pCont = Math.max(pCont, P.float * Math.pow(1 - P.mwBluffCut, extra));
@@ -709,6 +713,15 @@ export function postflopPolicy(ctx, P, f) {
     const w = clamp((0.5 - bf) / 0.16, 0, 1);
     const g = f.tier >= TIER.TOP_PAIR_WEAK && f.tier <= TIER.OVERPAIR_TPTK ? 0 : f.tier === TIER.MIDDLE_PAIR ? 1 : f.tier === TIER.WEAK_PAIR ? 2 : -1;
     if (g >= 0 && w > 0) pCont = Math.max(pCont, w * (bf <= 0.12 ? Math.max(P.smallCont[g], 0.95) : P.smallCont[g])); // at 8:1 or better any pair calls 95%+, overcalls too (POOL)
+  }
+  // POOL batch 17 (PRO ceiling 6, B clarification 17 Nov 2026): calling off a stack or 30bb+ with no pair and no real
+  // draw is capped per type at airCallOff [ace/king-high, worse], halved against two or more opponents
+  // (PRO: only with 20bb+ at stake, as rule 3; the cap holds for raise and call together)
+  if (P.airCallOff && f.tier <= TIER.HIGH_CARD && !isRealDraw(f) && (ctx.toCall >= 30 * ctx.bb || (ctx.toCall >= ctx.stack && ctx.toCall >= 20 * ctx.bb))) {
+    const cap = P.airCallOff[f.tier === TIER.HIGH_CARD ? 0 : 1] * (ctx.nOpp >= 2 ? 0.5 : 1);
+    raise = Math.min(raise, cap);
+    out.raise = raise;
+    pCont = Math.min(pCont, raise < 1 ? (cap - raise) / (1 - raise) : 0);
   }
   out.call = (1 - raise) * pCont;
   out.fold = Math.max(0, 1 - out.raise - out.call);

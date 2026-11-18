@@ -238,6 +238,17 @@ function goodHeadline(v, mine, best, d = {}) {
     const alt = from || (gap(best) > 0 && best !== mine ? best : top);
     const bars = gap(alt) > 0 ? `${bare(alt)} ${more(alt)} on the bars, but ` : '';
     const lined = !!anchorLine(d);
+    // A2 (STRAT, YB-V4b): "the coach's estimate below" only when the line below is about the option it names;
+    // otherwise the unsupported play is named plainly, and the comparison that decides the grade is its own sentence
+    if (from && lined) {
+      const named = (anchorLine(d) || '').match(/^A bet of \$(\d+):/);
+      const lineAbout = from === mine || (named && from.type === 'raise' && Math.round(from.to - (d.currentBet || 0)) === +named[1]);
+      const ing = { fold: 'folding', check: 'checking', call: 'calling' }[mine.type] || 'this';
+      const lead = gap(alt) > 0 ? `${bare(alt)} ${more(alt)} against these bots, but ` : '';
+      if (!lineAbout) return `${mine.label}: fine. (${lead ? lead + 'it is not a play that works against anyone here' : `${bare(alt)} is not a play that works against anyone here`}. Against ${bare(best).toLowerCase()}, ${ing} gives up too little to flag.)`;
+      const w = `by the coach's estimate below it does not work; against ${bare(best).toLowerCase()} this gives up too little to flag`;
+      return `${mine.label}: fine. (${lead ? lead + w : w[0].toUpperCase() + w.slice(1)}.)`;
+    }
     if (!lined) return gap(alt) > 0 ? `${mine.label}: fine. (${bare(alt)} ${more(alt)} on the bars, but it is not flagged.)` : `${mine.label}: fine.`;
     const playWord = mine.type === 'call' ? 'call' : d.toCall > 0 ? 'raise' : 'bet';
     let why;

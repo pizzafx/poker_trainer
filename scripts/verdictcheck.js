@@ -249,6 +249,9 @@ export const INVARIANTS = {
     (v.anchorWhy === 'works' && /does not work|Do not bluff|mostly call with better|Not at this price|needs more folds than you get\.$/.test(d.anchor) && !/bet for value|A bigger/.test(d.anchor)) ||
     (v.anchorWhy === 'fails' && /bet for value/.test(d.anchor))),
   'F1b "bluffs this often" only against a range shown with 25% or more nothing plus draws (STRAT, POOL batch 12)': (d) => /bluffs this often/.test(d.anchor || '') && !!(d.villain && d.villain.picture && d.villain.picture.buckets) && Math.round(100 * (d.villain.picture.buckets.air + d.villain.picture.buckets.draw)) < 25,
+  // STRAT (YB-V4b): "the coach's estimate below" only when the line below describes the option it refers to;
+  // an A2 headline naming a raise never cites a line about calling or holding
+  'YB-V4c an A2 headline cites the estimate below only when that line is about the option it names': (d) => /estimate below it does not work/.test(d.headline || '') && d.verdict && d.verdict.anchorWhy === 'A2' && /^You are ahead about/.test(d.anchor || ''),
   'YB-V4b "does not work" in the headline never sits over a break-even line': (d) => /estimate below it does not work/.test(d.headline || '') && /about breaks even|That is thin|: close\.$/.test(d.anchor || ''),
   // ---- STRAT 19 / MATH 19a (QA-C8a) ----
   'C8b the "Together" verdict matches the combined test on the bet the line names (MATH 19b)': (d, v) => {

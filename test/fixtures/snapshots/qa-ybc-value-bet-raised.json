@@ -1,0 +1,453 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "qa-ybc-value-bet-raised",
+ "hole": "7d 8c",
+ "board": "Tc 8h 4d 8d Qh",
+ "pot": 1217,
+ "action": {
+  "type": "raise",
+  "to": 402
+ },
+ "took": "Bet $402 (33% pot)",
+ "samples": 780,
+ "judgeSeed": 2116,
+ "table": {
+  "game": "casino",
+  "blinds": [
+   2,
+   5
+  ],
+  "straddle": 0,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 16,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "BTN",
+    "startStack": 1000,
+    "stack": 588,
+    "inPot": 412,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Ball Cap",
+    "pos": "SB",
+    "startStack": 988,
+    "stack": 986,
+    "inPot": 2,
+    "folded": true,
+    "read": [
+     {
+      "type": "nit",
+      "p": 0.736
+     },
+     {
+      "type": "tag",
+      "p": 0.098
+     },
+     {
+      "type": "abc",
+      "p": 0.059
+     }
+    ],
+    "observed": {
+     "hands": 15,
+     "vpip": 0,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 2,
+    "name": "New Guy",
+    "pos": "BB",
+    "startStack": 1148,
+    "stack": 736,
+    "inPot": 412,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.803
+     },
+     {
+      "type": "nit",
+      "p": 0.073
+     },
+     {
+      "type": "station",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 15,
+     "vpip": 3,
+     "pfr": 0,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 3,
+    "name": "Shades",
+    "pos": "UTG",
+    "startStack": 873,
+    "stack": 873,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.654
+     },
+     {
+      "type": "lag",
+      "p": 0.137
+     },
+     {
+      "type": "gto",
+      "p": 0.101
+     }
+    ],
+    "observed": {
+     "hands": 15,
+     "vpip": 4,
+     "pfr": 3,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 4,
+    "name": "Cardigan",
+    "pos": "UTG+1",
+    "startStack": 715,
+    "stack": 715,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "nit",
+      "p": 0.505
+     },
+     {
+      "type": "abc",
+      "p": 0.365
+     },
+     {
+      "type": "tag",
+      "p": 0.022
+     }
+    ],
+    "observed": {
+     "hands": 15,
+     "vpip": 4,
+     "pfr": 3,
+     "showdowns": 2
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Button-Down",
+    "pos": "UTG+2",
+    "startStack": 576,
+    "stack": 576,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.768
+     },
+     {
+      "type": "station",
+      "p": 0.084
+     },
+     {
+      "type": "nit",
+      "p": 0.04
+     }
+    ],
+    "observed": {
+     "hands": 15,
+     "vpip": 6,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 6,
+    "name": "Party Crew",
+    "pos": "LJ",
+    "startStack": 391,
+    "stack": 0,
+    "inPot": 391,
+    "folded": false,
+    "read": [
+     {
+      "type": "whale",
+      "p": 0.82
+     },
+     {
+      "type": "station",
+      "p": 0.057
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 12,
+     "vpip": 11,
+     "pfr": 1,
+     "showdowns": 3
+    },
+    "steaming": true
+   },
+   {
+    "seat": 7,
+    "name": "Jersey",
+    "pos": "HJ",
+    "startStack": 1139,
+    "stack": 1139,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.854
+     },
+     {
+      "type": "station",
+      "p": 0.021
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 15,
+     "vpip": 5,
+     "pfr": 1,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 8,
+    "name": "Loud Guy",
+    "pos": "CO",
+    "startStack": 709,
+    "stack": 709,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.788
+     },
+     {
+      "type": "station",
+      "p": 0.08
+     },
+     {
+      "type": "whale",
+      "p": 0.024
+     }
+    ],
+    "observed": {
+     "hands": 15,
+     "vpip": 8,
+     "pfr": 1,
+     "showdowns": 1
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Ball Cap",
+    "type": "sb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "New Guy",
+    "type": "bb",
+    "to": 5,
+    "amount": 5
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Shades",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Cardigan",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Button-Down",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Party Crew",
+    "type": "call",
+    "to": 5,
+    "amount": 5
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Jersey",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "Loud Guy",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 5,
+    "amount": 5
+   },
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Ball Cap",
+    "type": "fold",
+    "to": 2,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "New Guy",
+    "type": "check",
+    "to": 5,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 2,
+    "who": "New Guy",
+    "type": "bet",
+    "to": 13,
+    "amount": 13
+   },
+   {
+    "street": "flop",
+    "seat": 6,
+    "who": "Party Crew",
+    "type": "call",
+    "to": 13,
+    "amount": 13
+   },
+   {
+    "street": "flop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 13,
+    "amount": 13
+   },
+   {
+    "street": "turn",
+    "seat": 2,
+    "who": "New Guy",
+    "type": "bet",
+    "to": 55,
+    "amount": 55
+   },
+   {
+    "street": "turn",
+    "seat": 6,
+    "who": "Party Crew",
+    "type": "call",
+    "to": 55,
+    "amount": 55
+   },
+   {
+    "street": "turn",
+    "seat": 0,
+    "who": "You",
+    "type": "raise",
+    "to": 394,
+    "amount": 394
+   },
+   {
+    "street": "turn",
+    "seat": 2,
+    "who": "New Guy",
+    "type": "call",
+    "to": 394,
+    "amount": 339
+   },
+   {
+    "street": "turn",
+    "seat": 6,
+    "who": "Party Crew",
+    "type": "call",
+    "to": 373,
+    "amount": 318
+   },
+   {
+    "street": "river",
+    "seat": 2,
+    "who": "New Guy",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   }
+  ],
+  "pot": 1217,
+  "heat": 0.618,
+  "heatAt": {
+   "17": 0.617701337561469,
+   "18": 0.617701337561469
+  },
+  "judge": {
+   "seed": 2116,
+   "samples": 780
+  }
+ },
+ "villainPost": null,
+ "recorded": {
+  "grade": "mistake",
+  "best": "Check",
+  "took": "Bet $402 (33% pot)",
+  "loss": 315.9923076923077,
+  "headline": "Mistake: bet $402 (33% pot) costs about $316 compared with check."
+ },
+ "expect": {
+  "grade": "mistake",
+  "best": "Check"
+ },
+ "why": "QA-VERDICT YB-C: a value bet raised 68% is not \"works\" (MATH value test); the bet that loses $316 against checking is flagged"
+}

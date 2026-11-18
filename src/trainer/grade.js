@@ -254,8 +254,13 @@ export const PREMIUM_RERAISE = new Set(['AA', 'KK', 'QQ', 'AKs', 'AKo']);
 export const ISO_RERAISE = new Set(['JJ', 'TT', '99', '88', 'AQs', 'AJs', 'ATs', 'AQo', 'KQs']);
 
 export function gradeDecision(s, belief, action, judgeOpts, env) {
+  return gradeVerdict(judgeDecision(s, HERO, belief, action, judgeOpts), s, action, judgeOpts, env);
+}
+
+// The guardrails and the tip on a verdict already judged: the play's own grading path after the judge.
+// The Drill bank grades its options from the bank-strength judgement through here.
+export function gradeVerdict(verdict, s, action, judgeOpts, env) {
   const ctx = buildContext(s);
-  const verdict = judgeDecision(s, HERO, belief, action, judgeOpts);
   temper(verdict, s, ctx, action, judgeOpts, env);
   if (s.street === STREET.PRE) preAllInFacts(verdict, s, ctx);
   let tip = null;
@@ -354,7 +359,10 @@ function moneyInArm(v, s, ctx) {
   v.sameKind = false;
   v.loss = g.mean;
   v.se = g.se;
-  delete v.priceCap; // the loss above is already capped at the price; the headline states it plainly
+  // a call's shown cost stays capped at its price, as its loss above (rule 7; QA-VERDICT V4: "call $16 costs
+  // about $19" was the uncapped gap of the option values); a bet or raise has no cap
+  if (mine.type === 'call') v.priceCap = put;
+  else delete v.priceCap;
   v.moneyIn = { put: Math.round(put), loss: Math.round(g.mean), give: v.options[give].type }; // R12 does not run here: the 3 SE test is its robustness check
   refreshClose(v);
 }
@@ -1048,6 +1056,18 @@ export function drawTest(o, hf, opp) {
   return { gain, F, R, C, e, K, B, st: gain >= 0 ? 'works' : gain >= -0.05 * (P + B) ? 'even' : 'fails' };
 }
 export const drawCovers = (o, hf, opp) => drawTest(o, hf, opp)?.st === 'works';
+// MATH (YB-C): a made hand's value bet against checking, per unit of the pot before it, with the raise charged
+// at the bet: gainV = C*B*(W*K - 1) - R*B (folds earn nothing: checking wins that pot too). It can take a
+// "works" away (to "even"), never assert "fails": the judge does not record how we stand against the raisers.
+export function valueGain(o) {
+  if (o.alpha === undefined || o.alpha >= 1 || o.W === undefined || o.W === null) return null;
+  const B = o.alpha / (1 - o.alpha);
+  const F = o.F ?? 0;
+  const R = o.R || 0;
+  const C = o.C ?? Math.max(0, 1 - F - R);
+  const K = 1 / (o.need ?? 0.5);
+  return C * B * (o.W * K - 1) - R * B;
+}
 export function callQ(v, hf) {
   const A = v.anchors;
   if (!A || A.Q === undefined) return undefined;
@@ -1072,7 +1092,9 @@ export function anchorStatus(o, v, hf, opp) {
     if (hf.tier >= TIER.WEAK_PAIR) {
       if (!o.called) return 'even';
       const e = se(o.W, o.called);
-      if (o.W - (o.need + (river ? 0 : 0.1)) >= 2 * e) return 'works';
+      // raises charged (MATH, YB-C), only where the bet scores below the best play that is not a bet: where the judge
+      // rates the bet best, being raised is good for it (STRAT's guard)
+      if (o.W - (o.need + (river ? 0 : 0.1)) >= 2 * e) return (valueGain(o) ?? 0) < 0 && o.ev < Math.max(...v.options.filter((x) => x.type !== 'raise').map((x) => x.ev)) ? 'even' : 'works';
       if (o.need - o.W >= 2 * e) return 'fails';
       return 'even';
     }

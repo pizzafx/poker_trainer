@@ -1,0 +1,430 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "qa-ybv4b-a2-copy",
+ "hole": "Kc 4d",
+ "board": "Ks 3d 5c 5h",
+ "pot": 592,
+ "action": null,
+ "took": "Fold",
+ "samples": 1500,
+ "judgeSeed": 5258,
+ "table": {
+  "game": "casino",
+  "blinds": [
+   2,
+   5
+  ],
+  "straddle": 0,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 40,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "BTN",
+    "startStack": 1000,
+    "stack": 875,
+    "inPot": 125,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Jersey",
+    "pos": "SB",
+    "startStack": 1885,
+    "stack": 1883,
+    "inPot": 2,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.861
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "station",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 39,
+     "vpip": 15,
+     "pfr": 2,
+     "showdowns": 4
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Button-Down",
+    "pos": "BB",
+    "startStack": 795,
+    "stack": 790,
+    "inPot": 5,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.599
+     },
+     {
+      "type": "station",
+      "p": 0.182
+     },
+     {
+      "type": "nit",
+      "p": 0.104
+     }
+    ],
+    "observed": {
+     "hands": 2,
+     "vpip": 1,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 3,
+    "name": "Loud Guy",
+    "pos": "UTG",
+    "startStack": 645,
+    "stack": 640,
+    "inPot": 5,
+    "folded": true,
+    "read": [
+     {
+      "type": "whale",
+      "p": 0.325
+     },
+     {
+      "type": "station",
+      "p": 0.311
+     },
+     {
+      "type": "abc",
+      "p": 0.256
+     }
+    ],
+    "observed": {
+     "hands": 4,
+     "vpip": 4,
+     "pfr": 1,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 4,
+    "name": "Hoodie",
+    "pos": "UTG+1",
+    "startStack": 451,
+    "stack": 451,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.621
+     },
+     {
+      "type": "gto",
+      "p": 0.146
+     },
+     {
+      "type": "lag",
+      "p": 0.124
+     }
+    ],
+    "observed": {
+     "hands": 22,
+     "vpip": 2,
+     "pfr": 1,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Jeans",
+    "pos": "UTG+2",
+    "startStack": 1553,
+    "stack": 1553,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "station",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 39,
+     "vpip": 7,
+     "pfr": 1,
+     "showdowns": 5
+    }
+   },
+   {
+    "seat": 6,
+    "name": "Big Watch",
+    "pos": "LJ",
+    "startStack": 1197,
+    "stack": 1162,
+    "inPot": 35,
+    "folded": true,
+    "read": [
+     {
+      "type": "maniac",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 39,
+     "vpip": 24,
+     "pfr": 19,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 7,
+    "name": "Cardigan",
+    "pos": "HJ",
+    "startStack": 284,
+    "stack": 284,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "station",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 39,
+     "vpip": 6,
+     "pfr": 0,
+     "showdowns": 4
+    }
+   },
+   {
+    "seat": 8,
+    "name": "Shades",
+    "pos": "CO",
+    "startStack": 1285,
+    "stack": 865,
+    "inPot": 420,
+    "folded": false,
+    "read": [
+     {
+      "type": "lag",
+      "p": 0.844
+     },
+     {
+      "type": "tag",
+      "p": 0.032
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 39,
+     "vpip": 7,
+     "pfr": 5,
+     "showdowns": 4
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Jersey",
+    "type": "sb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Button-Down",
+    "type": "bb",
+    "to": 5,
+    "amount": 5
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Loud Guy",
+    "type": "call",
+    "to": 5,
+    "amount": 5
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Hoodie",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Jeans",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Big Watch",
+    "type": "call",
+    "to": 5,
+    "amount": 5
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Cardigan",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "Shades",
+    "type": "raise",
+    "to": 35,
+    "amount": 35
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 35,
+    "amount": 35
+   },
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Jersey",
+    "type": "fold",
+    "to": 2,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Button-Down",
+    "type": "fold",
+    "to": 5,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Loud Guy",
+    "type": "fold",
+    "to": 5,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Big Watch",
+    "type": "call",
+    "to": 35,
+    "amount": 30
+   },
+   {
+    "street": "flop",
+    "seat": 6,
+    "who": "Big Watch",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 8,
+    "who": "Shades",
+    "type": "bet",
+    "to": 90,
+    "amount": 90
+   },
+   {
+    "street": "flop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 90,
+    "amount": 90
+   },
+   {
+    "street": "flop",
+    "seat": 6,
+    "who": "Big Watch",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "turn",
+    "seat": 8,
+    "who": "Shades",
+    "type": "bet",
+    "to": 295,
+    "amount": 295
+   }
+  ],
+  "pot": 592,
+  "heat": 0.095,
+  "heatAt": {},
+  "judge": {
+   "seed": 5258,
+   "samples": 1500
+  }
+ },
+ "villainPost": null,
+ "recorded": {
+  "grade": "good",
+  "best": "Call $295",
+  "took": "Fold",
+  "loss": 54.86666666666667,
+  "headline": "Fold: fine. (All-in $875 scores about $192 more against these bots, but it is not a play that works against anyone here. Against call $295, folding gives up too little to flag.)"
+ },
+ "expect": {
+  "grade": "good",
+  "best": "Call $295"
+ },
+ "why": "QA-VERDICT YB-V4b: the A2 headline does not cite the estimate line below when that line is about the call (STRAT copy)"
+}

@@ -15,6 +15,12 @@ const SEED = +(process.argv[3] || 7);
 const TABLE = process.argv[4] || 'typical';
 const TYPES = (process.argv[5] || 'abc,tag').split(',');
 const OFF = Object.fromEntries(TYPES.map((t) => [t, { ...PROFILES[t], rangeRead: null }]));
+// overrides for trying a setting: RR=<value read> BAR=<bar, all streets> UP=1 (rangeUpOnly), applied to every type listed
+for (const t of TYPES) {
+  if (process.env.RR) PROFILES[t].rangeRead = [+process.env.RR, 0];
+  if (process.env.BAR) PROFILES[t].rangeBar = [+process.env.BAR, +process.env.BAR, +process.env.BAR];
+  if (process.env.UP) PROFILES[t].rangeUpOnly = process.env.UP === '1';
+}
 const HAND = (f) => (f.tier >= TIER.STRONG ? '5 set+' : f.tier === TIER.TWO_PAIR ? '4 two pair' : f.tier === TIER.OVERPAIR_TPTK ? '3 overpair/TPTK' : f.tier === TIER.TOP_PAIR_GOOD ? '2 TPGK' : f.tier === TIER.TOP_PAIR_WEAK ? '1 TPWK' : f.tier >= TIER.WEAK_PAIR ? '0 weak/mid pair' : '- no pair');
 const cells = new Map();
 const add = (key, on, off, ahead) => {

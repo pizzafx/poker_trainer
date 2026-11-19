@@ -618,6 +618,7 @@ function mdKeep(q, ctx) {
   if (q === 0) return ctx.checkedTo && ctx.inPosition ? MD_KEEP_NOW : 1;
   return Math.max(MD_KEEP_MIN, MD_KEEP_FULL ** q);
 }
+export const RANGE_TOP = 0.105;
 export const RANGE_SCALE = 0.5; // strength per unit of 'ahead when called': 7 points of ahead move the bet rate as 0.035 of strength does
 function boardAwareStrength(ctx, f, P = {}) {
   let mf = f.mdFlush ?? 1, ms = f.mdStraight ?? 1;
@@ -691,7 +692,13 @@ export function postflopPolicy(ctx, P, f) {
     const rr = P.rangeRead ? P.rangeRead[0] : 0;
     if (rr > 0 && ctx.rtState && ctx.canRaise) {
       const rd = ctx.rtState.rt.betRead(ctx.rtState, ctx.seat, binOf(f), P.rangeBetFrac);
-      Sv = S + rr * (valueThr + (rd.ahead - P.rangeBar[st]) * RANGE_SCALE - S);
+      // the range-aware number tops out at RANGE_TOP above the threshold (a 95% bet by itself), so a read never
+      // removes the last few checks a type keeps; rangeUpOnly types (recreational: they bet the label of the hand)
+      // use the read only to bet more often, never less
+      const Sr = valueThr + Math.min(RANGE_TOP, (rd.ahead - P.rangeBar[st]) * (P.rangeScale ? P.rangeScale[st] : RANGE_SCALE));
+      Sv = S + rr * (Sr - S);
+      if (P.rangeUpOnly && Sv < S) Sv = S;
+      out.fit = [S - valueThr, rd.ahead]; // for scripts/rangefit.js
     }
     let pValue = soft(Sv, valueThr, 0.035);
     // POOL batch 15 (QA-OPP P2): once the table has checked to me or checked a street through, strong hands slowplay

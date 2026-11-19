@@ -179,6 +179,7 @@ const BASE = {
   rangeRead: null,
   rangeBar: null,
   rangeBetFrac: null,
+  rangeUpOnly: null, // the read only ever adds value bets (recreational types: they bet the label of the hand)
   leadIntoRaiserFlop: null, // the flop's lead-into-the-preflop-raiser term (null: leadIntoRaiser)
   ledRaiseRespect: 0, // call-threshold increase when raised after leading this street
   leadBluffMult: 1, // multiplier on bluff-leads into the aggressor
@@ -295,6 +296,7 @@ const DEFS = {
     airCallOff: [0.04, 0.04], // POOL batch 17
     tpLabel: 0.8, // POOL batch 18 (PRO's TPWK floors)
     rangeRead: [0.5, 0.3], // MATH range-bots stage 2 (POOL's table)
+    rangeUpOnly: true, // stage 2 tuning: two-sided, the read took abc under PRO's dry-board floors for a weak-kicker top pair
     rangeBar: [0.6, 0.6, 0.6], // STRAT: straightforward 60%
     rangeBetFrac: 0.55,
     smallCont: [0.92,  0.84,  0.64], // POOL batch 16
@@ -1005,6 +1007,7 @@ const HERO_DEF = {
   rangeRead: null, // MATH range-bots: the stand-in stays as it is until a later stage measures it
   rangeBar: null,
   rangeBetFrac: null,
+  rangeUpOnly: null,
 };
 
 export const TYPE_IDS = Object.keys(DEFS);

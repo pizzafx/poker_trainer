@@ -203,3 +203,33 @@ test('drill run builder on the shipped bank: 10,000 runs and a year of Dailies, 
   assert.equal(r.checked, 10366);
   assert.deepEqual(r.failed.slice(0, 5), []);
 });
+
+// Serving weights (CEO, GAME, CURR): a lesson's spots are drawn by the bank's `weight` only while the partner is open
+import { weightedTake, drawWeight, runVersion, BUILDER } from '../src/drill/game.js';
+test('drill weights: weight 1 is the old uniform pick; heavier spots come up more; the builder version is in the seed', () => {
+  // all weights 1: the same index as floor(rnd() x n)
+  for (const u of [0, 0.2, 0.5, 0.99]) assert.equal(weightedTake([0, 1, 2, 3, 4], () => u, () => 1), Math.floor(u * 5));
+  // weights 3:1: the first is taken about 3 times in 4
+  let r = 11;
+  const rnd = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+  let first = 0;
+  for (let k = 0; k < 4000; k++) if (weightedTake(['a', 'b'], rnd, (x) => (x === 'a' ? 3 : 1)) === 'a') first++;
+  assert.ok(first > 2850 && first < 3150, `${first}`);
+  assert.equal(runVersion({ version: 'abc' }), `abc+b${BUILDER}`);
+  // only with the partner open
+  assert.equal(drawWeight({ skill: 'D1', weight: 2 }, () => true), 2);
+  assert.equal(drawWeight({ skill: 'D1', weight: 2 }, () => false), 1);
+  assert.equal(drawWeight({ skill: 'D1' }, () => true), 1);
+});
+
+test('drill weights in runs: with the partner closed a weighted bank deals exactly the unweighted runs', () => {
+  const bk = [];
+  for (const skill of ['D1', 'D3', 'P1', 'P2']) for (const d of [1, 2, 3]) for (let k = 0; k < 6; k++) bk.push({ id: `${skill}-${d}-${k}`, skill, tier: 1, difficulty: d, hand: `${skill}${d}${k}`, spot: { board: [] }, families: { fold: 'best', call: 'wrong' }, ...(skill === 'D1' ? { weight: k === 0 ? 1.9 : 0.8 } : {}) });
+  const plain = bk.map(({ weight, ...e }) => e);
+  for (let k = 0; k < 50; k++) assert.deepEqual([...buildRun(`w-${k}`, bk, ['D1', 'P1', 'P2'])], [...buildRun(`w-${k}`, plain, ['D1', 'P1', 'P2'])]);
+  // with D3 open the heavy D1 spots come up more often than the light ones
+  let heavy = 0;
+  let light = 0;
+  for (let k = 0; k < 3000; k++) for (const id of buildRun(`w-${k}`, bk, ['D1', 'D3', 'P1', 'P2'])) if (id.startsWith('D1-')) (id.endsWith('-0') ? heavy++ : light++);
+  assert.ok(heavy / 3 > (light / 15) * 1.5, `heavy ${heavy} light ${light}`);
+});

@@ -7,7 +7,8 @@
 // dropped. A skill below the ship bar is reported and left out of the written bank unless --all is passed.
 
 import { partnerGaps } from '../src/drill/learn.js';
-import { checkBankRuns } from '../src/drill/game.js';
+import { checkBankRuns, buildRun } from '../src/drill/game.js';
+import { nextPractice, freshLearn, answer } from '../src/drill/learn.js';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { replayTable } from '../src/drill/card.js';
@@ -77,11 +78,100 @@ const CUE = {
 };
 const balanceLeft = {};
 const shareOf = (es, test) => (es.length ? es.filter(test).length / es.length : 0);
+// Serving weights (CEO, GAME, CURR, 19 Nov): a lesson is served toward its partner's cue mix instead of the partner
+// being thinned to the lesson's. D1's spots get weights that bring D1-as-served to D3's street, pot and bettor mix
+// (iterative proportional fitting on the three marginals), with no spot above WEIGHT_CAP x its uniform rate and none
+// below WEIGHT_FLOOR x (every spot stays servable). The weights are written into the bank; the scheduler and the run
+// builder use them only while the partner is open. D3 is then thinned only where served D1 still cannot match it.
+const WEIGHTED = { D1: { toward: 'D3', keys: ['street', 'pot', 'bettor'] } };
+export const WEIGHT_CAP = 2;
+export const WEIGHT_FLOOR = 0.25;
+const WEIGHT_AIM = 1.4; // the fit's own cap, under WEIGHT_CAP: the served rate runs above the raw weight
+const servedShare = (es, test) => {
+  let all = 0;
+  let hit = 0;
+  for (const e of es) {
+    const w = e.weight ?? 1;
+    all += w;
+    if (test(e)) hit += w;
+  }
+  return all ? hit / all : 0;
+};
+for (const [code, { toward, keys }] of Object.entries(WEIGHTED)) {
+  const es = bySkill[code];
+  const ps = bySkill[toward];
+  if (!es || !ps || !es.length || !ps.length) continue;
+  const tests = keys.flatMap((k) => CUE[k]);
+  const target = tests.map(([, f]) => shareOf(ps, f));
+  const marks = es.map((e) => tests.map(([, f]) => f(e)));
+  let w = es.map(() => 1);
+  const groups = keys.map((k) => CUE[k].map(([label]) => tests.findIndex(([l]) => l === label)));
+  for (let it = 0; it < 200; it++) {
+    for (const g of groups) {
+      const tot = w.reduce((a, x) => a + x, 0);
+      for (const j of g) {
+        const cur = w.reduce((a, x, i) => a + (marks[i][j] ? x : 0), 0) / tot;
+        if (cur > 0 && target[j] > 0) {
+          const f = target[j] / cur;
+          w = w.map((x, i) => (marks[i][j] ? x * f : x));
+        }
+      }
+    }
+    // within each difficulty (the scheduler and the run builder pick within one), mean 1, then the working cap and
+    // the floor: the served rate runs above the raw weight, so the fit aims under the cap
+    for (const d of [1, 2, 3]) {
+      const ix = es.map((e, i) => (e.difficulty === d ? i : -1)).filter((i) => i >= 0);
+      if (!ix.length) continue;
+      const mean = ix.reduce((a, i) => a + w[i], 0) / ix.length;
+      for (const i of ix) w[i] = Math.min(WEIGHT_AIM, Math.max(WEIGHT_FLOOR, w[i] / mean));
+    }
+  }
+  es.forEach((e, i) => (e.weight = +w[i].toFixed(3)));
+}
+// The cap, measured as served (CURR, GAME): no weighted spot is served at more than WEIGHT_CAP x its uniform rate in
+// 10,000 runs or in a long Practice simulation. A spot over the line has its weight scaled down and the check runs
+// again; a bank that still fails is not written.
+function servedRatios(spots, skills) {
+  const tier1 = Object.keys(skills).filter((c) => skills[c].tier === 1 && spots.some((s) => s.skill === c));
+  const plain = spots.map(({ weight, ...e }) => e);
+  const runs = (sp) => {
+    const c = {};
+    const warn = console.warn;
+    console.warn = () => {};
+    for (let k = 0; k < 10000; k++) for (const id of buildRun(`cap-${k}`, sp, tier1) || []) c[id] = (c[id] || 0) + 1;
+    console.warn = warn;
+    return c;
+  };
+  const practice = (sp) => {
+    const st = freshLearn();
+    const c = {};
+    let r = 7;
+    const rnd = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+    const sk = Object.fromEntries(tier1.map((k) => [k, skills[k]]));
+    for (let i = 0; i < 40000; i++) {
+      const now = Date.UTC(2026, 10, 19) + i * 600000;
+      const x = nextPractice(st, sp, sk, { now, rnd });
+      if (!x) break;
+      c[x.spot.id] = (c[x.spot.id] || 0) + 1;
+      answer(st, x.spot, i % 5 === 4 ? 'wrong' : 'best', now);
+    }
+    return c;
+  };
+  const out = {};
+  for (const [name, f] of [['runs', runs], ['practice', practice]]) {
+    const cw = f(spots);
+    const cu = f(plain);
+    for (const e of spots) if (e.weight != null && (cu[e.id] || 0) >= 30) out[e.id] = Math.max(out[e.id] || 0, (cw[e.id] || 0) / cu[e.id]);
+  }
+  return out;
+}
+
 const thinned = {};
 for (const [code, { vs, keys }] of Object.entries(BALANCE)) {
   if (!bySkill[code] || !bySkill[vs] || !bySkill[vs].length) continue;
   const tests = keys.flatMap((k) => CUE[k]);
-  const target = tests.map(([, f]) => shareOf(bySkill[vs], f));
+  // the lesson as served: weighted where it carries serving weights
+  const target = tests.map(([, f]) => servedShare(bySkill[vs], f));
   const marks = (e) => tests.map(([, f]) => f(e));
   const h = (e) => crypto.createHash('sha1').update(e.id).digest('hex');
   let b = bySkill[code].slice().sort((x, y) => (h(x) < h(y) ? -1 : 1));
@@ -123,8 +213,10 @@ function primaryOf(e) {
   return c.length ? [...new Set(c)].sort().join('+') : 'other';
 }
 // the non-hand cues side by side (CEO): street, pot at the decision, live opponents, the bettor's type
-function cueTable(code) {
-  const es = bySkill[code] || [];
+function cueTable(code, served = false) {
+  const es0 = bySkill[code] || [];
+  // as served: each spot counted by its weight (in thousandths, so the shares below stay simple counts)
+  const es = served ? es0.flatMap((e) => Array(Math.max(1, Math.round(1000 * (e.weight ?? 1)))).fill(e)) : es0;
   const out = { street: {}, potBb: {}, live: {}, bettor: {}, hasType: {} };
   for (const e of es) {
     const inc = (o, k) => (o[k] = (o[k] || 0) + 1);
@@ -136,7 +228,7 @@ function cueTable(code) {
     for (const ty of typesIn(e)) inc(out.hasType, ty);
   }
   const pct = (o) => Object.fromEntries(Object.entries(o).map(([k, x]) => [k, `${Math.round((100 * x) / Math.max(1, es.length))}%`]));
-  return { n: es.length, street: pct(out.street), potBb: pct(out.potBb), live: pct(out.live), hasType: pct(out.hasType), ...(Object.keys(out.bettor).length ? { bettor: pct(out.bettor) } : {}) };
+  return { n: es0.length, ...(served ? { asServed: true } : {}), street: pct(out.street), potBb: pct(out.potBb), live: pct(out.live), hasType: pct(out.hasType), ...(Object.keys(out.bettor).length ? { bettor: pct(out.bettor) } : {}) };
 }
 
 // the opponent type a spot is "against": the bettor for a call-or-fold spot, else every live opponent
@@ -173,7 +265,11 @@ for (const [code, sk] of Object.entries(SKILLS)) {
   if (ok || all) ship.push(code);
 }
 console.log(`bank version ${version}; ${stale} entries from older versions skipped; ${v1NoCaller} V1 spots with no station or whale dropped${Object.entries(thinned).map(([c, n]) => `; ${n} ${c} spots thinned to match ${BALANCE[c].vs}`).join('')}`);
-for (const [code, { vs }] of Object.entries(BALANCE)) if (bySkill[code] || bySkill[vs]) for (const c of [vs, code]) console.log(`cues ${c}: ${JSON.stringify(cueTable(c))}`);
+for (const [code, { vs }] of Object.entries(BALANCE)) if (bySkill[code] || bySkill[vs]) for (const c of [vs, code]) console.log(`cues ${c}${WEIGHTED[c] ? ' as served' : ''}: ${JSON.stringify(cueTable(c, !!WEIGHTED[c]))}`);
+for (const [code] of Object.entries(WEIGHTED)) if (bySkill[code] && bySkill[code].some((e) => e.weight != null)) {
+  const ws = bySkill[code].map((e) => e.weight);
+  console.log(`weights ${code}: max ${Math.max(...ws)}x, min ${Math.min(...ws)}x the uniform rate (cap ${WEIGHT_CAP}, floor ${WEIGHT_FLOOR}); ${ws.filter((x) => x < 0.5).length} spots under 0.5x`);
+}
 for (const [code, left] of Object.entries(balanceLeft)) console.log(`BALANCE NOT MET ${code} vs ${BALANCE[code].vs}: ${left.join(', ')} (report to CURR before it ships)`);
 for (const [code, r] of Object.entries(report)) {
   console.log(`${code} ${r.name}: ${r.spots} spots ${r.ok ? 'SHIPS' : 'below the bar'} | difficulty ${JSON.stringify(r.difficulty)} (easy ${Math.round(100 * r.split.d1)}%, tricky ${Math.round(100 * r.split.d3)}%${r.splitOk ? '' : ': SHORT of 20% / 15%, report to CURR and the CEO'}) | no wrong answer ${r.bestOrFineOnly}`);
@@ -199,11 +295,28 @@ if (write) {
   const out = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'src/drill/bank.json';
   // the shipped bank's checks (CEO, GAME, CURR): a lesson and its partner together, and every run it deals valid;
   // a dev bank (--out elsewhere) may be partial while it is built
+  // the served cap: measure, scale down any spot over the line, measure again (at most 5 rounds)
+  let capFail = null;
+  if (bank.spots.some((e) => e.weight != null)) {
+    for (let round = 0; round < 5; round++) {
+      const ratio = servedRatios(bank.spots, bank.skills);
+      const over = bank.spots.filter((e) => (ratio[e.id] || 0) > WEIGHT_CAP);
+      const top = Math.max(0, ...Object.values(ratio));
+      console.log(`served cap, round ${round + 1}: max ${top.toFixed(2)}x the uniform rate; ${over.length} over ${WEIGHT_CAP}x`);
+      if (!over.length) {
+        capFail = null;
+        break;
+      }
+      capFail = `${over.length} spots served over ${WEIGHT_CAP}x`;
+      for (const e of over) e.weight = +(e.weight * (0.9 * WEIGHT_CAP) / ratio[e.id]).toFixed(3);
+    }
+  }
   const gaps = partnerGaps(bank);
   const runs = checkBankRuns(bank);
   console.log(`runs: ${runs.checked} checked, ${runs.failed.length} invalid${gaps.length ? ` | partners: ${gaps.join('; ')}` : ''}`);
-  if (out === 'src/drill/bank.json' && (gaps.length || runs.failed.length)) {
-    console.log(`NOT written: ${gaps.length ? 'a lesson would ship without its partner' : 'the bank deals invalid runs'}`);
+  if (capFail) console.log(`SERVED CAP NOT MET: ${capFail}`);
+  if (out === 'src/drill/bank.json' && (gaps.length || runs.failed.length || capFail)) {
+    console.log(`NOT written: ${gaps.length ? 'a lesson would ship without its partner' : capFail ? 'a weighted spot is served over the cap' : 'the bank deals invalid runs'}`);
     process.exitCode = 1;
   } else {
     fs.writeFileSync(out, JSON.stringify(bank));

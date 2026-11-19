@@ -191,10 +191,20 @@ export function nextPractice(st, spots, skills, { now = Date.now(), rnd = Math.r
   if (partner && open.includes(partner) && capped(pin)) open = open.filter((c) => c !== pin);
   else if (partner) open = open.filter((c) => c !== partner);
   const fresh = (s) => !(st.seen[s.id] && now - st.seen[s.id] < 30 * DAY);
+  // weighted toward the partner's cue mix while the partner is open (the bank's `weight`; CEO, GAME, CURR)
+  const wOf = (s) => (s.weight != null && INTERLEAVE[s.skill] && open.includes(INTERLEAVE[s.skill]) ? s.weight : 1);
   const pickFrom = (cands) => {
     const ok = cands.filter(fresh);
     const pool = ok.length ? ok : cands;
-    return pool.length ? pool[Math.floor(rnd() * pool.length)] : null;
+    if (!pool.length) return null;
+    let total = 0;
+    for (const s of pool) total += wOf(s);
+    let r = rnd() * total;
+    for (const s of pool) {
+      r -= wOf(s);
+      if (r < 0) return s;
+    }
+    return pool[pool.length - 1];
   };
   const ofSkill = (code, want = {}) => {
     // narrow by each wish in turn while something is left: opponent type, then difficulty

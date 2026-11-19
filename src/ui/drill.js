@@ -4,7 +4,7 @@
 // which stays parked underneath.
 
 import { spotCard } from '../drill/card.js';
-import { points, band, streakAfter, buildRun, runTotals, honestLine, dailyLine, dailySeed, isoDay, recordRun, loadGame, saveGame, runBadges, MAX_SCORE, RUN_LEN, DOT } from '../drill/game.js';
+import { runVersion, points, band, streakAfter, buildRun, runTotals, honestLine, dailyLine, dailySeed, isoDay, recordRun, loadGame, saveGame, runBadges, MAX_SCORE, RUN_LEN, DOT } from '../drill/game.js';
 import { loadLearn, saveLearn, answer as learnAnswer, level, openTiers, nextPractice, newSession, isDue, place, MASTER_TYPES } from '../drill/learn.js';
 
 const LOOKS = ['cap', 'golf', 'hoodie', 'loud', 'party', 'button', 'shades', 'cardigan', 'jersey', 'newbie', 'watch', 'plain'];
@@ -80,7 +80,7 @@ export function createDrill(env) {
     view = 'home';
     R = null;
     const first = !LS.placedAt && !Object.keys(LS.skills).length && !G.runs;
-    const cur = G.current && G.current.bankVersion === bank.version ? G.current : null;
+    const cur = G.current && G.current.bankVersion === runVersion(bank) ? G.current : null;
     const d = G.daily[today()];
     const dailyBody = d
       ? `<div class="kv"><span><b>${num(d.score)}</b>Today’s score</span></div><span class="dots" aria-label="Today’s ten: ${esc(d.dots)}">${[...d.dots].map((c) => `<i class="dot ${c === DOT.best ? 'best' : c === DOT.fine ? 'fine' : 'wrong'}"></i>`).join('')}</span><div class="row"><button type="button" class="small" id="dh-copy">Copy result</button><button type="button" class="small quiet" id="dh-daily">Play again (practice)</button></div>`
@@ -88,7 +88,7 @@ export function createDrill(env) {
     const pb = G.boards.t1;
     const due = openSkills().filter((c) => LS.skills[c] && isDue(LS.skills[c], LS, Date.now())).length;
     const ts = todayStats();
-    const canDaily = !!buildRun(dailySeed(today(), bank.version), bank.spots, shippedTier1());
+    const canDaily = !!buildRun(dailySeed(today(), runVersion(bank)), bank.spots, shippedTier1());
     const canRun = !!buildRun('probe', bank.spots, openSkills());
     el.innerHTML = `<div class="dr-wrap">
       <div class="dr-top"><span class="dr-crumb">Drill</span><span class="grow"></span><button type="button" class="small quiet" id="dh-table">Back to table</button></div>
@@ -191,11 +191,11 @@ export function createDrill(env) {
     }
     R = { kind, pin, i: 0, answers: [], streak: 0, bestStreak: 0, bb: 0, score: 0, wrongRow: 0, nudged: false, revealed: false, date: today(), board: 't1' };
     if (kind === 'daily' || kind === 'replay') {
-      R.seed = dailySeed(today(), bank.version);
+      R.seed = dailySeed(today(), runVersion(bank));
       R.ids = buildRun(R.seed, bank.spots, shippedTier1());
       R.slots = R.ids && R.ids.slots ? [...R.ids.slots] : null;
     } else if (kind === 'run') {
-      R.seed = `run|${Date.now()}|${Math.random()}`;
+      R.seed = `run|${runVersion(bank)}|${Date.now()}|${Math.random()}`;
       R.ids = buildRun(R.seed, bank.spots, openSkills());
       R.slots = R.ids && R.ids.slots ? [...R.ids.slots] : null;
     } else if (kind === 'placement') {
@@ -323,7 +323,7 @@ export function createDrill(env) {
       learnAnswer(LS, e, fam, Date.now(), { open: openSkills() });
       const ts = todayStats();
       G.today = { date: today(), right: ts.right + (fam === 'wrong' ? 0 : 1), answered: ts.answered + 1, bb: +(ts.bb + cost).toFixed(1) };
-      if ((R.kind === 'daily' || R.kind === 'run') && R.answers.length < RUN_LEN) G.current = { kind: R.kind, ids: R.ids, slots: R.slots || null, seed: R.seed, answers: R.answers, date: R.date, board: R.board, bankVersion: bank.version };
+      if ((R.kind === 'daily' || R.kind === 'run') && R.answers.length < RUN_LEN) G.current = { kind: R.kind, ids: R.ids, slots: R.slots || null, seed: R.seed, answers: R.answers, date: R.date, board: R.board, bankVersion: runVersion(bank) };
       save();
     }
     // the buttons
@@ -401,7 +401,7 @@ export function createDrill(env) {
     const lv = Object.fromEntries(Object.keys(skills()).map((c) => [c, LS.skills[c] ? level(LS, c) : 'Frontier']));
     const tiers = Object.fromEntries(Object.entries(skills()).map(([c, s]) => [c, s.tier]));
     let res = { pb: null, badges: [], practice: R.kind === 'replay', totals: t };
-    if (R.kind !== 'replay') res = recordRun(G, { kind: R.kind, board: R.board, date: R.date, bankVersion: bank.version, answers: R.answers, earned: runBadges(R.answers, t, { skillStates: lv, tiers }) });
+    if (R.kind !== 'replay') res = recordRun(G, { kind: R.kind, board: R.board, date: R.date, bankVersion: runVersion(bank), answers: R.answers, earned: runBadges(R.answers, t, { skillStates: lv, tiers }) });
     G.current = null;
     save();
     R.result = res;

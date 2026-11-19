@@ -33,6 +33,26 @@ export function rngFor(seed) {
   };
 }
 export const dailySeed = (isoDate, bankVersion) => `daily|${isoDate}|${bankVersion}`;
+// The run builder's own version (GAME, CURR): it goes into the Daily and run seeds and the records next to the bank's,
+// so a personal best set under an older builder shows as "older bank". 2: weighted draws for partner lessons.
+export const BUILDER = 2;
+export const runVersion = (bank) => `${bank.version}+b${BUILDER}`;
+// A spot's draw weight (drillmerge writes `weight` for a lesson served toward its partner's cue mix; CEO, GAME,
+// CURR): used only while the partner is open, else 1. A pure function of the bank and the open skills.
+export const drawWeight = (s, paired) => (s.weight != null && paired(s.skill) ? s.weight : 1);
+// one weighted pick from `cands` with `rnd`, without replacement (the pick is spliced out); null when empty
+export function weightedTake(cands, rnd, w) {
+  if (!cands.length) return null;
+  let total = 0;
+  for (const s of cands) total += w(s);
+  let r = rnd() * total;
+  let i = 0;
+  for (; i < cands.length - 1; i++) {
+    r -= w(cands[i]);
+    if (r < 0) break;
+  }
+  return cands.splice(i, 1)[0];
+}
 export const isoDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export const hasWrong = (spot) => Object.values(spot.families).includes('wrong');
 
@@ -89,9 +109,10 @@ function buildOnce(seed, spots, openSkills) {
   let fallback = 0;
   const hands = new Set();
   const used = new Set();
+  const pairedW = pairedIn(pool, openSkills);
   const draw = (cands) => {
     while (cands.length) {
-      const s = cands.splice(Math.floor(rnd() * cands.length), 1)[0];
+      const s = weightedTake(cands, rnd, (x) => drawWeight(x, pairedW));
       if (used.has(s.id)) continue;
       if (!hasWrong(s) && noWrong >= NO_WRONG_CAP) continue;
       if (hands.has(s.hand + s.spot.board.join(''))) continue;
@@ -314,6 +335,6 @@ export function checkBankRuns(bank, { runs = 10000, days = 366, from = new Date(
   };
   for (let k = 0; k < runs; k++) one(`run-${k}`);
   const d0 = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
-  for (let k = 0; k < days; k++) one(dailySeed(isoDay(new Date(d0 + k * 86400000 + 12 * 3600000)), bank.version));
+  for (let k = 0; k < days; k++) one(dailySeed(isoDay(new Date(d0 + k * 86400000 + 12 * 3600000)), runVersion(bank)));
   return { checked, failed };
 }

@@ -176,6 +176,16 @@ export function buildContext(s, seat = s.toAct) {
   let toActBehind = 0;
   for (let i = 0; i < n; i++) if (i !== seat && i !== s.lastRaiser && !s.folded[i] && !s.allIn[i] && !s.acted[i]) toActBehind++;
   ctx.callersIn = callersIn;
+  // POOL batch 19a (PRO, rule 2's text): callers in on this bet who called it in full (an all-in call for less doesn't count)
+  {
+    let lastTo = 0, full = 0;
+    for (const h of s.history) {
+      if (h.street !== s.street) continue;
+      if (h.type === 'bet' || h.type === 'raise') { lastTo = h.to; full = 0; }
+      else if (h.type === 'call' && lastTo > 0 && h.to >= lastTo) full++;
+    }
+    ctx.fullCallersIn = full;
+  }
   ctx.iBetThisStreet = s.history.some((h) => h.street === s.street && h.seat === seat && (h.type === 'bet' || h.type === 'raise'));
   // Passivity, Revision D (POOL, owner-approved 13 Nov 2026): has anyone already acted (checked) on
   // this postflop street before me?
@@ -224,6 +234,8 @@ export function buildContext(s, seat = s.toAct) {
     };
     ctx.quietFlush = quiet('fl');
     ctx.quietStraight = quiet('st');
+    // POOL batch 19a (PRO, rule 1): did the river card complete a flush or a straight (raise either board level)?
+    ctx.riverDrawCompleted = L.length === 3 && (L[2].fl > L[1].fl || L[2].st > L[1].st);
   }
   ctx.toActBehind = ctx.toCall > 0 ? toActBehind : 0;
   return ctx;
@@ -302,6 +314,13 @@ function jamGroup(ci) {
   return (ci.pair && ci.hi >= 10) || (ci.hi === 12 && ci.lo === 11) ? 0 : ci.pair && ci.hi >= 8 ? 1 : ci.pair && ci.hi >= 4 ? 2 : ci.pair ? 6 : ci.suited && ci.hi === 12 ? 3 : ci.suited && ci.lo >= 8 ? 4 : nm === 'AQo' || nm === 'AJo' || nm === 'KQo' ? 5 : 6;
 }
 
+// POOL batch 19: PRO's preflop call-off groups. AJ/KQ/ATs; 'other' = not a pair and not AQ+, AJ, KQ or ATs
+function pfCallOffGroup(cls) {
+  const ci = classInfo(cls), nm = ci.name;
+  if (ci.pair || nm.startsWith('AK') || nm.startsWith('AQ')) return null;
+  if (['AJs', 'AJo', 'KQs', 'KQo', 'ATs'].includes(nm)) return 'ajkq';
+  return 'other';
+}
 export function preflopPolicy(ctx, P, cls) {
   const rp0 = ctx.raises === 0 ? (P.openPct || P.raisePct)[cls] : P.raisePct[cls]; // the opening order (profiles.js) is for first-in opens and isolation only (POOL batch 8)
   const sp = STACK_PCT[cls]; // facing-aggression order
@@ -470,6 +489,13 @@ export function preflopPolicy(ctx, P, cls) {
     call += raise;
     raise = 0;
   }
+  // POOL batch 19 (PRO ceiling (d)): calling off (25bb+ or all-in) in a 3-bet+ pot with AJ/KQ/ATs or a non-premium
+  // hand is capped per type at pfCallOffCap { ajkq, other } (%, aimed at 0.85 of PRO's ceiling; raise and call together)
+  if (P.pfCallOffCap && ctx.raises >= 2 && (ctx.toCall >= 25 * ctx.bb || ctx.toCall >= ctx.stack)) {
+    const g = pfCallOffGroup(cls);
+    const cap = g && P.pfCallOffCap[g] != null ? (FOLD_CAP_AIM * P.pfCallOffCap[g]) / 100 : null;
+    if (cap != null && call + raise > cap) { const k = cap / (call + raise); call *= k; raise *= k; }
+  }
   const out = { fold: 0, check: 0, call: 0, raise, sizes: null };
   if (ctx.canCheck) {
     out.check = 1 - raise;
@@ -483,7 +509,39 @@ export function preflopPolicy(ctx, P, cls) {
     }
   }
   if (raise > 0) out.sizes = preflopSizes(ctx, P, sp > 0.972);
+  // POOL batch 19a (PRO, rule 4 A's and abc's B ceilings): facing a 3-bet or more (a real re-raise, or an all-in of
+  // 20bb+; a smaller all-in counts as one raise), the jam share is capped per group at jam3Cap (fractions; null groups
+  // uncapped), with jam3MinBB the effective depth it starts at. The excess goes to calling.
+  if (P.jam3Cap && raise > 0 && out.sizes && ctx.raises >= 2 && !(ctx.aggAllIn && ctx.currentBet < 20 * ctx.bb) && ctx.effBB >= (P.jam3MinBB ?? 0)) {
+    const cap = P.jam3Cap[jamGroup3(cls)];
+    const pj = out.sizes.reduce((a, z) => a + (z.to >= ctx.maxTo ? z.p : 0), 0);
+    if (cap != null && raise * pj > cap) {
+      const excess = raise * pj - cap;
+      const keepJ = cap / raise; // the new all-in weight inside the raise
+      const rest = 1 - pj;
+      if (rest > 1e-9) {
+        // keep the non-jam raise weight, scale the jam down, and send the excess to calling
+        out.raise = raise - excess;
+        out.sizes = out.sizes.map((z) => ({ ...z, p: (z.to >= ctx.maxTo ? keepJ : z.p) * raise / out.raise }));
+      } else {
+        out.raise = cap;
+        out.sizes = out.sizes.map((z) => ({ ...z, p: z.to >= ctx.maxTo ? 1 : 0 }));
+      }
+      out.call += raise - out.raise;
+      if (out.fold > 0 && out.call + out.raise + out.fold > 1) out.fold = Math.max(0, 1 - out.call - out.raise);
+    }
+  }
   return out;
+}
+// POOL batch 19a: PRO's jam groups facing a 3-bet or more
+function jamGroup3(cls) {
+  const ci = classInfo(cls), nm = ci.name;
+  if ((ci.pair && ci.hi >= 10) || nm.startsWith('AK')) return 'prem';
+  if (ci.pair && ci.hi === 9) return 'jj';
+  if (nm.startsWith('AQ')) return 'aq';
+  if (ci.pair && ci.hi >= 7) return 'tt';
+  if (['AJs', 'AJo', 'KQs', 'KQo'].includes(nm)) return 'ajkq';
+  return 'other';
 }
 
 // ---------------------------------------------------------------------------------------
@@ -549,7 +607,7 @@ function mixWeights(a, wa, b, wb) {
 //     raised since the card. A four-flush or four-straight uses the square root of k (one-card hands check more).
 //     Holding a card of the flush suit (a blocker) keeps MD_SUIT of the flush k.
 // Facing a bet the full markdown stays: the bettor's range is not capped. The paired-board markdown is not touched.
-export const ODDS_FLOOR_AT = 0.1, ODDS_FLOOR = 0.98;
+export const ODDS_FLOOR_AT = 0.1, ODDS_FLOOR = 0.995; // POOL batch 19 (review 2 A 14-03: the 2% residual fold was the A; PRO: near zero, never zero)
 export const MD_KEEP_FULL = 0.7, MD_KEEP_NOW = 0.7, MD_SUIT = 0.75, MD_KEEP_MIN = 0.5;
 function mdKeep(q, ctx) {
   if (q < 0) return 1;
@@ -569,6 +627,30 @@ function boardAwareStrength(ctx, f, P = {}) {
   const kf = mdKeep(ctx.quietFlush ?? -1, ctx) * (f.holdsSuit ? MD_SUIT : 1), ks = mdKeep(ctx.quietStraight ?? -1, ctx);
   const nf = 1 - (1 - mf) * (four ? Math.sqrt(kf) : kf), ns = 1 - (1 - ms) * (fourS ? Math.sqrt(ks) : ks);
   return S0 * nf * ns;
+}
+// POOL batch 19: fold-cap helpers. The class of a hand for PRO's B ceilings v1.2, and a cap read off the four price
+// bands (2.5-3 / 3-4 / 4-6 / 6-10:1, midpoints 2.75 / 3.5 / 5 / 8), linear between them; none below 2.5:1.
+export const FOLD_CAP_AIM = 0.85;
+const CAP_MIDS = [2.75, 3.5, 5, 8], CAP_EDGES = [3, 4, 6]; // flat outside the midpoints
+function foldClassOf(f, st) {
+  if (f.tier === TIER.MIDDLE_PAIR) return 'mid';
+  if (f.tier === TIER.WEAK_PAIR) return 'weak';
+  if (f.tier === TIER.TOP_PAIR_WEAK) return 'tpwk';
+  if (f.tier === TIER.TOP_PAIR_GOOD || f.tier === TIER.OVERPAIR_TPTK) return 'tpgk';
+  if (st < 2 && f.tier <= TIER.HIGH_CARD && f.straightDraw === 2 && !f.flushDraw && isRealDraw(f)) return 'oesd';
+  return null;
+}
+function capAt(row, r) {
+  if (!(r >= 2.5)) return null;
+  if (r <= CAP_MIDS[0]) return row[0];
+  for (let i = 1; i < 4; i++) {
+    if (r <= CAP_MIDS[i]) {
+      const a = row[i - 1], b = row[i];
+      if (a == null || b == null) return r < CAP_EDGES[i - 1] ? a : b; // a band PRO left open steps in at its edge (MATH)
+      return a + ((b - a) * (r - CAP_MIDS[i - 1])) / (CAP_MIDS[i] - CAP_MIDS[i - 1]);
+    }
+  }
+  return row[3];
 }
 export function postflopPolicy(ctx, P, f) {
   const st = ctx.street - 1; // 0 flop, 1 turn, 2 river
@@ -633,6 +715,17 @@ export function postflopPolicy(ctx, P, f) {
     else if (f.tier >= TIER.WEAK_PAIR) bluff *= 0.3;
     bluff = clamp(bluff * bluffMultFor(P, ctx), 0, 0.97);
 
+    // POOL batch 19a (PRO, rule 1 A's): a strong hand (two pair or better) that bet the flop and the turn, or checked a
+    // street that was then checked through, bets the river at least strongRiverFloor [two pair to a straight, full house+]
+    // for the types rule 1 counts (abc, station, whale, beginner, nit); not when the river completed a flush or straight,
+    // or on a four-liner the hand doesn't beat. Never zero: 1-3% checks remain.
+    // On a river that completed a flush or straight the lower floor strongRiverFloorDraw applies (PRO's V5 river floors).
+    if (P.strongRiverFloor && st === 2 && ctx.canRaise && (f.tier === TIER.TWO_PAIR || f.tier >= TIER.STRONG) &&
+      ((ctx.myBarrels >= 2 && (ctx.initiative || ctx.checkedTo)) || (ctx.prevChecked && ctx.iCheckedPrev)) &&
+      !(((f.mdFlush ?? 1) < 0.7 && f.cat < 5) || ((f.mdStraight ?? 1) < 0.9 && f.cat < 4))) {
+      const fl = ctx.riverDrawCompleted ? P.strongRiverFloorDraw : P.strongRiverFloor;
+      if (fl) pValue = Math.max(pValue, fl[f.cat >= 6 ? 1 : 0]);
+    }
     const pBluff = (1 - pValue) * bluff;
     // river block bets (fix 2): medium hands out of position lead small
     const pBlock = P.blockBet && st === 2 && !ctx.inPosition && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.TOP_PAIR_GOOD ? P.blockBet * Math.max(0, 1 - pValue - pBluff) : 0;
@@ -776,6 +869,37 @@ export function postflopPolicy(ctx, P, f) {
   // or less, e.g. the last chips against a bigger all-in), any pair or real draw continues; raises and overcalls too.
   // PRO: the pair must use a hole card (a board pair alone is tier HIGH_CARD or AIR, so it is out); no draws on the river
   if (ctx.odds <= ODDS_FLOOR_AT && (f.tier >= TIER.WEAK_PAIR || (st < 2 && isRealDraw(f)))) pCont = Math.max(pCont, ODDS_FLOOR);
+  // POOL batch 19 (PRO review 2, B ceilings v1.2): per-type fold caps facing a single bet (not a raise, first caller only), by price band.
+  // Passive live players over-call rather than over-fold, so for the cells over PRO's ceilings the continue share is at
+  // least 1 - 0.85 x cap(price). foldCap: { mid, weak, oesd, tpgk, tpwk: [flop, turn, river] }, each street null or
+  // [caps in % at 2.5-3 / 3-4 / 4-6 / 6-10:1]. A pair must use a hole card (tier WEAK_PAIR or better), so a counterfeited
+  // pair or a hand that plays the board is never forced in (STRAT's guard A). The top-pair caps (the nit) skip a
+  // four-flush the bot has no card of and a one-card straight it doesn't hold (rule 2's v3.2 exemptions).
+  if (P.foldCap && !facingRaise && ctx.toCall > 0) {
+    let fc = foldClassOf(f, st);
+    // no full call ahead (MATH; PRO: rule 2's text, an all-in call for less doesn't count): overcalls keep mwOvercall, and a
+    // caller ahead makes the price look better than the ranges are (test/overcall.test.js)
+    if ((ctx.fullCallersIn ?? ctx.callersIn) > 0) fc = null; // a hand-built ctx without fullCallersIn falls back to callersIn
+    const row = fc && P.foldCap[fc] ? P.foldCap[fc][st] : null;
+    const exempt = (fc === 'tpgk' || fc === 'tpwk') && (((f.mdFlush ?? 1) < 0.7 && !f.holdsSuit) || (f.mdStraight ?? 1) < 0.9);
+    const cap = row && !exempt ? capAt(row, (1 - ctx.odds) / Math.max(1e-9, ctx.odds)) : null;
+    if (cap != null) pCont = Math.max(pCont, 1 - FOLD_CAP_AIM * cap / 100);
+  }
+  // POOL batch 19a (PRO, rule 2 A's): facing a flop or turn raise with TPGK+/overpair at 4:1 or better, the fold is
+  // capped at raiseFoldCap.tpgk [flop, turn] % (aimed at 0.85); the river raise is parked with the rubric items
+  if (P.raiseFoldCap && facingRaise && ctx.raises === 2 && st < 2 && foldClassOf(f, st) === 'tpgk' && (1 - ctx.odds) / Math.max(1e-9, ctx.odds) >= 4 &&
+    !(((f.mdFlush ?? 1) < 0.7 && !f.holdsSuit) || (f.mdStraight ?? 1) < 0.9)) {
+    const cap = P.raiseFoldCap.tpgk?.[st];
+    if (cap != null) pCont = Math.max(pCont, 1 - (FOLD_CAP_AIM * cap) / 100);
+  }
+  // POOL batch 19 (PRO ceiling (c)): continuing for 10-30bb with no pair and no real draw is capped per type at
+  // airContCap [heads-up, multiway] (%, aimed at 0.85 of PRO's ceiling); 30bb+ stays with airCallOff
+  if (P.airContCap && f.tier <= TIER.HIGH_CARD && !isRealDraw(f) && ctx.toCall >= 10 * ctx.bb && ctx.toCall < 30 * ctx.bb && !(ctx.toCall >= ctx.stack && ctx.toCall >= 20 * ctx.bb)) {
+    const cap = (FOLD_CAP_AIM * P.airContCap[ctx.nOpp >= 2 ? 1 : 0]) / 100;
+    raise = Math.min(raise, cap);
+    out.raise = raise;
+    pCont = Math.min(pCont, raise < 1 ? (cap - raise) / (1 - raise) : 0);
+  }
   // POOL batch 17 (PRO ceiling 6, B clarification 17 Nov 2026): calling off a stack or 30bb+ with no pair and no real
   // draw is capped per type at airCallOff [ace/king-high, worse], halved against two or more opponents
   // (PRO: only with 20bb+ at stake, as rule 3; the cap holds for raise and call together)

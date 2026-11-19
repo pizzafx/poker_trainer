@@ -148,6 +148,15 @@ export function buildContext(s, seat = s.toAct) {
   }
   ctx.initiative = lastAggSeat === seat && lastAggStreet === s.street - 1;
   ctx.prevChecked = s.street > STREET.FLOP && !prevStreetBet;
+  // MATH range-bots (PRO's twin rule v1.2, corrected): a quiet line is one where every earlier postflop street was
+  // checked through, so nobody still in has bet or called a bet since the flop came; never true on the flop itself.
+  // flopSuited: the flop came three of one suit (the scare card was there from the start).
+  {
+    let anyBet = false;
+    for (const h of s.history) if (h.street > STREET.PRE && h.street < s.street && (h.type === 'bet' || h.type === 'raise')) { anyBet = true; break; }
+    ctx.quietLine = s.street > STREET.FLOP && !anyBet;
+    ctx.flopSuited = s.board.length >= 3 && (s.board[0] & 3) === (s.board[1] & 3) && (s.board[0] & 3) === (s.board[2] & 3);
+  }
   ctx.myBarrels = myBarrels;
   ctx.priorAggressor = lastAggSeat;
   // Order of action this street starts left of the button.
@@ -695,11 +704,12 @@ export function postflopPolicy(ctx, P, f) {
     // has it more often; on a four-flush or one-card-straight board there is no read at all. Heads-up keeps the read.
     if (rr > 0 && P.rangeScaryMw != null) {
       const mf = f.mdFlush ?? 1, ms = f.mdStraight ?? 1;
-      if (mf < 0.7 || ms < 0.9) rr = 0;
+      if (mf < 0.7 || ms < 0.9) rr = 0; // a four-flush or a one-card straight: full gap always
+      else if (mf < 1 && ctx.flopSuited) rr = 0; // the scare card was already on the flop: full gap always (3b)
       else if ((mf < 1 || ms < 1) && ctx.nOpp >= 2) rr *= P.rangeScaryMw;
-      // heads-up: [after a quiet line, after the other player called a bet on the street before] (v1.2: a gap of
-      // 5 is enough after a quiet line; the full 10 after a call, since a caller's range holds the draws)
-      else if ((mf < 1 || ms < 1) && P.rangeScaryHu) rr *= P.rangeScaryHu[st > 0 && !ctx.prevChecked ? 1 : 0];
+      // heads-up: [after a quiet line, otherwise] (v1.2 corrected: a gap of 5 is enough only when the other player
+      // has never bet or called since the flop; after any action, and on the flop, the full 10)
+      else if ((mf < 1 || ms < 1) && P.rangeScaryHu) rr *= P.rangeScaryHu[ctx.quietLine ? 0 : 1];
     }
     // not when leading into the last street's aggressor: checking to the raiser is a live custom, not range logic (POOL)
     if (rr > 0 && ctx.rtState && ctx.canRaise && !ctx.aggressorBehind) {

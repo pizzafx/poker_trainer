@@ -78,8 +78,9 @@ test('drill D3 rule 1 (final): two pair out on a paired board; two pair and sets
   assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7h 2d 9h')), true, 'two pair, a third heart');
   assert.equal(beatenByLastCard(st('9d 9c', 'Kh 9h 2d 5h')), true, 'a set, a third heart');
   assert.equal(beatenByLastCard(st('Ah Qh', 'Kh 7h 2d 9h')), false, 'the nut flush stays');
-  // S on a straight when a third suited card lands is 0.856 (stays); on a four-flush 0.57 (out)
+  // S on a straight when a third suited card lands is 0.856: it stays
   assert.equal(beatenByLastCard(st('6d 7c', 'Kh 9h 2d 5s 8h')), false, 'a straight as the third heart lands: S 0.856, stays');
-  assert.equal(beatenByLastCard(st('6d 7c', '5h 9h 8h 2d 4h')), true, 'a straight as the fourth heart lands: S 0.57, out');
+  // a fourth heart: the flush was already possible, so the last card brought nothing new (rule 1 does not apply)
+  assert.equal(beatenByLastCard(st('6d 7c', '5h 9h 8h 2d 4h')), false, 'a fourth heart is not a flush that just came in');
   assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7c 2d 9s')), false, 'nothing changed');
 });

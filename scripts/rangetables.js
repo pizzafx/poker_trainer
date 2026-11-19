@@ -5,8 +5,11 @@
 // node scripts/rangetables.js [hands per seed, default 40000] [seeds, default 101,102,103,104] [table]
 import fs from 'fs';
 import { walk } from './rangelib.js';
+import { PROFILES, TYPE_IDS } from '../src/bots/profiles.js';
 import { RangeTrack, B, ROLES, FCLASS, EVENTS, NSIT, flopClass, eventOf, roleOf } from '../src/bots/rangetrack.js';
 
+// the tables describe the population before anyone reads them: every type plays with its range read off
+for (const id of TYPE_IDS) PROFILES[id].rangeRead = null;
 const HANDS = +(process.argv[2] || 40000);
 const SEEDS = (process.argv[3] || '101,102,103,104').split(',').map(Number);
 const TABLE = process.argv[4] || 'typical';

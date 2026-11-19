@@ -87,6 +87,12 @@ export class RangeTrack {
     this.checks = 0;
   }
 
+  clone() {
+    const c = new RangeTrack(this.t);
+    c.copyFrom(this);
+    return c;
+  }
+
   copyFrom(o) {
     this.h.set(o.h);
     this.len = o.len;
@@ -142,8 +148,7 @@ export class RangeTrack {
   }
 
   // The situation the player to act is in (postflop), as a table key, with what the action buckets need.
-  sit(s, seat = s.toAct) {
-    const L = legal(s);
+  sit(s, seat = s.toAct, L = legal(s)) {
     const pot = potSize(s);
     let live = 0;
     for (let i = 0; i < s.n; i++) if (i !== seat && !s.folded[i]) live++;

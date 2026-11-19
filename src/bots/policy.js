@@ -4,6 +4,7 @@
 
 import { legal, potSize, STREET } from '../engine/game.js';
 import { TIER, isRealDraw } from '../engine/features.js';
+import { binOf } from './rangetrack.js';
 
 import { EQ_HEADS_UP } from '../data/preflop.js';
 import { classInfo, classIndex, CLASS_COUNT } from '../engine/hands.js';
@@ -41,8 +42,10 @@ export function buildContext(s, seat = s.toAct) {
   const n = s.n;
   // The part of a bet this player cannot cover is never theirs to win, so leave it out of the pot.
   const pot = potSize(s) - Math.max(0, s.currentBet - s.bet[seat] - L.callAmt);
+  if (s.rt && s.street !== STREET.PRE) s.rt.sync(s);
   const ctx = {
     seat,
+    rtState: s.rt ? s : null, // the public range summary, read through RangeTrack.betRead (MATH range-bots spike)
     street: s.street,
     pot,
     toCall: L.callAmt,
@@ -615,6 +618,7 @@ function mdKeep(q, ctx) {
   if (q === 0) return ctx.checkedTo && ctx.inPosition ? MD_KEEP_NOW : 1;
   return Math.max(MD_KEEP_MIN, MD_KEEP_FULL ** q);
 }
+export const RANGE_SCALE = 0.5; // strength per unit of 'ahead when called': 7 points of ahead move the bet rate as 0.035 of strength does
 function boardAwareStrength(ctx, f, P = {}) {
   let mf = f.mdFlush ?? 1, ms = f.mdStraight ?? 1;
   if (ctx.toCall > 0 || (mf === 1 && ms === 1)) return f.strength;
@@ -679,7 +683,17 @@ export function postflopPolicy(ctx, P, f) {
     const mwT = ct ? (ctBehind ? P.ctBehindTighten : P.mwTightenCheckedTo != null ? P.mwTightenCheckedTo : P.mwTighten) : P.mwTighten;
     const ctShift = ct ? (P.checkedToShift?.[st] ?? 0) * (ctBehind ? P.ctBehindShiftMult ?? 1 : 1) : 0;
     const valueThr = P.valueBet[st] + mwT * extra + valueShiftFor(P, ctx) + m7 + ctShift;
-    let pValue = soft(S, valueThr, 0.035);
+    // MATH range-bots stage 2: a type with rangeRead[0] > 0 moves the strength it bets on toward a range-aware one,
+    // "ahead of the hands that continue against my usual thin bet" against the type's bar (rangeBar[street]), put on
+    // the strength scale around valueThr. At 0 (or with no range summary) it is today's number exactly. Only how
+    // often it bets moves: the sizes below still go by S.
+    let Sv = S;
+    const rr = P.rangeRead ? P.rangeRead[0] : 0;
+    if (rr > 0 && ctx.rtState && ctx.canRaise) {
+      const rd = ctx.rtState.rt.betRead(ctx.rtState, ctx.seat, binOf(f), P.rangeBetFrac);
+      Sv = S + rr * (valueThr + (rd.ahead - P.rangeBar[st]) * RANGE_SCALE - S);
+    }
+    let pValue = soft(Sv, valueThr, 0.035);
     // POOL batch 15 (QA-OPP P2): once the table has checked to me or checked a street through, strong hands slowplay
     // less: slowplay x ctSlowMult (0.5; the nit 0.6), the river already uses 0.25
     // POOL batch 16 (PRO's shape b): also after my own bet or raise on the previous street (or as the preflop raiser

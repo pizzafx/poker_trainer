@@ -173,6 +173,12 @@ const BASE = {
   airCallOff: null, // POOL batch 17: a cap on calling off a stack or 30bb+ with air [ace/king-high, worse]
   valueMd: null, // POOL batch 18: the one-pair three-flush markdown when betting with nobody in yet (null: the static 0.85)
   tpLabel: null, // POOL batch 18: weak-kicker top pair counts toward top pair good kicker when betting the turn or river (recreational players bet the label)
+  // MATH range-bots stage 2: how much of the public range summary the type uses, [betting for value, facing a bet]
+  // (null: none, today's play exactly); the share of 'ahead of the hands that continue' it wants to bet for value,
+  // by street; and the bet it pictures when it asks (a share of the pot)
+  rangeRead: null,
+  rangeBar: null,
+  rangeBetFrac: null,
   leadIntoRaiserFlop: null, // the flop's lead-into-the-preflop-raiser term (null: leadIntoRaiser)
   ledRaiseRespect: 0, // call-threshold increase when raised after leading this street
   leadBluffMult: 1, // multiplier on bluff-leads into the aggressor
@@ -288,6 +294,9 @@ const DEFS = {
     name: 'Straightforward recreational',
     airCallOff: [0.04, 0.04], // POOL batch 17
     tpLabel: 0.8, // POOL batch 18 (PRO's TPWK floors)
+    rangeRead: [0.5, 0.3], // MATH range-bots stage 2 (POOL's table)
+    rangeBar: [0.6, 0.6, 0.6], // STRAT: straightforward 60%
+    rangeBetFrac: 0.55,
     smallCont: [0.92,  0.84,  0.64], // POOL batch 16
     initSlow: true, // POOL batch 16
     trapOnce: 0.1, // POOL batch 16
@@ -686,6 +695,9 @@ const DEFS = {
     stabFoldCap: { river: { wm: [50, 85], tpgk: { dry: 10, paired: 15, comp: 50, flush: 30 }, tpwk: { dry: 25, paired: 30, comp: 65, flush: 45 }, tptk: { dry: 5, paired: 8, comp: 40, flush: 20 } }, turn: { wm: [null, 75], tp: 10 } }, // POOL batch 19b (PRO's stab-fold ceilings)
     valueMd: 0.87, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tpLabel: 0.25, // POOL batch 18
+    rangeRead: [0.8, 0.7], // MATH range-bots stage 2 (POOL's table)
+    rangeBar: [0.53, 0.53, 0.53], // STRAT: regulars 52 to 55%
+    rangeBetFrac: 0.55,
     tbCont: [0.6, 0.45], // POOL opponent package (Nov 2026)
     tbSize: 0.1, // POOL opponent package (Nov 2026)
     tbOOP: 0.07, // POOL opponent package (Nov 2026)
@@ -990,6 +1002,9 @@ const HERO_DEF = {
   tpLabel: 0.25,
   valueMd: 0.87,
   stabFoldCap: null, // POOL batch 19b: opponent-only until STRAT and MATH rule on the stand-in (batch 7-12 precedent)
+  rangeRead: null, // MATH range-bots: the stand-in stays as it is until a later stage measures it
+  rangeBar: null,
+  rangeBetFrac: null,
 };
 
 export const TYPE_IDS = Object.keys(DEFS);

@@ -15,7 +15,7 @@ const DESIGNED = new Set(['thinValue', 'mwCheck', 'checkOOP', 'foldsBetter', 'pr
 // guardrails that decide a grade rather than measure it (G5)
 const GUARDRAIL_RULES = new Set(['R5b', 'R6']);
 // the answer family each preflop tip names (a tip naming the drill's answer counts as a flag, G4)
-const TIP_NAMES = { limp: ['raise'], wideOpen: ['fold'], wideLimp: ['fold'], isoLimp: ['raise'], junk3bet: ['fold', 'call'] };
+const TIP_NAMES = { limp: ['raise'], wideOpen: ['fold'], wideLimp: ['fold'], isoLimp: ['raise'], isoFold: ['raise'], junk3bet: ['fold', 'call'] };
 
 export const DEFAULTS = { N: 6000, Npre: 8000, NpreMax: 16000, screen: 1200, wrongBars: 2, screenBars: 1, preBase: 1, preShift: 0.5, preFoldLimp: 0.4, isoG4: true, seeds: [1, 2, 3], screenSeed: 901, screenPre: null };
 // seeds: the bank seeds (the first also grades G4); MATH's sign-off re-judge passes others. screenPre: the

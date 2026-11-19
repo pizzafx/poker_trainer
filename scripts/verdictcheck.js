@@ -20,7 +20,7 @@ import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
 import { shownCost, dryBoard, blockerHand, t1Board } from '../src/trainer/explain.js';
 import { pairedGap, redBar } from '../src/trainer/judge.js';
-import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest, ISO_LIMP, ISO_LIMP_FEW, outsideBehindLimpers, raiseClears, suitedLimpHand } from '../src/trainer/grade.js';
+import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest, ISO_LIMP, ISO_LIMP_FEW, isoFoldHand, ISO_FOLD_VETO, outsideBehindLimpers, raiseClears, suitedLimpHand } from '../src/trainer/grade.js';
 // the bet an estimate line is about: "A bet of $X:" names it; otherwise hero's bet or raise, else the reference (QA-VERDICT)
 function namedBet(d, v) {
   const m = (d.anchor || '').match(/^A bet of \$(\d+):/);
@@ -146,7 +146,7 @@ export const INVARIANTS = {
     const other = Math.max(...v.options.filter((o) => o.type !== 'raise').map((o) => o.ev));
     return top.type === 'raise' && top.ev - other > v.small;
   })(),
-  'N2 no range-based preflop tip with 3 or fewer players dealt in': (d) => ['limp', 'wideOpen', 'junk3bet', 'size3bet', 'isoLimp', 'wideLimp'].includes(d.tipKind) && d.snapshot && d.snapshot.seats.length <= 3,
+  'N2 no range-based preflop tip with 3 or fewer players dealt in': (d) => ['limp', 'wideOpen', 'junk3bet', 'size3bet', 'isoLimp', 'wideLimp', 'isoFold'].includes(d.tipKind) && d.snapshot && d.snapshot.seats.length <= 3,
   'N3 a missed-bluff flag names a reference bet of at least 25% of the pot': (d, v, m, b) => v.grade !== 'good' && d.category === 'missedBluff' && m.type === 'check' && b.type === 'raise' && d.toCall === 0 && b.to / Math.max(1, v.pot) < 0.25,
   'N4 no "sound value size" pass with two pair or better': (d, v) => v.note === 'sizeOk' && d.tier >= TIER.TWO_PAIR,
   'N4b sizing never red with two pair or better multiway': (d, v, m, b) => d.tier >= TIER.TWO_PAIR && d.opponents >= 2 && m.type === 'raise' && b.type === 'raise' && v.grade === 'blunder',
@@ -341,7 +341,20 @@ export const INVARIANTS = {
   'L3b no wideLimp for suited aces, 54s+ connectors or 64s+ one-gappers from middle position, the cutoff or the button (STRAT)': (d) => d.tipKind === 'wideLimp' && groupOf(d.position) !== 'early' && suitedLimpHand(classNames[classOf(d.hole[0], d.hole[1])]),
   'L3c the behind-limpers fold tip never says "most players fold it here" (STRAT)': (d) => d.tipKind === 'wideLimp' && /most players fold it here/.test(d.tip || d.tipText || ''),
   'L3 wideLimp only for a hand outside the behind-limpers Standard range': (d) => d.tipKind === 'wideLimp' && !outsideBehindLimpers(classNames[classOf(d.hole[0], d.hole[1])], groupOf(d.position)),
-  'L23 a behind-limpers tip only with one or more limpers and no raise': (d) => ['isoLimp', 'wideLimp'].includes(d.tipKind) && !(d.ctx && d.ctx.limpers >= 1 && d.ctx.raises === 0),
+  // ---- STRAT L4: folding a raising hand behind limpers (a tip, never a flag) ----
+  'L4 isoFold only for an ISO_FOLD hand, on a fold, and never when the judge clearly prefers the fold to the best raise': (d, v, m) => {
+    if (d.tipKind !== 'isoFold') return false;
+    if (!m || m.type !== 'fold') return true;
+    if (!isoFoldHand(classNames[classOf(d.hole[0], d.hole[1])], groupOf(d.position), d.ctx ? d.ctx.limpers : 0)) return true;
+    let br = -1;
+    v.options.forEach((o, i) => { if (o.type === 'raise' && (br < 0 || o.ev > v.options[br].ev)) br = i; });
+    if (br < 0) return true;
+    const g = pairedGap(v, v.mine, br);
+    return g.mean > ISO_FOLD_VETO * g.se;
+  },
+  'L4b isoFold says "raising was about $" only when raising clears the fold by 2.2 SE and $1 (STRAT)': (d, v) => d.tipKind === 'isoFold' && /raising was about \$/.test(d.tip || '') && !raiseClears(v, v.mine),
+  'L4c isoFold never on a flagged decision (the grade is unchanged)': (d, v) => d.tipKind === 'isoFold' && v.grade !== 'good',
+  'L23 a behind-limpers tip only with one or more limpers and no raise': (d) => ['isoLimp', 'wideLimp', 'isoFold'].includes(d.tipKind) && !(d.ctx && d.ctx.limpers >= 1 && d.ctx.raises === 0),
   'C8c no money-in flag over a works status or a works line': (d, v) => v.rule === 'moneyIn' && (v.options[v.mine].st === 'works' || (v.options[v.mine].type === 'raise' && v.options[v.mine].st === 'even' && d.tier <= TIER.MIDDLE_PAIR && /your draw comes in/.test(d.anchor || '')) || /Together that is enough|bet for value|A bigger (bet|raise) needs more folds|Call\.$/.test(d.anchor || '')),
   'YB-C7 no "up to its price" headline on a money-in flag': (d, v) => v.rule === 'moneyIn' && /up to its price/.test(d.headline || ''),
   'YB-B4 a TT-type re-raise when calling scores more gets no junk or size re-raise tip': (d, v) => v.iso3bet && ['junk3bet', 'size3bet'].includes(d.tipKind),

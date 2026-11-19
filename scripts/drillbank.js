@@ -5,7 +5,8 @@
 // keys: skill (D1|V1|P2|P1), seed (session seed), table (typical|tight|loose|aggressive|tough), lineup (fixed
 //       opponent types, optional), seats (8), target (accepted spots to stop at), maxHands, maxCands,
 //       out (directory for <skill>-<tag>.jsonl and .log.jsonl), tag, warmup (hands played before any candidate,
-//       60, so the reads on the card rest on a realistic number of hands), and gate options (N, Npre, screen, isoG4, ...)
+//       60, so the reads on the card rest on a realistic number of hands), dry (match only, no gate), and gate
+//       options (N, Npre, screen, isoG4, ...)
 //
 // Entries are merged into the shipped bank by scripts/drillmerge.js.
 
@@ -122,7 +123,8 @@ while (kept < (cfg.target || 150) && hands < (cfg.maxHands || 200000) && cands <
       const t1 = Date.now();
       let g;
       try {
-        g = gateSpot(s, pinned, reads, skill, { ...(skill.gate || {}), ...cfg });
+        // dry: count candidates without gating (a yield estimate's first step)
+        g = cfg.dry ? { ok: false, reason: 'dry: match', log: {} } : gateSpot(s, pinned, reads, skill, { ...(skill.gate || {}), ...cfg });
       } catch (e) {
         g = { ok: false, reason: `error: ${e.message}`, log: {} };
       }

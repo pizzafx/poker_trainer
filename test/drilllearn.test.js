@@ -251,3 +251,12 @@ test('drill interleave, every pair: Practice never serves a third spot in a row 
     assert.equal(seq.filter((c) => c === PARTNERS[pin]).length, 10, `${pin}: ${seq.join(' ')}`);
   }
 });
+
+// a shipped bank holds a lesson and its partner together or neither (CEO's hold, CURR)
+import { partnerGaps } from '../src/drill/learn.js';
+test('drill partner gaps: a lesson with spots and a partner without is named; complete pairs and unpaired lessons pass', () => {
+  const sp = (skill) => ({ skill });
+  assert.deepEqual(partnerGaps({ spots: [sp('V1'), sp('V5'), sp('P1'), sp('P2')] }), []);
+  assert.deepEqual(partnerGaps({ spots: [sp('V1'), sp('P1'), sp('P2'), sp('O1')] }), ['V1 has spots, V5 has none']);
+  assert.deepEqual(partnerGaps({ spots: [sp('D2')] }), ['D2 has spots, D1 has none']);
+});

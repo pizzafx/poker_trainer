@@ -13,6 +13,7 @@ import { replaySpot, pinnedReads } from './drill/spot.js';
 import { bankVersion } from './drill/version.js';
 import { derive } from './drillentry.js';
 import { checkBankRuns } from '../src/drill/game.js';
+import { partnerGaps } from '../src/drill/learn.js';
 
 const args = process.argv.slice(2);
 const write = args.includes('--write');
@@ -61,8 +62,14 @@ if (n === 1) {
   runsOk = !r.failed.length;
   console.log(`runs: ${r.checked} checked, ${r.failed.length} invalid${r.failed.length ? ` (first: ${r.failed[0].seed}: ${r.failed[0].why})` : ''}`);
 }
+// the shipped bank: a lesson and its partner ship together or not at all (CEO's hold, CURR); a dev bank (--file
+// elsewhere) may be partial while it is built
+const shipped = FILE === 'src/drill/bank.json';
+const gaps = partnerGaps({ spots: keep });
+if (gaps.length) console.log(`partners: ${gaps.join('; ')}${shipped ? '' : ' (a dev bank: allowed while it is built)'}`);
+if (shipped && gaps.length) runsOk = false;
 if (write && n === 1 && !seeds) {
-  if (!runsOk) console.log(`NOT written: the bank deals invalid runs`);
+  if (!runsOk) console.log(`NOT written: ${shipped && gaps.length ? 'a lesson would ship without its partner' : 'the bank deals invalid runs'}`);
   else {
     fs.writeFileSync(FILE, JSON.stringify({ ...bank, version, spots: keep.map(({ was, ...e }) => e) }));
     console.log(`rewrote ${FILE} at ${version}`);

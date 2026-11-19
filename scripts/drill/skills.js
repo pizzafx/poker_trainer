@@ -12,6 +12,25 @@ import { ISO_LIMP_FEW, anchorStatus } from '../../src/trainer/grade.js';
 const STD = presetRanges('standard');
 const PASSIVE = new Set(['nit', 'abc', 'station', 'beginner']);
 const CALLERS = new Set(['station', 'abc', 'beginner', 'whale']);
+// the coach's own foldsBetter set: nits and regulars (tag); gto and lag out (CURR, STRAT, 19 Nov)
+const FOLDS_BETTER = new Set(['nit', 'tag']);
+// D1's bet shape: turn or river, a pot of 15bb or more at the bet, a bet of half that pot or more (or a raise),
+// one pair from weak pair to top pair good kicker, and 10bb or more behind
+function bigLateBet(s, ctx, f) {
+  if (s.street !== STREET.TURN && s.street !== STREET.RIVER) return false;
+  if (!(ctx.toCall > 0) || ctx.aggressor <= 0) return false;
+  const before = ctx.pot - ctx.toCall;
+  if (before < 15 * ctx.bb) return false;
+  if (!(ctx.toCall >= 0.5 * before || ctx.raises >= 2)) return false;
+  if (f.tier < TIER.WEAK_PAIR || f.tier > TIER.TOP_PAIR_GOOD) return false;
+  return ctx.stack >= 10 * ctx.bb;
+}
+// live opponents still to act after hero on this street (not the bettor, not all-in, short of the bet)
+export const leftToAct = (s, agg) => {
+  const o = [];
+  for (let i = 1; i < s.n; i++) if (i !== agg && !s.folded[i] && !s.allIn[i] && s.bet[i] < s.currentBet) o.push(i);
+  return o;
+};
 export const live = (s) => {
   const o = [];
   for (let i = 1; i < s.n; i++) if (!s.folded[i]) o.push(i);
@@ -39,16 +58,9 @@ export const SKILLS = {
     leak: 'paidOff',
     rule: 'A passive player’s big turn or river bet is rarely a bluff. One pair usually folds.',
     want: 'fold',
-    match: (s, ctx, f, types) => {
-      if (s.street !== STREET.TURN && s.street !== STREET.RIVER) return false;
-      if (!(ctx.toCall > 0) || ctx.aggressor <= 0) return false;
-      const before = ctx.pot - ctx.toCall;
-      if (before < 15 * ctx.bb) return false; // pot of 15bb or more at the bet (CURR)
-      if (!(ctx.toCall >= 0.5 * before || ctx.raises >= 2)) return false;
-      if (f.tier < TIER.WEAK_PAIR || f.tier > TIER.TOP_PAIR_GOOD) return false;
-      if (!PASSIVE.has(types[ctx.aggressor])) return false;
-      return ctx.stack >= 10 * ctx.bb;
-    },
+    // pot of 15bb or more at the bet (CURR); the shape D2 shares. Nobody left to act behind hero (CEO, 19 Nov):
+    // a player behind is a cue D2 does not have (64 of the first 180 had one)
+    match: (s, ctx, f, types) => bigLateBet(s, ctx, f) && PASSIVE.has(types[ctx.aggressor]) && leftToAct(s, ctx.aggressor).length === 0,
     // tricky (CURR, STRAT sign-off 18 Nov): top pair good kicker, a pair plus a real draw whose call the combined
     // test (19b) rates as not enough, or a bet of 50-60% of the pot; a passive player's big bet is the textbook case,
     // a station's included. (A pair plus a draw that covers the price is rejected from D1 in the bank script.)
@@ -74,6 +86,46 @@ export const SKILLS = {
     },
     // tricky (CURR, 18 Nov): a weak kicker, or a scary board (three of a suit, four to a straight, paired)
     tricky: (s, ctx, f) => f.tier <= TIER.TOP_PAIR_WEAK || scaryBoard(s.board),
+  },
+  // V1's partner (CEO, 19 Nov; DRILL_CURRICULUM_SPEC 2.6): the same hands checked to on the river, against the
+  // players who only call with better; the opponent's type is the only cue
+  V5: {
+    tier: 1,
+    name: 'Check one pair on the river vs nits and regulars',
+    leak: 'overplay',
+    rule: 'Nits and regulars only call the river with better. One pair checks behind.',
+    want: 'check',
+    allBets: true, // every offered bet must be wrong, not only the best one (STRAT: no size cue)
+    match: (s, ctx, f, types) => {
+      if (s.street !== STREET.RIVER || ctx.toCall > 0 || !ctx.canRaise) return false;
+      if (f.tier < TIER.TOP_PAIR_WEAK || f.tier > TIER.TOP_PAIR_GOOD) return false;
+      const o = live(s);
+      if (o.length < 1 || o.length > 2) return false;
+      return o.every((i) => FOLDS_BETTER.has(types[i]));
+    },
+    // tricky: top pair good kicker (looks like a value bet), or an opponent called hero's turn bet (looks like a caller)
+    tricky: (s, ctx, f) => {
+      if (f.tier === TIER.TOP_PAIR_GOOD) return true;
+      const turn = s.history.filter((h) => h.street === STREET.TURN);
+      const heroBet = turn.findIndex((h) => h.seat === 0 && (h.type === 'bet' || h.type === 'raise'));
+      return heroBet >= 0 && turn.slice(heroBet + 1).some((h) => h.seat !== 0 && h.type === 'call' && !s.folded[h.seat]);
+    },
+  },
+  // D1's partner (CEO, 19 Nov; spec 2.6): D1's shape, but the bettor is a maniac (lags out) and nobody is left
+  // behind hero; a call is the answer
+  D2: {
+    tier: 1,
+    name: "Call the maniac's big bet",
+    leak: 'overFold',
+    rule: 'Wild players bluff a lot. One pair calls their big bet.',
+    want: 'call',
+    match: (s, ctx, f, types) => bigLateBet(s, ctx, f) && types[ctx.aggressor] === 'maniac' && leftToAct(s, ctx.aggressor).length === 0,
+    // tricky: weak or middle pair (looks too thin to call; weak pair is kept only as tricky, the gate has the
+    // fold wrong), or a bet of the pot or more (looks strong)
+    tricky: (s, ctx, f) => {
+      const before = ctx.pot - ctx.toCall;
+      return f.tier === TIER.WEAK_PAIR || f.tier === TIER.MIDDLE_PAIR || ctx.toCall >= before;
+    },
   },
   P2: {
     tier: 1,

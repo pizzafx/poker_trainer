@@ -12,7 +12,8 @@ export const PAIRS = { P1: 'P2', P2: 'P1', D1: 'D2', D2: 'D1', V1: 'V5', V5: 'V1
 
 // credit for the level rules: best is right; fine is right at difficulty 1-2 and half at 3
 // opponent types Mastered needs: 3, but V1 has only two calling types (station and whale; CEO, 17 Nov)
-export const MASTER_TYPES = { V1: 2 };
+// V5 has two (nit and tag) and D2 one (maniac): their predicates allow no more (CEO, 19 Nov)
+export const MASTER_TYPES = { V1: 2, V5: 2, D2: 1 };
 // Tier 1's partner lessons (CEO, 19 Nov): each pair has opposite answers in look-alike spots, so one habit
 // ("always fold", "always bet") cannot pass both. The one table the scheduler, the run builder and the levels read:
 // - interleave: while both are open, never more than 2 spots in a row from either, and a run with one has the other;
@@ -23,6 +24,12 @@ export const INTERLEAVE = PARTNERS;
 export const INTERLEAVE_MAX = 2;
 export const PARTNER_RIGHT = 5;
 export const PARTNER_OF = 8;
+// A shipped bank's lessons and their partners ship together or not at all (CEO's hold, CURR): the lessons with
+// spots whose partner has none. Empty means the bank may ship.
+export function partnerGaps(bank) {
+  const has = new Set(bank.spots.map((s) => s.skill));
+  return [...has].filter((c) => PARTNERS[c] && !has.has(PARTNERS[c])).map((c) => `${c} has spots, ${PARTNERS[c]} has none`);
+}
 // the partner's last 8 answers hold 5 right (credit: a fine at difficulty 3 is half)
 export function partnerOk(st, code) {
   const p = PARTNERS[code];

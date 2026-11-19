@@ -182,6 +182,19 @@ export function gateSpot(s, belief, pinnedReads, skill, o = {}) {
   }
   const fine = others.filter((k) => cls[k] === 'fine');
   if (fine.length > 1) return reject('fine: two or more fine families (with the coach’s passes)');
+  // every offered bet wrong (V5, STRAT): the best bet is the raise family above; each other size must be wrong
+  // by the bar on every seed's base run and flagged by the coach, so no size scores fine
+  if (skill.allBets && !pre) {
+    if (cls.raise !== 'wrong') return reject(`G4b the best bet scores ${cls.raise || 'missing'}`);
+    for (let i = 0; i < vb.options.length; i++) {
+      const o = vb.options[i];
+      if (o.type !== 'raise' || i === fb.raise.i) continue;
+      const gap = Math.min(...bases.map((b) => (famVals(b.options, b.options.map((x) => x.ev))[want].ev - b.options[i].ev) / bar));
+      if (gap < opts.wrongBars) return reject(`G4b ${o.label} is within ${opts.wrongBars} bars (${gap.toFixed(2)})`);
+      const g = gradeOf(i);
+      if (g.grade === 'good' || g.note) return reject(`G4b ${o.label} graded ${g.grade}${g.note ? ' (' + g.note + ')' : ''}`);
+    }
+  }
   if (!others.some((k) => cls[k] === 'wrong') && !fine.length) return reject('no other family');
 
   // per family: its value in bb on the first seed's base run, and the least margin over all rows

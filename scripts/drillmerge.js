@@ -6,6 +6,8 @@
 // Only entries made at the current bank version are taken; duplicates (the same cards, board and action) are
 // dropped. A skill below the ship bar is reported and left out of the written bank unless --all is passed.
 
+import { partnerGaps } from '../src/drill/learn.js';
+import { checkBankRuns } from '../src/drill/game.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { SKILLS } from './drill/skills.js';
@@ -64,7 +66,8 @@ for (const [code, sk] of Object.entries(SKILLS)) {
   }
   // opponent types where the rule allows: 4; V1 has only its two calling types (CEO, 17 Nov); P2 is first in (no opponent acts);
   // D1 faces only the types that make big late bets (abc, station, nit; no beginner does in any run; CEO, 19 Nov)
-  const minTypes = { P2: 1, V1: 2, D1: 3 }[code] ?? 4;
+  // V5 faces only nits and regulars (2 types); D2 only maniacs (1)
+  const minTypes = { P2: 1, V1: 2, D1: 3, V5: 2, D2: 1 }[code] ?? 4;
   const ok = es.length >= MIN_SPOTS && Object.keys(types).length >= minTypes && Object.keys(seats).length >= 3;
   // CURR (18 Nov): at least 20% easy and 15% tricky; short of either, report to CURR and the CEO before it ships
   const split = es.length ? { d1: diff[1] / es.length, d3: diff[3] / es.length } : { d1: 0, d3: 0 };
@@ -86,6 +89,16 @@ if (write) {
     spots: ship.flatMap((c) => bySkill[c] || []).map(({ gate, ...e }) => ({ ...e, gate: { seeds: gate.seeds, samples: gate.samples, proChecked: gate.proChecked } })),
   };
   const out = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'src/drill/bank.json';
-  fs.writeFileSync(out, JSON.stringify(bank));
-  console.log(`wrote ${out}: ${bank.spots.length} spots, ${ship.join(', ') || 'no skills'}`);
+  // the shipped bank's checks (CEO, GAME, CURR): a lesson and its partner together, and every run it deals valid;
+  // a dev bank (--out elsewhere) may be partial while it is built
+  const gaps = partnerGaps(bank);
+  const runs = checkBankRuns(bank);
+  console.log(`runs: ${runs.checked} checked, ${runs.failed.length} invalid${gaps.length ? ` | partners: ${gaps.join('; ')}` : ''}`);
+  if (out === 'src/drill/bank.json' && (gaps.length || runs.failed.length)) {
+    console.log(`NOT written: ${gaps.length ? 'a lesson would ship without its partner' : 'the bank deals invalid runs'}`);
+    process.exitCode = 1;
+  } else {
+    fs.writeFileSync(out, JSON.stringify(bank));
+    console.log(`wrote ${out}: ${bank.spots.length} spots, ${ship.join(', ') || 'no skills'}`);
+  }
 }

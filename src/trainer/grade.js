@@ -303,8 +303,9 @@ export function reRunOpts(judgeOpts, want, v) {
 const sameOption = (vv, o) => vv.options.findIndex((x) => x.type === o.type && (x.to || 0) === (o.to || 0));
 
 export function temper(v, s, ctx, action, judgeOpts, env) {
-  guardrails(v, s, ctx, action, judgeOpts, env);
-  if (v.mine >= 0 && v.anchors && s.street !== STREET.PRE) applyAnchors(v, s, ctx);
+  const cmp = {}; // cmp.allowed: the guardrails' comparison set, which the anchors' re-picks stay inside
+  guardrails(v, s, ctx, action, judgeOpts, env, cmp);
+  if (v.mine >= 0 && v.anchors && s.street !== STREET.PRE) applyAnchors(v, s, ctx, cmp.allowed);
   moneyInArm(v, s, ctx);
 }
 
@@ -375,7 +376,7 @@ function moneyInArm(v, s, ctx) {
   refreshClose(v);
 }
 
-function guardrails(v, s, ctx, action, judgeOpts, env) {
+function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
   if (v.mine < 0) return;
   v.small = Math.max(3 * s.bbAmt, 0.1 * v.pot); // the yellow bar, for the notes' copy
   const pre = s.street === STREET.PRE;
@@ -394,12 +395,20 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   // Re-grade against the best option among those `allow` accepts (your own play always counts).
   // The new gap has to clear its own margin of error, as the judge's first verdict did, and the
   // "too close to call" marks are redone against the new reference (R10).
-  let allowed = () => true; // the options a guardrail allows as the comparison (kept for the scenario test)
+  // the options the guardrails allow as the comparison, for the scenario test and the anchors (applyAnchors).
+  // Each guardrail only narrows it: a later re-pick never brings back a play an earlier one ruled out (the
+  // overbet rule's $75 re-pointed to a $135 overbet; QA-VERDICT, POOL 19c)
+  let allowed = () => true;
+  const narrow = (allow) => {
+    const prev = allowed;
+    allowed = (o) => prev(o) && allow(o);
+    cmp.allowed = allowed;
+  };
   const regrade = (allow, note, ref) => {
-    allowed = allow;
+    narrow(allow);
     let alt = -1;
     v.options.forEach((o, i) => {
-      if ((i === v.mine || allow(o)) && (alt < 0 || o.ev > v.options[alt].ev)) alt = i;
+      if ((i === v.mine || allowed(o)) && (alt < 0 || o.ev > v.options[alt].ev)) alt = i;
     });
     if (ref && alt !== v.best) v.ref = ref; // the headline names "the best bet up to ..." (QA K5)
     v.best = alt;
@@ -683,6 +692,8 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   }
   // 2. Nobody is held to an overbet: compare with the best option up to a pot-sized bet.
   const over = (o) => isRaise(o) && o.to - s.currentBet > v.pot * 1.05;
+  //    ...nor by any later re-pick (the scenario test, the anchors), whether or not this rule re-graded
+  narrow((o) => !over(o));
   if (over(best()) && regrade((o) => !over(o), 'overbet', 'upToPot')) return;
   // R3. Multiway with one pair, the reference is the best bet up to 75% of the pot.
   const upTo75 = (o) => !isRaise(o) || o.to - s.currentBet <= 0.75 * v.pot + 0.5;
@@ -1163,7 +1174,8 @@ function stillToAct(s) {
   return k;
 }
 
-export function applyAnchors(v, s, ctx) {
+// `allow`: the guardrails' comparison set (temper passes it); a re-pick here never leaves it
+export function applyAnchors(v, s, ctx, allow = () => true) {
   const hf = handFeatures(s.hole[HERO], s.board);
   let opp = 0;
   for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) opp++;
@@ -1239,7 +1251,7 @@ export function applyAnchors(v, s, ctx) {
     v.ref = 'anchor';
     refreshClose(v);
   };
-  const supported = (o) => o.type !== 'raise' || st(o) === 'works';
+  const supported = (o) => allow(o) && (o.type !== 'raise' || st(o) === 'works');
   if (v.grade === 'good') {
     // A2, praise: a bet or raise the anchors do not support is never labelled best. One that fails
     // gets the "not a habit" note (line 5); one about break-even just its line (4b or 2).

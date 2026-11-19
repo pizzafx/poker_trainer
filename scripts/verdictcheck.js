@@ -389,7 +389,8 @@ export const INVARIANTS = {
     return (E >= price) !== (call.ev >= 0);
   },
 
-  'P3-1b a flagged R5b call has the estimate and went through the scenario test': (d, v) => v.rule === 'R5b' && v.grade !== 'good' && (!d.anchor || !v.scenarios),
+  // a flagged call at "even" keeps no estimate line under MATH's 13 Nov rule (never "close" under a flag; CEO, 19 Nov)
+  'P3-1b a flagged R5b call has the estimate (unless its status is even) and went through the scenario test': (d, v) => v.rule === 'R5b' && v.grade !== 'good' && ((!d.anchor && !(v.mine >= 0 && v.options[v.mine].st === 'even')) || !v.scenarios),
   'P3-2 flop call of one bet with an overpair/TPTK or better is never red': (d, v, m) => d.street === STREET.FLOP && m.type === 'call' && d.raises === 1 && d.tier >= TIER.OVERPAIR_TPTK && v.grade === 'blunder',
   'P3-3 flop/turn raise with a set or better vs a call or check is never red (not vs a nit)': (d, v, m, b) => (d.street === STREET.FLOP || d.street === STREET.TURN) && m.type === 'raise' && ['call', 'check'].includes(b.type) && d.tier >= TIER.STRONG && v.grade === 'blunder' && !(d.villain && (() => { const t = topRead(d, d.villain.nick); return t && t.p >= 0.5 && t.type === 'nit'; })()),
   'V13b "X rates about the same" (the good line) only within the bar': (d, v, m) => {

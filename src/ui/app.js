@@ -244,6 +244,7 @@ const HABITS = {
   size3bet: 'Re-raised for value at a size outside the usual band',
   isoLimp: 'Limped behind where raising over the limpers did better',
   isoFold: 'Folded a hand most players raise over limpers',
+  isoFoldPair: 'Folded a small pair behind several limpers',
   wideLimp: 'Limped behind with a hand outside the Standard range',
 };
 let habits = {};
@@ -983,6 +984,7 @@ const STRIP_TIP = {
   wideOpen: (t) => `Tip: usually a fold from ${t.where}`,
   isoLimp: (t) => `Tip: raise to $${t.to} over the limpers`,
   isoFold: (t) => `Tip: raise to $${t.to} over the limpers`,
+  isoFoldPair: () => 'Tip: raise or limp behind, not fold',
   wideLimp: () => 'Tip: usually a fold behind limpers',
   junk3bet: () => 'Tip: too weak to re-raise; call or fold',
   size3bet: (t) => (t.band === 'regulars' ? 'Tip: about 3.5–4x against regulars' : 'Tip: bigger, about 4–5x plus 1x per caller'),

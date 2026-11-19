@@ -62,8 +62,9 @@ for (const [code, sk] of Object.entries(SKILLS)) {
     diff[e.difficulty]++;
     if (!Object.values(e.families).includes('wrong')) noWrong++;
   }
-  // opponent types where the rule allows: 4; V1 has only its two calling types (CEO, 17 Nov); P2 is first in (no opponent acts)
-  const minTypes = { P2: 1, V1: 2 }[code] ?? 4;
+  // opponent types where the rule allows: 4; V1 has only its two calling types (CEO, 17 Nov); P2 is first in (no opponent acts);
+  // D1 faces only the types that make big late bets (abc, station, nit; no beginner does in any run; CEO, 19 Nov)
+  const minTypes = { P2: 1, V1: 2, D1: 3 }[code] ?? 4;
   const ok = es.length >= MIN_SPOTS && Object.keys(types).length >= minTypes && Object.keys(seats).length >= 3;
   // CURR (18 Nov): at least 20% easy and 15% tricky; short of either, report to CURR and the CEO before it ships
   const split = es.length ? { d1: diff[1] / es.length, d3: diff[3] / es.length } : { d1: 0, d3: 0 };

@@ -154,3 +154,52 @@ test('drill run builder, every pair: with all six Tier 1 lessons open, each pair
     for (let i = 2; i < sk.length; i++) assert.ok(!(sk[i] === sk[i - 1] && sk[i] === sk[i - 2]), `${k}: ${sk.join(' ')}`);
   }
 });
+
+// GAME, CEO (release requirement): the run builder validates its own result, retries from seed+1.., and swaps keep
+// the no-wrong count exact
+import { runProblem, checkBankRuns, RUN_TRIES } from '../src/drill/game.js';
+import fs from 'node:fs';
+test('drill run builder: swaps keep the no-wrong cap; a partner lesson whose spots all have no wrong answer adds at most 2', () => {
+  const bk = [];
+  for (const skill of ['P1', 'P2', 'D1']) for (const d of [1, 2, 3]) for (let k = 0; k < 6; k++) {
+    // P2's spots all have no wrong answer: every pair-in swap would bring one in
+    const noWrong = skill === 'P2';
+    bk.push({ id: `${skill}-${d}-${k}`, skill, tier: 1, difficulty: d, hand: `${skill}${d}${k}`, spot: { board: [] }, families: noWrong ? { fold: 'best', call: 'fine' } : { fold: 'best', call: 'wrong' } });
+  }
+  const idx = Object.fromEntries(bk.map((s) => [s.id, s]));
+  let runs = 0;
+  for (let k = 0; k < 300; k++) {
+    const ids = buildRun(`cap-${k}`, bk, ['P1', 'P2', 'D1']);
+    if (!ids) continue;
+    runs++;
+    assert.ok(ids.filter((id) => !hasWrong(idx[id])).length <= 2, ids.join(' '));
+    assert.equal(runProblem(ids, bk, ['P1', 'P2', 'D1']), null);
+  }
+  assert.ok(runs > 250, `${runs} valid runs`);
+});
+
+test('drill run builder: a run that cannot meet the pair rules is never returned (no run, logged)', () => {
+  // P1 has spots only at difficulty 1-2 and P2 none at all at difficulty 1: often fixable by a retry, sometimes not
+  const bk = [];
+  for (const d of [1, 2, 3]) for (let k = 0; k < 10; k++) bk.push({ id: `P1-${d}-${k}`, skill: 'P1', tier: 1, difficulty: d, hand: `P1${d}${k}`, spot: { board: [] }, families: { fold: 'wrong', raise: 'best' } });
+  bk.push({ id: 'P2-2-0', skill: 'P2', tier: 1, difficulty: 2, hand: 'P220', spot: { board: [] }, families: { fold: 'best', call: 'wrong' } });
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    // ten P1 spots and one P2 spot cannot avoid three P1 in a row: never a run
+    for (let k = 0; k < 20; k++) assert.equal(buildRun(`thin-${k}`, bk, ['P1', 'P2']), null);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(RUN_TRIES, 50);
+  // a problem the checker names
+  assert.match(runProblem(['P1-1-0', 'P1-1-1', 'P1-1-2', 'P1-2-0', 'P1-2-1', 'P1-2-2', 'P1-2-3', 'P1-3-0', 'P1-2-4', 'P1-3-1'], bk, ['P1', 'P2']), /without its partner|in a row/);
+});
+
+// the shipped bank, when there is one: 10,000 run seeds and every Daily seed for the next 366 days
+test('drill run builder on the shipped bank: 10,000 runs and a year of Dailies, all valid', { skip: !fs.existsSync(new URL('../src/drill/bank.json', import.meta.url)) && 'no shipped bank yet' }, () => {
+  const bank = JSON.parse(fs.readFileSync(new URL('../src/drill/bank.json', import.meta.url)));
+  const r = checkBankRuns(bank);
+  assert.equal(r.checked, 10366);
+  assert.deepEqual(r.failed.slice(0, 5), []);
+});

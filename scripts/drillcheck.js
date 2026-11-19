@@ -12,6 +12,7 @@ import { gateSpot } from './drill/gate.js';
 import { replaySpot, pinnedReads } from './drill/spot.js';
 import { bankVersion } from './drill/version.js';
 import { derive } from './drillentry.js';
+import { checkBankRuns } from '../src/drill/game.js';
 
 const args = process.argv.slice(2);
 const write = args.includes('--write');
@@ -51,8 +52,20 @@ for (const code of Object.keys(SKILLS)) {
   const moved = kept.filter((e) => e.was.difficulty !== e.difficulty).length;
   console.log(`${code}: ${before.length} -> ${after.length} spots | easy ${share(before, 1)}% -> ${share(after, 1)}% | tricky ${share(before, 3)}% -> ${share(after, 3)}% | ${moved} label${moved === 1 ? '' : 's'} moved`);
 }
-if (write && n === 1 && !seeds) {
-  fs.writeFileSync(FILE, JSON.stringify({ ...bank, version, spots: keep.map(({ was, ...e }) => e) }));
-  console.log(`rewrote ${FILE} at ${version}`);
+// the runs the kept bank deals (GAME, CEO release requirement): 10,000 run seeds and a year of Dailies, each
+// valid under the pair rules and the cap; a bank that cannot deal valid runs is never written
+let runsOk = true;
+if (n === 1) {
+  const out = { ...bank, version, spots: keep.map(({ was, ...e }) => e) };
+  const r = checkBankRuns(out);
+  runsOk = !r.failed.length;
+  console.log(`runs: ${r.checked} checked, ${r.failed.length} invalid${r.failed.length ? ` (first: ${r.failed[0].seed}: ${r.failed[0].why})` : ''}`);
 }
-process.exitCode = dropped.length ? 1 : 0;
+if (write && n === 1 && !seeds) {
+  if (!runsOk) console.log(`NOT written: the bank deals invalid runs`);
+  else {
+    fs.writeFileSync(FILE, JSON.stringify({ ...bank, version, spots: keep.map(({ was, ...e }) => e) }));
+    console.log(`rewrote ${FILE} at ${version}`);
+  }
+}
+process.exitCode = dropped.length || !runsOk ? 1 : 0;

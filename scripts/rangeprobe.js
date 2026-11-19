@@ -20,6 +20,7 @@ for (const t of TYPES) {
   if (process.env.RR) PROFILES[t].rangeRead = [+process.env.RR, 0];
   if (process.env.BAR) PROFILES[t].rangeBar = [+process.env.BAR, +process.env.BAR, +process.env.BAR];
   if (process.env.UP) PROFILES[t].rangeUpOnly = process.env.UP === '1';
+  if (process.env.HU) PROFILES[t].rangeScaryHu = process.env.HU.split(',').map(Number);
 }
 const HAND = (f) => (f.tier >= TIER.STRONG ? '5 set+' : f.tier === TIER.TWO_PAIR ? '4 two pair' : f.tier === TIER.OVERPAIR_TPTK ? '3 overpair/TPTK' : f.tier === TIER.TOP_PAIR_GOOD ? '2 TPGK' : f.tier === TIER.TOP_PAIR_WEAK ? '1 TPWK' : f.tier >= TIER.WEAK_PAIR ? '0 weak/mid pair' : '- no pair');
 const cells = new Map();
@@ -51,7 +52,7 @@ walk({
     const rd = s.rt.betRead(s, seat, binOf(f), PROFILES[p.type].rangeBetFrac);
     const scary = (f.mdFlush ?? 1) < 1 || (f.mdStraight ?? 1) < 1 ? 'scary' : 'dry';
     const st = ['flop', 'turn', 'river'][s.street - 1];
-    const mw = ctx.nOpp >= 2 ? 'MW' : 'HU';
+    const mw = (ctx.nOpp >= 2 ? 'MW' : 'HU') + (ctx.inPosition ? ' IP' : ' OOP');
     add(`${p.type} ${st.padEnd(5)} ${HAND(f).padEnd(16)} ${scary.padEnd(5)} ${mw}`, on, off, rd.ahead);
     add(`${p.type} ${st.padEnd(5)} all`, on, off, rd.ahead);
     add(`${p.type} all`, on, off, rd.ahead);
@@ -59,6 +60,6 @@ walk({
 });
 console.log(`${TABLE} table, seed ${SEED}, ${HANDS} hands. Bet rate with nobody having bet: read off -> on (decisions; mean "ahead when called"; share moved up / down by 10+ points)`);
 for (const [k, c] of [...cells.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
-  if (c.n < 40) continue;
+  if (c.n < +(process.env.MINN || 40)) continue;
   console.log(`${k.padEnd(46)} ${(100 * c.off / c.n).toFixed(0).padStart(3)} -> ${(100 * c.on / c.n).toFixed(0).padStart(3)}   (${String(c.n).padStart(5)}; ${(100 * c.ahead / c.n).toFixed(0).padStart(3)}%; ${(100 * c.up / c.n).toFixed(0)}% / ${(100 * c.down / c.n).toFixed(0)}%)`);
 }

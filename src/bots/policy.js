@@ -697,6 +697,9 @@ export function postflopPolicy(ctx, P, f) {
       const mf = f.mdFlush ?? 1, ms = f.mdStraight ?? 1;
       if (mf < 0.7 || ms < 0.9) rr = 0;
       else if ((mf < 1 || ms < 1) && ctx.nOpp >= 2) rr *= P.rangeScaryMw;
+      // heads-up: [after a quiet line, after the other player called a bet on the street before] (v1.2: a gap of
+      // 5 is enough after a quiet line; the full 10 after a call, since a caller's range holds the draws)
+      else if ((mf < 1 || ms < 1) && P.rangeScaryHu) rr *= P.rangeScaryHu[st > 0 && !ctx.prevChecked ? 1 : 0];
     }
     // not when leading into the last street's aggressor: checking to the raiser is a live custom, not range logic (POOL)
     if (rr > 0 && ctx.rtState && ctx.canRaise && !ctx.aggressorBehind) {

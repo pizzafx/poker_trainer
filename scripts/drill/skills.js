@@ -6,6 +6,7 @@
 import { classOf, classNames } from '../../src/engine/hands.js';
 import { STREET, positionName } from '../../src/engine/game.js';
 import { TIER, isRealDraw } from '../../src/engine/features.js';
+import { evaluate, categoryOf, CATEGORY } from '../../src/engine/evaluator.js';
 import { presetRanges, groupOf } from '../../src/trainer/ranges.js';
 import { ISO_LIMP_FEW, anchorStatus } from '../../src/trainer/grade.js';
 
@@ -43,6 +44,18 @@ export function boardChanged(board) {
   };
   if (three(board) && !three(prev)) return 'straight';
   return null;
+}
+// D3's rule 1, generalised (STRAT, 19 Nov): the last card made a better hand category possible and hero's made hand
+// is below it. A paired board needs a full house or better; a flush that just came in, hero's own flush or better;
+// a straight that just came in, hero's own straight or better ("own": the board alone does not make it).
+const NEED = { paired: CATEGORY.FULL_HOUSE, flush: CATEGORY.FLUSH, straight: CATEGORY.STRAIGHT };
+export function beatenByLastCard(s) {
+  const change = boardChanged(s.board);
+  if (!change) return false;
+  const need = NEED[change];
+  const mine = categoryOf(evaluate([...s.hole[0], ...s.board]));
+  const boardOnly = s.board.length >= 5 ? categoryOf(evaluate(s.board)) : -1;
+  return !(mine >= need && boardOnly < need);
 }
 // D3's hands: overpair or top pair top kicker or better; two pair only from hero's own cards (each hole card pairs
 // the board, no pocket pair)
@@ -121,14 +134,15 @@ export const SKILLS = {
     tier: 1,
     name: 'Call big bets with real hands',
     leak: 'overFold',
-    rule: 'A passive player’s big turn or river bet is rarely a bluff, but it isn’t always the nuts. Above top pair with a good kicker, lean call: two pair or better calls unless the board just paired or a flush or straight just came in; an overpair or top pair with the best kicker calls a station, folds to a nit, and is close against others.',
+    rule: 'A passive player’s big turn or river bet is rarely a bluff, but it isn’t always the nuts. Above top pair with a good kicker, lean call: two pair or better calls, unless the last card paired the board or completed a flush or straight that you don’t hold; an overpair or top pair with the best kicker calls a station, folds to a nit, and is close against others.',
     want: ['call', 'raise'], // call and raise may both be right; fold must be wrong
     foldWrong: true,
     match: (s, ctx, f, types) => {
       if (!bigLateBetShape(s, ctx) || !PASSIVE.has(types[ctx.aggressor]) || leftToAct(s, ctx.aggressor).length) return false;
       if (!realHand(s, f)) return false;
-      // the line's exception (PRO): two pair or better where the board just paired or a flush or straight just came in
-      return !(f.tier >= TIER.TWO_PAIR && boardChanged(s.board));
+      // the line's exception (PRO, STRAT): two pair or better where the last card paired the board or completed a
+      // flush or straight that hero does not hold
+      return !(f.tier >= TIER.TWO_PAIR && beatenByLastCard(s));
     },
     // tricky (STRAT, PRO): an overpair or top pair top kicker (the gate has fold wrong), two pair against a nit's bet,
     // or a station's bet

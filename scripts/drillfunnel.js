@@ -8,7 +8,7 @@ import { handFeatures } from '../src/engine/features.js';
 import { TIER, isRealDraw } from '../src/engine/features.js';
 import { buildContext } from '../src/bots/policy.js';
 import { Session, APP_GAME } from '../src/trainer/session.js';
-import { live, leftToAct, boardChanged } from './drill/skills.js';
+import { live, leftToAct, beatenByLastCard } from './drill/skills.js';
 
 const cfg = JSON.parse(process.argv[2] || '{}');
 const NB = new Set(['nit', 'tag']);
@@ -77,7 +77,7 @@ const STEPS = {
       return h[0] !== h[1] && b.has(h[0]) && b.has(h[1]);
     }],
     // PRO's exception: two pair or better where the board just paired or a flush or straight just came in
-    ['not two pair+ on a board that just changed', (s, ctx, f) => !(f.tier >= TIER.TWO_PAIR && boardChanged(s.board))],
+    ['not two pair+ beaten by the last card (rule 1, generalised)', (s, ctx, f) => !(f.tier >= TIER.TWO_PAIR && beatenByLastCard(s))],
   ],
   D2: [
     ['turn or river', (s) => s.street === STREET.TURN || s.street === STREET.RIVER],

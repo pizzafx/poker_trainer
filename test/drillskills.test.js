@@ -69,3 +69,16 @@ test('drill boardChanged: the board pairing, a third card of a suit, or a first 
   assert.equal(SK2.D3.want.join(), 'call,raise');
   assert.ok(SK2.D3.foldWrong);
 });
+
+import { beatenByLastCard } from '../scripts/drill/skills.js';
+test('drill D3 rule 1: the last card beats two pair+ only when it opens a better category hero lacks (STRAT)', () => {
+  const st = (h, b) => ({ hole: [parseCards(h)], board: parseCards(b) });
+  assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7h 2d 9h')), true, 'two pair, a third heart');
+  assert.equal(beatenByLastCard(st('Ah 5h', 'Kh 7h 2d 9h')), false, 'hero holds the flush');
+  assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7c 2d 2s')), true, 'two pair, the board pairs');
+  assert.equal(beatenByLastCard(st('7h 7d', 'Kc 7s 2d 2h')), false, 'a full house on the paired board');
+  assert.equal(beatenByLastCard(st('Kd 9d', 'Kh 9c 2d 5s 8s')), true, 'two pair, 9 8 5 opens a straight');
+  assert.equal(beatenByLastCard(st('6d 7c', 'Kh 9c 2d 5s 8s')), false, 'hero holds the straight');
+  assert.equal(beatenByLastCard(st('Kd 9d', 'Kh 9c 2d Ts 8s')), false, 'K T 9 was already there: the 8 opens nothing new');
+  assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7c 2d 9s')), false, 'nothing changed');
+});

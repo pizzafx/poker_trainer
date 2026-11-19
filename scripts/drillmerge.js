@@ -50,9 +50,9 @@ for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.jsonl') && !x.end
 // 10 points of the lesson's. One deterministic subsample over all the cues together: each step drops the spot (in id
 // hash order) whose removal most cuts the total excess over 10 points, until none is left or no drop helps.
 // B1 against V1 on street, pot size and opponent type (a station, a whale, an abc in the hand); D3 against D1 on
-// street and pot size.
+// street, pot size and the bettor's type (CURR: a station's bet must not mean "call").
 const STREET_NAMES = ['pre', 'flop', 'turn', 'river'];
-const BALANCE = { B1: { vs: 'V1', keys: ['street', 'pot', 'type'] }, D3: { vs: 'D1', keys: ['street', 'pot'] } };
+const BALANCE = { B1: { vs: 'V1', keys: ['street', 'pot', 'type'] }, D3: { vs: 'D1', keys: ['street', 'pot', 'bettor'] } };
 const BAL_TYPES = ['station', 'whale', 'abc'];
 const potCache = new Map();
 const potBucket = (e) => {
@@ -64,12 +64,18 @@ const potBucket = (e) => {
   return potCache.get(e.id);
 };
 const typesIn = (e) => new Set(Object.values(e.reads || {}).map((r) => r.type));
+const bettorOf = (e) => {
+  const last = [...e.spot.actions].reverse().find((a) => a.type === 'raise' && a.seat !== 0);
+  return last ? e.spot.types[last.seat] : null;
+};
 // each cue as a list of [label, test(e)]: a spot counts toward every label it passes
 const CUE = {
   street: [1, 2, 3].map((k) => [`street ${STREET_NAMES[k]}`, (e) => e.street === k]),
   pot: ['<10', '10-19', '20-39', '40-79', '80+'].map((b) => [`pot ${b}`, (e) => potBucket(e) === b]),
   type: BAL_TYPES.map((ty) => [`has ${ty}`, (e) => typesIn(e).has(ty)]),
+  bettor: ['nit', 'abc', 'station', 'beginner'].map((ty) => [`bettor ${ty}`, (e) => bettorOf(e) === ty]),
 };
+const balanceLeft = {};
 const shareOf = (es, test) => (es.length ? es.filter(test).length / es.length : 0);
 const thinned = {};
 for (const [code, { vs, keys }] of Object.entries(BALANCE)) {
@@ -102,6 +108,19 @@ for (const [code, { vs, keys }] of Object.entries(BALANCE)) {
     thinned[code] = (thinned[code] || 0) + 1;
   }
   bySkill[code] = b;
+  // a cue the greedy stop leaves over 10 points is flagged, never passed silently (CURR)
+  const left = tests.map(([label], j) => [label, cnt[j] / Math.max(1, b.length) - target[j]]).filter(([, d]) => Math.abs(d) > 0.1 + 1e-9);
+  if (left.length) balanceLeft[code] = left.map(([l, d]) => `${l} ${d > 0 ? '+' : ''}${Math.round(100 * d)} pts`);
+}
+// the opponent a lesson's spot is about, for its type x difficulty cells (CURR, 19 Nov)
+function primaryOf(e) {
+  if (e.skill.startsWith('D')) return bettorOf(e);
+  if (e.skill === 'P1') {
+    const a = e.spot.actions.find((x) => x.type === 'call' && x.seat !== 0);
+    return a ? e.spot.types[a.seat] : 'none';
+  }
+  const c = Object.values(e.reads || {}).map((r) => r.type).filter((ty) => ty === 'station' || ty === 'whale');
+  return c.length ? [...new Set(c)].sort().join('+') : 'other';
 }
 // the non-hand cues side by side (CEO): street, pot at the decision, live opponents, the bettor's type
 function cueTable(code) {
@@ -155,10 +174,20 @@ for (const [code, sk] of Object.entries(SKILLS)) {
 }
 console.log(`bank version ${version}; ${stale} entries from older versions skipped; ${v1NoCaller} V1 spots with no station or whale dropped${Object.entries(thinned).map(([c, n]) => `; ${n} ${c} spots thinned to match ${BALANCE[c].vs}`).join('')}`);
 for (const [code, { vs }] of Object.entries(BALANCE)) if (bySkill[code] || bySkill[vs]) for (const c of [vs, code]) console.log(`cues ${c}: ${JSON.stringify(cueTable(c))}`);
+for (const [code, left] of Object.entries(balanceLeft)) console.log(`BALANCE NOT MET ${code} vs ${BALANCE[code].vs}: ${left.join(', ')} (report to CURR before it ships)`);
 for (const [code, r] of Object.entries(report)) {
   console.log(`${code} ${r.name}: ${r.spots} spots ${r.ok ? 'SHIPS' : 'below the bar'} | difficulty ${JSON.stringify(r.difficulty)} (easy ${Math.round(100 * r.split.d1)}%, tricky ${Math.round(100 * r.split.d3)}%${r.splitOk ? '' : ': SHORT of 20% / 15%, report to CURR and the CEO'}) | no wrong answer ${r.bestOrFineOnly}`);
   console.log(`   against ${JSON.stringify(r.types)}`);
   console.log(`   seats ${JSON.stringify(r.seats)}`);
+  // type x difficulty cells, keyed on the lesson's primary opponent (CURR): the bettor for D lessons, the first
+  // limper for P1, the station or whale for V1 and B1; cells under 3 are named (they are dropped at release)
+  const cells = {};
+  for (const e of bySkill[code] || []) {
+    const k = `${primaryOf(e)} d${e.difficulty}`;
+    cells[k] = (cells[k] || 0) + 1;
+  }
+  const thin = Object.entries(cells).filter(([, n]) => n < 3);
+  if (code !== 'P2') console.log(`   cells ${Object.keys(cells).length}${thin.length ? `, under 3: ${thin.map(([k, n]) => `${k} (${n})`).join(', ')}` : ', none under 3'}`);
 }
 if (write) {
   const bank = {

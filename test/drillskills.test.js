@@ -71,14 +71,15 @@ test('drill boardChanged: the board pairing, a third card of a suit, or a first 
 });
 
 import { beatenByLastCard } from '../scripts/drill/skills.js';
-test('drill D3 rule 1: the last card beats two pair+ only when it opens a better category hero lacks (STRAT)', () => {
+test('drill D3 rule 1 (final): two pair out on a paired board; two pair and sets out when a flush or straight came in; straights and flushes only near-nuts', () => {
   const st = (h, b) => ({ hole: [parseCards(h)], board: parseCards(b) });
-  assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7h 2d 9h')), true, 'two pair, a third heart');
-  assert.equal(beatenByLastCard(st('Ah 5h', 'Kh 7h 2d 9h')), false, 'hero holds the flush');
   assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7c 2d 2s')), true, 'two pair, the board pairs');
-  assert.equal(beatenByLastCard(st('7h 7d', 'Kc 7s 2d 2h')), false, 'a full house on the paired board');
-  assert.equal(beatenByLastCard(st('Kd 9d', 'Kh 9c 2d 5s 8s')), true, 'two pair, 9 8 5 opens a straight');
-  assert.equal(beatenByLastCard(st('6d 7c', 'Kh 9c 2d 5s 8s')), false, 'hero holds the straight');
-  assert.equal(beatenByLastCard(st('Kd 9d', 'Kh 9c 2d Ts 8s')), false, 'K T 9 was already there: the 8 opens nothing new');
+  assert.equal(beatenByLastCard(st('7h 7d', 'Kc 7s 2d 2h')), false, 'a set on the paired board is a full house');
+  assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7h 2d 9h')), true, 'two pair, a third heart');
+  assert.equal(beatenByLastCard(st('9d 9c', 'Kh 9h 2d 5h')), true, 'a set, a third heart');
+  assert.equal(beatenByLastCard(st('Ah Qh', 'Kh 7h 2d 9h')), false, 'the nut flush stays');
+  // S on a straight when a third suited card lands is 0.856 (stays); on a four-flush 0.57 (out)
+  assert.equal(beatenByLastCard(st('6d 7c', 'Kh 9h 2d 5s 8h')), false, 'a straight as the third heart lands: S 0.856, stays');
+  assert.equal(beatenByLastCard(st('6d 7c', '5h 9h 8h 2d 4h')), true, 'a straight as the fourth heart lands: S 0.57, out');
   assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7c 2d 9s')), false, 'nothing changed');
 });

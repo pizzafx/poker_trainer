@@ -77,7 +77,7 @@ const STEPS = {
       return h[0] !== h[1] && b.has(h[0]) && b.has(h[1]);
     }],
     // PRO's exception: two pair or better where the board just paired or a flush or straight just came in
-    ['not two pair+ beaten by the last card (rule 1, generalised)', (s, ctx, f) => !(f.tier >= TIER.TWO_PAIR && beatenByLastCard(s))],
+    ['not two pair+ beaten by the last card (rule 1, final)', (s, ctx, f) => !(f.tier >= TIER.TWO_PAIR && beatenByLastCard(s, f))],
   ],
   D2: [
     ['turn or river', (s) => s.street === STREET.TURN || s.street === STREET.RIVER],

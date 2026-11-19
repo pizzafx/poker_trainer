@@ -180,6 +180,8 @@ const BASE = {
   rangeBar: null,
   rangeBetFrac: null,
   rangeUpOnly: null, // the read only ever adds value bets (recreational types: they bet the label of the hand)
+  rangeTop: null, // how far above the value threshold the range-aware number may sit (null: RANGE_TOP in policy.js)
+  rangeScaryMw: null, // regulars: the read's share kept multiway on a scary board (PRO's twin rule v1.2); null: no damping
   leadIntoRaiserFlop: null, // the flop's lead-into-the-preflop-raiser term (null: leadIntoRaiser)
   ledRaiseRespect: 0, // call-threshold increase when raised after leading this street
   leadBluffMult: 1, // multiplier on bluff-leads into the aggressor
@@ -698,6 +700,8 @@ const DEFS = {
     valueMd: 0.87, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tpLabel: 0.25, // POOL batch 18
     rangeRead: [0.8, 0.7], // MATH range-bots stage 2 (POOL's table)
+    rangeScaryMw: 0.5, // PRO's twin rule v1.2
+    rangeTop: 0.05, // tuning pass: keeps the heads-up top-pair c-bet under PRO's ceiling of 95
     rangeBar: [0.53, 0.53, 0.53], // STRAT: regulars 52 to 55%
     rangeBetFrac: 0.55,
     tbCont: [0.6, 0.45], // POOL opponent package (Nov 2026)
@@ -1008,6 +1012,8 @@ const HERO_DEF = {
   rangeBar: null,
   rangeBetFrac: null,
   rangeUpOnly: null,
+  rangeTop: null,
+  rangeScaryMw: null,
 };
 
 export const TYPE_IDS = Object.keys(DEFS);

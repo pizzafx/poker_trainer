@@ -689,15 +689,24 @@ export function postflopPolicy(ctx, P, f) {
     // the strength scale around valueThr. At 0 (or with no range summary) it is today's number exactly. Only how
     // often it bets moves: the sizes below still go by S.
     let Sv = S;
-    const rr = P.rangeRead ? P.rangeRead[0] : 0;
-    if (rr > 0 && ctx.rtState && ctx.canRaise) {
+    let rr = P.rangeRead ? P.rangeRead[0] : 0;
+    // PRO's twin rule v1.2 (CEO, 19 Nov): for a regular (rangeScaryMw set) the read is damped multiway on a board
+    // with a flush or straight the hand does not hold, since passive players check their draws and multiway someone
+    // has it more often; on a four-flush or one-card-straight board there is no read at all. Heads-up keeps the read.
+    if (rr > 0 && P.rangeScaryMw != null) {
+      const mf = f.mdFlush ?? 1, ms = f.mdStraight ?? 1;
+      if (mf < 0.7 || ms < 0.9) rr = 0;
+      else if ((mf < 1 || ms < 1) && ctx.nOpp >= 2) rr *= P.rangeScaryMw;
+    }
+    // not when leading into the last street's aggressor: checking to the raiser is a live custom, not range logic (POOL)
+    if (rr > 0 && ctx.rtState && ctx.canRaise && !ctx.aggressorBehind) {
       const rd = ctx.rtState.rt.betRead(ctx.rtState, ctx.seat, binOf(f), P.rangeBetFrac);
       // the range-aware number tops out at RANGE_TOP above the threshold (a 95% bet by itself), so a read never
       // removes the last few checks a type keeps; rangeUpOnly types (recreational: they bet the label of the hand)
       // use the read only to bet more often, never less
       // (a hand that is already above that today keeps its own height as the top). The type's habits stay on top of
       // the read: the passive player's multiway value bar and the lead into the raiser (m7) still raise the bar.
-      const Sr = valueThr + Math.min(Math.max(RANGE_TOP, S - valueThr), (rd.ahead - P.rangeBar[st]) * (P.rangeScale ? P.rangeScale[st] : RANGE_SCALE) - m7);
+      const Sr = valueThr + Math.min(Math.max(P.rangeTop ?? RANGE_TOP, S - valueThr), (rd.ahead - P.rangeBar[st]) * (P.rangeScale ? P.rangeScale[st] : RANGE_SCALE) - m7);
       Sv = S + rr * (Sr - S);
       if (P.rangeUpOnly && Sv < S) Sv = S;
       out.fit = [S - valueThr, rd.ahead]; // for scripts/rangefit.js

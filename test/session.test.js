@@ -139,10 +139,12 @@ test('cost shown: whole dollars, equal to the gap between the rounded values, an
       // no figure when raising does not score more (STRAT L-S1)
       assert.equal(d.cost, Math.max(0, gap));
       assert.ok(d.headline.startsWith('Mistake: limping '), d.headline);
-    } else if (v.priceCap !== undefined && gap > Math.round(v.priceCap)) {
-      // a call against a fold after the flop: at most its price, and the headline says so (STRAT G4)
-      assert.equal(d.cost, Math.round(v.priceCap));
-      assert.ok(d.headline.includes('costs up to its price compared'), d.headline);
+    } else if ((v.priceCap ?? v.moneyInCap) !== undefined && gap > Math.round(v.priceCap ?? v.moneyInCap)) {
+      // a call capped at its price (rule 7, STRAT G4; or the money-in arm): the capped cost, stated plainly, and later
+      // streets graded there; never "up to its price" (STRAT YB-1 / section 17 C2)
+      const cap = Math.round(v.priceCap ?? v.moneyInCap);
+      assert.equal(d.cost, cap);
+      assert.ok(d.headline.includes(`costs about $${cap} compared`) && d.headline.includes('later streets is graded there'), d.headline);
     } else {
       assert.equal(d.cost, gap);
       assert.ok(d.headline.includes(`costs about $${d.cost} compared`), d.headline);

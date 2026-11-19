@@ -55,7 +55,9 @@ export function openTipFor(v, ctx, name, group) {
   const g = pairedGap(v, v.mine, fold);
   if (g.mean > 2.2 * g.se) return null; // the judge clearly likes this open
   const where = SEAT_WORDS[group];
-  const usual = group === 'button' || group === 'sb' ? 'most players fold it here' : 'most players open it only from later seats';
+  // "only from later seats" only when a later seat's Standard range has the hand; trash is folded everywhere (STRAT)
+  const later = { early: ['middle', 'cutoff', 'button'], middle: ['cutoff', 'button'], cutoff: ['button'] }[group] || [];
+  const usual = group === 'button' || group === 'sb' ? 'most players fold it here' : later.some((g) => STANDARD_FIRST[g] && STANDARD_FIRST[g].includes(name)) ? 'most players open it only from later seats' : 'most players fold it from every seat';
   const cost = -g.mean > 2.2 * g.se ? Math.round(v.options[fold].ev) - Math.round(mine.ev) : 0;
   return { kind: 'wideOpen', where, text: `${name} is outside the Standard range from ${where}; ${usual}.${cost > 0 ? ` Here folding was about $${cost} better.` : ''}` };
 }
@@ -255,7 +257,10 @@ export const PREMIUM_RERAISE = new Set(['AA', 'KK', 'QQ', 'AKs', 'AKo']);
 export const ISO_RERAISE = new Set(['JJ', 'TT', '99', '88', 'AQs', 'AJs', 'ATs', 'AQo', 'KQs']);
 
 export function gradeDecision(s, belief, action, judgeOpts, env) {
-  return gradeVerdict(judgeDecision(s, HERO, belief, action, judgeOpts), s, action, judgeOpts, env);
+  const v = judgeDecision(s, HERO, belief, action, judgeOpts);
+  // debug (QA-VERDICT, MATH; LD1 option F): the samples the base run wanted, beside v.samples (what it reached)
+  v.samplesWanted = judgeOpts.samples;
+  return gradeVerdict(v, s, action, judgeOpts, env);
 }
 
 // The guardrails and the tip on a verdict already judged: the play's own grading path after the judge.
@@ -362,8 +367,10 @@ function moneyInArm(v, s, ctx) {
   v.se = g.se;
   // a call's shown cost stays capped at its price, as its loss above (rule 7; QA-VERDICT V4: "call $16 costs
   // about $19" was the uncapped gap of the option values); a bet or raise has no cap
-  if (mine.type === 'call') v.priceCap = put;
-  else delete v.priceCap;
+  // (its own field: the "up to its price" wording belongs to rule 7; a money-in call states "costs about $X",
+  // X = min(loss, money put in), per STRAT YB-1 / section 17 C2)
+  delete v.priceCap;
+  if (mine.type === 'call') v.moneyInCap = put;
   v.moneyIn = { put: Math.round(put), loss: Math.round(g.mean), give: v.options[give].type }; // R12 does not run here: the 3 SE test is its robustness check
   refreshClose(v);
 }
@@ -850,7 +857,11 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   // each re-run's values lined up with this verdict's options by kind and size, not by position
   const aligned = runs.map((r) => v.options.map((o) => sameOption(r, o))).map((ix, k) => (ix.every((i) => i >= 0) ? ix.map((i) => runs[k].options[i].ev) : null));
   const scen = [v.options.map((o) => o.ev), ...aligned.filter(Boolean)];
-  if (v.runs && v.runs.sample) scen.push(tiltedEvs(v, 2), tiltedEvs(v, 0.5));
+  const scenLabels = ['base', ...['calls-5', 'calls+5', 'thin hero'].filter((_, k) => k < aligned.length && aligned[k])];
+  if (v.runs && v.runs.sample) {
+    scen.push(tiltedEvs(v, 2), tiltedEvs(v, 0.5));
+    scenLabels.push('ranges x2', 'ranges x0.5');
+  }
   const usable = v.options.map((o, i) => i !== v.mine && !habitOf(o) && allowed(o));
   const gaps = v.options.map((o, a) => (usable[a] ? pairedGap(v, a, v.mine) : null));
   v.scenarios = scen.length; // the scenario test ran (checked by scripts/verdictcheck.js, P3-1b)
@@ -862,6 +873,10 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
     small,
     notHabit: v.options.map((o) => !habitOf(o)),
   });
+  // debug (QA-VERDICT, MATH; LD1 option F): each scenario's gap from your play to the option the test is about
+  // (the one it names, else the judge's best), so an un-graded flag shows which read failed
+  const scenRef = r.pick >= 0 ? r.pick : v.best;
+  v.scenGaps = scen.map((e, k) => ({ label: scenLabels[k], gap: +(e[scenRef] - e[v.mine]).toFixed(2) }));
   // a costly multiway check stands only if the scenarios name that same bet (amended R1/R4)
   if (v.costly && (r.pick !== v.costly.ref || r.near)) return pass(v.costly.note);
   if (r.pick >= 0) {

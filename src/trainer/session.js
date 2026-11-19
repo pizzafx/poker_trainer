@@ -345,7 +345,28 @@ export class Session {
     const h = this.hand;
     const s = h.state;
     const ctx = buildContext(s);
+    const record = this.decisionRecord(verdict);
+    h.decisions.push(record);
+    this.decisions.push(record);
+    // The table notices raises and big bets after the flop.
+    if (s.street !== STREET.PRE && (action.type === 'raise' || action.type === 'bet')) {
+      this.heat = Math.min(1, this.heat + (ctx.toCall > 0 ? 0.15 : action.to >= ctx.pot ? 0.1 : 0.03));
+    }
+    const before = { ...s, button: s.button };
+    applyAction(s, action, this.rng);
+    this.logAction(HERO, before, action, ctx);
+    return record;
+  }
+
+  // The decision's record and its explanation, for a verdict at the hero's decision now. `use` can stand in a
+  // different read tracker and reads (the Drill bank's pinned read); the table never passes it.
+  decisionRecord(verdict, use = {}) {
+    const h = this.hand;
+    const s = h.state;
+    const ctx = buildContext(s);
     const judgeOpts = this.judgeOpts();
+    const belief = use.belief || h.belief;
+    const readOf = use.readOf || ((i) => this.readOf(i));
     // The opponent whose range matters most: whoever bet, else the last aggressor, else anyone left.
     let villain = -1;
     if (ctx.toCall > 0 && ctx.aggressor >= 0 && ctx.aggressor !== HERO && !s.folded[ctx.aggressor]) villain = ctx.aggressor;
@@ -361,12 +382,12 @@ export class Session {
         if (!s.folded[j]) villain = j;
       }
     }
-    const picture = villain >= 0 ? rangePicture(h.belief, villain, s, HERO) : null;
+    const picture = villain >= 0 ? rangePicture(belief, villain, s, HERO) : null;
     const feats = s.street === STREET.PRE ? null : handFeatures(s.hole[HERO], s.board);
     const live = [];
     for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) live.push(i);
     const regularIn = live.some((i) => {
-      const r = this.readOf(i).ranked[0];
+      const r = readOf(i).ranked[0];
       return r.p >= 0.5 && ['tag', 'lag', 'gto'].includes(r.id);
     });
     const record = {
@@ -383,6 +404,8 @@ export class Session {
       raises: ctx.raises,
       opponents: live.length,
       regularIn,
+      // each live opponent's likeliest type, for copy that depends on who is in (STRAT YB-T1)
+      liveTypes: live.map((i) => readOf(i).ranked[0].id),
       table: tableFacts(s, HERO),
       verdict,
       villain: villain >= 0 ? { seat: villain, nick: this.name(villain), picture, steaming: this.seats[villain].steaming } : null,
@@ -400,15 +423,6 @@ export class Session {
     // a ringed play is stored as one (QA BP2): the record's own headline never says "fine" under the ring
     const bh = bestHeadline(record.verdict, record);
     if (bh) record.headline = bh;
-    h.decisions.push(record);
-    this.decisions.push(record);
-    // The table notices raises and big bets after the flop.
-    if (s.street !== STREET.PRE && (action.type === 'raise' || action.type === 'bet')) {
-      this.heat = Math.min(1, this.heat + (ctx.toCall > 0 ? 0.15 : action.to >= ctx.pot ? 0.1 : 0.03));
-    }
-    const before = { ...s, button: s.button };
-    applyAction(s, action, this.rng);
-    this.logAction(HERO, before, action, ctx);
     return record;
   }
 

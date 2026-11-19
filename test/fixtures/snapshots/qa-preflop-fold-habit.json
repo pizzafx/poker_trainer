@@ -397,7 +397,7 @@
  },
  "expect": {
   "grade": "good",
-  "best": "Fold"
+  "notBestType": "raise"
  },
- "why": "folding to a 3-bet is fine; the re-raise bluff the bots overpay is not a habit to teach"
+ "why": "folding or calling a 3-bet is fine; the re-raise bluff the bots overpay is never the best play to teach"
 }

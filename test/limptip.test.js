@@ -189,7 +189,8 @@ import { gradeDecision } from '../src/trainer/grade.js';
 import { build } from '../scripts/gradeall.js';
 test('L2 fixture: KJo in the hijack limping behind an abc limper gets the isolation tip, graded fine', () => {
   const { s, belief, env } = build({ id: 'l2-kjo-hj', button: 2, hole: 'Kd Jc', board: '', seats: { 7: 'abc' }, line: '7c' });
-  const v = gradeDecision(s, belief, { type: 'call' }, { samples: 1500, seed: 1 }, env);
+  // 6000 samples (STRAT, MATH): at 1500 the SE is about $2 and KJo's $4 edge sat near the 2.2 SE bar; at 6000 it is near 4 SE
+  const v = gradeDecision(s, belief, { type: 'call' }, { samples: 6000, seed: 1 }, env);
   assert.equal(v.grade, 'good');
   assert.equal(v.tip && v.tip.kind, 'isoLimp');
   assert.match(v.tip.text, /^raising over the limpers, to about \$15, usually does better than limping behind with KJo: you isolate weaker hands and keep the lead\. Here raising was about \$\d+ better\.$/);

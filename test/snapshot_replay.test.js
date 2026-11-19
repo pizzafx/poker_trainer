@@ -66,6 +66,8 @@ for (const f of files) {
     // notGrade: one grade, or a list of grades, the verdict must not have
     for (const g of [].concat(e.notGrade || [])) assert.notEqual(r.grade, g, `${tag}: grade`);
     if (e.best) assert.equal(r.best, e.best, `${tag}: best`);
+    // notBestType: the best line must not be this kind of play (STRAT: never the re-raise)
+    if (e.notBestType) assert.notEqual(r.verdict.options[r.verdict.best].type, e.notBestType, `${tag}: best is a ${e.notBestType}`);
     if (e.ref !== undefined) assert.equal(r.ref, e.ref, `${tag}: reference`);
     if (e.notNote) assert.notEqual(r.verdict.note, e.notNote, `${tag}: note`);
     if (e.note) assert.equal(r.verdict.note, e.note, `${tag}: note`);

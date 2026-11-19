@@ -2,7 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { explain, shownCost } from '../src/trainer/explain.js';
+import { explain, shownCost, t1Board } from '../src/trainer/explain.js';
+import { parseCards } from '../src/engine/cards.js';
 import { valueGain } from '../src/trainer/grade.js';
 
 test('YB-V4b: an A2 headline does not cite the estimate below when that line is about the call (STRAT)', () => {
@@ -13,7 +14,7 @@ test('YB-V4b: an A2 headline does not cite the estimate below when that line is 
 });
 
 test('V4: a call flagged by the money-in rule shows a cost of at most its price', () => {
-  const v = { grade: 'mistake', mine: 1, best: 0, priceCap: 16, options: [{ ev: 0 }, { ev: -19.4 }] };
+  const v = { grade: 'mistake', mine: 1, best: 0, moneyInCap: 16, options: [{ ev: 0 }, { ev: -19.4 }] };
   assert.equal(shownCost(v), 16);
 });
 
@@ -24,4 +25,30 @@ test('YB-C: a value bet raised two-thirds of the time is not "works" (MATH value
   assert.ok(Math.abs(valueGain(o) - -0.17) < 0.02);
   // called more than raised, ahead when called: it works
   assert.ok(valueGain({ ...o, R: 0.05, C: 0.9 }) > 0);
+});
+
+import { openTipFor } from '../src/trainer/grade.js';
+import { STREET } from '../src/engine/game.js';
+test('open tip: "only from later seats" only when a later seat opens the hand; trash folds from every seat (STRAT)', () => {
+  const ctx = { street: STREET.PRE, raises: 0, limpers: 0 };
+  const v = { grade: 'good', mine: 1, se: 1, options: [{ type: 'fold', ev: 0 }, { type: 'raise', to: 8, ev: -1 }] };
+  assert.match(openTipFor(v, ctx, '92o', 'early').text, /most players fold it from every seat\./);
+  assert.match(openTipFor(v, ctx, 'K9o', 'early').text, /most players open it only from later seats\./);
+  assert.match(openTipFor(v, ctx, '92o', 'button').text, /most players fold it here\./);
+});
+
+test('YB-T1 vs U1: a board that devalues a hand below a straight takes it out of the T1 copy (STRAT)', () => {
+  const b = (h, s) => t1Board(parseCards(h), parseCards(s));
+  assert.equal(b('7s Td', 'As Qc Kd Tc 7c'), false, 'bottom two pair, four to a straight (seed 24 hand 17)');
+  assert.equal(b('7s 7d', '7c 8c 9h 2c Kd'), false, 'a set, three clubs and three to a straight');
+  assert.equal(b('Ks 2s', 'Kd 2c 5h 9s Jd'), true, 'two pair on a dry river');
+  assert.equal(b('Jh 9h', 'As Qc Kd Tc 7c'), true, 'a straight keeps it');
+  assert.equal(b('Ah 3h', 'Kh 8h 4h 2c Jd'), true, 'a flush keeps it');
+  assert.equal(b('Ks Kd', 'Kh 8h 4h 2h Jd'), false, 'a set on four hearts');
+  // STRAT's two edges
+  assert.equal(b('Js 9d', 'Th 8h 7h 2h Kd'), false, 'a straight on four hearts');
+  assert.equal(b('2s 3d', '9c Tc Jd Qh Ks'), false, 'a board straight the hero only ties');
+  assert.equal(b('As 2d', '9c Tc Jd Qh Ks'), true, 'the nut straight over a board straight');
+  assert.equal(b('8s 2d', '9c Tc Jd Qh 3s'), true, 'a straight of its own, no four-flush');
+  assert.equal(b('2c 3d', 'Ah Kh 8h 4h 9h'), false, 'a board flush the hero plays');
 });

@@ -211,15 +211,18 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
   // Strength number, marked down on boards where better hands are easy to have.
   const raw = Math.min(0.985, TIER_STRENGTH[tier] * rel) + (tier === TIER.MONSTER ? 0.005 : 0); // strength ignoring how dangerous the board is
   let strength = raw;
+  let mdFlush = 1, mdStraight = 1; // POOL batch 18: the flush and straight parts of the markdown, so the policy can shrink them by the action
   if (tier >= TIER.WEAK_PAIR && tier < TIER.MONSTER) {
     const big = tier >= TIER.STRONG; // sets, trips, straights, flushes hold up better
     if (cat < CATEGORY.FLUSH) {
-      if (tex.maxSuit >= 4) strength *= big ? 0.62 : 0.55;
-      else if (tex.maxSuit === 3) strength *= big ? 0.93 : 0.85;
+      if (tex.maxSuit >= 4) mdFlush = big ? 0.62 : 0.55;
+      else if (tex.maxSuit === 3) mdFlush = big ? 0.93 : 0.85;
+      strength *= mdFlush;
     }
     if (cat < CATEGORY.STRAIGHT) {
-      if (tex.connected >= 4) strength *= big ? 0.82 : 0.72;
-      else if (tex.connected === 3 && board.length >= 4 && !big) strength *= 0.95;
+      if (tex.connected >= 4) mdStraight = big ? 0.82 : 0.72;
+      else if (tex.connected === 3 && board.length >= 4 && !big) mdStraight = 0.95;
+      strength *= mdStraight;
     }
     if (tex.paired && cat < CATEGORY.FULL_HOUSE && cat !== CATEGORY.TRIPS) {
       strength *= cat >= CATEGORY.STRAIGHT ? 0.88 : 0.93;
@@ -303,7 +306,8 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
   // POOL batch 16 (PRO's trap-once): for a strong hand on the turn or river, its tier on the previous board
   let prevTier = -1;
   if (board.length >= 4 && tier >= TIER.STRONG) prevTier = handFeatures(hole, board.slice(0, board.length - 1)).tier;
-  return { tier, strength, raw, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, overEquity, nutFlush, missedDraw, prevTier };
+  const holdsSuit = tex.maxSuit >= 3 && hole.some((c) => (c & 3) === tex.flushSuit); // POOL batch 18: holds a card of the board's flush suit
+  return { tier, strength, raw, mdFlush, mdStraight, holdsSuit, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, overEquity, nutFlush, missedDraw, prevTier };
 }
 
 export function describeHand(f, board) {

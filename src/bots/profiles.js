@@ -161,7 +161,18 @@ const BASE = {
   ocStrongMult: null,
   stackOffRaiseNP: null, // POOL batch 16b: a stack-off re-raise share below QQ+/AK (station, nit)
   stackOffRaiseJJ: null, // ...and JJ's own share (the nit)
+  strongRiverFloorDraw: null, // POOL batch 19a: the same on a river that completed a flush or straight
+  strongRiverFloor: null, // POOL batch 19a: rule 1, [two pair to a straight, full house+] river bet floor after betting twice / a checked-through street
+  raiseFoldCap: null, // POOL batch 19a: TPGK+ fold cap facing a flop/turn raise at 4:1+, { tpgk: [flop, turn] } %
+  jam3Cap: null, // POOL batch 19a: jam share caps facing a 3-bet+ by group { jj, aq, tt, ajkq, other } (fractions)
+  jam3MinBB: null, // POOL batch 19a: the effective depth jam3Cap starts at
+  stabFoldCap: null, // POOL batch 19b: regulars' fold caps facing a stab after a checked-through street (see policy.js)
+  foldCap: null, // POOL batch 19: per-type fold caps facing one bet, by price band (PRO's B ceilings v1.2; policy.js foldClassOf)
+  airContCap: null, // POOL batch 19: continuing 10-30bb with no pair and no real draw, [heads-up, multiway] %
+  pfCallOffCap: null, // POOL batch 19: preflop call-offs in 3-bet+ pots, { ajkq, other } %
   airCallOff: null, // POOL batch 17: a cap on calling off a stack or 30bb+ with air [ace/king-high, worse]
+  valueMd: null, // POOL batch 18: the one-pair three-flush markdown when betting with nobody in yet (null: the static 0.85)
+  tpLabel: null, // POOL batch 18: weak-kicker top pair counts toward top pair good kicker when betting the turn or river (recreational players bet the label)
   leadIntoRaiserFlop: null, // the flop's lead-into-the-preflop-raiser term (null: leadIntoRaiser)
   ledRaiseRespect: 0, // call-threshold increase when raised after leading this street
   leadBluffMult: 1, // multiplier on bluff-leads into the aggressor
@@ -180,6 +191,12 @@ const BASE = {
 
 const DEFS = {
   nit: {
+    stabFoldCap: { river: { wm: [65, 92], tpgk: { dry: 20, paired: 25, comp: 60, flush: 40 }, tpwk: { dry: 35, paired: 40, comp: 75, flush: 55 }, tptk: { dry: 15, paired: 18, comp: 50, flush: 30 } }, turn: { wm: [null, 85], tp: 15 } }, // POOL batch 19b (PRO's stab-fold ceilings)
+    strongRiverFloor: [0.97, 0.99], // POOL batch 19a
+    strongRiverFloorDraw: [0.9, 0.97], // POOL batch 19a (PRO's V5 river floors on a river that completed a draw)
+    jam3Cap: { jj: 0.001, aq: 0.001, tt: 0.001, ajkq: 0.001, other: 0.001 }, // POOL batch 19a (rule 4: QQ+/AK only)
+    foldCap: { tpgk: [null, [null, null, 5, 5], [null, null, 8, 8]], tpwk: [null, [null, null, 20, 20], [null, null, 30, 30]] }, // POOL batch 19 (rule 2 shape)
+    valueMd: 0.92, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tbCont: [0.55, 0.4], // POOL opponent package (Nov 2026)
     tbSize: 0.05, // POOL opponent package (Nov 2026)
     blockBet: 0.04, // POOL opponent package (Nov 2026)
@@ -204,7 +221,7 @@ const DEFS = {
     openLimp: 0.9,
     openSize: 5.5,
     sizeTell: 0.8,
-    limpTrap: 0.25,
+    limpTrap: 0.015, // POOL batch 18 (PRO P-V: a nit raises AA/KK first in 98%; was 0.25)
     callRaise: 0.07,
     callElastic: 0.5, // POOL A5, Nov 2026: was 0.7
     limpCall: 1.1,
@@ -217,7 +234,7 @@ const DEFS = {
     absSens: 0.09, // POOL amendment 1, Nov 2026: P1v2 had 0.12 (nits folded top pair to small third bets)
     absFrom: 20, // POOL amendment 1, Nov 2026: was 15 (the base)
     neverFold: 0.66, // POOL P1v2, Nov 2026: was 0.6
-    cbet: [0.45, 0.22, 0.1],
+    cbet: [0.45, 0.21, 0.085], // POOL batch 19b (PRO: multiway air c-bet into 2 ≤25, into 3+ ≤10; was [0.45, 0.22, 0.1])
     barrel: [0.14, 0.04],
     stab: [0.055, 0.1, 0.04], // POOL batch 17 (was [0.14, 0.1, 0.04])
     valueBet: [0.58, 0.62, 0.7],
@@ -250,6 +267,15 @@ const DEFS = {
     missBluff: 0.06,
   },
   abc: {
+    foldCap: { mid: [[null, null, 20, 20], [70, 55, 20, 10], [null, 65, 20, 15]], weak: [[null, null, 40, 40], [70, 55, 30, 10], [null, 65, 35, 15]], oesd: [null, [40, 25, 8, 2], null] }, // POOL batch 19b
+    strongRiverFloor: [0.97, 0.99], // POOL batch 19a
+    strongRiverFloorDraw: [0.9, 0.97], // POOL batch 19a (PRO's V5 river floors on a river that completed a draw)
+    raiseFoldCap: { tpgk: [3, 3] }, // POOL batch 19a
+    jam3Cap: { jj: 0.085, aq: 0.042, tt: 0.025, ajkq: 0.0085, other: 0.002 }, // POOL batch 19a (PRO's B ceilings x0.85)
+    jam3MinBB: 35, // POOL batch 19a
+    airContCap: [8, 4], // POOL batch 19
+    pfCallOffCap: { ajkq: 25, other: 2 }, // POOL batch 19
+    valueMd: 0.92, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tbCont: [0.8, 0.68], // POOL opponent package (Nov 2026)
     tbSize: 0.05, // POOL opponent package (Nov 2026)
     blockBet: 0.1, // POOL opponent package (Nov 2026)
@@ -261,6 +287,7 @@ const DEFS = {
     mwOvercall: [0, 0.05, 0.09], // POOL overcall, owner-approved 13 Nov 2026 (river .07 -> .09, POOL correction)
     name: 'Straightforward recreational',
     airCallOff: [0.04, 0.04], // POOL batch 17
+    tpLabel: 0.8, // POOL batch 18 (PRO's TPWK floors)
     smallCont: [0.92,  0.84,  0.64], // POOL batch 16
     initSlow: true, // POOL batch 16
     trapOnce: 0.1, // POOL batch 16
@@ -282,7 +309,7 @@ const DEFS = {
     stackOff: 0.032, // POOL opponent package (Nov 2026)
     aceLove: 0.3,
     textureBlind: 0.5,
-    cbet: [0.55, 0.3, 0.14],
+    cbet: [0.55, 0.255, 0.125], // POOL batch 19b (PRO: into 2 ≤30, into 3+ ≤15; was [0.55, 0.3, 0.14])
     barrel: [0.2, 0.07],
     stab: [0.22, 0.16, 0.07],
     valueBet: [0.55, 0.6, 0.67],
@@ -320,6 +347,13 @@ const DEFS = {
     opRaiseContR: 0.6,
   },
   station: {
+    foldCap: { mid: [[20, 15, 10, 5], [35, 25, 10, 5], [null, 35, 20, 10]], weak: [[20, 15, 10, 5], [35, 25, 10, 5], [null, 35, 20, 10]], oesd: [null, [20, 10, 3, 1], null] }, // POOL batch 19b
+    strongRiverFloor: [0.97, 0.99], // POOL batch 19a
+    strongRiverFloorDraw: [0.9, 0.97], // POOL batch 19a (PRO's V5 river floors on a river that completed a draw)
+    jam3Cap: { jj: 0.001, aq: 0.001, tt: 0.001, ajkq: 0.001, other: 0.001 }, // POOL batch 19a (rule 4: QQ+/AK only)
+    airContCap: [15, 8], // POOL batch 19
+    pfCallOffCap: { ajkq: 45, other: 5 }, // POOL batch 19
+    valueMd: 0.9, // POOL batch 18 (PRO's scary-board floors and ceilings)
     blockBet: 0.12, // POOL opponent package (Nov 2026)
     sqCont: 1.5, // POOL opponent package (Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
@@ -330,6 +364,7 @@ const DEFS = {
     ocSize: 0.25, // POOL overcall: a pot-sized overcall hits harder than a half-pot one
     name: 'Loose-passive calling station',
     airCallOff: [0.3, 0.1], // POOL batch 17
+    tpLabel: 0.5, // POOL batch 18
     stackOffRaiseNP: 0.05, // POOL batch 16b
     smallCont: [0.97,  0.88,  0.72], // POOL batch 16
     initSlow: true, // POOL batch 16
@@ -361,7 +396,7 @@ const DEFS = {
     textureBlind: 0.8,
     absSens: 0.055,
     neverFold: 0.6, // POOL P1v2, Nov 2026: was 0.55
-    cbet: [0.4, 0.25, 0.14],
+    cbet: [0.4, 0.17, 0.085], // POOL batch 19b (PRO: into 2 ≤20, into 3+ ≤10; was [0.4, 0.25, 0.14])
     barrel: [0.2, 0.08],
     stab: [0.2, 0.15, 0.08],
     valueBet: [0.55, 0.6, 0.58],
@@ -405,6 +440,13 @@ const DEFS = {
     opRaiseContR: 0.85,
   },
   whale: {
+    strongRiverFloor: [0.97, 0.99], // POOL batch 19a
+    strongRiverFloorDraw: [0.9, 0.97], // POOL batch 19a (PRO's V5 river floors on a river that completed a draw)
+    airContCap: [25, 15], // POOL batch 19
+    pfCallOffCap: { ajkq: 70, other: 10 }, // POOL batch 19
+    airCallOff: [0.2, 0.2], // POOL batch 19 (PRO ceiling 6: whale 15-30, halved multiway)
+    valueMd: 0.86, // POOL batch 18 (PRO's scary-board floors and ceilings)
+    tpLabel: 0.3, // POOL batch 18
     blockBet: 0.08, // POOL opponent package (Nov 2026)
     sqCont: 1.6, // POOL opponent package (Nov 2026)
     m7CheckedTo: 0, // POOL passivity, Revision D (13 Nov 2026)
@@ -480,6 +522,7 @@ const DEFS = {
     setMineEnd: 0.125, // POOL batch 5 (Nov 2026)
   },
   maniac: {
+    valueMd: 0.9, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tbCont: [0.75, 0.65], // POOL opponent package (Nov 2026)
     tbSize: 0.05, // POOL opponent package (Nov 2026)
     sqCont: 0.8, // POOL opponent package (Nov 2026)
@@ -546,6 +589,8 @@ const DEFS = {
     bigFloorBase: 0.7,
   },
   gto: {
+    stabFoldCap: { river: { wm: [50, 85], tpgk: { dry: 10, paired: 15, comp: 50, flush: 30 }, tpwk: { dry: 25, paired: 30, comp: 65, flush: 45 }, tptk: { dry: 5, paired: 8, comp: 40, flush: 20 } }, turn: { wm: [null, 75], tp: 10 } }, // POOL batch 19b (PRO's stab-fold ceilings)
+    valueMd: 0.86, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tbCont: [0.52, 0.45], // POOL batches 7-11 (Nov 2026)
     tbSize: 0.06, // POOL batch 2 / pass 3 (Nov 2026)
     tbOOP: 0.05, // POOL opponent package (Nov 2026)
@@ -638,6 +683,9 @@ const DEFS = {
     ctBehindShiftMult: 0.5,
   },
   tag: {
+    stabFoldCap: { river: { wm: [50, 85], tpgk: { dry: 10, paired: 15, comp: 50, flush: 30 }, tpwk: { dry: 25, paired: 30, comp: 65, flush: 45 }, tptk: { dry: 5, paired: 8, comp: 40, flush: 20 } }, turn: { wm: [null, 75], tp: 10 } }, // POOL batch 19b (PRO's stab-fold ceilings)
+    valueMd: 0.87, // POOL batch 18 (PRO's scary-board floors and ceilings)
+    tpLabel: 0.25, // POOL batch 18
     tbCont: [0.6, 0.45], // POOL opponent package (Nov 2026)
     tbSize: 0.1, // POOL opponent package (Nov 2026)
     tbOOP: 0.07, // POOL opponent package (Nov 2026)
@@ -724,6 +772,8 @@ const DEFS = {
     ctBehindShiftMult: 0.5,
   },
   lag: {
+    stabFoldCap: { river: { wm: [40, 75], tpgk: { dry: 10, paired: 15, comp: 50, flush: 30 }, tpwk: { dry: 25, paired: 30, comp: 65, flush: 45 }, tptk: { dry: 5, paired: 8, comp: 40, flush: 20 } }, turn: { wm: [null, 65], tp: 10 } }, // POOL batch 19b (PRO's stab-fold ceilings)
+    valueMd: 0.85, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tbCont: [0.6, 0.58], // POOL batches 7-11 (Nov 2026)
     tbSize: 0.1, // POOL opponent package (Nov 2026)
     tbOOP: 0.07, // POOL opponent package (Nov 2026)
@@ -808,6 +858,10 @@ const DEFS = {
     ctBehindShiftMult: 0.5,
   },
   beginner: {
+    strongRiverFloor: [0.97, 0.99], // POOL batch 19a
+    strongRiverFloorDraw: [0.9, 0.97], // POOL batch 19a (PRO's V5 river floors on a river that completed a draw)
+    valueMd: 0.88, // POOL batch 18 (PRO's scary-board floors and ceilings)
+    tpLabel: 0.5, // POOL batch 18
     tbCont: [0.85, 0.8], // POOL opponent package (Nov 2026)
     tbSize: 0.03, // POOL opponent package (Nov 2026)
     blockBet: 0.12, // POOL opponent package (Nov 2026)
@@ -931,6 +985,11 @@ const HERO_DEF = {
   raiseBluff: [0.04, 0.025, 0.006],
   // mwOvercall comes from the tag, [0, .07, .10]: a solid player folds one pair more behind a bet
   // and a call (POOL, 13 Nov 2026).
+  // POOL batch 18: the stand-in takes the tag's tpLabel 0.25 and valueMd 0.87 (STRAT and MATH, 18 Nov 2026, after
+  // QA-VERDICT's budget-off flip check: 0.27% of grades); test/heroprofile.test.js names both
+  tpLabel: 0.25,
+  valueMd: 0.87,
+  stabFoldCap: null, // POOL batch 19b: opponent-only until STRAT and MATH rule on the stand-in (batch 7-12 precedent)
 };
 
 export const TYPE_IDS = Object.keys(DEFS);

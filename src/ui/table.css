@@ -25,6 +25,12 @@
   --signal-ink: #13210a;
   --signal-wash: #b4e46e1f;
   --signal-line: #b4e46e55; /* best play: a lime-tinted border */
+  /* the "Next hand" countdown (NEXT_HAND_HANDOFF): the unfilled button, its hover, shadow and kbd borders */
+  --nh-bg: #22331f;
+  --nh-hover: #2a3f25;
+  --nh-shadow: #b4e46e1a;
+  --nh-kbd: #b4e46e66;
+  --nh-kbd-ink: #13210a55;
   --hairline: #ffffff0a; /* Game tab rows */
   /* card styles: White faces and their suit inks; a darker club top stop (DECK_HANDOFF) */
   --face-top: #fbfaf6;
@@ -2620,9 +2626,34 @@ button.placard:focus-visible { outline: 2px solid var(--signal); outline-offset:
 .seat.folded:not(.hero):not(.shown) .avatar { filter: grayscale(1) brightness(0.5); opacity: 0.75; }
 .seat.folded:not(.hero):not(.shown) .nick { color: var(--slate-dim); }
 
-/* "Dealing the next hand…" while the table is about to deal on its own: not a button (QA NH1) */
-.act-row.over .dealing { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 6px; color: var(--slate); font-size: 15px; cursor: default; user-select: none; }
-.act-row.over .dealing kbd { opacity: 0.8; }
+/* The "Next hand" countdown (DESIGN, NEXT_HAND_HANDOFF): [result line][button]. The button fills with lime from
+   the left over 3s, then deals; when full it is exactly the primary button. It never sits over Fold (QA NH1). */
+.act-row.over.counting { justify-content: flex-end; gap: 12px; }
+.act-row.over.counting .hint { flex: 1; min-width: 0; text-align: left; color: var(--text); font-size: 14px; }
+/* the held or plain "Next hand" keeps the countdown's size, so nothing jumps on a hold (QA nit) */
+@media (min-width: 981px) { .act-row.over #a-next.primary { min-width: 200px; min-height: 52px; } }
+#a-next.nh { position: relative; flex: none; width: 200px; min-height: 52px; padding: 0 18px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; isolation: isolate; font-weight: 700; font-size: 16px; line-height: 1; color: var(--signal); background: var(--nh-bg); border: 1px solid var(--signal); box-shadow: 0 8px 24px var(--nh-shadow); }
+#a-next.nh .lbl, #a-next.nh .fill { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
+#a-next.nh .fill { position: absolute; inset: -1px; border-radius: inherit; background: var(--signal); color: var(--signal-ink); clip-path: inset(0 calc(100% - var(--p, 0) * 100%) 0 0); pointer-events: none; }
+#a-next.nh kbd { margin-left: 8px; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--nh-kbd); background: none; font: 500 10.5px/1.3 var(--mono); color: inherit; opacity: 0.85; }
+#a-next.nh .fill kbd { border-color: var(--nh-kbd-ink); }
+#a-next.nh:hover { background: var(--nh-hover); }
+#a-next.nh:focus-visible { outline: 2px solid var(--chalk); outline-offset: 3px; }
+#a-next.nh .secs { font: 500 12px/1 var(--mono); opacity: 0.9; }
+#a-next.nh .secs:not(:empty) { margin-left: 8px; }
+/* reduced motion: no fill, "3s / 2s / 1s" beside the label */
+#a-next.nh.still .fill { display: none; }
+/* a full-width dock (phones and narrow windows): the result line takes Fold's third and the button(s) Call and
+   Raise, for the countdown and for the plain "Next hand" after a flagged hand alike: nothing sits over Fold (CEO) */
+@media (max-width: 980px) {
+  #actions .act-row.over { flex-wrap: nowrap; gap: 8px; justify-content: flex-start; }
+  #actions .act-row.over .hint { order: -1; flex: 0 0 calc((100% - 16px) / 3); min-width: 0; text-align: left; font-size: 13px; line-height: 1.3; }
+  #actions .act-row.over { align-items: stretch; }
+  #actions .act-row.over .hint { align-self: center; }
+  #actions .act-row.over button { flex: 1 1 0; min-width: 0; padding: 8px 10px; }
+  #actions .act-row.over #a-next.nh { width: auto; }
+}
+@media (max-width: 600px) { #actions .act-row.over #a-next { min-height: 56px; } }
 
 /* Fold, Call and Raise just after a deal, before they are armed (QA NH1): a little dimmed, fading in */
 #actions .act-row button { transition: opacity 0.25s ease; }

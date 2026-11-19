@@ -20,7 +20,7 @@ import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
 import { shownCost, dryBoard, blockerHand, t1Board } from '../src/trainer/explain.js';
 import { pairedGap, redBar } from '../src/trainer/judge.js';
-import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest, ISO_LIMP, ISO_LIMP_FEW, ISO_LIMP_PAIRS, isoFoldHand, ISO_FOLD_VETO, outsideBehindLimpers, raiseClears, suitedLimpHand } from '../src/trainer/grade.js';
+import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest, ISO_LIMP, ISO_LIMP_FEW, ISO_LIMP_PAIRS, NIT_SCOPE_HANDS, isoFoldHand, ISO_FOLD_VETO, outsideBehindLimpers, raiseClears, suitedLimpHand } from '../src/trainer/grade.js';
 // the bet an estimate line is about: "A bet of $X:" names it; otherwise hero's bet or raise, else the reference (QA-VERDICT)
 function namedBet(d, v) {
   const m = (d.anchor || '').match(/^A bet of \$(\d+):/);
@@ -41,6 +41,15 @@ const R = Math.round;
 const topRead = (d, nick) => {
   const s = ((d.snapshot && d.snapshot.seats) || []).find((x) => x.name === nick);
   return s && s.read ? s.read[0] : null;
+};
+// the limpers in front of a preflop decision, from the snapshot: their count when 2+ and every one is read as a nit
+// at 50% or more (STRAT's L4/L2 scope rule), else 0
+const nitLimpersOf = (d) => {
+  const sn = d.snapshot;
+  if (!sn || !sn.actions) return 0;
+  const seats = [...new Set(sn.actions.filter((a) => a.street === 'preflop' && a.type === 'call' && a.seat !== 0).map((a) => a.seat))].filter((i) => { const r = sn.seats.find((x) => x.seat === i); return r && !r.folded; });
+  if (seats.length < 2) return 0;
+  return seats.every((i) => { const r = sn.seats.find((x) => x.seat === i); return r && r.read && r.read[0] && r.read[0].type === 'nit' && r.read[0].p >= 0.5; }) ? seats.length : 0;
 };
 const realDraw = (d) => {
   if (d.street === STREET.PRE) return false;
@@ -354,6 +363,7 @@ export const INVARIANTS = {
   },
   'L4d the raise-or-limp pair copy only for 77 and 88 behind 3 or more limpers, on a fold (PRO)': (d, v, m) => d.tipKind === 'isoFoldPair' && (!(d.ctx && d.ctx.limpers >= 3) || !ISO_LIMP_PAIRS.has(classNames[classOf(d.hole[0], d.hole[1])]) || !m || m.type !== 'fold'),
   'L4e no single-raise isoFold copy for 77 or 88 behind 3 or more limpers (PRO)': (d) => d.tipKind === 'isoFold' && !!(d.ctx && d.ctx.limpers >= 3) && ISO_LIMP_PAIRS.has(classNames[classOf(d.hole[0], d.hole[1])]),
+  'L4f no isoFold or isoLimp for KQo, KJo or ATo behind 2+ limpers all read as nits (STRAT)': (d) => ['isoFold', 'isoLimp'].includes(d.tipKind) && NIT_SCOPE_HANDS.has(classNames[classOf(d.hole[0], d.hole[1])]) && !!d.snapshot && nitLimpersOf(d) >= 2,
   'L4b isoFold says "raising was about $" only when raising clears the fold by 2.2 SE and $1 (STRAT)': (d, v) => d.tipKind === 'isoFold' && /raising was about \$/.test(d.tip || '') && !raiseClears(v, v.mine),
   'L4c isoFold never on a flagged decision (the grade is unchanged)': (d, v) => d.tipKind === 'isoFold' && v.grade !== 'good',
   'L23 a behind-limpers tip only with one or more limpers and no raise': (d) => ['isoLimp', 'wideLimp', 'isoFold', 'isoFoldPair'].includes(d.tipKind) && !(d.ctx && d.ctx.limpers >= 1 && d.ctx.raises === 0),

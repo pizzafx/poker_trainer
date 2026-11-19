@@ -8,7 +8,7 @@ import { STREET, positionName } from '../../src/engine/game.js';
 import { TIER, isRealDraw, handFeatures } from '../../src/engine/features.js';
 import { evaluate, categoryOf, CATEGORY } from '../../src/engine/evaluator.js';
 import { presetRanges, groupOf } from '../../src/trainer/ranges.js';
-import { ISO_LIMP_FEW, anchorStatus } from '../../src/trainer/grade.js';
+import { anchorStatus } from '../../src/trainer/grade.js';
 
 const STD = presetRanges('standard');
 const PASSIVE = new Set(['nit', 'abc', 'station', 'beginner']);
@@ -249,14 +249,25 @@ export const SKILLS = {
     rule: 'Raise limpers with your good hands, bigger for each limper. Don’t limp behind with them.',
     want: 'raise',
     gate: { Npre: 16000, NpreMax: 20000 }, // the 4 SE test needs 16,000 (MATH)
-    match: (s, ctx) => {
+    // the spots where the coach names the raise on both the limp (L2) and the fold (L4), so neither scores fine
+    // (CURR, STRAT, 19 Nov, after L4 and PRO's 3+ split):
+    // - 77 and 88 behind 3+ limpers: out at every seat (raise or limp both right there: P6, set-mining)
+    // - KJo and ATo from early position: out at any limper count (L4's early-position trim)
+    // - KQo, KJo and ATo behind 2+ limpers all nits: out (no L2 or L4 there, STRAT's nit scope)
+    match: (s, ctx, f, types) => {
       if (s.street !== STREET.PRE || ctx.raises !== 0 || limpers(s) < 1) return false;
       const g = groupOf(positionName(s, 0));
       if (g === 'bb' || g === 'sb') return false;
       const n = handName(s);
       if (!['AJo', 'ATo', 'KQo', 'KJo', '77', '88'].includes(n)) return false;
-      // PRO (Nov 2026): with three or more limpers a raise rarely isolates; 77, 88, ATo and KJo are left out
-      return !(limpers(s) >= 3 && ISO_LIMP_FEW.has(n));
+      const L = limpers(s);
+      if (L >= 3 && (n === '77' || n === '88')) return false;
+      if (g === 'early' && (n === 'KJo' || n === 'ATo')) return false;
+      if (['KQo', 'KJo', 'ATo'].includes(n) && L >= 2 && types) {
+        const seats = [...new Set(s.history.filter((h) => h.type === 'call' && h.street === STREET.PRE && !s.folded[h.seat]).map((h) => h.seat))];
+        if (seats.length >= 2 && seats.every((i) => types[i] === 'nit')) return false;
+      }
+      return true;
     },
     // tricky (CURR, 18 Nov): 77-88, or raising from early or middle position; one limper with AJo/KQo in the cutoff
     // or on the button is the textbook case

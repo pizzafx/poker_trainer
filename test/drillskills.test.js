@@ -87,3 +87,21 @@ test('drill D3 rule 1 (final): two pair out on a paired board; below a flush out
   assert.equal(beatenByLastCard(st('6d 7c', '5h 9h 8h 2d 4h')), false, 'a fourth heart is not a flush that just came in');
   assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7c 2d 9s')), false, 'nothing changed');
 });
+
+// P1 for the rebuild (CURR, STRAT, 19 Nov): only spots where the coach names the raise on both the limp and the fold
+import { build } from '../scripts/gradeall.js';
+import { buildContext } from '../src/bots/policy.js';
+test('drill P1 predicate: 77/88 out behind 3+ limpers; KJo/ATo out from early position; KQo/KJo/ATo out behind 2+ nit limpers', () => {
+  const m = (button, hole, seats, line) => {
+    const { s } = build({ id: 'p1', button, hole, board: '', seats, line });
+    const types = Array.from({ length: s.n }, (_, i) => (i === 0 ? null : seats[i] || 'abc'));
+    return SK2.P1.match(s, buildContext(s), null, types);
+  };
+  // the button (hero on the button: button 0), abc limpers
+  assert.equal(m(0, '7d 7c', { 3: 'abc', 4: 'abc' }, '3c 4c'), true, '77 behind 2: in');
+  assert.equal(m(0, '7d 7c', { 3: 'abc', 4: 'abc', 5: 'station' }, '3c 4c 5c'), false, '77 behind 3: out (P6)');
+  assert.equal(m(0, 'Kd Jc', { 3: 'abc', 4: 'abc', 5: 'station' }, '3c 4c 5c'), true, 'KJo behind 3 on the button: in');
+  assert.equal(m(0, 'Kd Qc', { 3: 'nit', 4: 'nit' }, '3c 4c'), false, 'KQo behind 2 nits: out');
+  assert.equal(m(0, 'Kd Qc', { 3: 'nit', 4: 'abc' }, '3c 4c'), true, 'KQo behind a nit and an abc: in');
+  assert.equal(m(0, 'Ad Jc', { 3: 'nit', 4: 'nit' }, '3c 4c'), true, 'AJo behind 2 nits: in (not in the nit scope)');
+});

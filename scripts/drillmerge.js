@@ -85,7 +85,7 @@ const shareOf = (es, test) => (es.length ? es.filter(test).length / es.length : 
 // builder use them only while the partner is open. D3 is then thinned only where served D1 still cannot match it.
 const WEIGHTED = { D1: { toward: 'D3', keys: ['street', 'pot', 'bettor'] } };
 export const WEIGHT_CAP = 2;
-export const WEIGHT_FLOOR = 0.25;
+export const WEIGHT_FLOOR = 0.5; // CURR, 19 Nov: served down to 0.5x of uniform, never lower (measured, as the cap)
 const WEIGHT_AIM = 1.4; // the fit's own cap, under WEIGHT_CAP: the served rate runs above the raw weight
 const servedShare = (es, test) => {
   let all = 0;
@@ -161,7 +161,18 @@ function servedRatios(spots, skills) {
   for (const [name, f] of [['runs', runs], ['practice', practice]]) {
     const cw = f(spots);
     const cu = f(plain);
-    for (const e of spots) if (e.weight != null && (cu[e.id] || 0) >= 30) out[e.id] = Math.max(out[e.id] || 0, (cw[e.id] || 0) / cu[e.id]);
+    for (const e of spots) {
+      if (e.weight == null || (cu[e.id] || 0) < 30) continue;
+      const n = cw[e.id] || 0;
+      const r = n / cu[e.id];
+      // the ratio's own sampling error (two counts): a spot is over or under only past 2 SE of the line
+      const se = r * Math.sqrt(1 / Math.max(1, n) + 1 / cu[e.id]);
+      const o = (out[e.id] ||= { hi: 0, lo: Infinity, hiLow: 0, loHigh: Infinity });
+      o.hi = Math.max(o.hi, r);
+      o.lo = Math.min(o.lo, r);
+      o.hiLow = Math.max(o.hiLow, r - 2 * se); // the least the high side can be
+      o.loHigh = Math.min(o.loHigh, r + 2 * se); // the most the low side can be
+    }
   }
   return out;
 }
@@ -268,7 +279,9 @@ console.log(`bank version ${version}; ${stale} entries from older versions skipp
 for (const [code, { vs }] of Object.entries(BALANCE)) if (bySkill[code] || bySkill[vs]) for (const c of [vs, code]) console.log(`cues ${c}${WEIGHTED[c] ? ' as served' : ''}: ${JSON.stringify(cueTable(c, !!WEIGHTED[c]))}`);
 for (const [code] of Object.entries(WEIGHTED)) if (bySkill[code] && bySkill[code].some((e) => e.weight != null)) {
   const ws = bySkill[code].map((e) => e.weight);
-  console.log(`weights ${code}: max ${Math.max(...ws)}x, min ${Math.min(...ws)}x the uniform rate (cap ${WEIGHT_CAP}, floor ${WEIGHT_FLOOR}); ${ws.filter((x) => x < 0.5).length} spots under 0.5x`);
+  // effective variety (CURR): (sum w)^2 / sum w^2, the number of equally weighted spots the served lesson is worth
+  const eff = ws.reduce((a, x) => a + x, 0) ** 2 / ws.reduce((a, x) => a + x * x, 0);
+  console.log(`weights ${code}: max ${Math.max(...ws)}x, min ${Math.min(...ws)}x the uniform rate (cap ${WEIGHT_CAP}, floor ${WEIGHT_FLOOR}); effective variety ${eff.toFixed(0)} of ${ws.length} spots${eff < 60 ? ' (UNDER 60: to CURR before it ships)' : ''}`);
 }
 for (const [code, left] of Object.entries(balanceLeft)) console.log(`BALANCE NOT MET ${code} vs ${BALANCE[code].vs}: ${left.join(', ')} (report to CURR before it ships)`);
 for (const [code, r] of Object.entries(report)) {
@@ -296,19 +309,28 @@ if (write) {
   // the shipped bank's checks (CEO, GAME, CURR): a lesson and its partner together, and every run it deals valid;
   // a dev bank (--out elsewhere) may be partial while it is built
   // the served cap: measure, scale down any spot over the line, measure again (at most 5 rounds)
+  // the served cap and floor (CURR): no weighted spot served above WEIGHT_CAP x or below WEIGHT_FLOOR x its uniform rate,
+  // in runs or in Practice, past 2 standard errors of its own counts (a ratio of two sample counts reads about +-14%
+  // at these sizes); a spot over is scaled down, one under scaled up, and the check runs again (5 rounds)
   let capFail = null;
   if (bank.spots.some((e) => e.weight != null)) {
     for (let round = 0; round < 5; round++) {
       const ratio = servedRatios(bank.spots, bank.skills);
-      const over = bank.spots.filter((e) => (ratio[e.id] || 0) > WEIGHT_CAP);
-      const top = Math.max(0, ...Object.values(ratio));
-      console.log(`served cap, round ${round + 1}: max ${top.toFixed(2)}x the uniform rate; ${over.length} over ${WEIGHT_CAP}x`);
-      if (!over.length) {
-        capFail = null;
+      const over = bank.spots.filter((e) => ratio[e.id] && ratio[e.id].hiLow > WEIGHT_CAP);
+      const under = bank.spots.filter((e) => ratio[e.id] && ratio[e.id].loHigh < WEIGHT_FLOOR);
+      const vals = Object.values(ratio);
+      // effective variety on served rates (CURR): (sum r)^2 / sum r^2, over the weighted lesson's spots (runs and Practice
+      // worst case taken spot by spot as the larger rate)
+      const rs = vals.map((o) => o.hi);
+      const eff = rs.length ? rs.reduce((a, x) => a + x, 0) ** 2 / rs.reduce((a, x) => a + x * x, 0) : 0;
+      console.log(`served, round ${round + 1}: max ${Math.max(0, ...vals.map((o) => o.hi)).toFixed(2)}x, min ${Math.min(Infinity, ...vals.map((o) => o.lo)).toFixed(2)}x the uniform rate; ${over.length} over ${WEIGHT_CAP}x and ${under.length} under ${WEIGHT_FLOOR}x past 2 SE; effective variety ${eff.toFixed(0)} of ${rs.length}${eff < 60 ? ' (UNDER 60: to CURR before it ships)' : ''}`);
+      if (!over.length && !under.length) {
+        capFail = eff < 60 ? `effective variety ${eff.toFixed(0)} is under 60` : null;
         break;
       }
-      capFail = `${over.length} spots served over ${WEIGHT_CAP}x`;
-      for (const e of over) e.weight = +(e.weight * (0.9 * WEIGHT_CAP) / ratio[e.id]).toFixed(3);
+      capFail = `${over.length} spots served over ${WEIGHT_CAP}x and ${under.length} under ${WEIGHT_FLOOR}x after 5 rounds (the cap and floor conflict there: thin D3 in those cells, CURR's fallback)`;
+      for (const e of over) e.weight = +(e.weight * (0.9 * WEIGHT_CAP) / ratio[e.id].hi).toFixed(3);
+      for (const e of under) e.weight = +(e.weight * (1.15 * WEIGHT_FLOOR) / ratio[e.id].lo).toFixed(3);
     }
   }
   const gaps = partnerGaps(bank);

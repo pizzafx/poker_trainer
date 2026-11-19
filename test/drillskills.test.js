@@ -71,15 +71,18 @@ test('drill boardChanged: the board pairing, a third card of a suit, or a first 
 });
 
 import { beatenByLastCard } from '../scripts/drill/skills.js';
-test('drill D3 rule 1 (final): two pair out on a paired board; two pair and sets out when a flush or straight came in; straights and flushes only near-nuts', () => {
+test('drill D3 rule 1 (final): two pair out on a paired board; below a flush out when a flush came in, below a straight when a straight did; the made hand itself only near-nuts', () => {
   const st = (h, b) => ({ hole: [parseCards(h)], board: parseCards(b) });
   assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7c 2d 2s')), true, 'two pair, the board pairs');
   assert.equal(beatenByLastCard(st('7h 7d', 'Kc 7s 2d 2h')), false, 'a set on the paired board is a full house');
   assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7h 2d 9h')), true, 'two pair, a third heart');
   assert.equal(beatenByLastCard(st('9d 9c', 'Kh 9h 2d 5h')), true, 'a set, a third heart');
   assert.equal(beatenByLastCard(st('Ah Qh', 'Kh 7h 2d 9h')), false, 'the nut flush stays');
-  // S on a straight when a third suited card lands is 0.856: it stays
-  assert.equal(beatenByLastCard(st('6d 7c', 'Kh 9h 2d 5s 8h')), false, 'a straight as the third heart lands: S 0.856, stays');
+  // a straight made on the card that brings the third heart: below a flush, out (STRAT, PRO)
+  assert.equal(beatenByLastCard(st('6d 7c', 'Kh 9h 2d 5s 8h')), true, 'a straight as the third heart lands: out');
+  // a straight on a card that completes a straight but no flush: stays at S >= 0.85
+  assert.equal(beatenByLastCard(st('6d 7c', 'Kh 9c 2d 5s 8h')), false, 'hero made the straight on a rainbow-ish board: stays');
+  assert.equal(beatenByLastCard(st('Kd 9d', 'Kh 9c 2d 5s 8h')), true, 'two pair when 9 8 5 opens a straight: out');
   // a fourth heart: the flush was already possible, so the last card brought nothing new (rule 1 does not apply)
   assert.equal(beatenByLastCard(st('6d 7c', '5h 9h 8h 2d 4h')), false, 'a fourth heart is not a flush that just came in');
   assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7c 2d 9s')), false, 'nothing changed');

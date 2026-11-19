@@ -46,18 +46,21 @@ export function boardChanged(board) {
   return null;
 }
 // D3's rule 1 (STRAT, PRO, 19 Nov; final): what the last card does to a two pair+ hand.
-// - the board just paired: two pair is out (a set there is a full house and stays)
-// - a flush or straight just came in: two pair and sets (trips) are out; a straight or flush stays only at the
-//   board-adjusted strength of PRO's v3.2 near-nuts (S >= 0.85), which also drops a straight when a flush card comes
+// - the board just paired: two pair is out (a set there is a full house; a flush or straight stays)
+// - a flush just became possible: everything below a flush is out, a straight included; hero's flush stays only at
+//   PRO's v3.2 near-nuts board-adjusted strength (S >= 0.85)
+// - a straight just came in: everything below a straight is out; hero's straight stays only at S >= 0.85
 // - a full house or better always stays
 export function beatenByLastCard(s, f) {
   const change = boardChanged(s.board);
   if (!change) return false;
   const cat = categoryOf(evaluate([...s.hole[0], ...s.board]));
   if (cat >= CATEGORY.FULL_HOUSE) return false;
+  const S = () => (f || handFeatures(s.hole[0], s.board)).strength;
   if (change === 'paired') return cat === CATEGORY.TWO_PAIR;
-  if (cat === CATEGORY.TWO_PAIR || cat === CATEGORY.TRIPS) return true;
-  if (cat === CATEGORY.STRAIGHT || cat === CATEGORY.FLUSH) return !((f || handFeatures(s.hole[0], s.board)).strength >= 0.85);
+  const need = change === 'flush' ? CATEGORY.FLUSH : CATEGORY.STRAIGHT;
+  if (cat < need) return true;
+  if (cat === need) return !(S() >= 0.85);
   return false;
 }
 // D3's hands: overpair or top pair top kicker or better; two pair only from hero's own cards (each hole card pairs
@@ -137,7 +140,7 @@ export const SKILLS = {
     tier: 1,
     name: 'Call big bets with real hands',
     leak: 'overFold',
-    rule: 'A passive player’s big turn or river bet is rarely a bluff, but it isn’t always the nuts. Above top pair with a good kicker, lean call. Two pair or better calls; slow down with two pair when the board just paired, and with two pair or a set when a flush or straight just came in. An overpair or top pair with the best kicker calls a station, folds to a nit, and is close against others.',
+    rule: 'A passive player’s big turn or river bet is rarely a bluff, but it isn’t always the nuts. Above top pair with a good kicker, lean call. Two pair or better calls. Slow down with two pair when the board just paired; with two pair or a set when a flush or straight just came in; and with a straight when a flush just came in. An overpair or top pair with the best kicker calls a station, folds to a nit, and is close against others.',
     want: ['call', 'raise'], // call and raise may both be right; fold must be wrong
     foldWrong: true,
     match: (s, ctx, f, types) => {

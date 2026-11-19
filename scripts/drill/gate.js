@@ -199,6 +199,9 @@ export function gateSpot(s, belief, pinnedReads, skill, o = {}) {
 
   // per family: its value in bb on the first seed's base run, and the least margin over all rows
   const families = { [want]: 'best', ...Object.fromEntries(others.map((k) => [k, cls[k]])) };
+  // D3 (CURR): fold must be wrong; with the raise best, a flagged call is not a call-or-raise spot
+  if (skill.foldWrong && families.fold !== 'wrong') return reject(`G9 fold scores ${families.fold || 'missing'}`);
+  if (skill.foldWrong && want === 'raise' && families.call === 'wrong') return reject('G9 the raise is best and the call is flagged');
   const optionsOut = Object.keys(f0).map((k) => {
     const op = vb.options[fb[k].i];
     return { family: k, label: op.label, type: op.type, ...(op.type === 'raise' ? { to: op.to } : {}), evBb: +(op.ev / bb).toFixed(2) };
@@ -207,5 +210,7 @@ export function gateSpot(s, belief, pinnedReads, skill, o = {}) {
   const marginBars = wrongs.length ? Math.min(...wrongs.map((k) => Math.min(...gaps[k]))) : 0;
   const marginBb = wrongs.length ? Math.min(...wrongs.map((k) => Math.min(...rows.map((r) => (r.vals[want].ev - r.vals[k].ev) / bb)))) : 0;
   const costBb = Object.fromEntries(others.map((k) => [k, +((fb[want] ? vb.options[fb[want].i].ev - vb.options[fb[k].i].ev : 0) / bb).toFixed(1)]));
-  return { ok: true, log, result: { want, families, options: optionsOut, marginBars: +marginBars.toFixed(2), marginBb: +marginBb.toFixed(2), costBb, costBucket, graded, base: vb, samples: n } };
+  // each family's least margin under the best, in bars, over every row (D3's abc rule reads fold's)
+  const minGapBars = Object.fromEntries(others.map((k) => [k, +Math.min(...gaps[k]).toFixed(2)]));
+  return { ok: true, log, result: { want, families, options: optionsOut, marginBars: +marginBars.toFixed(2), marginBb: +marginBb.toFixed(2), minGapBars, costBb, costBucket, graded, base: vb, samples: n } };
 }

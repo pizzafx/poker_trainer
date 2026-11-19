@@ -21,6 +21,7 @@ import { Session, APP_GAME } from '../src/trainer/session.js';
 import { envFor } from './gradeall.js';
 import { SKILLS, live, difficultyOf, d1DrawStatus, d1DrawRejects } from './drill/skills.js';
 import { gateSpot } from './drill/gate.js';
+import { derive } from './drillentry.js';
 import { captureSpot, pinnedReads } from './drill/spot.js';
 import { bankVersion } from './drill/version.js';
 
@@ -47,24 +48,10 @@ const tally = {};
 function entryFor(s, ctx, f, pinned, reads, types, g) {
   const r = g.result;
   const spot = captureSpot(s, { types, nicks: sess.seats.map((p) => p.nick), game: APP_GAME.game });
-  // the coach's estimate line for each family, as the table would show it for that play (pinned read)
-  const env = envFor(pinned, reads);
-  const estimate = {};
-  for (const [k, v] of Object.entries(r.graded)) {
-    try {
-      const rec = sess.decisionRecord(v, { belief: pinned, readOf: env.readOf });
-      if (rec.anchor || rec.tip) estimate[k] = rec.anchor || rec.tip; // before the flop the coach's tip is the line
-    } catch {
-      // no line for this family
-    }
-  }
-  // D1 with a pair and a real draw: the call's own combined-test status (19b); a draw that covers the price is
-  // not a D1 spot (CURR, STRAT 18 Nov), a draw that falls short makes it tricky
-  const drawSt = cfg.skill === 'D1' ? d1DrawStatus(f, r.graded.call, live(s).length) : null;
-  if (d1DrawRejects(drawSt)) return null;
-  const tricky = skill.tricky(s, ctx, f, types, drawSt);
-  const pre = s.street === STREET.PRE;
-  const difficulty = difficultyOf(skill, tricky, pre, r);
+  // labels, the D1 draw rule and D3's abc rule from one place (drillentry, shared with the re-gate)
+  const d = derive(cfg.skill, s, pinned, reads, types, r, sess.seats.map((p) => p.nick));
+  if (d.reject) return { reject: d.reject };
+  const { tricky, difficulty, estimate } = d;
   return {
     id: `${cfg.skill}-${version.slice(0, 6)}-${tag}-${sess.handNo}`,
     skill: cfg.skill,
@@ -129,8 +116,11 @@ while (kept < (cfg.target || 150) && hands < (cfg.maxHands || 200000) && cands <
         g = { ok: false, reason: `error: ${e.message}`, log: {} };
       }
       const line = { skill: cfg.skill, bankVersion: version, table: cfg.table || 'typical', seed: cfg.seed || 1, lineup: cfg.lineup || null, dealt: s.n, spot: captureSpot(s, { types }), hand: sess.handNo, street: s.street, pos: positionName(s, 0), hole: classNames[classOf(s.hole[0][0], s.hole[0][1])], opps: live(s).map((i) => types[i]), bettor: ctx.aggressor > 0 ? types[ctx.aggressor] : null, toCallBb: +(ctx.toCall / bb).toFixed(1), potBb: +(ctx.pot / bb).toFixed(1), result: g.ok ? 'ACCEPT' : g.reason, sec: +((Date.now() - t1) / 1000).toFixed(1), ...g.log };
-      const e = g.ok ? entryFor(s, ctx, f, pinned, reads, types, g) : null;
-      if (g.ok && !e) line.result = d1DrawStatus(f, g.result.graded.call, live(s).length) === 'even' ? 'D1: the draw is about even (rejected, CURR)' : 'D1: the draw covers the price (rejected, CURR)';
+      let e = g.ok ? entryFor(s, ctx, f, pinned, reads, types, g) : null;
+      if (e && e.reject) {
+        line.result = `${e.reject} (rejected)`;
+        e = null;
+      }
       if (e) {
         fs.appendFileSync(OUT, JSON.stringify(e) + '\n');
         kept++;

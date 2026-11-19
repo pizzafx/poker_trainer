@@ -143,11 +143,11 @@ test('drill badges: clean run, no big leaks, solid and sharp, hard ones right, t
 });
 
 test('drill run builder, every pair: with all six Tier 1 lessons open, each pair is both-or-neither and never three in a row', () => {
-  const six = ['D1', 'D2', 'V1', 'B1', 'P1', 'P2'];
+  const six = ['D1', 'D3', 'V1', 'B1', 'P1', 'P2'];
   const bk = [];
   for (const skill of six) for (const d of [1, 2, 3]) for (let k = 0; k < 6; k++) bk.push({ id: `${skill}-${d}-${k}`, skill, tier: 1, difficulty: d, hand: `${skill}${d}${k}`, spot: { board: [] }, families: { fold: 'best', call: 'wrong' } });
   const idx = Object.fromEntries(bk.map((s) => [s.id, s]));
-  const pairs = [['P1', 'P2'], ['V1', 'B1'], ['D1', 'D2']];
+  const pairs = [['P1', 'P2'], ['V1', 'B1'], ['D1', 'D3']];
   for (let k = 0; k < 300; k++) {
     const sk = buildRun(`six-${k}`, bk, six).map((id) => idx[id].skill);
     for (const [a, b] of pairs) assert.ok(sk.includes(a) === sk.includes(b), `${k}: ${sk.join(' ')}`);

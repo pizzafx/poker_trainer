@@ -46,48 +46,78 @@ for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.jsonl') && !x.end
   }
 }
 
-// B1 and V1 differ only by the hand (CEO, CURR): keep each street's share of B1 within 10 points of V1's, by a
-// deterministic subsample of the over-represented street (the spots whose id hashes first go first)
+// A partner differs from its lesson only by the hand (CEO, CURR): every non-hand cue's share in the partner stays within
+// 10 points of the lesson's. One deterministic subsample over all the cues together: each step drops the spot (in id
+// hash order) whose removal most cuts the total excess over 10 points, until none is left or no drop helps.
+// B1 against V1 on street, pot size and opponent type (a station, a whale, an abc in the hand); D3 against D1 on
+// street and pot size.
 const STREET_NAMES = ['pre', 'flop', 'turn', 'river'];
-const shares = (es) => {
-  const c = {};
-  for (const e of es) c[e.street] = (c[e.street] || 0) + 1;
-  return Object.fromEntries([1, 2, 3].map((k) => [k, es.length ? (c[k] || 0) / es.length : 0]));
-};
-let b1Thinned = 0;
-if (bySkill.B1 && bySkill.V1 && bySkill.V1.length) {
-  const v = shares(bySkill.V1);
-  const h = (e) => crypto.createHash('sha1').update(e.id).digest('hex');
-  let b = bySkill.B1.slice().sort((x, y) => (h(x) < h(y) ? -1 : 1));
-  for (;;) {
-    const sb = shares(b);
-    const over = [1, 2, 3].filter((k) => sb[k] - v[k] > 0.1).sort((x, y) => sb[y] - v[y] - (sb[x] - v[x]))[0];
-    const under = [1, 2, 3].some((k) => v[k] - sb[k] > 0.1);
-    if (over === undefined && !under) break;
-    // an under-represented street is fixed by thinning the street most over V1's share
-    const k = over ?? [1, 2, 3].sort((x, y) => sb[y] - v[y] - (sb[x] - v[x]))[0];
-    const i = b.findIndex((e) => e.street === k);
-    if (i < 0 || b.length <= 1) break;
-    b.splice(i, 1);
-    b1Thinned++;
-  }
-  bySkill.B1 = b;
-}
-// the non-hand cues side by side (CEO): street, pot at the decision, live opponents
-function cueTable(code) {
-  const es = bySkill[code] || [];
-  const out = { street: {}, potBb: {}, live: {} };
-  for (const e of es) {
+const BALANCE = { B1: { vs: 'V1', keys: ['street', 'pot', 'type'] }, D3: { vs: 'D1', keys: ['street', 'pot'] } };
+const BAL_TYPES = ['station', 'whale', 'abc'];
+const potCache = new Map();
+const potBucket = (e) => {
+  if (!potCache.has(e.id)) {
     const { s } = replayTable(e.spot);
     const pot = Math.round(potSize(s) / s.bbAmt);
-    const bucket = pot < 10 ? '<10' : pot < 20 ? '10-19' : pot < 40 ? '20-39' : pot < 80 ? '40-79' : '80+';
-    out.street[STREET_NAMES[e.street]] = (out.street[STREET_NAMES[e.street]] || 0) + 1;
-    out.potBb[bucket] = (out.potBb[bucket] || 0) + 1;
-    const n = Object.keys(e.reads || {}).length;
-    out.live[n] = (out.live[n] || 0) + 1;
+    potCache.set(e.id, pot < 10 ? '<10' : pot < 20 ? '10-19' : pot < 40 ? '20-39' : pot < 80 ? '40-79' : '80+');
+  }
+  return potCache.get(e.id);
+};
+const typesIn = (e) => new Set(Object.values(e.reads || {}).map((r) => r.type));
+// each cue as a list of [label, test(e)]: a spot counts toward every label it passes
+const CUE = {
+  street: [1, 2, 3].map((k) => [`street ${STREET_NAMES[k]}`, (e) => e.street === k]),
+  pot: ['<10', '10-19', '20-39', '40-79', '80+'].map((b) => [`pot ${b}`, (e) => potBucket(e) === b]),
+  type: BAL_TYPES.map((ty) => [`has ${ty}`, (e) => typesIn(e).has(ty)]),
+};
+const shareOf = (es, test) => (es.length ? es.filter(test).length / es.length : 0);
+const thinned = {};
+for (const [code, { vs, keys }] of Object.entries(BALANCE)) {
+  if (!bySkill[code] || !bySkill[vs] || !bySkill[vs].length) continue;
+  const tests = keys.flatMap((k) => CUE[k]);
+  const target = tests.map(([, f]) => shareOf(bySkill[vs], f));
+  const marks = (e) => tests.map(([, f]) => f(e));
+  const h = (e) => crypto.createHash('sha1').update(e.id).digest('hex');
+  let b = bySkill[code].slice().sort((x, y) => (h(x) < h(y) ? -1 : 1));
+  // counts per cue, so a trial drop is cheap
+  let m = b.map(marks);
+  let cnt = tests.map((_, j) => m.filter((x) => x[j]).length);
+  const excess = (c, n) => c.reduce((a, x, j) => a + Math.max(0, Math.abs(x / n - target[j]) - 0.1), 0);
+  for (let cur = excess(cnt, b.length); cur > 1e-9 && b.length > 1; ) {
+    let best = -1;
+    let bestV = cur;
+    for (let i = 0; i < b.length; i++) {
+      const c = cnt.map((x, j) => x - (m[i][j] ? 1 : 0));
+      const v = excess(c, b.length - 1);
+      if (v < bestV - 1e-12) {
+        bestV = v;
+        best = i;
+      }
+    }
+    if (best < 0) break;
+    cnt = cnt.map((x, j) => x - (m[best][j] ? 1 : 0));
+    b.splice(best, 1);
+    m.splice(best, 1);
+    cur = bestV;
+    thinned[code] = (thinned[code] || 0) + 1;
+  }
+  bySkill[code] = b;
+}
+// the non-hand cues side by side (CEO): street, pot at the decision, live opponents, the bettor's type
+function cueTable(code) {
+  const es = bySkill[code] || [];
+  const out = { street: {}, potBb: {}, live: {}, bettor: {}, hasType: {} };
+  for (const e of es) {
+    const inc = (o, k) => (o[k] = (o[k] || 0) + 1);
+    inc(out.street, STREET_NAMES[e.street]);
+    inc(out.potBb, potBucket(e));
+    inc(out.live, Object.keys(e.reads || {}).length);
+    const last = [...e.spot.actions].reverse().find((a) => a.type === 'raise' && a.seat !== 0);
+    if (last && code.startsWith('D')) inc(out.bettor, e.spot.types[last.seat]); // facing a bet: D lessons only
+    for (const ty of typesIn(e)) inc(out.hasType, ty);
   }
   const pct = (o) => Object.fromEntries(Object.entries(o).map(([k, x]) => [k, `${Math.round((100 * x) / Math.max(1, es.length))}%`]));
-  return { n: es.length, street: pct(out.street), potBb: pct(out.potBb), live: pct(out.live) };
+  return { n: es.length, street: pct(out.street), potBb: pct(out.potBb), live: pct(out.live), hasType: pct(out.hasType), ...(Object.keys(out.bettor).length ? { bettor: pct(out.bettor) } : {}) };
 }
 
 // the opponent type a spot is "against": the bettor for a call-or-fold spot, else every live opponent
@@ -114,7 +144,8 @@ for (const [code, sk] of Object.entries(SKILLS)) {
   // opponent types where the rule allows: 4; V1 has only its two calling types (CEO, 17 Nov); P2 is first in (no opponent acts);
   // D1 faces only the types that make big late bets (abc, station, nit; no beginner does in any run; CEO, 19 Nov)
   // V5 faces only nits and regulars (2 types); D2 only maniacs (1)
-  const minTypes = { P2: 1, V1: 2, B1: 2, D1: 3, V5: 2, D2: 1 }[code] ?? 4;
+  // D3 faces D1's bettors (abc, station, nit; no beginner D1-sized bets so far)
+  const minTypes = { P2: 1, V1: 2, B1: 2, D1: 3, D3: 3, V5: 2, D2: 1 }[code] ?? 4;
   const ok = es.length >= MIN_SPOTS && Object.keys(types).length >= minTypes && Object.keys(seats).length >= 3;
   // CURR (18 Nov): at least 20% easy and 15% tricky; short of either, report to CURR and the CEO before it ships
   const split = es.length ? { d1: diff[1] / es.length, d3: diff[3] / es.length } : { d1: 0, d3: 0 };
@@ -122,8 +153,8 @@ for (const [code, sk] of Object.entries(SKILLS)) {
   report[code] = { name: sk.name, spots: es.length, ok, types, seats, difficulty: diff, bestOrFineOnly: noWrong, split, splitOk };
   if (ok || all) ship.push(code);
 }
-console.log(`bank version ${version}; ${stale} entries from older versions skipped; ${v1NoCaller} V1 spots with no station or whale dropped${b1Thinned ? `; ${b1Thinned} B1 spots thinned to match V1's streets` : ''}`);
-if (bySkill.B1 || bySkill.V1) for (const c of ['V1', 'B1']) console.log(`cues ${c}: ${JSON.stringify(cueTable(c))}`);
+console.log(`bank version ${version}; ${stale} entries from older versions skipped; ${v1NoCaller} V1 spots with no station or whale dropped${Object.entries(thinned).map(([c, n]) => `; ${n} ${c} spots thinned to match ${BALANCE[c].vs}`).join('')}`);
+for (const [code, { vs }] of Object.entries(BALANCE)) if (bySkill[code] || bySkill[vs]) for (const c of [vs, code]) console.log(`cues ${c}: ${JSON.stringify(cueTable(c))}`);
 for (const [code, r] of Object.entries(report)) {
   console.log(`${code} ${r.name}: ${r.spots} spots ${r.ok ? 'SHIPS' : 'below the bar'} | difficulty ${JSON.stringify(r.difficulty)} (easy ${Math.round(100 * r.split.d1)}%, tricky ${Math.round(100 * r.split.d3)}%${r.splitOk ? '' : ': SHORT of 20% / 15%, report to CURR and the CEO'}) | no wrong answer ${r.bestOrFineOnly}`);
   console.log(`   against ${JSON.stringify(r.types)}`);

@@ -8,7 +8,7 @@ export const LEARN_KEY = 'trainer-drill-learn';
 const DAY = 86400000;
 const BOX_DAYS = { 3: 3, 4: 7, 5: 21 };
 // confusable pairs (a miss on one schedules a spot of the other, once both are open)
-export const PAIRS = { P1: 'P2', P2: 'P1', D1: 'D2', D2: 'D1', V1: 'B1', B1: 'V1', V5: 'V1', O1: 'V3', V3: 'O1', P2b: 'P3', P3: 'P2b', M1: 'M2', M2: 'M1' };
+export const PAIRS = { P1: 'P2', P2: 'P1', D1: 'D3', D3: 'D1', D2: 'D1', V1: 'B1', B1: 'V1', V5: 'V1', O1: 'V3', V3: 'O1', P2b: 'P3', P3: 'P2b', M1: 'M2', M2: 'M1' };
 
 // credit for the level rules: best is right; fine is right at difficulty 1-2 and half at 3
 // opponent types Mastered needs: 3, but V1 has only two calling types (station and whale; CEO, 17 Nov)
@@ -21,7 +21,8 @@ export const MASTER_TYPES = { V1: 2, B1: 2, V5: 2, D2: 1 };
 // - partner gate: a lesson reaches Solid or Mastered only while its partner has 5 of its last 8 answers right
 // V1's partner is B1, "Don't bluff people who don't fold" (CEO, 19 Nov: V5 cannot fill a bank on true tables; it
 // stays in skills.js as a later second partner and is not paired yet)
-export const PARTNERS = { P1: 'P2', P2: 'P1', V1: 'B1', B1: 'V1', D1: 'D2', D2: 'D1' };
+// D1's partner is D3, "Call big bets with real hands" (CEO, 19 Nov); D2 stays in skills.js, unpaired, for later
+export const PARTNERS = { P1: 'P2', P2: 'P1', V1: 'B1', B1: 'V1', D1: 'D3', D3: 'D1' };
 export const INTERLEAVE = PARTNERS;
 export const INTERLEAVE_MAX = 2;
 export const PARTNER_RIGHT = 5;

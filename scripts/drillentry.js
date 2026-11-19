@@ -9,7 +9,7 @@ import { SKILLS, live, difficultyOf, d1DrawStatus, d1DrawRejects } from './drill
 import { envFor } from './gradeall.js';
 import { Session } from '../src/trainer/session.js';
 import { buildContext } from '../src/bots/policy.js';
-import { handFeatures } from '../src/engine/features.js';
+import { handFeatures, TIER } from '../src/engine/features.js';
 import { STREET } from '../src/engine/game.js';
 
 // The coach's estimate lines without a live session: decisionRecord needs only the hand, a belief, the reads, the
@@ -50,6 +50,12 @@ export function derive(code, s, pinned, reads, types, r, nicks) {
   const f = pre ? null : handFeatures(s.hole[0], s.board);
   const drawSt = code === 'D1' ? d1DrawStatus(f, r.graded.call, live(s).length) : null;
   if (d1DrawRejects(drawSt)) return { reject: drawSt === 'even' ? 'D1: the draw is about even' : 'D1: the draw covers the price', drawSt };
+  // D3 (PRO): an overpair or top pair top kicker against an abc's or a beginner's bet (the line's "close against
+  // others") is kept only where fold is wrong by the easy spot's 3 bars in every scenario; stations and nits take
+  // the normal gate
+  if (code === 'D3' && f && f.tier === TIER.OVERPAIR_TPTK && ['abc', 'beginner'].includes(types[ctx.aggressor]) && !((r.minGapBars && r.minGapBars.fold) >= 3)) {
+    return { reject: `D3: overpair/TPTK vs ${types[ctx.aggressor]}, fold wrong by ${r.minGapBars ? r.minGapBars.fold : '?'} bars (under 3)`, drawSt };
+  }
   const tricky = skill.tricky(s, ctx, f, types, drawSt);
   const difficulty = difficultyOf(skill, tricky, pre, r);
   const estimate = estimateLines(s, pinned, reads, r.graded, nicks);

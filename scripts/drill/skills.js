@@ -14,16 +14,44 @@ const PASSIVE = new Set(['nit', 'abc', 'station', 'beginner']);
 const CALLERS = new Set(['station', 'abc', 'beginner', 'whale']);
 // the coach's own foldsBetter set: nits and regulars (tag); gto and lag out (CURR, STRAT, 19 Nov)
 const FOLDS_BETTER = new Set(['nit', 'tag']);
-// D1's bet shape: turn or river, a pot of 15bb or more at the bet, a bet of half that pot or more (or a raise),
-// one pair from weak pair to top pair good kicker, and 10bb or more behind
-function bigLateBet(s, ctx, f) {
+// D1's bet shape, the hand aside (D1, D2 and D3 share it): turn or river, a pot of 15bb or more at the bet, a bet of
+// half that pot or more (or a raise), and 10bb or more behind
+function bigLateBetShape(s, ctx) {
   if (s.street !== STREET.TURN && s.street !== STREET.RIVER) return false;
   if (!(ctx.toCall > 0) || ctx.aggressor <= 0) return false;
   const before = ctx.pot - ctx.toCall;
   if (before < 15 * ctx.bb) return false;
   if (!(ctx.toCall >= 0.5 * before || ctx.raises >= 2)) return false;
-  if (f.tier < TIER.WEAK_PAIR || f.tier > TIER.TOP_PAIR_GOOD) return false;
   return ctx.stack >= 10 * ctx.bb;
+}
+// ...with one pair from weak pair to top pair good kicker (D1, D2)
+const bigLateBet = (s, ctx, f) => bigLateBetShape(s, ctx) && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.TOP_PAIR_GOOD;
+// What this street's card did to the board (PRO, D3's rule line): 'paired' (it pairs an earlier board card),
+// 'flush' (a third card of a suit), 'straight' (three ranks within five, which was not so before), or null
+export function boardChanged(board) {
+  if (board.length < 4) return null;
+  const prev = board.slice(0, -1);
+  const last = board[board.length - 1];
+  if (prev.some((c) => c >> 2 === last >> 2)) return 'paired';
+  const suits = (b) => Math.max(...[0, 1, 2, 3].map((k) => b.filter((c) => (c & 3) === k).length));
+  if (suits(board) >= 3 && suits(prev) < 3) return 'flush';
+  const three = (b) => {
+    const r = new Set(b.map((c) => (c >> 2) + 1));
+    if (r.has(13)) r.add(0);
+    for (let lo = 0; lo <= 9; lo++) if ([0, 1, 2, 3, 4].filter((d) => r.has(lo + d)).length >= 3) return true;
+    return false;
+  };
+  if (three(board) && !three(prev)) return 'straight';
+  return null;
+}
+// D3's hands: overpair or top pair top kicker or better; two pair only from hero's own cards (each hole card pairs
+// the board, no pocket pair)
+function realHand(s, f) {
+  if (f.tier < TIER.OVERPAIR_TPTK) return false;
+  if (f.tier !== TIER.TWO_PAIR) return true;
+  const h = s.hole[0].map((c) => c >> 2);
+  const b = new Set(s.board.map((c) => c >> 2));
+  return h[0] !== h[1] && b.has(h[0]) && b.has(h[1]);
 }
 // live opponents still to act after hero on this street (not the bettor, not all-in, short of the bet)
 export const leftToAct = (s, agg) => {
@@ -56,7 +84,8 @@ export const SKILLS = {
     tier: 1,
     name: "Don't pay off big late bets",
     leak: 'paidOff',
-    rule: 'A passive player’s big turn or river bet is rarely a bluff. One pair usually folds.',
+    // rule line (PRO, STRAT, 19 Nov): names the boundary D3 shares
+    rule: 'A passive player’s big turn or river bet is rarely a bluff. With one pair, up to and including top pair with a good kicker, usually fold.',
     want: 'fold',
     // pot of 15bb or more at the bet (CURR); the shape D2 shares. Nobody left to act behind hero (CEO, 19 Nov):
     // a player behind is a cue D2 does not have (64 of the first 180 had one)
@@ -86,6 +115,24 @@ export const SKILLS = {
     },
     // tricky (CURR, 18 Nov): a weak kicker, or a scary board (three of a suit, four to a straight, paired)
     tricky: (s, ctx, f) => f.tier <= TIER.TOP_PAIR_WEAK || scaryBoard(s.board),
+  },
+  // D1's partner (CEO, 19 Nov; STRAT, PRO): D1's bettors and bets, with a hand above D1's line; call (or raise)
+  D3: {
+    tier: 1,
+    name: 'Call big bets with real hands',
+    leak: 'overFold',
+    rule: 'A passive player’s big turn or river bet is rarely a bluff, but it isn’t always the nuts. Above top pair with a good kicker, lean call: two pair or better calls unless the board just paired or a flush or straight just came in; an overpair or top pair with the best kicker calls a station, folds to a nit, and is close against others.',
+    want: ['call', 'raise'], // call and raise may both be right; fold must be wrong
+    foldWrong: true,
+    match: (s, ctx, f, types) => {
+      if (!bigLateBetShape(s, ctx) || !PASSIVE.has(types[ctx.aggressor]) || leftToAct(s, ctx.aggressor).length) return false;
+      if (!realHand(s, f)) return false;
+      // the line's exception (PRO): two pair or better where the board just paired or a flush or straight just came in
+      return !(f.tier >= TIER.TWO_PAIR && boardChanged(s.board));
+    },
+    // tricky (STRAT, PRO): an overpair or top pair top kicker (the gate has fold wrong), two pair against a nit's bet,
+    // or a station's bet
+    tricky: (s, ctx, f, types) => f.tier === TIER.OVERPAIR_TPTK || (f.tier === TIER.TWO_PAIR && types[ctx.aggressor] === 'nit') || types[ctx.aggressor] === 'station',
   },
   // V1's partner (CEO, 19 Nov; STRAT's sign-off): V1's spots with no hand, so only the hand tells them apart. V1's
   // streets, V1's opponents (all callers, a station or whale among them), V1's bet sizes; every bet wrong

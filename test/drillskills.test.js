@@ -48,10 +48,24 @@ test('drill leftToAct: live opponents short of the bet, not the bettor, not all-
   // seat 1 bet; seat 2 folded; seat 3 still to act; seat 4 all-in for less
   assert.deepEqual(leftToAct(s, 1), [3]);
   assert.deepEqual(leftToAct({ ...s, bet: [0, 40, 0, 40, 10] }, 1), []);
-  assert.deepEqual(Object.keys(SK2).filter((c) => SK2[c].tier === 1).sort(), ['B1', 'D1', 'D2', 'P1', 'P2', 'V1', 'V5']);
+  assert.deepEqual(Object.keys(SK2).filter((c) => SK2[c].tier === 1).sort(), ['B1', 'D1', 'D2', 'D3', 'P1', 'P2', 'V1', 'V5']);
   assert.equal(SK2.B1.want, 'check');
   assert.ok(SK2.B1.allBets);
   assert.equal(SK2.V5.want, 'check');
   assert.equal(SK2.D2.want, 'call');
   assert.ok(SK2.V5.allBets);
+});
+
+import { boardChanged } from '../scripts/drill/skills.js';
+test('drill boardChanged: the board pairing, a third card of a suit, or a first three-to-a-straight on this street (D3, PRO)', () => {
+  const B = (s) => parseCards(s);
+  assert.equal(boardChanged(B('Kh 7d 2c')), null, 'the flop: nothing to compare');
+  assert.equal(boardChanged(B('Kh 7d 2c 7s')), 'paired');
+  assert.equal(boardChanged(B('Kh 7h 2c 4h')), 'flush');
+  assert.equal(boardChanged(B('Kh 7d 2c 8s')), null, 'K 8 7 2: no three within five');
+  assert.equal(boardChanged(B('Kh 9d 2c 8s')), null, 'K 9 8 2: only two within five');
+  assert.equal(boardChanged(B('Kh 9d 2c 8s Ts')), 'straight', 'T 9 8 completes three to a straight');
+  assert.equal(boardChanged(B('Ah 4d 9c 3s')), 'straight', 'A 4 3: the wheel counts');
+  assert.equal(SK2.D3.want.join(), 'call,raise');
+  assert.ok(SK2.D3.foldWrong);
 });

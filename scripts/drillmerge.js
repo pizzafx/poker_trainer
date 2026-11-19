@@ -21,11 +21,17 @@ export const MIN_SPOTS = 150;
 const seen = new Set();
 const bySkill = {};
 let stale = 0;
+let v1NoCaller = 0;
 for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.jsonl') && !x.endsWith('.log.jsonl'))) {
   for (const line of fs.readFileSync(path.join(dir, f), 'utf8').split('\n').filter(Boolean)) {
     const e = JSON.parse(line);
     if (e.bankVersion !== version && !process.argv.includes('--any-version')) { // --any-version: a dev bank only
       stale++;
+      continue;
+    }
+    // V1 is "vs callers": a spot with no station or whale still in the hand is dropped (CURR, 19 Nov, spec 2.2)
+    if (e.skill === 'V1' && !Object.values(e.reads || {}).some((r) => r.type === 'station' || r.type === 'whale')) {
+      v1NoCaller++;
       continue;
     }
     const key = JSON.stringify([e.spot.hole[0], e.spot.board, e.spot.actions, e.spot.button, e.spot.n]);
@@ -65,7 +71,7 @@ for (const [code, sk] of Object.entries(SKILLS)) {
   report[code] = { name: sk.name, spots: es.length, ok, types, seats, difficulty: diff, bestOrFineOnly: noWrong, split, splitOk };
   if (ok || all) ship.push(code);
 }
-console.log(`bank version ${version}; ${stale} entries from older versions skipped`);
+console.log(`bank version ${version}; ${stale} entries from older versions skipped; ${v1NoCaller} V1 spots with no station or whale dropped`);
 for (const [code, r] of Object.entries(report)) {
   console.log(`${code} ${r.name}: ${r.spots} spots ${r.ok ? 'SHIPS' : 'below the bar'} | difficulty ${JSON.stringify(r.difficulty)} (easy ${Math.round(100 * r.split.d1)}%, tricky ${Math.round(100 * r.split.d3)}%${r.splitOk ? '' : ': SHORT of 20% / 15%, report to CURR and the CEO'}) | no wrong answer ${r.bestOrFineOnly}`);
   console.log(`   against ${JSON.stringify(r.types)}`);

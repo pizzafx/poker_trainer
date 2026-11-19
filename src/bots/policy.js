@@ -236,6 +236,7 @@ export function buildContext(s, seat = s.toAct) {
     ctx.quietStraight = quiet('st');
     // POOL batch 19a (PRO, rule 1): did the river card complete a flush or a straight (raise either board level)?
     ctx.riverDrawCompleted = L.length === 3 && (L[2].fl > L[1].fl || L[2].st > L[1].st);
+    { const rk = s.board.map((c) => c >> 2); ctx.boardPaired = rk.some((r, i) => rk.indexOf(r) !== i); } // POOL batch 19b
   }
   ctx.toActBehind = ctx.toCall > 0 ? toActBehind : 0;
   return ctx;
@@ -890,6 +891,27 @@ export function postflopPolicy(ctx, P, f) {
   if (P.raiseFoldCap && facingRaise && ctx.raises === 2 && st < 2 && foldClassOf(f, st) === 'tpgk' && (1 - ctx.odds) / Math.max(1e-9, ctx.odds) >= 4 &&
     !(((f.mdFlush ?? 1) < 0.7 && !f.holdsSuit) || (f.mdStraight ?? 1) < 0.9)) {
     const cap = P.raiseFoldCap.tpgk?.[st];
+    if (cap != null) pCont = Math.max(pCont, 1 - (FOLD_CAP_AIM * cap) / 100);
+  }
+  // POOL batch 19b (PRO's stab-fold ceilings, PRO_RUBRIC.md): a regular heads-up facing one stab after a street that was
+  // checked through folds at most stabFoldCap (aimed at 0.85), for bets up to 75% pot (a bigger probe is weighted to value).
+  //  river: wm [<=40%, 40-75%] for weak/middle pair; tpgk/tpwk/tptk { dry, paired, comp (the river completed a flush or
+  //  straight), flush (three-flush or four-straight already there) }; a four-flush the bot has no card of has no cap.
+  //  turn: wm [null, 40-75%]; tp (top pair or better) one cap.
+  if (P.stabFoldCap && ctx.nOpp === 1 && ctx.raises === 1 && ctx.prevChecked && st > 0 && ctx.toCall > 0) {
+    const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall);
+    const C = st === 2 ? P.stabFoldCap.river : P.stabFoldCap.turn;
+    let cap = null;
+    if (C && bf <= 0.75) {
+      const sz = bf <= 0.4 ? 0 : 1;
+      if (f.tier === TIER.WEAK_PAIR || f.tier === TIER.MIDDLE_PAIR) cap = C.wm?.[sz] ?? null;
+      else if (st === 1 && f.tier >= TIER.TOP_PAIR_WEAK) cap = C.tp ?? null;
+      else if (st === 2 && f.tier >= TIER.TOP_PAIR_WEAK && f.tier <= TIER.OVERPAIR_TPTK && !((f.mdFlush ?? 1) < 0.7 && !f.holdsSuit)) {
+        const k = f.tier === TIER.TOP_PAIR_WEAK ? 'tpwk' : f.tier === TIER.TOP_PAIR_GOOD ? 'tpgk' : 'tptk';
+        const bc = ctx.riverDrawCompleted ? 'comp' : (f.mdFlush ?? 1) < 1 || (f.mdStraight ?? 1) < 0.9 ? 'flush' : ctx.boardPaired ? 'paired' : 'dry';
+        cap = C[k]?.[bc] ?? null;
+      }
+    }
     if (cap != null) pCont = Math.max(pCont, 1 - (FOLD_CAP_AIM * cap) / 100);
   }
   // POOL batch 19 (PRO ceiling (c)): continuing for 10-30bb with no pair and no real draw is capped per type at

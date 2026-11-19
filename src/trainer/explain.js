@@ -5,7 +5,8 @@ import { STREET } from '../engine/game.js';
 import { TIER, isRealDraw, handFeatures, boardTexture } from '../engine/features.js';
 import { CATEGORY, evaluate } from '../engine/evaluator.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
-import { anchorStatus, needOf, drawTest } from './grade.js';
+import { anchorStatus, needOf, drawTest, isoQuote, ISO_LIMP_PAIRS } from './grade.js';
+import { classOf, classNames } from '../engine/hands.js';
 
 export const CATEGORIES = {
   paidOff: 'Paying off: calling when their bet or raise is almost always the goods',
@@ -632,7 +633,20 @@ export function explain(d) {
     if (category === 'prePassive') reasons.push(`A raise here gets called by worse hands and gives you the betting lead; just calling lets everyone in cheaply against a hand that plays best against few opponents.`);
     if (category === 'preTight') {
       if (d.raises === 0 && !(d.ctx && d.ctx.limpers > 0)) reasons.push(`This hand is a profitable open from ${where} here, even though a tight chart folds it.`);
-      else reasons.push(`The players in this pot enter with weak hands and pay off after the flop, so this hand is profitable here even though it is a fold at a tougher table.`);
+      else {
+        // 77 and 88 behind 3+ limpers (STRAT, 19 Nov): raise or limp both make money; the iso size as L2 and L4 quote it
+        const hand = d.hole && d.hole.length === 2 ? classNames[classOf(d.hole[0], d.hole[1])] : null;
+        const n = d.ctx && d.ctx.limpers;
+        if (hand && ISO_LIMP_PAIRS.has(hand) && n >= 3 && d.raises === 0) {
+          const to = isoQuote(v, d.ctx);
+          const limp = v.options.find((o) => o.type === 'call');
+          const fold = v.options.find((o) => o.type === 'fold');
+          const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'][n] || String(n);
+          reasons.push(limp && fold && limp.ev > fold.ev
+            ? `Behind ${words} limpers ${hand} makes money either way: raise to isolate, to about $${to}, or limp behind and play for a set. Folding throws away a profitable hand.`
+            : `${hand} makes money here: raise to isolate, to about $${to}. Folding throws away a profitable hand.`);
+        } else reasons.push(`The players in this pot enter with weak hands and pay off after the flop, so this hand is profitable here even though it is a fold at a tougher table.`);
+      }
     }
   }
   // The "theory would call" note only applies when the hand is strong enough that theory would.

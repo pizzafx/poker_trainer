@@ -251,7 +251,7 @@ const ISO_FOLD_BASE = [...ISO_LIMP, ...STRONG_LIMP, 'ATs', 'KJs', 'KTs', 'QJs'];
 // From early position KJo and ATo are left out at every limper count (STRAT, POOL): the thinnest cells in MATH's
 // run ($1.85 and $2.67 over the fold), and bot limpers fold to iso raises more than live ones do
 const ISO_FOLD_EARLY_OUT = new Set(['KJo', 'ATo']);
-// behind 3+ limpers the full list (PRO, 19 Nov): 77 and 88 there get the raise-or-limp copy (isoFoldPair)
+// behind 3+ limpers the full list (PRO, 19 Nov); 77 and 88 there get no tip (the preTight flag's wording covers them)
 const isoFoldRow = (n, g) => new Set(ISO_FOLD_BASE.filter((h) => !(g === 'early' && ISO_FOLD_EARLY_OUT.has(h))));
 export const ISO_FOLD = Object.fromEntries(['early', 'middle', 'cutoff', 'button'].map((g) => [g, { 1: isoFoldRow(1, g), 2: isoFoldRow(2, g), 3: isoFoldRow(3, g) }]));
 // silent when the judge prefers the fold (or the limp) to the best raise by more than 1 SE (MATH's 280-cell run,
@@ -270,17 +270,9 @@ export function isoFoldTipFor(v, ctx, name, group) {
   if (br < 0) return null;
   const fold = v.mine;
   const limp = v.options.findIndex((o) => o.type === 'call');
-  // 77 and 88 behind 3+ limpers (PRO): raise and limp are both fine there, so the tip names both; silent only when
-  // the fold beats the better of them by more than the veto. $Y: that option over the fold, 2.2 SE and $1.
-  if (ctx.limpers >= 3 && ISO_LIMP_PAIRS.has(name)) {
-    const play = limp >= 0 && v.options[limp].ev > v.options[br].ev ? limp : br;
-    const gp = pairedGap(v, fold, play);
-    if (gp.mean > ISO_FOLD_VETO * gp.se) return null;
-    const gy = pairedGap(v, play, fold);
-    const gave = gy.mean > 2.2 * gy.se && gy.mean > 1 ? Math.round(v.options[play].ev) - Math.round(v.options[fold].ev) : 0;
-    const to = isoQuote(v, ctx);
-    return { kind: 'isoFoldPair', to, text: `${name} plays behind limpers from ${SEAT_WORDS[group]}: raise to isolate, to about $${to}, or limp behind for set value; folding throws away a profitable hand.${gave > 0 ? ` Here folding gave up about $${gave}.` : ''}` };
-  }
+  // 77 and 88 behind 3+ limpers: no tip (STRAT, 19 Nov). Their fold is graded a mistake there, and the preTight
+  // flag carries the raise-or-limp wording (explain.js); a fold graded fine gets nothing here.
+  if (ctx.limpers >= 3 && ISO_LIMP_PAIRS.has(name)) return null;
   const gf = pairedGap(v, fold, br);
   if (gf.mean > ISO_FOLD_VETO * gf.se) return null; // the judge clearly prefers the fold
   if (limp >= 0) {

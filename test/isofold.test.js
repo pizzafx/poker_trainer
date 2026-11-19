@@ -71,18 +71,35 @@ test('L4: ISO_FOLD is ISO_LIMP, STRONG_LIMP and ATs KJs KTs QJs at every limper 
   assert.equal(isoFoldTipFor(verdict({ r12: 6, se: 1 }), behind(POS.LP, 2), '66', 'button'), null);
 });
 
-test('L4 pairs: 77 and 88 folded behind 3+ limpers get the raise-or-limp copy; the dollar figure only when the better clears the fold (PRO)', () => {
-  // the limp ahead of the raise: still the pair copy (both are fine there), $Y is the limp over the fold
-  const tip = isoFoldTipFor(verdict({ limp: 5, r12: 3, r18: 2, se: 1 }), { ...behind(POS.LP, 3), base: 2, bb: 2 }, '88', 'button');
-  assert.equal(tip.kind, 'isoFoldPair');
-  assert.equal(tip.text, '88 plays behind limpers from the button: raise to isolate, to about $18, or limp behind for set value; folding throws away a profitable hand. Here folding gave up about $5.');
-  // inside the noise: no dollar figure; the fold clearly ahead of both: silent
-  assert.doesNotMatch(isoFoldTipFor(verdict({ limp: 1, r12: 0.5, r18: 0, se: 1 }), behind(POS.LP, 3), '77', 'cutoff').text, /gave up/);
-  assert.equal(isoFoldTipFor(verdict({ limp: -3, r12: -4, r18: -5, se: 1 }), behind(POS.LP, 3), '77', 'cutoff'), null);
+test('L4 pairs: 77 and 88 folded behind 3+ limpers get no tip (the preTight flag carries the wording; STRAT)', () => {
+  assert.equal(isoFoldTipFor(verdict({ limp: 5, r12: 3, r18: 2, se: 1 }), { ...behind(POS.LP, 3), base: 2, bb: 2 }, '88', 'button'), null);
+  assert.equal(isoFoldTipFor(verdict({ limp: 1, r12: 0.5, r18: 0, se: 1 }), behind(POS.LP, 3), '77', 'cutoff'), null);
   // behind 1-2 limpers, and other hands behind 3+: the single-raise copy
   assert.equal(isoFoldTipFor(verdict({ r12: 6, se: 1 }), behind(POS.LP, 2), '88', 'button').kind, 'isoFold');
   assert.equal(isoFoldTipFor(verdict({ r12: 6, se: 1 }), behind(POS.LP, 3), 'ATo', 'button').kind, 'isoFold');
   assert.equal(isoFoldTipFor(verdict({ r12: 6, se: 1 }), behind(POS.EP, 3), 'ATo', 'early'), null, 'ATo never from early position');
+});
+
+// the preTight flag's wording for 77/88 behind 3+ limpers (STRAT), end to end through the record the table shows
+import { Session } from '../src/trainer/session.js';
+function recordOf(spot, action) {
+  const { s, belief, env } = build(spot);
+  const v = gradeDecision(s, belief, action, { samples: 2000, seed: 1 }, env);
+  const e = env;
+  const nick = (i) => `Seat ${i}`;
+  const fake = { hand: { state: s, belief }, handNo: 0, heat: 0, rake: null, judgeOpts: () => ({ samples: 600, heat: 0 }), readOf: (i) => ({ ...e.readOf(i), notes: { hands: 0, vpip: 0, pfr: 0, showdowns: [] } }), name: nick, seats: Array.from({ length: s.n }, (_, i) => ({ steaming: false, nick: nick(i), hero: i === 0 })), decisions: [] };
+  return { v, s, rec: Session.prototype.decisionRecord.call(fake, v, { belief, readOf: e.readOf }) };
+}
+test('preTight wording: 77 folded behind 3 limpers names the iso size and the set; 77 behind 2 and AJo behind 3 keep the usual reason', () => {
+  const three = recordOf({ id: 'pt-77-3', button: 0, hole: '7d 7c', board: '', seats: { 3: 'abc', 4: 'abc', 5: 'station' }, line: '3c 4c 5c' }, { type: 'fold' });
+  assert.notEqual(three.v.grade, 'good', 'the 77 fold behind three limpers is flagged (QA-VERDICT: these grade as mistakes)');
+  const r = (three.rec.reasons || []).join(' ');
+  const to = isoTo(three.s.currentBet, 3, false);
+  assert.ok(r.includes(`Behind three limpers 77 makes money either way: raise to isolate, to about $${to}, or limp behind and play for a set. Folding throws away a profitable hand.`), r);
+  const two = recordOf({ id: 'pt-77-2', button: 0, hole: '7d 7c', board: '', seats: { 3: 'abc', 4: 'abc' }, line: '3c 4c' }, { type: 'fold' });
+  assert.ok(!(two.rec.reasons || []).join(' ').includes('play for a set'));
+  const ajo = recordOf({ id: 'pt-ajo-3', button: 0, hole: 'Ad Jc', board: '', seats: { 3: 'abc', 4: 'abc', 5: 'station' }, line: '3c 4c 5c' }, { type: 'fold' });
+  assert.ok(!(ajo.rec.reasons || []).join(' ').includes('play for a set'));
 });
 
 // one real judged spot, end to end: KJo in the hijack folding behind an abc limper (the L2 fixture's hand)

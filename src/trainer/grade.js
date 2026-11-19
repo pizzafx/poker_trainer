@@ -90,20 +90,6 @@ export const ISO_LIMP_FEW = new Set(['ATo', 'KJo', '88', '77']);
 // PRO (19 Nov): behind 3+ limpers over-limping is live play for the small pairs only; L2 stays silent for 77 and 88
 // there, and ATo and KJo get the usual gap-gated L2 tip. (ISO_LIMP_FEW stays for Drill P1's predicate, CURR.)
 export const ISO_LIMP_PAIRS = new Set(['88', '77']);
-// STRAT, MATH's tight-limper run (19 Nov): behind 2+ limpers all read as nits, KQo, KJo and ATo are thin (raise over
-// fold $1.42 or less, about level with the limp), so neither L2 nor L4 names a raise there. The read is the one the
-// player sees, as junk3betTipFor's (env.readOf, top read at 50% or more).
-export const NIT_SCOPE_HANDS = new Set(['KQo', 'KJo', 'ATo']);
-export const allNitLimpers = (s, env) => {
-  if (!env) return false;
-  const seats = [];
-  for (const h of s.history) if (h.street === STREET.PRE && h.type === 'call' && h.seat !== HERO && !s.folded[h.seat] && !seats.includes(h.seat)) seats.push(h.seat);
-  if (seats.length < 2) return false;
-  return seats.every((i) => {
-    const top = env.readOf(i).ranked[0];
-    return !!top && Math.round(top.p * 1000) / 1000 >= 0.5 && top.id === 'nit';
-  });
-};
 const LIMPER_KEEP = { default: new Set(expandRange(LIMPER_OFFSUIT.default)), button: new Set(expandRange(LIMPER_OFFSUIT.button)) };
 const behindLimpers = (v, ctx, name) => {
   if (v.grade !== 'good' || v.mine < 0 || ctx.street !== STREET.PRE) return false;
@@ -354,8 +340,7 @@ export function gradeVerdict(verdict, s, action, judgeOpts, env) {
     const group = groupOf(positionName(s, HERO));
     // a limp with a hand outside the seat's Standard range gets "most players fold it here", never the
     // raise tip (STRAT G3: never tell a student to raise K5o from UTG+1); inside it, the raise tip
-    const nitScope = NIT_SCOPE_HANDS.has(name) && allNitLimpers(s, env);
-    tip = limpOutsideTipFor(verdict, ctx, name, group) || wideLimpTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || (nitScope ? null : isoLimpTipFor(verdict, ctx, name)) || (nitScope ? null : isoFoldTipFor(verdict, ctx, name, group)) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) || verdict.iso3bet ? null : junk3betTipFor(verdict, ctx, name, group, env)) || (verdict.iso3bet ? null : size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env));
+    tip = limpOutsideTipFor(verdict, ctx, name, group) || wideLimpTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || isoLimpTipFor(verdict, ctx, name) || isoFoldTipFor(verdict, ctx, name, group) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) || verdict.iso3bet ? null : junk3betTipFor(verdict, ctx, name, group, env)) || (verdict.iso3bet ? null : size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env));
   } else tip = limpTipFor(verdict, ctx);
   if (tip) verdict.tip = tip;
   return verdict;

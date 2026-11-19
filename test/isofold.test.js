@@ -109,21 +109,3 @@ test('iso size: 5bb + 1bb per limper, 1bb more from the blinds; the judge offers
   const first = candidateActions(s0).filter((a) => a.type === 'raise').map((a) => a.to);
   assert.ok(first.includes(4 * s0.currentBet) && first.includes(6 * s0.currentBet), first.join(' '));
 });
-
-// STRAT, MATH's tight-limper run: KQo, KJo and ATo get neither L4 nor L2 behind 2+ limpers all read as nits
-import { allNitLimpers, NIT_SCOPE_HANDS } from '../src/trainer/grade.js';
-test('nit scope: behind two nit limpers KQo folded gets no isolation tip; behind a nit and an abc it does', () => {
-  assert.deepEqual([...NIT_SCOPE_HANDS].sort(), ['ATo', 'KJo', 'KQo']);
-  const nits = build({ id: 'nit2-kqo', button: 0, hole: 'Kd Qc', board: '', seats: { 3: 'nit', 4: 'nit' }, line: '3c 4c' });
-  assert.equal(allNitLimpers(nits.s, nits.env), true);
-  const v = gradeDecision(nits.s, nits.belief, { type: 'fold' }, { samples: 1500, seed: 1 }, nits.env);
-  assert.ok(!v.tip || !['isoFold', 'isoLimp'].includes(v.tip.kind), v.tip && v.tip.text);
-  const vl = gradeDecision(nits.s, nits.belief, { type: 'call' }, { samples: 1500, seed: 1 }, nits.env);
-  assert.ok(!vl.tip || vl.tip.kind !== 'isoLimp', vl.tip && vl.tip.text);
-  // one nit and one abc: not all nits
-  const mixed = build({ id: 'nitabc-kqo', button: 0, hole: 'Kd Qc', board: '', seats: { 3: 'nit', 4: 'abc' }, line: '3c 4c' });
-  assert.equal(allNitLimpers(mixed.s, mixed.env), false);
-  // a single nit limper: the rule needs two or more
-  const one = build({ id: 'nit1-kqo', button: 0, hole: 'Kd Qc', board: '', seats: { 3: 'nit' }, line: '3c' });
-  assert.equal(allNitLimpers(one.s, one.env), false);
-});

@@ -8,18 +8,20 @@ export const LEARN_KEY = 'trainer-drill-learn';
 const DAY = 86400000;
 const BOX_DAYS = { 3: 3, 4: 7, 5: 21 };
 // confusable pairs (a miss on one schedules a spot of the other, once both are open)
-export const PAIRS = { P1: 'P2', P2: 'P1', D1: 'D2', D2: 'D1', V1: 'V5', V5: 'V1', O1: 'V3', V3: 'O1', P2b: 'P3', P3: 'P2b', M1: 'M2', M2: 'M1' };
+export const PAIRS = { P1: 'P2', P2: 'P1', D1: 'D2', D2: 'D1', V1: 'B1', B1: 'V1', V5: 'V1', O1: 'V3', V3: 'O1', P2b: 'P3', P3: 'P2b', M1: 'M2', M2: 'M1' };
 
 // credit for the level rules: best is right; fine is right at difficulty 1-2 and half at 3
 // opponent types Mastered needs: 3, but V1 has only two calling types (station and whale; CEO, 17 Nov)
 // V5 has two (nit and tag) and D2 one (maniac): their predicates allow no more (CEO, 19 Nov)
 export const MASTER_TYPES = { V1: 2, V5: 2, D2: 1 };
-// Tier 1's partner lessons (CEO, 19 Nov): each pair has opposite answers in look-alike spots, so one habit
+// Tier 1's partner lessons (CEO, 19 Nov: V1/B1, D1/D2, P1/P2): each pair has opposite answers in look-alike spots, so one habit
 // ("always fold", "always bet") cannot pass both. The one table the scheduler, the run builder and the levels read:
 // - interleave: while both are open, never more than 2 spots in a row from either, and a run with one has the other;
 //   practising one alone mixes in the other at about 1 spot in 3
 // - partner gate: a lesson reaches Solid or Mastered only while its partner has 5 of its last 8 answers right
-export const PARTNERS = { P1: 'P2', P2: 'P1', V1: 'V5', V5: 'V1', D1: 'D2', D2: 'D1' };
+// V1's partner is B1, "Don't bluff people who don't fold" (CEO, 19 Nov: V5 cannot fill a bank on true tables; it
+// stays in skills.js as a later second partner and is not paired yet)
+export const PARTNERS = { P1: 'P2', P2: 'P1', V1: 'B1', B1: 'V1', D1: 'D2', D2: 'D1' };
 export const INTERLEAVE = PARTNERS;
 export const INTERLEAVE_MAX = 2;
 export const PARTNER_RIGHT = 5;

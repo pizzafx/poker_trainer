@@ -92,7 +92,7 @@ test('drill learn: boxes 2 to 5 at the next session, then 3, 7 and 21 days; a ta
 
 test('drill learn: tier 2 opens when two tier-1 skills are Solid; Practice serves only open skills, never the same spot within 30 days', () => {
   const st = freshLearn();
-  partnerRight(st, 'D2', 'V5');
+  partnerRight(st, 'D2', 'B1');
   assert.deepEqual([...openTiers(st, SKILLS, T0)], [1]);
   for (const sk of ['D1', 'V1']) for (const [t, d] of [['nit', 1], ['abc', 1], ['nit', 1], ['abc', 2], ['nit', 1], ['abc', 1]]) answer(st, find(sk, t, d), 'best', T0);
   assert.deepEqual([...openTiers(st, SKILLS, T0)].sort(), [1, 2]);
@@ -171,7 +171,7 @@ test('drill learn: storage that throws gives a fresh start', () => {
 
 test('drill learn: V1 is Mastered on its two calling types (CEO, 17 Nov); others need three', () => {
   const st = freshLearn();
-  partnerRight(st, 'D2', 'V5');
+  partnerRight(st, 'D2', 'B1');
   const one = (sk, t, d, day) => answer(st, find(sk, t, d), 'best', T0 + day * DAY);
   for (const sk of ['V1', 'D1']) {
     for (let i = 0; i < 4; i++) one(sk, i % 2 ? 'station' : 'beginner', 1, 0);
@@ -183,9 +183,9 @@ test('drill learn: V1 is Mastered on its two calling types (CEO, 17 Nov); others
   assert.equal(level(st, 'D1', true, T0 + DAY), 'Solid');
 });
 
-// Tier 1's partner lessons (CEO, 19 Nov): V1/V5, D1/D2, P1/P2, one table for the gate and the interleave
+// Tier 1's partner lessons (CEO, 19 Nov): V1/B1, D1/D2, P1/P2, one table for the gate and the interleave
 import { PARTNERS, partnerOk } from '../src/drill/learn.js';
-const T1 = { P1: { tier: 1 }, P2: { tier: 1 }, V1: { tier: 1 }, V5: { tier: 1 }, D1: { tier: 1 }, D2: { tier: 1 } };
+const T1 = { P1: { tier: 1 }, P2: { tier: 1 }, V1: { tier: 1 }, B1: { tier: 1 }, D1: { tier: 1 }, D2: { tier: 1 } };
 function bank6() {
   const out = [];
   for (const skill of Object.keys(T1)) {
@@ -198,8 +198,8 @@ function bank6() {
 const B6 = bank6();
 
 test('drill partner gate: a player who always gives one answer stays at Learning or below on both lessons of every pair', () => {
-  assert.deepEqual(Object.keys(PARTNERS).sort(), ['D1', 'D2', 'P1', 'P2', 'V1', 'V5']);
-  for (const [a, b] of [['P1', 'P2'], ['V1', 'V5'], ['D1', 'D2']]) {
+  assert.deepEqual(Object.keys(PARTNERS).sort(), ['B1', 'D1', 'D2', 'P1', 'P2', 'V1']);
+  for (const [a, b] of [['P1', 'P2'], ['V1', 'B1'], ['D1', 'D2']]) {
     // the habit is right on one lesson and wrong on its partner, every time (opposite answers in look-alike spots)
     const st = freshLearn();
     const spotsA = B6.filter((s) => s.skill === a);
@@ -256,7 +256,7 @@ test('drill interleave, every pair: Practice never serves a third spot in a row 
 import { partnerGaps } from '../src/drill/learn.js';
 test('drill partner gaps: a lesson with spots and a partner without is named; complete pairs and unpaired lessons pass', () => {
   const sp = (skill) => ({ skill });
-  assert.deepEqual(partnerGaps({ spots: [sp('V1'), sp('V5'), sp('P1'), sp('P2')] }), []);
-  assert.deepEqual(partnerGaps({ spots: [sp('V1'), sp('P1'), sp('P2'), sp('O1')] }), ['V1 has spots, V5 has none']);
+  assert.deepEqual(partnerGaps({ spots: [sp('V1'), sp('B1'), sp('P1'), sp('P2')] }), []);
+  assert.deepEqual(partnerGaps({ spots: [sp('V1'), sp('P1'), sp('P2'), sp('O1')] }), ['V1 has spots, B1 has none']);
   assert.deepEqual(partnerGaps({ spots: [sp('D2')] }), ['D2 has spots, D1 has none']);
 });

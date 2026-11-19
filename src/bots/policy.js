@@ -695,7 +695,9 @@ export function postflopPolicy(ctx, P, f) {
       // the range-aware number tops out at RANGE_TOP above the threshold (a 95% bet by itself), so a read never
       // removes the last few checks a type keeps; rangeUpOnly types (recreational: they bet the label of the hand)
       // use the read only to bet more often, never less
-      const Sr = valueThr + Math.min(RANGE_TOP, (rd.ahead - P.rangeBar[st]) * (P.rangeScale ? P.rangeScale[st] : RANGE_SCALE));
+      // (a hand that is already above that today keeps its own height as the top). The type's habits stay on top of
+      // the read: the passive player's multiway value bar and the lead into the raiser (m7) still raise the bar.
+      const Sr = valueThr + Math.min(Math.max(RANGE_TOP, S - valueThr), (rd.ahead - P.rangeBar[st]) * (P.rangeScale ? P.rangeScale[st] : RANGE_SCALE) - m7);
       Sv = S + rr * (Sr - S);
       if (P.rangeUpOnly && Sv < S) Sv = S;
       out.fit = [S - valueThr, rd.ahead]; // for scripts/rangefit.js

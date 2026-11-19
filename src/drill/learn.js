@@ -13,10 +13,23 @@ export const PAIRS = { P1: 'P2', P2: 'P1', D1: 'D2', D2: 'D1', V1: 'V5', V5: 'V1
 // credit for the level rules: best is right; fine is right at difficulty 1-2 and half at 3
 // opponent types Mastered needs: 3, but V1 has only two calling types (station and whale; CEO, 17 Nov)
 export const MASTER_TYPES = { V1: 2 };
-// P1 and P2 are taught together (CEO, 19 Nov): while both are open, never more than 2 spots in a row from either,
-// and practising one alone mixes in the other at about 1 spot in 3 (CURR's spec)
-export const INTERLEAVE = { P1: 'P2', P2: 'P1' };
+// Tier 1's partner lessons (CEO, 19 Nov): each pair has opposite answers in look-alike spots, so one habit
+// ("always fold", "always bet") cannot pass both. The one table the scheduler, the run builder and the levels read:
+// - interleave: while both are open, never more than 2 spots in a row from either, and a run with one has the other;
+//   practising one alone mixes in the other at about 1 spot in 3
+// - partner gate: a lesson reaches Solid or Mastered only while its partner has 5 of its last 8 answers right
+export const PARTNERS = { P1: 'P2', P2: 'P1', V1: 'V5', V5: 'V1', D1: 'D2', D2: 'D1' };
+export const INTERLEAVE = PARTNERS;
 export const INTERLEAVE_MAX = 2;
+export const PARTNER_RIGHT = 5;
+export const PARTNER_OF = 8;
+// the partner's last 8 answers hold 5 right (credit: a fine at difficulty 3 is half)
+export function partnerOk(st, code) {
+  const p = PARTNERS[code];
+  if (!p) return true;
+  const ans = (st.skills[p] && st.skills[p].answers) || [];
+  return ans.slice(-PARTNER_OF).reduce((a, x) => a + x.c, 0) >= PARTNER_RIGHT;
+}
 export const credit = (family, d) => (family === 'best' ? 1 : family === 'fine' ? (d >= 3 ? 0.5 : 1) : 0);
 
 // the opponent type a spot is about: the last opponent to bet or raise, else the first live opponent
@@ -108,7 +121,8 @@ export function level(st, code, tierOpen = true, now = Date.now()) {
   if (!tierOpen) return 'Locked';
   const sk = st.skills[code];
   if (!sk) return 'Frontier';
-  if (sk.answers.length < 6) return sk.placed || 'Frontier'; // placement sets the start until six answers are in
+  const gate = (lv) => (['Solid', 'Mastered'].includes(lv) && !partnerOk(st, code) ? 'Learning' : lv);
+  if (sk.answers.length < 6) return gate(sk.placed || 'Frontier'); // placement sets the start until six answers are in
   const last = (k) => sk.answers.slice(-k);
   const sum = (xs) => xs.reduce((a, x) => a + x.c, 0);
   const types = (xs) => new Set(xs.filter((x) => x.c >= 1).map((x) => x.type)).size;
@@ -118,7 +132,7 @@ export function level(st, code, tierOpen = true, now = Date.now()) {
   const l8 = last(8);
   const solid = sum(l8) >= 6 && l8.some((x) => x.d >= 2 && x.c >= 1) && types(l8) >= 2;
   const recentMiss = sk.lastMiss != null && st.counter - sk.lastMiss <= 3;
-  let lv = mastered ? 'Mastered' : solid && !recentMiss ? 'Solid' : sum(l8) / l8.length >= 0.6 && !recentMiss ? 'Learning' : 'Frontier';
+  let lv = gate(mastered ? 'Mastered' : solid && !recentMiss ? 'Solid' : sum(l8) / l8.length >= 0.6 && !recentMiss ? 'Learning' : 'Frontier');
   // overdue by more than its interval: rusty
   if ((lv === 'Mastered' || lv === 'Solid') && sk.dueAt != null && now - sk.dueAt > (BOX_DAYS[sk.box] || 1) * DAY) lv = 'Rusty';
   return lv;
@@ -156,10 +170,10 @@ export function nextPractice(st, spots, skills, { now = Date.now(), rnd = Math.r
   const hasSpots = (c) => spots.some((s) => s.skill === c);
   let open = Object.keys(skills).filter((c) => tiers.has(skills[c].tier) && (!pin || c === pin));
   if (!open.length) return null;
-  // single-lesson practice of P1 or P2 brings its partner in (INTERLEAVE)
+  // single-lesson practice of a paired lesson brings its partner in (PARTNERS)
   const partner = pin && INTERLEAVE[pin];
   if (partner && skills[partner] && tiers.has(skills[partner].tier) && hasSpots(partner)) open = [...open, partner];
-  // the interleaved pair: a third spot in a row from either is not served while the other is open
+  // a pair: a third spot in a row from one lesson is not served while its partner is open
   const capped = (code) => {
     const other = INTERLEAVE[code];
     return !!other && open.includes(other) && hasSpots(other) && st.recent.length >= INTERLEAVE_MAX && st.recent.slice(-INTERLEAVE_MAX).every((c) => c === code);

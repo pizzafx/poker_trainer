@@ -141,3 +141,16 @@ test('drill badges: clean run, no big leaks, solid and sharp, hard ones right, t
   const two = [...ans.slice(0, 8), ...Array(2).fill({ family: 'wrong', difficulty: 2, bucket: 'medium' })];
   assert.ok(runBadges(two, runTotals(two)).includes('noBigLeaks'));
 });
+
+test('drill run builder, every pair: with all six Tier 1 lessons open, each pair is both-or-neither and never three in a row', () => {
+  const six = ['D1', 'D2', 'V1', 'V5', 'P1', 'P2'];
+  const bk = [];
+  for (const skill of six) for (const d of [1, 2, 3]) for (let k = 0; k < 6; k++) bk.push({ id: `${skill}-${d}-${k}`, skill, tier: 1, difficulty: d, hand: `${skill}${d}${k}`, spot: { board: [] }, families: { fold: 'best', call: 'wrong' } });
+  const idx = Object.fromEntries(bk.map((s) => [s.id, s]));
+  const pairs = [['P1', 'P2'], ['V1', 'V5'], ['D1', 'D2']];
+  for (let k = 0; k < 300; k++) {
+    const sk = buildRun(`six-${k}`, bk, six).map((id) => idx[id].skill);
+    for (const [a, b] of pairs) assert.ok(sk.includes(a) === sk.includes(b), `${k}: ${sk.join(' ')}`);
+    for (let i = 2; i < sk.length; i++) assert.ok(!(sk[i] === sk[i - 1] && sk[i] === sk[i - 2]), `${k}: ${sk.join(' ')}`);
+  }
+});

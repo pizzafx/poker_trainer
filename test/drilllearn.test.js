@@ -101,8 +101,61 @@ test('drill learn: tier 2 opens when two tier-1 skills are Solid; Practice serve
     seen.add(n.spot.id);
     answer(st2, n.spot, 'best', T0);
   }
-  // pinned to one skill
-  for (let i = 0; i < 5; i++) assert.equal(nextPractice(st2, B, SKILLS, { now: T0, rnd, pin: 'P2' }).spot.skill, 'P2');
+  // pinned to one skill (P1 and P2 bring each other in: the interleave tests below)
+  for (let i = 0; i < 5; i++) assert.equal(nextPractice(st2, B, SKILLS, { now: T0, rnd, pin: 'D1' }).spot.skill, 'D1');
+});
+
+// P1 and P2 interleaved (CEO, 19 Nov; CURR's spec): never more than 2 in a row from either while both are open
+const runOf = (st, n, opts) => {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const x = nextPractice(st, B, SKILLS, { now: T0, ...opts });
+    out.push(x.spot.skill);
+    answer(st, x.spot, i % 4 === 3 ? 'wrong' : 'best', T0);
+  }
+  return out;
+};
+const longest = (xs, code) => xs.reduce((m, c, i) => { let k = 0; while (i - k >= 0 && xs[i - k] === code) k++; return Math.max(m, k); }, 0);
+
+test('drill interleave: Practice never serves a third P1 or P2 spot in a row while the other is open, twins and pairs included', () => {
+  for (const seed of [1, 7, 42, 99]) {
+    let r = seed;
+    const rnd = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+    const seq = runOf(freshLearn(), 120, { rnd });
+    assert.ok(longest(seq, 'P1') <= 2 && longest(seq, 'P2') <= 2, `seed ${seed}: ${seq.join(' ')}`);
+  }
+  // only P1 and P2 shipped: they alternate at most two at a time
+  const PP = B.filter((s) => s.skill === 'P1' || s.skill === 'P2');
+  const PPS = { P1: SKILLS.P1, P2: SKILLS.P2 };
+  const st = freshLearn();
+  const seq = [];
+  for (let i = 0; i < 60; i++) {
+    const x = nextPractice(st, PP, PPS, { now: T0, rnd: () => 0.01 });
+    seq.push(x.spot.skill);
+    answer(st, x.spot, 'best', T0);
+  }
+  assert.ok(longest(seq, 'P1') <= 2 && longest(seq, 'P2') <= 2, seq.join(' '));
+  assert.ok(seq.includes('P1') && seq.includes('P2'));
+});
+
+test('drill interleave: practising P1 alone mixes in P2 at 1 spot in 3, and the other way round; with no partner spots it stays pinned', () => {
+  for (const pin of ['P1', 'P2']) {
+    const other = pin === 'P1' ? 'P2' : 'P1';
+    const seq = runOf(freshLearn(), 30, { rnd: () => 0.3, pin });
+    assert.ok(seq.every((c) => c === pin || c === other), seq.join(' '));
+    assert.ok(longest(seq, pin) <= 2 && longest(seq, other) <= 1, seq.join(' '));
+    const share = seq.filter((c) => c === other).length / seq.length;
+    assert.ok(share >= 0.25 && share <= 0.4, `${pin}: partner share ${share}`);
+  }
+  const noP2 = B.filter((s) => s.skill !== 'P2');
+  const st = freshLearn();
+  for (let i = 0; i < 6; i++) {
+    const x = nextPractice(st, noP2, SKILLS, { now: T0, rnd: () => 0.3, pin: 'P1' });
+    assert.equal(x.spot.skill, 'P1');
+    answer(st, x.spot, 'best', T0);
+  }
+  // other pinned skills are unchanged
+  assert.ok(runOf(freshLearn(), 9, { rnd: () => 0.3, pin: 'V1' }).every((c) => c === 'V1'));
 });
 
 test('drill learn: storage that throws gives a fresh start', () => {

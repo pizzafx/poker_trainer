@@ -13,6 +13,10 @@ export const PAIRS = { P1: 'P2', P2: 'P1', D1: 'D2', D2: 'D1', V1: 'V5', V5: 'V1
 // credit for the level rules: best is right; fine is right at difficulty 1-2 and half at 3
 // opponent types Mastered needs: 3, but V1 has only two calling types (station and whale; CEO, 17 Nov)
 export const MASTER_TYPES = { V1: 2 };
+// P1 and P2 are taught together (CEO, 19 Nov): while both are open, never more than 2 spots in a row from either,
+// and practising one alone mixes in the other at about 1 spot in 3 (CURR's spec)
+export const INTERLEAVE = { P1: 'P2', P2: 'P1' };
+export const INTERLEAVE_MAX = 2;
 export const credit = (family, d) => (family === 'best' ? 1 : family === 'fine' ? (d >= 3 ? 0.5 : 1) : 0);
 
 // the opponent type a spot is about: the last opponent to bet or raise, else the first live opponent
@@ -149,8 +153,19 @@ export function flagFromTable(st, skills, leak) {
 // skill code to practise only that skill. Returns { spot, why } or null.
 export function nextPractice(st, spots, skills, { now = Date.now(), rnd = Math.random, pin = null } = {}) {
   const tiers = openTiers(st, skills, now);
-  const open = Object.keys(skills).filter((c) => tiers.has(skills[c].tier) && (!pin || c === pin));
+  const hasSpots = (c) => spots.some((s) => s.skill === c);
+  let open = Object.keys(skills).filter((c) => tiers.has(skills[c].tier) && (!pin || c === pin));
   if (!open.length) return null;
+  // single-lesson practice of P1 or P2 brings its partner in (INTERLEAVE)
+  const partner = pin && INTERLEAVE[pin];
+  if (partner && skills[partner] && tiers.has(skills[partner].tier) && hasSpots(partner)) open = [...open, partner];
+  // the interleaved pair: a third spot in a row from either is not served while the other is open
+  const capped = (code) => {
+    const other = INTERLEAVE[code];
+    return !!other && open.includes(other) && hasSpots(other) && st.recent.length >= INTERLEAVE_MAX && st.recent.slice(-INTERLEAVE_MAX).every((c) => c === code);
+  };
+  if (partner && open.includes(partner) && capped(pin)) open = open.filter((c) => c !== pin);
+  else if (partner) open = open.filter((c) => c !== partner);
   const fresh = (s) => !(st.seen[s.id] && now - st.seen[s.id] < 30 * DAY);
   const pickFrom = (cands) => {
     const ok = cands.filter(fresh);
@@ -168,7 +183,7 @@ export function nextPractice(st, spots, skills, { now = Date.now(), rnd = Math.r
     return c;
   };
   // a twin or pair spot whose time has come
-  const p = st.pending.findIndex((x) => st.counter >= x.at && open.includes(x.skill));
+  const p = st.pending.findIndex((x) => st.counter >= x.at && open.includes(x.skill) && !capped(x.skill));
   if (p >= 0) {
     const x = st.pending.splice(p, 1)[0];
     const spot = pickFrom(ofSkill(x.skill, { type: x.type, d: x.d, not: x.of }));
@@ -178,13 +193,14 @@ export function nextPractice(st, spots, skills, { now = Date.now(), rnd = Math.r
     }
   }
   // no more than three of one skill in a row once it is past Frontier
-  const tooMany = (code) => st.recent.length >= 3 && st.recent.slice(-3).every((c) => c === code) && level(st, code, true, now) !== 'Frontier';
+  const tooMany = (code) => capped(code) || (st.recent.length >= 3 && st.recent.slice(-3).every((c) => c === code) && level(st, code, true, now) !== 'Frontier');
   const due = open.filter((c) => st.skills[c] && isDue(st.skills[c], st, now) && !tooMany(c));
   const learning = open.filter((c) => ['Frontier', 'Learning'].includes(level(st, c, true, now)) && !tooMany(c));
   const upkeep = open.filter((c) => ['Solid', 'Mastered', 'Rusty'].includes(level(st, c, true, now)) && !tooMany(c));
   const r = rnd();
   let group = r < 0.25 ? due : r < 0.85 ? learning : upkeep;
-  if (!group.length) group = [due, learning, upkeep].find((g) => g.length) || open;
+  if (!group.length) group = [due, learning, upkeep].find((g) => g.length) || open.filter((c) => !capped(c));
+  if (!group.length) group = open;
   const code = group[Math.floor(rnd() * group.length)];
   // new skills serve easy spots first, then mix in harder ones as the answers come right
   const lv = level(st, code, true, now);

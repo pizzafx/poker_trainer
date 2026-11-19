@@ -62,6 +62,33 @@ test('drill run builder: tier 4 never appears, closed skills never appear, a thi
   assert.equal(buildRun('x', bank().filter((s) => s.skill === 'D1' && s.difficulty === 1), ['D1']), null);
 });
 
+// P1 and P2 interleaved (CEO, 19 Nov; CURR's spec): a run with one has the other, never 3 in a row from either
+const longestRun = (skills) => skills.reduce((m, c, i) => { let k = 0; while (i - k >= 0 && skills[i - k] === c && (c === 'P1' || c === 'P2')) k++; return Math.max(m, k); }, 0);
+test('drill run builder: with P1 and P2 open, every run has both or neither, and never three of one in a row', () => {
+  const b = bank();
+  const byId = Object.fromEntries(b.map((s) => [s.id, s]));
+  const banks = [
+    ['four skills', b, ['D1', 'V1', 'P2', 'P1']],
+    ['P1 and P2 only', b.filter((s) => s.skill === 'P1' || s.skill === 'P2'), ['P2', 'P1']],
+    ['P1 heavy', [...b.filter((s) => s.skill !== 'P1'), ...b.filter((s) => s.skill === 'P1').flatMap((s) => [s, { ...s, id: s.id + 'x', hand: s.hand + 'x' }, { ...s, id: s.id + 'y', hand: s.hand + 'y' }])], ['D1', 'V1', 'P2', 'P1']],
+  ];
+  for (const [name, bk, open] of banks) {
+    const idx = Object.fromEntries(bk.map((s) => [s.id, s]));
+    for (let k = 0; k < 200; k++) {
+      const ids = buildRun(`il-${k}`, bk, open);
+      const sk = ids.map((id) => idx[id].skill);
+      const has = (c) => sk.includes(c);
+      assert.ok(has('P1') === has('P2'), `${name} ${k}: ${sk.join(' ')}`);
+      assert.ok(longestRun(sk) <= 2, `${name} ${k}: ${sk.join(' ')}`);
+      assert.equal(ids.length, 10);
+      assert.deepEqual(ids.slots.slice(0, 3), [1, 1, 1], 'easy spots still lead');
+      assert.deepEqual(ids.slots.slice(-2), [2, 3], 'still ends on a standard then a tricky');
+    }
+  }
+  // P1 open without P2: no constraint, and P2 never appears
+  for (let k = 0; k < 20; k++) assert.ok(buildRun(`solo-${k}`, b, ['D1', 'P1']).every((id) => !byId[id].skill.startsWith('P2')));
+});
+
 test('drill totals, the honest line and the Daily line', () => {
   const ans = [
     ...Array(8).fill({ family: 'best', difficulty: 1 }),

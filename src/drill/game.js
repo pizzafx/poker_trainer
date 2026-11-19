@@ -2,6 +2,8 @@
 // a small store; it never changes a verdict. Scoring and run shape follow the approved Drill spec: best 100,
 // +25 on a standard spot and +50 on a tricky one, fine 50, wrong 0; ten spots, 3 easy / 4 standard / 3 tricky.
 
+import { INTERLEAVE, INTERLEAVE_MAX } from './learn.js';
+
 export const MAX_SCORE = 1250;
 export const RUN_LEN = 10;
 export const MIX = { 1: 3, 2: 4, 3: 3 };
@@ -74,17 +76,65 @@ export function buildRun(seed, spots, openSkills) {
     }
   }
   if (fallback) console.warn(`Drill: run ${seed} filled ${fallback} spot(s) from standard ones (the bank is short of easy or tricky spots)`);
+  // P1 and P2 together (CEO, 19 Nov): while both are open, a run with a spot of one has a spot of the other
+  const paired = (code) => INTERLEAVE[code] && openSkills.includes(code) && openSkills.includes(INTERLEAVE[code]);
+  for (const code of Object.keys(INTERLEAVE)) {
+    const other = INTERLEAVE[code];
+    if (!paired(code) || !picked.some((s) => s.skill === code) || picked.some((s) => s.skill === other)) continue;
+    // bring `other` in for the last spot of a third skill, else (two or more of `code`) for one of `code`, in its slot
+    const nCode = picked.filter((s) => s.skill === code).length;
+    const order0 = [...picked.keys()].reverse();
+    const slots = [...order0.filter((i) => picked[i].skill !== code), ...(nCode >= 2 ? order0.filter((i) => picked[i].skill === code) : [])];
+    for (const i of slots) {
+      const old = picked[i];
+      if (old.fellBack) continue;
+      const got = draw(pool.filter((s) => s.skill === other && s.difficulty === old.difficulty));
+      if (!got) continue;
+      hands.delete(old.hand + old.spot.board.join(''));
+      used.delete(old.id);
+      hands.add(got.hand + got.spot.board.join(''));
+      used.add(got.id);
+      picked[i] = got;
+      break;
+    }
+  }
   const ones = picked.filter((s) => s.difficulty === 1);
   const twos = picked.filter((s) => s.difficulty === 2);
   const threes = picked.filter((s) => s.difficulty === 3);
   const lastTwo = twos.pop();
   const lastThree = threes.pop();
   const middle = [...twos, ...threes];
-  for (let i = middle.length - 1; i > 0; i--) {
-    const j = Math.floor(rnd() * (i + 1));
-    [middle[i], middle[j]] = [middle[j], middle[i]];
+  const shuffle = (xs) => {
+    for (let i = xs.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [xs[i], xs[j]] = [xs[j], xs[i]];
+    }
+  };
+  shuffle(middle);
+  // never more than INTERLEAVE_MAX in a row from P1 or from P2 while both are open: reshuffle the easy lead and
+  // the middle (the last two slots stay put), deterministically from the seed
+  const tooLong = (xs) => xs.some((s, i) => i >= INTERLEAVE_MAX && paired(s.skill) && xs.slice(i - INTERLEAVE_MAX, i).every((x) => x.skill === s.skill));
+  let order = [...ones, ...middle, lastTwo, lastThree];
+  for (let k = 0; k < 200 && tooLong(order); k++) {
+    shuffle(ones);
+    shuffle(middle);
+    order = [...ones, ...middle, lastTwo, lastThree];
   }
-  const order = [...ones, ...middle, lastTwo, lastThree];
+  // still too long (say three easy P1 spots): swap the third for a spot of the partner lesson, else of another
+  // open skill, at the same difficulty
+  for (let k = 0; k < 10 && tooLong(order); k++) {
+    const i = order.findIndex((s, j) => j >= INTERLEAVE_MAX && paired(s.skill) && order.slice(j - INTERLEAVE_MAX, j).every((x) => x.skill === s.skill));
+    const old = order[i];
+    const d = old.fellBack ? 2 : old.difficulty;
+    const got = draw(pool.filter((s) => s.skill === INTERLEAVE[old.skill] && s.difficulty === d)) || draw(pool.filter((s) => s.skill !== old.skill && s.difficulty === d));
+    if (!got) break;
+    hands.delete(old.hand + old.spot.board.join(''));
+    used.delete(old.id);
+    hands.add(got.hand + got.spot.board.join(''));
+    used.add(got.id);
+    order[i] = old.fellBack ? { ...got, difficulty: old.difficulty, fellBack: true } : got;
+  }
+  if (tooLong(order)) console.warn(`Drill: run ${seed} has more than ${INTERLEAVE_MAX} P1 or P2 spots in a row (the bank is short of the other lesson)`);
   const ids = order.map((s) => s.id);
   ids.fallback = fallback;
   ids.slots = order.map((s) => s.difficulty); // the slot each spot fills (a fill-in scores its slot's bonus)

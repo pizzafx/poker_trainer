@@ -93,6 +93,18 @@ export class RangeTrack {
     return c;
   }
 
+  // A tracker that came back from a saved or structured-cloned state is a plain object: rebuild it.
+  static revive(o, tables) {
+    const c = new RangeTrack(tables);
+    const h = o.h || {};
+    for (let i = 0; i < c.h.length; i++) c.h[i] = +h[i] || 0;
+    c.len = o.len | 0;
+    c.prevAgg = o.prevAgg ?? -1;
+    c.curAgg = o.curAgg ?? -1;
+    c.checks = o.checks | 0;
+    return c;
+  }
+
   copyFrom(o) {
     this.h.set(o.h);
     this.len = o.len;

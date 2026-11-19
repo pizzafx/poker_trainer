@@ -42,10 +42,10 @@ export function buildContext(s, seat = s.toAct) {
   const n = s.n;
   // The part of a bet this player cannot cover is never theirs to win, so leave it out of the pot.
   const pot = potSize(s) - Math.max(0, s.currentBet - s.bet[seat] - L.callAmt);
-  if (s.rt && s.street !== STREET.PRE) s.rt.sync(s);
+  if (s.rt && s.street !== STREET.PRE && s.rt.sync) s.rt.sync(s);
   const ctx = {
     seat,
-    rtState: s.rt ? s : null, // the public range summary, read through RangeTrack.betRead (MATH range-bots spike)
+    rtState: s.rt && s.rt.betRead ? s : null, // the public range summary, read through RangeTrack.betRead (MATH range-bots spike)
     street: s.street,
     pot,
     toCall: L.callAmt,

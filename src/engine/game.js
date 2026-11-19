@@ -161,6 +161,7 @@ export function applyAction(s, action, rng) {
   const seat = s.toAct;
   const L = legal(s);
   let rsit = null;
+  if (s.rt && !s.rt.sync) s.rt = RangeTrack.revive(s.rt, RANGE_TABLES); // a state restored from storage
   if (s.rt && s.street !== STREET.PRE) {
     s.rt.sync(s);
     rsit = s.rt.sit(s, seat, L);
@@ -400,7 +401,7 @@ export function cloneState(s) {
     board: s.board.slice(),
     remaining: s.remaining.slice(),
     history: s.history.slice(),
-    rt: s.rt ? s.rt.clone() : null,
+    rt: s.rt ? (s.rt.clone ? s.rt.clone() : RangeTrack.revive(s.rt, RANGE_TABLES)) : null,
     result: null,
   };
 }

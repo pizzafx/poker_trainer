@@ -56,33 +56,18 @@ test('L4: only on a fold, behind one or more limpers with no raise, outside the 
   assert.equal(isoFoldTipFor({ ...v(), options: v().options.slice(0, 2) }, behind(POS.LP, 1), 'AJo', 'button'), null, 'no raise offered');
 });
 
-test('L4: ISO_FOLD is ISO_LIMP, STRONG_LIMP and ATs KJs KTs QJs at every limper count; KJo and ATo never from early position', () => {
+test('L4: ISO_FOLD is ISO_LIMP, STRONG_LIMP and ATs KJs KTs QJs; behind 3+ limpers it drops ATo, KJo, 88 and 77', () => {
   for (const g of ['early', 'middle', 'cutoff', 'button']) {
     for (const h of ['AJo', 'KQo', 'AA', '99', 'AQo', 'KQs', 'ATs', 'KJs', 'KTs', 'QJs', '88', '77']) assert.ok(isoFoldHand(h, g, 1), `${h} ${g}`);
     // KJo and ATo: not from early position at any limper count (STRAT)
     for (const h of ['KJo', 'ATo']) for (const n of [1, 2]) assert.equal(isoFoldHand(h, g, n), g !== 'early', `${h} ${g} ${n}`);
     for (const h of ['66', 'K9o', 'QTo', 'JTs', 'A5s']) assert.ok(!isoFoldHand(h, g, 2), `${h} ${g}`);
-    // behind 3+ limpers the full list (PRO, 19 Nov), still without KJo and ATo from early position
-    for (const h of ['88', '77']) assert.ok(isoFoldHand(h, g, 3) && isoFoldHand(h, g, 5), `${h} ${g} 3+`);
-    for (const h of ['ATo', 'KJo']) assert.equal(isoFoldHand(h, g, 3), g !== 'early', `${h} ${g} 3+`);
+    for (const h of ['ATo', 'KJo', '88', '77']) assert.ok(!isoFoldHand(h, g, 3) && !isoFoldHand(h, g, 5), `${h} ${g} 3+`);
     for (const h of ['AJo', 'KQo', 'KTs']) assert.ok(isoFoldHand(h, g, 4), `${h} ${g} 4`);
   }
   assert.deepEqual(Object.keys(ISO_FOLD), ['early', 'middle', 'cutoff', 'button']);
   assert.equal(isoFoldTipFor(verdict({ r12: 6, se: 1 }), behind(POS.LP, 2), '66', 'button'), null);
-});
-
-test('L4 pairs: 77 and 88 folded behind 3+ limpers get the raise-or-limp copy; the dollar figure only when the better clears the fold (PRO)', () => {
-  // the limp ahead of the raise: still the pair copy (both are fine there), $Y is the limp over the fold
-  const tip = isoFoldTipFor(verdict({ limp: 5, r12: 3, r18: 2, se: 1 }), { ...behind(POS.LP, 3), base: 2, bb: 2 }, '88', 'button');
-  assert.equal(tip.kind, 'isoFoldPair');
-  assert.equal(tip.text, '88 plays behind limpers from the button: raise to isolate, to about $18, or limp behind for set value; folding throws away a profitable hand. Here folding gave up about $5.');
-  // inside the noise: no dollar figure; the fold clearly ahead of both: silent
-  assert.doesNotMatch(isoFoldTipFor(verdict({ limp: 1, r12: 0.5, r18: 0, se: 1 }), behind(POS.LP, 3), '77', 'cutoff').text, /gave up/);
-  assert.equal(isoFoldTipFor(verdict({ limp: -3, r12: -4, r18: -5, se: 1 }), behind(POS.LP, 3), '77', 'cutoff'), null);
-  // behind 1-2 limpers, and other hands behind 3+: the single-raise copy
-  assert.equal(isoFoldTipFor(verdict({ r12: 6, se: 1 }), behind(POS.LP, 2), '88', 'button').kind, 'isoFold');
-  assert.equal(isoFoldTipFor(verdict({ r12: 6, se: 1 }), behind(POS.LP, 3), 'ATo', 'button').kind, 'isoFold');
-  assert.equal(isoFoldTipFor(verdict({ r12: 6, se: 1 }), behind(POS.EP, 3), 'ATo', 'early'), null, 'ATo never from early position');
+  assert.equal(isoFoldTipFor(verdict({ r12: 6, se: 1 }), behind(POS.LP, 3), '88', 'button'), null);
 });
 
 // one real judged spot, end to end: KJo in the hijack folding behind an abc limper (the L2 fixture's hand)

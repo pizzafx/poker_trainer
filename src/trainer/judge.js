@@ -9,7 +9,7 @@ import { legal, applyAction, cloneState, potSize, STREET } from '../engine/game.
 import { handFeatures, boardTexture, TIER, isRealDraw } from '../engine/features.js';
 import { evaluate } from '../engine/evaluator.js';
 import { classOf } from '../engine/hands.js';
-import { buildContext, preflopPolicy, postflopPolicy, sampleAction, POS } from '../bots/policy.js';
+import { buildContext, preflopPolicy, postflopPolicy, sampleAction } from '../bots/policy.js';
 import { PROFILES, TYPE_IDS, HERO_PROFILE } from '../bots/profiles.js';
 import { posterior } from './belief.js';
 
@@ -30,10 +30,6 @@ function label(action, s, L) {
   return `${allIn ? 'All-in' : 'Raise to'} $${action.to} (${times >= 10 ? Math.round(times) : times.toFixed(1)}x)`;
 }
 
-// The live 1/2 isolation raise behind limpers (PRO, STRAT, CURR; 19 Nov): 5bb plus 1bb per limper, 1bb more
-// from the blinds (out of position). The judge's candidate and every tip's "to about $X" use this one number.
-export const isoTo = (base, limpers, blind) => roundChips((5 + limpers + (blind ? 1 : 0)) * base);
-
 export function candidateActions(s, heroAction) {
   const L = legal(s);
   const out = [];
@@ -48,14 +44,7 @@ export function candidateActions(s, heroAction) {
       if (s.raises === 0) {
         let limpers = 0;
         for (const h of s.history) if (h.type === 'call' && !s.folded[h.seat]) limpers++;
-        if (limpers === 0) for (const m of [4, 6]) tos.add(roundChips(m * base));
-        else {
-          // behind limpers: the iso size (5bb + 1 per limper) and 6bb + 1 per limper, 1bb more each from the blinds
-          // (STRAT, PRO; MATH: no cell changes side against the old 4bb/6bb pair)
-          const blind = buildContext(s).pos >= POS.SB;
-          tos.add(isoTo(base, limpers, blind));
-          tos.add(isoTo(base, limpers + 1, blind));
-        }
+        for (const m of [4, 6]) tos.add(roundChips((m + limpers) * base));
       } else {
         tos.add(roundChips(base * 3));
         tos.add(roundChips(base * 4.2));

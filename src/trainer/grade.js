@@ -7,7 +7,7 @@ import { handFeatures, TIER, isRealDraw } from '../engine/features.js';
 import { classOf, classNames } from '../engine/hands.js';
 import { buildContext, POS } from '../bots/policy.js';
 import { HERO_PROFILE } from '../bots/profiles.js';
-import { judgeDecision, pairedGap, refreshClose, tiltedEvs, redBar, isoTo } from './judge.js';
+import { judgeDecision, pairedGap, refreshClose, tiltedEvs, redBar } from './judge.js';
 import { groupOf, presetRanges, presetRaised, expandRange, LIMPER_OFFSUIT } from './ranges.js';
 
 const HERO = 0;
@@ -107,14 +107,6 @@ export const suitedLimpHand = (name) => {
   const lo = RANKS.indexOf(name[1]);
   return hi === 12 || (lo >= 2 && (hi - lo === 1 || hi - lo === 2));
 };
-// the raise offered nearest the iso size (the candidate the judge built from the iso rule), for the "to about $X"
-// of the behind-limpers tips, so L2, L4 and the strip quote one number (STRAT)
-export const isoQuote = (v, ctx) => {
-  const want = isoTo(ctx.base || ctx.bb, ctx.limpers, ctx.pos >= POS.SB);
-  let best = null;
-  for (const o of v.options) if (o.type === 'raise' && (!best || Math.abs(o.to - want) < Math.abs(best.to - want))) best = o;
-  return best ? best.to : null;
-};
 // the highest-scoring raise, or -1
 const bestRaise = (v) => {
   let br = -1;
@@ -156,7 +148,7 @@ export function isoLimpTipFor(v, ctx, name) {
   const g = pairedGap(v, br, v.mine);
   if (!(g.mean > 2.2 * g.se)) return null;
   if (raises.some(([o]) => o.ev < mine.ev - 0.5)) return null; // no raise scores clearly below the limp
-  const to = isoQuote(v, ctx);
+  const to = raises[0][0].to;
   const cost = Math.round(v.options[br].ev) - Math.round(mine.ev);
   return { kind: 'isoLimp', to, text: `raising over the limpers, to about $${to}, usually does better than limping behind with ${name}: you isolate weaker hands and keep the lead. Here raising was about $${cost} better.` };
 }
@@ -226,43 +218,6 @@ export function valueVsLoose(name, ctx, env) {
 // Limping these is a yellow flag in every seat (owner, 14 Nov; STRAT L-S1).
 export const STRONG_LIMP = new Set(['AA', 'KK', 'QQ', 'JJ', 'TT', '99', 'AKs', 'AQs', 'AJs', 'AKo', 'AQo', 'KQs']);
 
-// L4 (STRAT, CURR, PRO's P1 blind check): folding a raising hand behind limpers. A tip, never a flag, and the
-// grade is unchanged (the owner's preflop sub-3bb principle). Rule-based like limpTip, not gap-gated like L2:
-// it fires unless the judge clearly prefers the fold, or the limp, to the best raise. ISO_FOLD is keyed by
-// seat group and limper count (1, 2, 3 = three or more) so MATH's per-seat list drops in without a rewrite.
-const ISO_FOLD_BASE = [...ISO_LIMP, ...STRONG_LIMP, 'ATs', 'KJs', 'KTs', 'QJs'];
-// From early position KJo and ATo are left out at every limper count (STRAT, POOL): the thinnest cells in MATH's
-// run ($1.85 and $2.67 over the fold), and bot limpers fold to iso raises more than live ones do
-const ISO_FOLD_EARLY_OUT = new Set(['KJo', 'ATo']);
-const isoFoldRow = (n, g) => new Set(ISO_FOLD_BASE.filter((h) => !(n >= 3 && ISO_LIMP_FEW.has(h)) && !(g === 'early' && ISO_FOLD_EARLY_OUT.has(h))));
-export const ISO_FOLD = Object.fromEntries(['early', 'middle', 'cutoff', 'button'].map((g) => [g, { 1: isoFoldRow(1, g), 2: isoFoldRow(2, g), 3: isoFoldRow(3, g) }]));
-// silent when the judge prefers the fold (or the limp) to the best raise by more than 1 SE (MATH's 280-cell run,
-// STRAT): at 2,100 samples it costs at most 1.5% of true raises (KJo from EP) and is the only runtime guard where
-// MATH did not measure; the hand list is the real guard
-export const ISO_FOLD_VETO = 1.0;
-// the limp side keeps the spec's "clearly" (2.2 SE): the raise leads the limp by only $0.3-0.6 with 77-99 from EP
-export const ISO_FOLD_LIMP_VETO = 2.2;
-export const isoFoldHand = (name, group, limpers) => !!(ISO_FOLD[group] && ISO_FOLD[group][Math.min(3, limpers)] && ISO_FOLD[group][Math.min(3, limpers)].has(name));
-export function isoFoldTipFor(v, ctx, name, group) {
-  if (v.grade !== 'good' || v.mine < 0 || ctx.street !== STREET.PRE) return null;
-  if (v.options[v.mine].type !== 'fold' || ctx.raises !== 0 || !(ctx.limpers >= 1)) return null;
-  if (ctx.pos !== POS.EP && ctx.pos !== POS.MP && ctx.pos !== POS.LP) return null;
-  if (!isoFoldHand(name, group, ctx.limpers)) return null;
-  const br = bestRaise(v);
-  if (br < 0) return null;
-  const fold = v.mine;
-  const gf = pairedGap(v, fold, br);
-  if (gf.mean > ISO_FOLD_VETO * gf.se) return null; // the judge clearly prefers the fold
-  const limp = v.options.findIndex((o) => o.type === 'call');
-  if (limp >= 0) {
-    const gl = pairedGap(v, limp, br);
-    if (gl.mean > ISO_FOLD_LIMP_VETO * gl.se) return null; // the judge clearly prefers the limp
-  }
-  const to = isoQuote(v, ctx);
-  const cost = raiseClears(v, fold) ? Math.round(v.options[br].ev) - Math.round(v.options[fold].ev) : 0;
-  return { kind: 'isoFold', to, text: `${name} is a raise behind limpers from ${SEAT_WORDS[group]}: most players isolate with it here, to about $${to}.${cost > 0 ? ` Here raising was about $${cost} better.` : ''}` };
-}
-
 // Preflop with an all-in in play (STRAT P5-1): v.preShove marks it; when calling ends your betting (you
 // are all-in after the call, or every live opponent is all-in) the call is a pure showdown, so
 // v.preAllIn = { E, price }: E = (EV(call) + toCall) / P and price = toCall / P, P the pot you can win
@@ -325,7 +280,7 @@ export function gradeVerdict(verdict, s, action, judgeOpts, env) {
     const group = groupOf(positionName(s, HERO));
     // a limp with a hand outside the seat's Standard range gets "most players fold it here", never the
     // raise tip (STRAT G3: never tell a student to raise K5o from UTG+1); inside it, the raise tip
-    tip = limpOutsideTipFor(verdict, ctx, name, group) || wideLimpTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || isoLimpTipFor(verdict, ctx, name) || isoFoldTipFor(verdict, ctx, name, group) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) || verdict.iso3bet ? null : junk3betTipFor(verdict, ctx, name, group, env)) || (verdict.iso3bet ? null : size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env));
+    tip = limpOutsideTipFor(verdict, ctx, name, group) || wideLimpTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || isoLimpTipFor(verdict, ctx, name) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) || verdict.iso3bet ? null : junk3betTipFor(verdict, ctx, name, group, env)) || (verdict.iso3bet ? null : size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env));
   } else tip = limpTipFor(verdict, ctx);
   if (tip) verdict.tip = tip;
   return verdict;

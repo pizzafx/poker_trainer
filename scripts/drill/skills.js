@@ -87,6 +87,30 @@ export const SKILLS = {
     // tricky (CURR, 18 Nov): a weak kicker, or a scary board (three of a suit, four to a straight, paired)
     tricky: (s, ctx, f) => f.tier <= TIER.TOP_PAIR_WEAK || scaryBoard(s.board),
   },
+  // V1's partner (CEO, 19 Nov; STRAT's sign-off): V1's spots with no hand, so only the hand tells them apart. V1's
+  // streets, V1's opponents (all callers, a station or whale among them), V1's bet sizes; every bet wrong
+  B1: {
+    tier: 1,
+    name: "Don't bluff people who don't fold",
+    leak: 'badBluff',
+    rule: 'A bluff needs folds. Stations and crowds don’t fold: check.',
+    want: 'check',
+    allBets: true,
+    match: (s, ctx, f, types) => {
+      if (s.street === STREET.PRE || ctx.toCall > 0 || !ctx.canRaise) return false;
+      if (f.tier > TIER.HIGH_CARD || isRealDraw(f)) return false;
+      const o = live(s);
+      if (o.length < 1 || o.length > 2) return false;
+      return o.every((i) => CALLERS.has(types[i])) && o.some((i) => types[i] === 'station' || types[i] === 'whale');
+    },
+    // tricky: ace-high or two overcards to the board with no draw (the "I'll just bet" hand), or a scary board (a
+    // bet "represents" something)
+    tricky: (s, ctx, f) => {
+      const hi = s.hole[0].map((c) => c >> 2);
+      const top = Math.max(...s.board.map((c) => c >> 2));
+      return hi.includes(12) || hi.every((r) => r > top) || scaryBoard(s.board);
+    },
+  },
   // V1's partner (CEO, 19 Nov; DRILL_CURRICULUM_SPEC 2.6): the same hands checked to on the river, against the
   // players who only call with better; the opponent's type is the only cue
   V5: {

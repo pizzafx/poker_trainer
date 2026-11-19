@@ -9,6 +9,9 @@
 import { partnerGaps } from '../src/drill/learn.js';
 import { checkBankRuns } from '../src/drill/game.js';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
+import { replayTable } from '../src/drill/card.js';
+import { potSize } from '../src/engine/game.js';
 import path from 'node:path';
 import { SKILLS } from './drill/skills.js';
 import { bankVersion } from './drill/version.js';
@@ -43,6 +46,50 @@ for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.jsonl') && !x.end
   }
 }
 
+// B1 and V1 differ only by the hand (CEO, CURR): keep each street's share of B1 within 10 points of V1's, by a
+// deterministic subsample of the over-represented street (the spots whose id hashes first go first)
+const STREET_NAMES = ['pre', 'flop', 'turn', 'river'];
+const shares = (es) => {
+  const c = {};
+  for (const e of es) c[e.street] = (c[e.street] || 0) + 1;
+  return Object.fromEntries([1, 2, 3].map((k) => [k, es.length ? (c[k] || 0) / es.length : 0]));
+};
+let b1Thinned = 0;
+if (bySkill.B1 && bySkill.V1 && bySkill.V1.length) {
+  const v = shares(bySkill.V1);
+  const h = (e) => crypto.createHash('sha1').update(e.id).digest('hex');
+  let b = bySkill.B1.slice().sort((x, y) => (h(x) < h(y) ? -1 : 1));
+  for (;;) {
+    const sb = shares(b);
+    const over = [1, 2, 3].filter((k) => sb[k] - v[k] > 0.1).sort((x, y) => sb[y] - v[y] - (sb[x] - v[x]))[0];
+    const under = [1, 2, 3].some((k) => v[k] - sb[k] > 0.1);
+    if (over === undefined && !under) break;
+    // an under-represented street is fixed by thinning the street most over V1's share
+    const k = over ?? [1, 2, 3].sort((x, y) => sb[y] - v[y] - (sb[x] - v[x]))[0];
+    const i = b.findIndex((e) => e.street === k);
+    if (i < 0 || b.length <= 1) break;
+    b.splice(i, 1);
+    b1Thinned++;
+  }
+  bySkill.B1 = b;
+}
+// the non-hand cues side by side (CEO): street, pot at the decision, live opponents
+function cueTable(code) {
+  const es = bySkill[code] || [];
+  const out = { street: {}, potBb: {}, live: {} };
+  for (const e of es) {
+    const { s } = replayTable(e.spot);
+    const pot = Math.round(potSize(s) / s.bbAmt);
+    const bucket = pot < 10 ? '<10' : pot < 20 ? '10-19' : pot < 40 ? '20-39' : pot < 80 ? '40-79' : '80+';
+    out.street[STREET_NAMES[e.street]] = (out.street[STREET_NAMES[e.street]] || 0) + 1;
+    out.potBb[bucket] = (out.potBb[bucket] || 0) + 1;
+    const n = Object.keys(e.reads || {}).length;
+    out.live[n] = (out.live[n] || 0) + 1;
+  }
+  const pct = (o) => Object.fromEntries(Object.entries(o).map(([k, x]) => [k, `${Math.round((100 * x) / Math.max(1, es.length))}%`]));
+  return { n: es.length, street: pct(out.street), potBb: pct(out.potBb), live: pct(out.live) };
+}
+
 // the opponent type a spot is "against": the bettor for a call-or-fold spot, else every live opponent
 const against = (e) => {
   const live = Object.values(e.reads).map((r) => r.type);
@@ -67,7 +114,7 @@ for (const [code, sk] of Object.entries(SKILLS)) {
   // opponent types where the rule allows: 4; V1 has only its two calling types (CEO, 17 Nov); P2 is first in (no opponent acts);
   // D1 faces only the types that make big late bets (abc, station, nit; no beginner does in any run; CEO, 19 Nov)
   // V5 faces only nits and regulars (2 types); D2 only maniacs (1)
-  const minTypes = { P2: 1, V1: 2, D1: 3, V5: 2, D2: 1 }[code] ?? 4;
+  const minTypes = { P2: 1, V1: 2, B1: 2, D1: 3, V5: 2, D2: 1 }[code] ?? 4;
   const ok = es.length >= MIN_SPOTS && Object.keys(types).length >= minTypes && Object.keys(seats).length >= 3;
   // CURR (18 Nov): at least 20% easy and 15% tricky; short of either, report to CURR and the CEO before it ships
   const split = es.length ? { d1: diff[1] / es.length, d3: diff[3] / es.length } : { d1: 0, d3: 0 };
@@ -75,7 +122,8 @@ for (const [code, sk] of Object.entries(SKILLS)) {
   report[code] = { name: sk.name, spots: es.length, ok, types, seats, difficulty: diff, bestOrFineOnly: noWrong, split, splitOk };
   if (ok || all) ship.push(code);
 }
-console.log(`bank version ${version}; ${stale} entries from older versions skipped; ${v1NoCaller} V1 spots with no station or whale dropped`);
+console.log(`bank version ${version}; ${stale} entries from older versions skipped; ${v1NoCaller} V1 spots with no station or whale dropped${b1Thinned ? `; ${b1Thinned} B1 spots thinned to match V1's streets` : ''}`);
+if (bySkill.B1 || bySkill.V1) for (const c of ['V1', 'B1']) console.log(`cues ${c}: ${JSON.stringify(cueTable(c))}`);
 for (const [code, r] of Object.entries(report)) {
   console.log(`${code} ${r.name}: ${r.spots} spots ${r.ok ? 'SHIPS' : 'below the bar'} | difficulty ${JSON.stringify(r.difficulty)} (easy ${Math.round(100 * r.split.d1)}%, tricky ${Math.round(100 * r.split.d3)}%${r.splitOk ? '' : ': SHORT of 20% / 15%, report to CURR and the CEO'}) | no wrong answer ${r.bestOrFineOnly}`);
   console.log(`   against ${JSON.stringify(r.types)}`);

@@ -12,8 +12,8 @@ export const PAIRS = { P1: 'P2', P2: 'P1', D1: 'D2', D2: 'D1', V1: 'B1', B1: 'V1
 
 // credit for the level rules: best is right; fine is right at difficulty 1-2 and half at 3
 // opponent types Mastered needs: 3, but V1 has only two calling types (station and whale; CEO, 17 Nov)
-// V5 has two (nit and tag) and D2 one (maniac): their predicates allow no more (CEO, 19 Nov)
-export const MASTER_TYPES = { V1: 2, V5: 2, D2: 1 };
+// B1 has two (station, whale) as V1; V5 two (nit and tag) and D2 one (maniac): their predicates allow no more (CEO, 19 Nov)
+export const MASTER_TYPES = { V1: 2, B1: 2, V5: 2, D2: 1 };
 // Tier 1's partner lessons (CEO, 19 Nov: V1/B1, D1/D2, P1/P2): each pair has opposite answers in look-alike spots, so one habit
 // ("always fold", "always bet") cannot pass both. The one table the scheduler, the run builder and the levels read:
 // - interleave: while both are open, never more than 2 spots in a row from either, and a run with one has the other;

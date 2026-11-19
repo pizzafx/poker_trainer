@@ -48,7 +48,9 @@ test('drill leftToAct: live opponents short of the bet, not the bettor, not all-
   // seat 1 bet; seat 2 folded; seat 3 still to act; seat 4 all-in for less
   assert.deepEqual(leftToAct(s, 1), [3]);
   assert.deepEqual(leftToAct({ ...s, bet: [0, 40, 0, 40, 10] }, 1), []);
-  assert.deepEqual(Object.keys(SK2).filter((c) => SK2[c].tier === 1).sort(), ['D1', 'D2', 'P1', 'P2', 'V1', 'V5']);
+  assert.deepEqual(Object.keys(SK2).filter((c) => SK2[c].tier === 1).sort(), ['B1', 'D1', 'D2', 'P1', 'P2', 'V1', 'V5']);
+  assert.equal(SK2.B1.want, 'check');
+  assert.ok(SK2.B1.allBets);
   assert.equal(SK2.V5.want, 'check');
   assert.equal(SK2.D2.want, 'call');
   assert.ok(SK2.V5.allBets);

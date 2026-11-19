@@ -132,6 +132,15 @@ export const isoQuote = (v, ctx) => {
   for (const o of v.options) if (o.type === 'raise' && (!best || Math.abs(o.to - want) < Math.abs(best.to - want))) best = o;
   return best ? best.to : null;
 };
+// "$Y" for L2 and L4 (STRAT, CEO): the gain of the raise the tip quotes ("to about $X") over the play made, only when
+// that raise clears it by 2.2 SE and $1; 0 (no sentence) otherwise, or when no option sits at the quoted size
+export const quotedGain = (v, to, against) => {
+  const q = v.options.findIndex((o) => o.type === 'raise' && o.to === to);
+  if (q < 0 || against < 0) return 0;
+  const g = pairedGap(v, q, against);
+  if (!(g.mean > 2.2 * g.se && g.mean > 1)) return 0;
+  return Math.round(v.options[q].ev) - Math.round(v.options[against].ev);
+};
 // the highest-scoring raise, or -1
 const bestRaise = (v) => {
   let br = -1;
@@ -174,8 +183,8 @@ export function isoLimpTipFor(v, ctx, name) {
   if (!(g.mean > 2.2 * g.se)) return null;
   if (raises.some(([o]) => o.ev < mine.ev - 0.5)) return null; // no raise scores clearly below the limp
   const to = isoQuote(v, ctx);
-  const cost = Math.round(v.options[br].ev) - Math.round(mine.ev);
-  return { kind: 'isoLimp', to, text: `raising over the limpers, to about $${to}, usually does better than limping behind with ${name}: you isolate weaker hands and keep the lead. Here raising was about $${cost} better.` };
+  const cost = quotedGain(v, to, v.mine);
+  return { kind: 'isoLimp', to, text: `raising over the limpers, to about $${to}, usually does better than limping behind with ${name}: you isolate weaker hands and keep the lead.${cost > 0 ? ` Here raising was about $${cost} better.` : ''}` };
 }
 
 // A soft note on a re-raise of a single raise with a hand outside the Standard facing-a-raise range
@@ -280,7 +289,7 @@ export function isoFoldTipFor(v, ctx, name, group) {
     if (gl.mean > ISO_FOLD_LIMP_VETO * gl.se) return null; // the judge clearly prefers the limp
   }
   const to = isoQuote(v, ctx);
-  const cost = raiseClears(v, fold) ? Math.round(v.options[br].ev) - Math.round(v.options[fold].ev) : 0;
+  const cost = quotedGain(v, to, fold);
   return { kind: 'isoFold', to, text: `${name} is a raise behind limpers from ${SEAT_WORDS[group]}: most players isolate with it here, to about $${to}.${cost > 0 ? ` Here raising was about $${cost} better.` : ''}` };
 }
 

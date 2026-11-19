@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { STREET } from '../src/engine/game.js';
 import { POS } from '../src/bots/policy.js';
-import { isoFoldTipFor, isoFoldHand, ISO_FOLD, gradeDecision } from '../src/trainer/grade.js';
+import { isoFoldTipFor, isoLimpTipFor, isoFoldHand, ISO_FOLD, gradeDecision } from '../src/trainer/grade.js';
 import { build } from '../scripts/gradeall.js';
 import { isoTo, candidateActions } from '../src/trainer/judge.js';
 import { isoQuote } from '../src/trainer/grade.js';
@@ -143,4 +143,19 @@ test('nit scope: behind two nit limpers KQo folded gets no isolation tip; behind
   // a single nit limper: the rule needs two or more
   const one = build({ id: 'nit1-kqo', button: 0, hole: 'Kd Qc', board: '', seats: { 3: 'nit' }, line: '3c' });
   assert.equal(allNitLimpers(one.s, one.env), false);
+});
+
+// STRAT (a), CEO: "$Y" is the gain of the raise the tip quotes, not of the best raise
+test('L4 and L2: $Y is the gain of the quoted iso size, even when the bigger raise scores best; no sentence when the quoted size does not clear', () => {
+  const ctx = { ...behind(POS.LP, 1), base: 2, bb: 2 };
+  // the $18 raise scores best ($8), the quoted $12 raise gains $4 over the fold: the sentence says $4
+  const t1 = isoFoldTipFor(verdict({ r12: 4, r18: 8, se: 0.5 }), ctx, 'AJo', 'button');
+  assert.equal(t1.text, 'AJo is a raise behind limpers from the button: most players isolate with it here, to about $12. Here raising was about $4 better.');
+  // the quoted $12 raise inside the noise of the fold, the $18 well clear: no sentence (never borrow another size's gain)
+  assert.equal(isoFoldTipFor(verdict({ r12: 0.8, r18: 8, se: 0.5 }), ctx, 'AJo', 'button').text, 'AJo is a raise behind limpers from the button: most players isolate with it here, to about $12.');
+  // L2 against the limp: the quoted $12 over the limp ($4 - $1 = $3), not the $18's $7
+  const t2 = isoLimpTipFor(verdict({ limp: 1, r12: 4, r18: 8, mine: 1, se: 0.5 }), ctx, 'AJo');
+  assert.match(t2.text, /to about \$12, .* Here raising was about \$3 better\.$/);
+  const t3 = isoLimpTipFor(verdict({ limp: 1, r12: 1.6, r18: 8, mine: 1, se: 0.5 }), ctx, 'AJo');
+  assert.doesNotMatch(t3.text, /better\.$/);
 });

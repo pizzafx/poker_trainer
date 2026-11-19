@@ -87,6 +87,9 @@ export function limpOutsideTipFor(v, ctx, name, group) {
 export const ISO_LIMP = new Set(['AJo', 'ATo', 'KQo', 'KJo', '88', '77']);
 // with 3+ limpers a raise rarely isolates: over-limping small pairs is the live play, and ATo/KJo are dominated multiway (PRO, STRAT)
 export const ISO_LIMP_FEW = new Set(['ATo', 'KJo', '88', '77']);
+// PRO (19 Nov): behind 3+ limpers over-limping is live play for the small pairs only; L2 stays silent for 77 and 88
+// there, and ATo and KJo get the usual gap-gated L2 tip. (ISO_LIMP_FEW stays for Drill P1's predicate, CURR.)
+export const ISO_LIMP_PAIRS = new Set(['88', '77']);
 const LIMPER_KEEP = { default: new Set(expandRange(LIMPER_OFFSUIT.default)), button: new Set(expandRange(LIMPER_OFFSUIT.button)) };
 const behindLimpers = (v, ctx, name) => {
   if (v.grade !== 'good' || v.mine < 0 || ctx.street !== STREET.PRE) return false;
@@ -147,7 +150,7 @@ export function wideLimpTipFor(v, ctx, name, group) {
 // L2: an isolation hand limping behind, when the best raise clearly beats the limp
 export function isoLimpTipFor(v, ctx, name) {
   if (!behindLimpers(v, ctx, name) || !ISO_LIMP.has(name)) return null;
-  if (ctx.limpers >= 3 && ISO_LIMP_FEW.has(name)) return null;
+  if (ctx.limpers >= 3 && ISO_LIMP_PAIRS.has(name)) return null;
   const mine = v.options[v.mine];
   const raises = v.options.map((o, i) => [o, i]).filter(([o]) => o.type === 'raise');
   if (!raises.length) return null;
@@ -234,7 +237,8 @@ const ISO_FOLD_BASE = [...ISO_LIMP, ...STRONG_LIMP, 'ATs', 'KJs', 'KTs', 'QJs'];
 // From early position KJo and ATo are left out at every limper count (STRAT, POOL): the thinnest cells in MATH's
 // run ($1.85 and $2.67 over the fold), and bot limpers fold to iso raises more than live ones do
 const ISO_FOLD_EARLY_OUT = new Set(['KJo', 'ATo']);
-const isoFoldRow = (n, g) => new Set(ISO_FOLD_BASE.filter((h) => !(n >= 3 && ISO_LIMP_FEW.has(h)) && !(g === 'early' && ISO_FOLD_EARLY_OUT.has(h))));
+// behind 3+ limpers the full list (PRO, 19 Nov): 77 and 88 there get the raise-or-limp copy (isoFoldPair)
+const isoFoldRow = (n, g) => new Set(ISO_FOLD_BASE.filter((h) => !(g === 'early' && ISO_FOLD_EARLY_OUT.has(h))));
 export const ISO_FOLD = Object.fromEntries(['early', 'middle', 'cutoff', 'button'].map((g) => [g, { 1: isoFoldRow(1, g), 2: isoFoldRow(2, g), 3: isoFoldRow(3, g) }]));
 // silent when the judge prefers the fold (or the limp) to the best raise by more than 1 SE (MATH's 280-cell run,
 // STRAT): at 2,100 samples it costs at most 1.5% of true raises (KJo from EP) and is the only runtime guard where
@@ -251,9 +255,20 @@ export function isoFoldTipFor(v, ctx, name, group) {
   const br = bestRaise(v);
   if (br < 0) return null;
   const fold = v.mine;
+  const limp = v.options.findIndex((o) => o.type === 'call');
+  // 77 and 88 behind 3+ limpers (PRO): raise and limp are both fine there, so the tip names both; silent only when
+  // the fold beats the better of them by more than the veto. $Y: that option over the fold, 2.2 SE and $1.
+  if (ctx.limpers >= 3 && ISO_LIMP_PAIRS.has(name)) {
+    const play = limp >= 0 && v.options[limp].ev > v.options[br].ev ? limp : br;
+    const gp = pairedGap(v, fold, play);
+    if (gp.mean > ISO_FOLD_VETO * gp.se) return null;
+    const gy = pairedGap(v, play, fold);
+    const gave = gy.mean > 2.2 * gy.se && gy.mean > 1 ? Math.round(v.options[play].ev) - Math.round(v.options[fold].ev) : 0;
+    const to = isoQuote(v, ctx);
+    return { kind: 'isoFoldPair', to, text: `${name} plays behind limpers from ${SEAT_WORDS[group]}: raise to isolate, to about $${to}, or limp behind for set value; folding throws away a profitable hand.${gave > 0 ? ` Here folding gave up about $${gave}.` : ''}` };
+  }
   const gf = pairedGap(v, fold, br);
   if (gf.mean > ISO_FOLD_VETO * gf.se) return null; // the judge clearly prefers the fold
-  const limp = v.options.findIndex((o) => o.type === 'call');
   if (limp >= 0) {
     const gl = pairedGap(v, limp, br);
     if (gl.mean > ISO_FOLD_LIMP_VETO * gl.se) return null; // the judge clearly prefers the limp

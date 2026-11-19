@@ -197,12 +197,13 @@ test('L2 fixture: KJo in the hijack limping behind an abc limper gets the isolat
   assert.match(v.tip.text, /^raising over the limpers, to about \$18, usually does better than limping behind with KJo: you isolate weaker hands and keep the lead\. Here raising was about \$\d+ better\.$/);
 });
 
-test('L2: behind 3 or more limpers, 77, 88, ATo and KJo get no isolation tip; AJo and KQo still do (PRO)', () => {
+test('L2: behind 3 or more limpers, 77 and 88 get no isolation tip; ATo, KJo, AJo and KQo still do (PRO, 19 Nov)', () => {
   const v = () => verdict({ limp: 2, r12: 6, r18: 5, se: 1 });
-  for (const nm of ['77', '88', 'ATo', 'KJo']) {
+  for (const nm of ['77', '88']) {
     assert.equal(isoLimpTipFor(v(), behind(POS.LP, 3), nm), null, nm);
     assert.equal(isoLimpTipFor(v(), behind(POS.LP, 2), nm)?.kind, 'isoLimp', nm);
   }
+  for (const nm of ['ATo', 'KJo']) assert.equal(isoLimpTipFor(v(), behind(POS.LP, 3), nm)?.kind, 'isoLimp', nm);
   for (const nm of ['AJo', 'KQo']) assert.equal(isoLimpTipFor(v(), behind(POS.LP, 4), nm)?.kind, 'isoLimp', nm);
 });
 

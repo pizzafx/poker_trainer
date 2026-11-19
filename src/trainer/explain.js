@@ -241,10 +241,10 @@ function goodHeadline(v, mine, best, d = {}) {
   };
   // STRAT YB-T1: a two-pair-or-better bet or raise, against players all read as passive, where checking scores
   // highest: never advise the trap with a dollar figure (checking-to-trap rests on them betting for you)
-  // STRAT's ruling on YB-T1 vs U1 (18 Nov): only when the check's gap is within the yellow bar (a gap above it is
-  // always stated), and never on a board that devalues the hand (t1Board)
+  // STRAT's ruling on YB-T1 vs U1 (18 Nov; at the bar, 19 Nov): only when the check's gap is strictly under the yellow
+  // bar (a gap at or above it is always stated, U1's figure), and never on a board that devalues the hand (t1Board)
   const PASSIVE = ['abc', 'station', 'nit', 'beginner', 'whale'];
-  const passiveTrap = mine.type === 'raise' && top.type === 'check' && (d.tier ?? -1) >= TIER.TWO_PAIR && Array.isArray(d.liveTypes) && d.liveTypes.length > 0 && d.liveTypes.every((t2) => PASSIVE.includes(t2)) && gap(top) <= bar() && t1Board(d.hole, d.board);
+  const passiveTrap = mine.type === 'raise' && top.type === 'check' && (d.tier ?? -1) >= TIER.TWO_PAIR && Array.isArray(d.liveTypes) && d.liveTypes.length > 0 && d.liveTypes.every((t2) => PASSIVE.includes(t2)) && gap(top) < bar() && t1Board(d.hole, d.board);
   // PRO's words for a TT-type re-raise when calling scores more (STRAT_YELLOW_BAND B), ahead of any tip
   if (v.note === 'iso3bet') return `${mine.label}: fine. Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.`;
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do

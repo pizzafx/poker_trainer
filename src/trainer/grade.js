@@ -4,6 +4,7 @@
 
 import { STREET, positionName, rakeFor } from '../engine/game.js';
 import { handFeatures, TIER, isRealDraw } from '../engine/features.js';
+import { coachFeatures } from './coachtier.js';
 import { classOf, classNames } from '../engine/hands.js';
 import { buildContext, POS } from '../bots/policy.js';
 import { HERO_PROFILE } from '../bots/profiles.js';
@@ -456,7 +457,9 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
   if (v.mine < 0) return;
   v.small = Math.max(3 * s.bbAmt, 0.1 * v.pot); // the yellow bar, for the notes' copy
   const pre = s.street === STREET.PRE;
-  const hf = pre ? null : handFeatures(s.hole[HERO], s.board);
+  // the coach tier (MATH, STRAT, 19 Nov): a hand the board makes (AK on 2-2-2) is routed by its showdown rank, as the
+  // real pair of the same strength would be; only hands the board makes can differ from handFeatures' tier
+  const hf = pre ? null : coachFeatures(s.hole[HERO], s.board);
   const weak = hf && hf.tier <= TIER.MIDDLE_PAIR;
   const bb = s.bbAmt;
   const small = Math.max(3 * bb, 0.1 * v.pot);

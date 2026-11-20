@@ -344,7 +344,9 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'checkOOP') return `${mine.label}: fine. (With several players or the preflop raiser still to act behind you, checking one pair is standard.)`;
   if (v.note === 'sizeCheck') return `${mine.label}: fine. (A bet of up to three-quarters of the pot ${more(best, 'rates about the same')}.)`;
   if (v.note === 'callPrice') return `${mine.label}: fine. (Folding ${more(best, 'rates a little higher')}, but this call can only cost its price; later decisions are graded when you make them.)`;
-  if (v.note === 'bluffRaise') return `${mine.label}: fine. (A bluff-raise ${more(top)} against these bots, but that only works on bots; it is not a habit to build.)`;
+  // a hand the board makes: "bluff" only when the top play does not win when called as often as it needs (MATH, STRAT)
+  const bluffWord = (o) => (d.boardMade && o.W !== null && o.W !== undefined && o.need !== null && o.need !== undefined && o.W >= o.need ? null : 'bluff');
+  if (v.note === 'bluffRaise') return `${mine.label}: fine. (A ${bluffWord(top) ? 'bluff-raise' : 'raise'} ${more(top)} against these bots, but that only works on bots; it is not a habit to build.)`;
   if (v.note === 'overbet') return `${mine.label}: fine. (A bet bigger than the pot ${more(top)} against these bots; a pot-sized bet or smaller is all you are held to.)`;
   if (v.note === 'preBluff') return `${mine.label}: fine. (A light re-raise ${v.preHigher ? 'scores higher' : 'is close to the best'} against these bots; it is not a habit to build.)`; // STRAT M3
   if (v.note === 'preFold') return `${mine.label}: fine.`;
@@ -360,7 +362,7 @@ function goodHeadline(v, mine, best, d = {}) {
     if (!bigger.length) return `${mine.label}: fine. (This is a sound value size${into}.)`;
     return `${mine.label}: fine. (Bigger bets score about ${lo === hi ? `$${lo}` : `$${lo}–${hi}`} more against these opponents, mostly because they call too often; ${size} is a sound value size${into}.)`;
   }
-  if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A bluff ${more(top)} against these bots; not enough to rely on at a real table.)`;
+  if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A ${bluffWord(top) || 'bet'} ${more(top)} against these bots; not enough to rely on at a real table.)`;
   if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read, so it is not graded.${habitTail(v, d)})`;
   if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')}.)`;
   // ...never naming a play the coach does not teach here (R7 habits: the reference already leaves them out; STRAT, F10)
@@ -424,9 +426,14 @@ export function anchorLine(d) {
   const ref = v.options[v.best];
   const made = hf.tier >= TIER.WEAK_PAIR && !(isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR);
   const kw = d.toCall > 0 ? 'raise' : 'bet'; // what the play is called in the line
+  // a hand the board makes (AK on 2-2-2; MATH, STRAT 20 Nov): the bet's lines follow the judge's numbers for that bet,
+  // value lines when it wins when called at least as often as it needs, the fold-equity lines otherwise
+  const madeFor = (o) => (d.boardMade ? o.W !== null && o.W !== undefined && o.need !== null && o.need !== undefined && o.W >= o.need : made);
+  const chkO = v.options.find((x) => x.type === 'check');
   const bet = (o0) => {
     const o = { ...o0, alpha: needOf(o0, v) }; // on the river, the folds it needs to beat checking
     const s = st(o0);
+    const made = madeFor(o0);
     if (made && (o.W === null || o.W === undefined)) {
       // never called in the samples: they fold everything to this size (QA-VERDICT N5)
       return `This ${kw} is almost never called here: they fold ${often(o.F)}. A smaller ${kw} gets paid by worse hands.`;
@@ -451,6 +458,12 @@ export function anchorLine(d) {
     if (s === 'even' || r5(o.F) === r5(o.alpha)) return `This ${kw} about breaks even on folds: you get ${share(o.F, false)} and need ${share(o.alpha, false)}. Fine, not needed.`;
     // a big real draw is not a bluff: say what the draw still does when called (STRAT M4)
     if (o.alpha < 0.05) return `This ${kw} is tiny next to the pot: it needs almost no folds, but they ${o.F < 0.05 ? 'almost never fold' : `fold only ${often(o.F)}`}.`;
+    // a board-made hand: the "do not bluff" line never prints when the bet rates within the bar of checking or better
+    // (MATH's guard); within the bar it is fine, not needed; above it, the folds it gets
+    if (d.boardMade && chkO && o0 !== chkO && Math.round(o0.ev) - Math.round(chkO.ev) > -(v.small || 0)) {
+      if (Math.round(o0.ev) - Math.round(chkO.ev) > (v.small || 0)) return `${foldsP(o.F)[0].toUpperCase()}${foldsP(o.F).slice(1)} and this ${kw} needs ${share(o.alpha, false)}.`;
+      return `This ${kw} rates about the same as checking: you get ${share(o.F, false)} folds and need ${share(o.alpha, false)}. Fine, not needed.`;
+    }
     return `${kw === 'bet' ? 'Betting' : 'Raising'} here needs everyone to fold ${often(o.alpha)}; ${o.F < 0.05 ? 'they almost never do' : o.F > 0.95 ? 'they nearly always do' : `they fold only ${often(o.F)}`}. Do not bluff this field.`;
   };
   let line = null;
@@ -481,7 +494,7 @@ export function anchorLine(d) {
     // a size flagged against another size: what the size changes
     const $ = (o) => `$${o.to - (d.currentBet || 0)}`;
     if (ref.to > mine.to) {
-      line = made && ref.W !== null
+      line = madeFor(ref) && ref.W !== null
         ? `At ${$(ref)} you are still ${aheadP(ref.W, now)} when called, and these players still call: the bigger ${kw} earns more.`
         : `At ${$(ref)} ${foldsP(ref.F)}, against ${share(mine.F, false)} at ${$(mine)}: the bigger ${kw} works better here.`;
     } else {

@@ -15,6 +15,7 @@ export { limpTipFor, openTipFor, junk3betTipFor } from './grade.js';
 import { snapshotDecision, handTruth } from './dispute.js';
 import { groupOf, expandRange, LIMPER_OFFSUIT, TIGHTER_ROW } from './ranges.js';
 import { explain } from './explain.js';
+import { coachFeatures, coachHandText } from './coachtier.js';
 import { bestHeadline } from './best.js';
 
 export const GAMES = {
@@ -383,7 +384,8 @@ export class Session {
       }
     }
     const picture = villain >= 0 ? rangePicture(belief, villain, s, HERO) : null;
-    const feats = s.street === STREET.PRE ? null : handFeatures(s.hole[HERO], s.board);
+    // the coach tier (MATH, STRAT): a board-made hand reads by its showdown rank for the labels, leak names and wording
+    const feats = s.street === STREET.PRE ? null : coachFeatures(s.hole[HERO], s.board);
     const live = [];
     for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) live.push(i);
     const regularIn = live.some((i) => {
@@ -409,8 +411,10 @@ export class Session {
       table: tableFacts(s, HERO),
       verdict,
       villain: villain >= 0 ? { seat: villain, nick: this.name(villain), picture, steaming: this.seats[villain].steaming } : null,
-      handText: feats ? describeHand(feats, s.board) : null,
+      handText: feats ? coachHandText(s.hole[HERO], s.board, feats.coach) || describeHand(feats, s.board) : null,
       tier: feats ? feats.tier : null,
+      rawTier: feats ? feats.coach.raw : null,
+      boardMade: !!(feats && feats.coach.boardMade), // the board makes the hand: the bet wording follows the judge's W vs need
       drawEquity: feats ? feats.drawEquity : 0,
       realDraw: feats ? isRealDraw(feats) : false, // a flush or straight draw, not backdoors or pair outs
       ownDrawEquity: feats ? feats.ownDrawEquity : 0, // the draw's own outs (STRAT P4-2)
@@ -772,7 +776,7 @@ export class Session {
     const s = this.hand.state;
     const ctx = buildContext(s);
     const pre = s.street === STREET.PRE;
-    const f = pre ? null : handFeatures(s.hole[HERO], s.board);
+    const f = pre ? null : coachFeatures(s.hole[HERO], s.board);
     let opponents = 0;
     for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) opponents++;
     return {

@@ -58,3 +58,57 @@ export function coachTier(hole, board, hf = null) {
   out.tier = Math.max(raw, tier);
   return out;
 }
+
+// handFeatures with the coach's tier in place of the raw one (the coach reads this; the bots never do). `coach`
+// carries coachTier's result, so the "you have" line and the wording can tell a board-made hand apart.
+export function coachFeatures(hole, board, hf = null) {
+  const f = hf || handFeatures(hole, board);
+  const ct = coachTier(hole, board, f);
+  return ct.tier === f.tier && !ct.boardMade ? { ...f, coach: ct } : { ...f, tier: ct.tier, coach: ct };
+}
+
+const BOARD_HAND = { [CATEGORY.TWO_PAIR]: 'two pair', [CATEGORY.TRIPS]: 'trips', [CATEGORY.STRAIGHT]: 'a straight', [CATEGORY.FLUSH]: 'a flush', [CATEGORY.FULL_HOUSE]: 'a full house', [CATEGORY.QUADS]: 'quads', [CATEGORY.STRAIGHT_FLUSH]: 'a straight flush' };
+const RANK_WORD = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace'];
+const PHRASE = { [TIER.AIR]: 'nothing', [TIER.HIGH_CARD]: 'ace or king high', [TIER.WEAK_PAIR]: 'a weak pair', [TIER.MIDDLE_PAIR]: 'middle pair', [TIER.TOP_PAIR_WEAK]: 'top pair with a weak kicker' };
+// The "you have" line for a board-made hand (STRAT's templates, 19 Nov): the board's hand, then the kicker, then the
+// coach tier's phrase. null when the hand is not board-made (describeHand's line stands).
+export function coachHandText(hole, board, ct) {
+  if (!ct || !ct.boardMade) return null;
+  const hand = BOARD_HAND[ct.category] || 'a made hand';
+  if (!ct.plays) return `${hand} on the board; your cards don't play`;
+  const onBoard = new Set(board.map((c) => c >> 2));
+  const mine = hole.map((c) => c >> 2).filter((r) => !onBoard.has(r));
+  const r = mine.length ? Math.max(...mine) : Math.max(...hole.map((c) => c >> 2));
+  const tail = ct.tier <= TIER.AIR ? 'most hands beat it' : `about as strong as ${PHRASE[ct.tier]}`;
+  if (ct.category === CATEGORY.STRAIGHT || ct.category === CATEGORY.FLUSH) return `${hand} on the board, your ${RANK_WORD[r]} makes it higher: ${tail}`;
+  return `${hand} on the board with ${r === 12 || r === 6 ? 'an' : 'a'} ${RANK_WORD[r]} kicker: ${tail}`;
+}
+
+// The coach tier for every combo of a range on one board, from the scores the belief already holds (MATH: one sort,
+// no enumeration). scores[c] is evaluate() of combo c with the board, or null for a combo the board blocks; raw[c]
+// its features tier. Only combos that are board-made (raw tier ace or king high or lower, same category as the
+// board) can move. Returns null when the board alone is not two pair or better.
+export function coachTiersForRange(board, scores, raw) {
+  if (board.length < 3) return null;
+  const boardScore = evaluate(board);
+  const bcat = categoryOf(boardScore);
+  if (bcat < CATEGORY.TWO_PAIR) return null;
+  const live = [];
+  for (let c = 0; c < scores.length; c++) if (scores[c] != null) live.push(scores[c]);
+  live.sort((a, b) => a - b);
+  const lower = (x) => { let lo = 0, hi = live.length; while (lo < hi) { const m = (lo + hi) >> 1; if (live[m] < x) lo = m + 1; else hi = m; } return lo; };
+  const upper = (x) => { let lo = 0, hi = live.length; while (lo < hi) { const m = (lo + hi) >> 1; if (live[m] <= x) lo = m + 1; else hi = m; } return lo; };
+  const cuts = COACH_CUTS[board.length - 3];
+  const out = raw.slice();
+  const n = live.length - 1;
+  for (let c = 0; c < scores.length; c++) {
+    const sc = scores[c];
+    if (sc == null || raw[c] > TIER.HIGH_CARD || categoryOf(sc) !== bcat) continue;
+    const below = lower(sc), ties = upper(sc) - below - 1;
+    const rank = n > 0 ? (below + ties / 2) / n : 0;
+    let tier = TIER.AIR;
+    for (let i = 0; i < cuts.length; i++) if (rank >= cuts[i]) tier = CUT_TIERS[i];
+    out[c] = Math.max(raw[c], tier);
+  }
+  return out;
+}

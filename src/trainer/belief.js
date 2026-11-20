@@ -8,6 +8,7 @@
 
 import { COMBOS, comboClass, comboIndex, CLASS_COUNT } from '../engine/hands.js';
 import { handFeatures, boardTexture, TIER } from '../engine/features.js';
+import { coachTiersForRange } from './coachtier.js';
 import { STREET } from '../engine/game.js';
 import { preflopPolicy, postflopPolicy, actionLikelihood, betGrid } from '../bots/policy.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
@@ -62,6 +63,8 @@ export class HandBelief {
     this.board = [];
     this.feats = null;
     this.featStreet = -1;
+    this.coach = null;
+    this.coachStreet = -1;
   }
 
   // A plain copy of the tracker (reads, dead cards, weights, board) to send to the judge worker;
@@ -72,7 +75,7 @@ export class HandBelief {
 
   static fromPlain(o) {
     const b = Object.create(HandBelief.prototype);
-    Object.assign(b, { reads: o.reads, dead: o.dead, w: o.w, board: o.board, feats: null, featStreet: -1 });
+    Object.assign(b, { reads: o.reads, dead: o.dead, w: o.w, board: o.board, feats: null, featStreet: -1, coach: null, coachStreet: -1 });
     return b;
   }
 
@@ -103,6 +106,21 @@ export class HandBelief {
       this.featStreet = street;
     }
     return this.feats;
+  }
+
+  // The coach tier of each combo on this street (MATH, STRAT 19 Nov): on a board that alone makes two pair or better,
+  // a combo the board makes reads by its showdown rank among the live combos (one sort of the scores held above);
+  // null on other boards, where the features tier stands. For the range line only; the bots never read it.
+  coachTiers(street) {
+    if (this.coachStreet !== street) {
+      const feats = this.features(street);
+      const scores = new Array(1326).fill(null);
+      const raw = new Array(1326).fill(0);
+      for (let c = 0; c < 1326; c++) if (feats[c]) { scores[c] = feats[c].score; raw[c] = feats[c].tier; }
+      this.coach = coachTiersForRange(this.board, scores, raw);
+      this.coachStreet = street;
+    }
+    return this.coach;
   }
 
   // Call with the context built just before the action was applied.
@@ -203,6 +221,7 @@ export class HandBelief {
     const n = this.board.length;
     const street = n === 0 ? 0 : n === 3 ? 1 : n === 4 ? 2 : 3;
     const feats = n === 0 ? null : this.features(street);
+    const ct = n === 0 ? null : this.coachTiers(street); // range buckets by the coach tier on board-made boards
     const sum = new Float64Array(CLASS_COUNT);
     const size = new Float64Array(CLASS_COUNT);
     const bucket = Array.from({ length: CLASS_COUNT }, () => [0, 0, 0, 0, 0]); // strong, good pair, weak pair, draw, nothing
@@ -219,7 +238,8 @@ export class HandBelief {
       all += x;
       if (feats && feats[c]) {
         const f = feats[c];
-        const b = f.tier >= TIER.TWO_PAIR ? 0 : f.tier >= TIER.TOP_PAIR_WEAK ? 1 : f.drawEquity >= 0.14 && n < 5 ? 3 : f.tier >= TIER.WEAK_PAIR ? 2 : 4;
+        const tier = ct ? ct[c] : f.tier;
+        const b = tier >= TIER.TWO_PAIR ? 0 : tier >= TIER.TOP_PAIR_WEAK ? 1 : f.drawEquity >= 0.14 && n < 5 ? 3 : tier >= TIER.WEAK_PAIR ? 2 : 4;
         bucket[k][b] += x;
         totals[b] += x;
         if (heroScore !== null) {

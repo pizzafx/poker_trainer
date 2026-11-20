@@ -28,15 +28,19 @@ export function showdownRank(hole, board) {
   for (let c = 0; c < 52; c++) if (!used.has(c)) deck.push(c);
   let w = 0;
   let n = 0;
+  let losses = 0;
   for (let i = 0; i < deck.length; i++) {
     for (let j = i + 1; j < deck.length; j++) {
       const o = evaluate([deck[i], deck[j], ...board]);
       w += me > o ? 1 : me === o ? 0.5 : 0;
+      if (o > me) losses++;
       n++;
     }
   }
+  lastLosses = losses;
   return w / n;
 }
+let lastLosses = 0; // showdownRank's losses on its last call (coachTier reads it for the nuts exception)
 
 // { tier, raw, boardMade, rank, plays, category }: `tier` is the coach's tier and `raw` handFeatures' own.
 // boardMade: the board alone makes two pair or better, the hole cards add no category and the raw tier is ace or
@@ -56,16 +60,17 @@ export function coachTier(hole, board, hf = null) {
   out.category = bcat;
   out.plays = score !== boardScore;
   out.rank = showdownRank(hole, board);
-  out.lower = lower; // the lower-of-raw-and-rank scope (quads or straight-flush board, counterfeited pocket pair)
-  out.tier = tierFromRank(out.rank, raw, board.length, lower);
+  out.nuts = lastLosses === 0; // no other two-card hand scores higher on this board
+  out.lower = lower; // the quads or straight-flush board, or a counterfeited pocket pair
+  out.tier = tierFromRank(out.rank, raw, board.length, lower, bcat >= CATEGORY.QUADS, out.nuts && out.plays);
   return out;
 }
 
 // Where the raw tier is too high for a board-made hand (MATH, STRAT, 20 Nov): a board that alone makes quads or a
 // straight flush (handFeatures says top pair or a monster by the kicker), or a pocket pair below both pairs of a
-// two-pair board (counterfeited: raw "a weak pair"). There the tier is the lower of raw and the rank's, except at the
-// street's top cut, where the raw tier stands (an ace on K-K-K-K-5 is the nuts). A pocket pair above a board pair
-// (99 on 7-7-4-4) is not counterfeited and keeps its raw tier.
+// two-pair board (counterfeited: raw "a weak pair"). A quads or straight-flush board takes the rank's tier, capped,
+// except a hand that cannot lose and whose cards play, which keeps raw; a counterfeited pair takes the lower of raw
+// and the rank's tier. A pocket pair above a board pair (99 on 7-7-4-4) keeps its raw tier.
 function lowerRule(hole, board, bcat) {
   if (bcat >= CATEGORY.QUADS) return true;
   if (bcat !== CATEGORY.TWO_PAIR) return false;
@@ -74,12 +79,15 @@ function lowerRule(hole, board, bcat) {
   const pr = pairsOf(board).slice(0, 2);
   return pr.length === 2 && pr.every((r) => r > a);
 }
-function tierFromRank(rank, raw, n, lower) {
+function tierFromRank(rank, raw, n, lower, quadsBoard, nutsPlays) {
   const cuts = COACH_CUTS[n - 3];
   let tier = TIER.AIR;
   for (let i = 0; i < cuts.length; i++) if (rank >= cuts[i]) tier = CUT_TIERS[i];
   if (!lower) return Math.max(raw, tier);
-  return rank >= cuts[cuts.length - 1] ? raw : Math.min(raw, tier);
+  // quads or a straight flush on the board (MATH, STRAT, 20 Nov): the rank's tier, capped; only a hand that cannot
+  // lose and whose hole cards play keeps its raw tier (an ace on K-K-K-K-5)
+  if (quadsBoard) return nutsPlays ? raw : tier;
+  return Math.min(raw, tier); // a counterfeited pocket pair
 }
 
 // handFeatures with the coach's tier in place of the raw one (the coach reads this; the bots never do). `coach`
@@ -102,12 +110,15 @@ export function coachHandText(hole, board, ct) {
   if (!ct.plays) {
     const [p, q] = hole.map((c) => c >> 2);
     const yours = p === q ? `your ${RANK_PLURAL[p]}` : 'your cards';
-    return `${hand} on the board; ${yours} don't play: the best you can do is split the pot`;
+    // the split clause only on the river: before it, the hole cards may still come to play (STRAT)
+    return `${hand} on the board; ${yours} don't play${board.length === 5 ? ': the best you can do is split the pot' : ''}`;
   }
   const onBoard = new Set(board.map((c) => c >> 2));
   const mine = hole.map((c) => c >> 2).filter((r) => !onBoard.has(r));
   const r = mine.length ? Math.max(...mine) : Math.max(...hole.map((c) => c >> 2));
-  const tail = ct.tier <= TIER.AIR ? 'most hands beat it' : `about as strong as ${PHRASE[ct.tier] || TIER_NAMES[ct.tier]}`;
+  // the nuts on a quads or straight-flush board (STRAT): the best possible hand, and who splits it
+  const nutsTail = ct.lower && ct.nuts && ct.tier > TIER.TOP_PAIR_WEAK ? `the best possible hand${ct.rank < 1 ? `; another ${RANK_WORD[r]} splits` : ''}` : null;
+  const tail = nutsTail || (ct.tier <= TIER.AIR ? 'most hands beat it' : `about as strong as ${PHRASE[ct.tier] || TIER_NAMES[ct.tier]}`);
   if (ct.category === CATEGORY.STRAIGHT || ct.category === CATEGORY.FLUSH) return `${hand} on the board, made higher by your ${RANK_WORD[r]}: ${tail}`;
   return `${hand} on the board with ${r === 12 || r === 6 ? 'an' : 'a'} ${RANK_WORD[r]} kicker: ${tail}`;
 }
@@ -122,7 +133,8 @@ const BY_CARD = Array.from({ length: 52 }, () => []);
 COMBOS.forEach(([a, b], c) => { BY_CARD[a].push(c); BY_CARD[b].push(c); });
 export function coachTiersForRange(board, scores, raw) {
   if (board.length < 3) return null;
-  const bcat = categoryOf(evaluate(board));
+  const boardScore = evaluate(board);
+  const bcat = categoryOf(boardScore);
   if (bcat < CATEGORY.TWO_PAIR) return null;
   const live = [];
   for (let c = 0; c < scores.length; c++) if (scores[c] != null) live.push(scores[c]);
@@ -136,6 +148,7 @@ export function coachTiersForRange(board, scores, raw) {
     const low = lowerRule(COMBOS[c], board, bcat); // the same scope as coachTier
     if (raw[c] > TIER.HIGH_CARD && !low) continue;
     let below = lower(x), ties = upper(x) - below, tot = live.length;
+    let above = live.length - upper(x);
     const [a, b] = COMBOS[c];
     // take out the combos that share a card with c (c itself once)
     for (const card of [a, b]) for (const d of BY_CARD[card]) {
@@ -144,9 +157,10 @@ export function coachTiersForRange(board, scores, raw) {
       tot--;
       if (y < x) below--;
       else if (y === x) ties--;
+      else above--;
     }
     const rank = tot > 0 ? (below + ties / 2) / tot : 0;
-    out[c] = tierFromRank(rank, raw[c], board.length, low);
+    out[c] = tierFromRank(rank, raw[c], board.length, low, bcat >= CATEGORY.QUADS, above === 0 && x !== boardScore);
   }
   return out;
 }

@@ -162,20 +162,27 @@ test('the 15% "bets are nearly always real" test counts hands that only chop or 
   assert.ok(picture.buckets.air < picture.boardAir, 'the coach-tier air bucket alone would undercount it');
 });
 
-test('quads, straight-flush and counterfeited boards: the lower of raw and the rank, raw kept at the top cut (MATH, STRAT)', () => {
+test('quads, straight-flush and counterfeited boards: the rank tier, capped; only an unbeatable hand that plays keeps raw (MATH, STRAT)', () => {
   const b = parseCards('Ks Kd Kc Kh 5s');
-  const q = coachTier(parseCards('Qh 3h'), b);
+  const at = (h) => coachTier(parseCards(h), b);
+  const q = at('Qh 3h');
   assert.equal(q.raw, TIER.TOP_PAIR_GOOD, 'handFeatures calls Q3 top pair with a good kicker');
   assert.equal(q.boardMade, true);
-  // rank 0.77 reaches the river's top cut (0.76): the raw tier stands
-  assert.equal(q.tier, TIER.TOP_PAIR_GOOD);
-  assert.equal(coachHandText(parseCards('Qh 3h'), b, q), 'quads on the board with a queen kicker: about as strong as top pair, good kicker');
-  const ace = coachTier(parseCards('Ah 3h'), b);
-  assert.equal(ace.tier, TIER.MONSTER, 'an ace kicker on K-K-K-K-5 stays a monster');
-  const nine = coachTier(parseCards('9h 3h'), b);
-  assert.equal(nine.tier, TIER.HIGH_CARD, 'a nine kicker drops below its raw top pair');
-  assert.equal(coachTier(parseCards('Ad Tc'), parseCards('Qs Qd Qc Qh As')).plays, false);
-  assert.equal(coachTier(parseCards('2c 3c'), parseCards('9h Th Jh Qh Kh')).tier, TIER.WEAK_PAIR, 'a straight flush on the board, cards not playing: no monster');
+  assert.equal(q.tier, TIER.TOP_PAIR_WEAK, 'Q3 at 0.769: the rank tier, capped');
+  assert.equal(coachHandText(parseCards('Qh 3h'), b, q), 'quads on the board with a queen kicker: about as strong as top pair with a weak kicker');
+  const ace = at('Ah 3h');
+  assert.equal(ace.tier, TIER.MONSTER, 'an ace kicker cannot lose and plays: it stays a monster');
+  assert.equal(coachHandText(parseCards('Ah 3h'), b, ace), 'quads on the board with an ace kicker: the best possible hand; another ace splits');
+  assert.equal(at('Ad Ac').tier, TIER.MONSTER);
+  assert.equal(at('Jh 3h').tier, TIER.MIDDLE_PAIR);
+  assert.equal(at('Th 9h').tier, TIER.WEAK_PAIR);
+  assert.equal(at('8h 3h').tier, TIER.HIGH_CARD);
+  assert.equal(at('6h 3h').tier, TIER.AIR);
+  const sf = coachTier(parseCards('2c 3c'), parseCards('9h Th Jh Qh Kh'));
+  assert.equal(sf.plays, false);
+  assert.ok(sf.tier < TIER.MONSTER, 'a straight flush on the board, cards not playing: no exception');
+  assert.equal(coachHandText(parseCards('4h 3h'), b, at('4h 3h')), "quads on the board; your cards don't play: the best you can do is split the pot");
+  assert.equal(coachHandText(parseCards('4h 3h'), parseCards('Ks Kd Kc Kh'), coachTier(parseCards('4h 3h'), parseCards('Ks Kd Kc Kh'))).includes('split'), false, 'no split clause before the river');
   // a counterfeited pocket pair (below both board pairs) is in scope; one above a board pair is not
   const c4 = coachTier(parseCards('4h 4d'), parseCards('7s 7d As Ac 2h'));
   assert.equal(c4.raw, TIER.WEAK_PAIR);

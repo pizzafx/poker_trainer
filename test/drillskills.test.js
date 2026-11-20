@@ -117,20 +117,20 @@ test('drill D3 nit clause: tier 6 out after a checked turn, in after the nit bet
   assert.match(SK2.D3.rule, /calls a station, folds to a nit, and is close against others\.$/);
 });
 
-test('drill D3 nit clause in the predicate: QQ vs a nit river bet out after a checked turn, in after a turn bet; two pair in', () => {
-  // heads-up river, nit (seat 1) bets 2/3 pot into $60, hero has $150 behind; the turn checked through or the nit bet it
-  const spot = (hole, turnActs, bettor = 'nit', board = 'Td 7c 2h 4s 9d') => {
-    const s = {
-      n: 2, street: 3, hole: [parseCards(hole), []], board: parseCards(board), folded: [false, false], allIn: [false, false], bet: [0, 40], currentBet: 40,
-      history: [{ street: 2, seat: 1, type: turnActs[0] }, { street: 2, seat: 0, type: turnActs[1] }, { street: 3, seat: 1, type: 'raise', to: 40 }],
-    };
-    const ctx = { toCall: 40, aggressor: 1, pot: 100, bb: 2, raises: 1, stack: 150 };
-    const f = handFeatures(s.hole[0], s.board);
-    return SK2.D3.match(s, ctx, f, [null, bettor]);
+test('drill D3 nit clause in the predicate: out only for an under-pot nit lead after a checked turn when the nit did not bet the flop', () => {
+  // heads-up river, the nit (seat 1) leads `lead` into $60; flop and turn as given; hero has $150 behind
+  const spot = (hole, flop, turn, lead, bettor = 'nit', board = 'Td 7c 2h 4s 9d') => {
+    const hist = [...flop.map(([seat, type]) => ({ street: 1, seat, type })), ...turn.map(([seat, type]) => ({ street: 2, seat, type })), { street: 3, seat: 1, type: 'raise', to: lead }];
+    const s = { n: 2, street: 3, hole: [parseCards(hole), []], board: parseCards(board), folded: [false, false], allIn: [false, false], bet: [0, lead], currentBet: lead, history: hist };
+    const ctx = { toCall: lead, aggressor: 1, pot: 60 + lead, bb: 2, raises: 1, stack: 150 };
+    return SK2.D3.match(s, ctx, handFeatures(s.hole[0], s.board), [null, bettor]);
   };
-  assert.equal(spot('Qd Qc', ['check', 'check']), false, 'tier 6 vs a nit after a checked turn: out');
-  assert.equal(spot('Qd Qc', ['raise', 'call']), true, 'tier 6 vs a nit who bet the turn: in');
-  assert.equal(spot('Qd Qc', ['check', 'check'], 'station'), true, 'tier 6 vs a station after a checked turn: in');
-  // a river king changes nothing (no pair, no third suit, no new straight), so rule 1 allows two pair
-  assert.equal(spot('Td 7d', ['check', 'check'], 'nit', 'Td 7c 2h 4s Kh'), true, 'two pair vs a nit after a checked turn: in (rule 1 allows it)');
+  const checks = [[1, 'check'], [0, 'check']];
+  assert.equal(spot('Qd Qc', checks, checks, 45), false, '3/4-pot lead after a checked flop and turn: out');
+  assert.equal(spot('Qd Qc', checks, checks, 60), true, 'pot-size lead after a checked flop and turn: in');
+  assert.equal(spot('Qd Qc', [[1, 'raise'], [0, 'call']], checks, 40), true, '2/3 lead when the nit bet the flop and the turn checked: in');
+  assert.equal(spot('Qd Qc', checks, checks, 40, 'station'), true, 'against a station on the 2/3 line: in');
+  assert.equal(spot('Qd Qc', [[1, 'check'], [0, 'raise'], [1, 'call']], checks, 40), false, 'hero bet the flop, the nit called, the turn checked, a 2/3 lead: out');
+  // a river king changes nothing, so rule 1 allows two pair after a checked turn
+  assert.equal(spot('Td 7d', checks, checks, 40, 'nit', 'Td 7c 2h 4s Kh'), true, 'two pair vs a nit after a checked turn: in');
 });

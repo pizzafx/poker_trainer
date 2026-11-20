@@ -296,6 +296,11 @@ for (const [code, r] of Object.entries(report)) {
     cells[k] = (cells[k] || 0) + 1;
   }
   const thin = Object.entries(cells).filter(([, n]) => n < 3);
+  // P1's fine limps (CURR, 19 Nov): listed so a cluster in one hand or seat shows (kept: the fold is wrong there)
+  if (code === 'P1') {
+    const fl = (bySkill.P1 || []).filter((e) => e.families.call === 'fine');
+    if (fl.length) console.log(`   fine limps ${fl.length}: ${fl.map((e) => `${e.hand} ${e.spot.actions.filter((a) => a.type === 'call' && a.seat !== 0).length}L ${e.position}`).join(', ')}`);
+  }
   if (code !== 'P2') console.log(`   cells ${Object.keys(cells).length}${thin.length ? `, under 3: ${thin.map(([k, n]) => `${k} (${n})`).join(', ')}` : ', none under 3'}`);
 }
 if (write) {

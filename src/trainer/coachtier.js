@@ -138,18 +138,38 @@ const pairsOf = (cards) => {
   for (const c of cards) n[c >> 2] = (n[c >> 2] || 0) + 1;
   return Object.entries(n).filter(([, k]) => k >= 2).map(([r, k]) => [+r, k]).sort((a, b) => b[1] - a[1] || b[0] - a[0]).map(([r]) => r);
 };
-// The range line's parts on a board that alone makes two pair or better (STRAT, DESIGN, 20 Nov): each live combo is
-// placed by what it really holds, so no label is false for a hand under it. `combos` is [{ hole, score, tier, draw,
-// w }] with `tier` the coach tier. Returns [[label, weight], ...] in order, empty parts left out, or null.
-export function boardRangeParts(board, combos) {
+// The range line's parts on a board that alone makes two pair or better (STRAT's and DESIGN's final ruling, 20 Nov):
+// each live combo is placed by the evaluator against hero's own hand, so no label can be false. `combos` is
+// [{ hole, score, w }]; `hero` is { hole, score }. Returns [[label, weight], ...] in order, or null.
+export function boardRangeParts(board, combos, hero) {
   const bc = boardCategory(board);
   if (bc === null) return null;
   const parts = new Map();
   const add = (label, w) => parts.set(label, (parts.get(label) || 0) + w);
   const full = board.length === 5;
   const bs = evaluate(board);
-  if (bc === CATEGORY.TWO_PAIR || bc === CATEGORY.TRIPS || (bc === CATEGORY.QUADS && !full)) {
-    // the lowest better category present names the top part ("a full house or better", ...)
+  const hs = hero.score;
+  const ct = coachTier(hero.hole, board);
+  const order = [];
+  const put = (label, w) => { if (!order.includes(label)) order.push(label); add(label, w); };
+  if (!ct.boardMade) {
+    // hero improves on the board (77 on 2-2-2-7): the plain comparison
+    for (const x of combos) if (x.w > 0) put(x.score > hs ? 'a better hand than yours' : x.score === hs ? 'the same hand: a split' : 'a worse hand', x.w);
+  } else if (bc === CATEGORY.FULL_HOUSE && full && !ct.plays) {
+    for (const x of combos) if (x.w > 0) put(x.score > bs ? 'quads or a higher full house' : 'nothing better than the board', x.w);
+  } else if (bc === CATEGORY.QUADS && full && !ct.plays) {
+    for (const x of combos) if (x.w > 0) put(x.score > bs ? "a higher kicker than the board's" : 'nothing better than the board', x.w);
+  } else if (!ct.plays) {
+    // hero's cards do not play: better than the board, or the board
+    const same = bc === CATEGORY.STRAIGHT ? 'a higher straight' : bc === CATEGORY.FLUSH ? 'a higher flush' : null;
+    for (const x of combos) {
+      if (x.w <= 0) continue;
+      if (x.score === hs) put('the board: a split', x.w);
+      else if (same && categoryOf(x.score) === bc) put(same, x.w);
+      else put('a better hand than the board', x.w);
+    }
+  } else {
+    // hero's kicker plays (AK on 2-2-2-7): the better categories, then the kicker against hero's
     let minBetter = null;
     for (const x of combos) { const k = categoryOf(x.score); if (k > bc && x.w > 0) minBetter = minBetter === null ? k : Math.min(minBetter, k); }
     const top = minBetter === null ? null : CAT_OR_BETTER[minBetter];
@@ -157,26 +177,11 @@ export function boardRangeParts(board, combos) {
     for (const x of combos) {
       if (x.w <= 0) continue;
       const k = categoryOf(x.score);
-      if (k > bc) { add(top, x.w); continue; }
-      // on a two-pair board, a hand whose two pair is not the board's is a higher two pair
-      const higher = bc === CATEGORY.TWO_PAIR && pairsOf([...x.hole, ...board]).slice(0, 2).join() !== bp.slice(0, 2).join();
-      if (higher) add('a higher two pair or a top kicker', x.w);
-      else if (x.draw && !full) add('draws', x.w);
-      else if (x.tier >= TIER.TOP_PAIR_WEAK) add(bc === CATEGORY.TWO_PAIR ? 'a higher two pair or a top kicker' : 'a top kicker', x.w);
-      else if (x.tier >= TIER.WEAK_PAIR) add('a middling kicker', x.w);
-      else add('nothing better than the board', x.w);
-    }
-  } else {
-    // a straight, flush, full house or quads on a full board: better than the board or not (a tie plays the board)
-    const better = bc === CATEGORY.STRAIGHT ? 'a higher straight' : bc === CATEGORY.FLUSH ? 'a higher flush' : bc === CATEGORY.FULL_HOUSE ? 'quads or a higher full house' : bc === CATEGORY.QUADS ? "a higher kicker than the board's" : 'a better hand than the board';
-    for (const x of combos) {
-      if (x.w <= 0) continue;
-      const k = categoryOf(x.score);
-      if (k > bc && (bc === CATEGORY.STRAIGHT || bc === CATEGORY.FLUSH)) add('a better hand than the board', x.w);
-      else if (x.score > bs) add(better, x.w);
-      else add('nothing better than the board', x.w);
+      if (k > bc) put(top, x.w);
+      else if (bc === CATEGORY.TWO_PAIR && pairsOf([...x.hole, ...board]).slice(0, 2).join() !== bp.slice(0, 2).join()) put('a higher two pair', x.w);
+      else put(x.score > hs ? 'a higher kicker than yours' : x.score === hs ? 'your kicker: a split' : 'a lower kicker, or just the board', x.w);
     }
   }
-  const order = ['a straight or better', 'a flush or better', 'a full house or better', 'quads or better', 'a straight flush', 'a better hand than the board', 'quads or a higher full house', 'a higher straight', 'a higher flush', "a higher kicker than the board's", 'a higher two pair or a top kicker', 'a top kicker', 'a middling kicker', 'draws', 'nothing better than the board'];
-  return order.filter((l) => parts.get(l) > 0).map((l) => [l, parts.get(l)]);
+  const RANKED = ['a straight or better', 'a flush or better', 'a full house or better', 'quads or better', 'a straight flush', 'a better hand than yours', 'a better hand than the board', 'quads or a higher full house', 'a higher straight', 'a higher flush', "a higher kicker than the board's", 'a higher two pair', 'a higher kicker than yours', 'your kicker: a split', 'the same hand: a split', 'the board: a split', 'a lower kicker, or just the board', 'a worse hand', 'nothing better than the board'];
+  return RANKED.filter((l) => parts.get(l) > 0).map((l) => [l, parts.get(l)]);
 }

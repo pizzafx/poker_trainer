@@ -110,7 +110,7 @@ function rangeLine(d) {
   // a board that alone makes two pair or better (STRAT, DESIGN, 20 Nov): parts by what each hand really holds
   const bp = vil.picture.boardParts;
   if (bp) {
-    for (const [label, x] of bp) if (label !== 'draws' || x >= 0.03) parts.push(`${pct(x)} ${label}`);
+    for (const [label, x] of bp) if (x >= 0.03) parts.push(`${pct(x)} ${label}`); // parts under 3% left out (DESIGN)
   } else {
     parts.push(pairedBoard ? `${pct(strong)} trips or better (or two pair without the board's help)` : `${pct(strong)} two pair or better`);
     parts.push(`${pct(b.topPair)} top pair or an overpair`);
@@ -541,7 +541,9 @@ export function anchorLine(d) {
       if (post) for (let k = 0; k < post.length; k++) if (top < 0 || post[k] > post[top]) top = k;
       const type = top >= 0 ? TYPE_IDS[top] : null;
       const b = pic && pic.buckets;
-      const loose = b ? Math.round(100 * (b.air + b.draw)) : 100;
+      // on a board that alone makes two pair or better, "nothing better than the board" is the air: those hands can
+      // only chop or lose, so a bet with them is a bluff (STRAT, 20 Nov); a tie on a straight board is not a real hand
+      const loose = pic && pic.boardAir !== undefined ? Math.round(100 * (pic.boardAir + (b ? b.draw : 0))) : b ? Math.round(100 * (b.air + b.draw)) : 100;
       if (['nit', 'abc', 'station', 'beginner'].includes(type) && loose < 15) line = `You are ${aheadP(A.Q, '')} here and need ${need} at this price. Good players bluff just enough to make this close. This player's bets are nearly always real. Fold.`;
       // "this often" only when the range shown really is loose: 25% or more nothing plus draws (STRAT, POOL batch 12)
       else if (['maniac', 'lag', 'whale'].includes(type) && loose >= 25) line = `Even against a player who bluffs this often, you are not ahead often enough at this price. Fold.`;

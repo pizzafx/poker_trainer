@@ -80,50 +80,50 @@ import { rangePicture } from '../src/trainer/judge.js';
 import { STREET } from '../src/engine/game.js';
 import { boardRangeParts } from '../src/trainer/coachtier.js';
 import { categoryOf, CATEGORY } from '../src/engine/evaluator.js';
-// STRAT's and DESIGN's fixture (20 Nov): on each board type no label is false for any hand under it
-test('range line on board-made boards: every hand sits under a true label (trips, two pair, straight, flush, full house, quads)', () => {
-  const hole = parseCards('Qh Jh');
+// STRAT's and DESIGN's fixture (20 Nov, final): on each board type every hand's part is its evaluator comparison with
+// hero's hand
+test('range line on board-made boards: every hand sits under its comparison with hero\'s hand', () => {
   const cases = [
-    ['2s 2d 2h 7c', ['a full house or better', 'a top kicker', 'a middling kicker', 'nothing better than the board']],
-    ['Ts Td 3h 3c 7s', ['a full house or better', 'a higher two pair or a top kicker', 'a middling kicker', 'nothing better than the board']],
-    ['Ks Kd Qc Qs 4s', null],
-    ['5s 6d 7c 8c 9s', ['a higher straight', 'nothing better than the board']],
-    ['Kd 9d 6d 4d 2d', ['a better hand than the board', 'a higher flush', 'nothing better than the board']],
-    ['7s 7d 7c 2s 2d', ['quads or a higher full house', 'nothing better than the board']],
-    ['Ks Kd Kc Kh 5s', ["a higher kicker than the board's", 'nothing better than the board']],
+    // [board, hero, labels allowed]
+    ['2s 2d 2h 7c', 'Ad Kc', ['a full house or better', 'quads or better', 'a higher kicker than yours', 'your kicker: a split', 'a lower kicker, or just the board']],
+    ['Ts Td 3h 3c 7s', 'Ad Kc', ['a full house or better', 'a higher two pair', 'a higher kicker than yours', 'your kicker: a split', 'a lower kicker, or just the board']],
+    ['Ks Kd Qc Qs 4s', 'Jd 9c', ['a flush or better', 'a full house or better', 'a higher two pair', 'a higher kicker than yours', 'your kicker: a split', 'a lower kicker, or just the board']],
+    ['5s 6d 7c 8c 9s', 'Qh Jh', ['a better hand than the board', 'a higher straight', 'the board: a split']],
+    ['Kd 9d 6d 4d 2d', 'Qh Jh', ['a better hand than the board', 'a higher flush', 'the board: a split']],
+    ['7s 7d 7c 2s 2d', 'Qh Jh', ['quads or a higher full house', 'nothing better than the board']],
+    // on a quads board handFeatures rates the hand above ace-high, so it is not board-made: the plain comparison
+    ['Ks Kd Kc Kh 5s', 'Qh 3h', ['a better hand than yours', 'the same hand: a split', 'a worse hand']],
+    // hero's cards do not play on a trips board; hero improves (77 on 2-2-2-7)
+    ['2s 2d 2h Kc Qd', '4h 3h', ['a better hand than the board', 'the board: a split']],
+    ['2s 2d 2h 7c', '7d 7h', ['a better hand than yours', 'the same hand: a split', 'a worse hand']],
   ];
-  for (const [B, want] of cases) {
+  for (const [B, H, want] of cases) {
     const board = parseCards(B);
+    const hole = parseCards(H);
     const bs = evaluate(board);
     const bc = categoryOf(bs);
+    const hs = evaluate([...hole, ...board]);
     const reads = [null, newRead(TYPE_IDS.map((id) => (id === 'station' ? 1 : 0)))];
     const bel = new HandBelief(reads, hole);
     bel.setBoard(board);
     const street = board.length === 3 ? STREET.FLOP : board.length === 4 ? STREET.TURN : STREET.RIVER;
     const pic = rangePicture(bel, 1, { street, board, hole: [hole, []] }, 0);
     assert.ok(pic.boardParts && pic.boardParts.length, B);
-    const labels = pic.boardParts.map(([l]) => l);
-    if (want) for (const l of labels) assert.ok(want.includes(l), `${B}: unexpected label ${l}`);
     assert.ok(Math.abs(pic.boardParts.reduce((a, [, x]) => a + x, 0) - 1) < 1e-9, `${B}: parts sum to 1`);
-    // each hand alone: its label is true of it
     const feats = bel.features(street);
-    const ct = bel.coachTiers(street);
-    for (let c = 0; c < 1326; c += 3) {
+    for (let c = 0; c < 1326; c++) {
       if (!feats[c]) continue;
-      const f = feats[c];
-      const parts = boardRangeParts(board, [{ hole: COMBOS[c], score: f.score, tier: ct[c], draw: false, w: 1 }]);
-      const [l] = parts[0];
-      const k = categoryOf(f.score);
-      const name = `${B}: combo ${c} under "${l}"`;
-      if (/or better$|^a better hand|^a straight flush$/.test(l)) assert.ok(k > bc, name);
-      else if (/^a higher (straight|flush|kicker)|^quads or a higher/.test(l)) assert.ok(f.score > bs && k >= bc, name);
-      else if (l === 'a higher two pair or a top kicker') assert.equal(k, CATEGORY.TWO_PAIR, name);
-      else assert.equal(k, bc, name); // a kicker, or nothing better than the board: the board's own category, no pair claimed
-      if (l === 'nothing better than the board' && board.length === 5 && bc >= CATEGORY.STRAIGHT) assert.equal(f.score, bs, name);
-      if ((l === 'a middling kicker' || l === 'nothing better than the board') && bc === CATEGORY.TWO_PAIR) {
-        const [a, b] = COMBOS[c].map((x) => x >> 2);
-        assert.ok(!(a === b && a > Math.min(...board.map((x) => x >> 2).filter((r, i, arr) => arr.indexOf(r) !== i))), `${name}: a higher pocket pair is a higher two pair`);
-      }
+      const x = feats[c].score;
+      const [[l]] = boardRangeParts(board, [{ hole: COMBOS[c], score: x, w: 1 }], { hole, score: hs });
+      const name = `${B} vs ${H}: combo ${c} under "${l}"`;
+      // alone, a combo names its own category in the top part ("quads or better"); in the range, the lowest present
+      assert.ok(want.includes(l) || /or better$|^a straight flush$/.test(l), name);
+      if (/or better$|^a straight flush$/.test(l)) assert.ok(categoryOf(x) > bc && x > hs, name);
+      else if (/split/.test(l)) assert.equal(x, hs, name);
+      else if (l === 'a lower kicker, or just the board' || l === 'a worse hand') assert.ok(x < hs, name);
+      else if (l === 'nothing better than the board') assert.equal(x, bs, name);
+      else if (l === 'a higher two pair') assert.ok(categoryOf(x) === CATEGORY.TWO_PAIR && x > hs, name);
+      else assert.ok(x > hs, name); // higher kicker, higher straight or flush, better hand
     }
   }
 });
@@ -147,4 +147,16 @@ test('range coach tiers equal coachTier for every board-made combo, with hero ca
     }
     assert.ok(n > 100, `${B}: ${n} board-made combos checked`);
   }
+});
+
+test('the 15% "bets are nearly always real" test counts hands that only chop or lose to the board as air (STRAT)', () => {
+  // a station's river bet on a board straight: hands that play the board are air for the test
+  const board = parseCards('5s 6d 7c 8c 9s');
+  const hole = parseCards('Qh Jh');
+  const bel = new HandBelief([null, newRead(TYPE_IDS.map((id) => (id === 'station' ? 1 : 0)))], hole);
+  bel.setBoard(board);
+  const picture = rangePicture(bel, 1, { street: STREET.RIVER, board, hole: [hole, []] }, 0);
+  const split = picture.boardParts.find(([l]) => l === 'the board: a split')[1];
+  assert.ok(Math.abs(picture.boardAir - split) < 1e-9, 'the board-only hands are the air');
+  assert.ok(picture.buckets.air < picture.boardAir, 'the coach-tier air bucket alone would undercount it');
 });

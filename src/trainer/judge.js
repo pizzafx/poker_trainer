@@ -462,6 +462,8 @@ export function rangePicture(belief, seat, s, hero) {
   // are bucketed by their showdown rank, not all as "nothing"
   const ct = belief.coachTiers ? belief.coachTiers(s.street) : null;
   const bmCombos = boardCategory(s.board) !== null ? [] : null;
+  const boardScore = bmCombos ? evaluate(s.board) : 0;
+  let boardAir = 0;
   const b = { monster: 0, strong: 0, twoPair: 0, topPair: 0, weakPair: 0, draw: 0, air: 0 };
   const mine = handFeatures(s.hole[hero], s.board).score;
   let ahead = 0;
@@ -481,13 +483,20 @@ export function rangePicture(belief, seat, s, hero) {
     else b.air += x;
     if (mine > f.score) ahead += x;
     else if (mine === f.score) tie += x;
-    if (bmCombos) bmCombos.push({ hole: COMBOS[c], score: f.score, tier: f.tier, draw: isRealDraw(f), w: x });
+    if (bmCombos) {
+      bmCombos.push({ hole: COMBOS[c], score: f.score, w: x });
+      // the hands that can only chop or lose to the board's own hand count as air for the fold line (STRAT)
+      if (f.tier < TIER.WEAK_PAIR || (s.board.length === 5 && f.score === boardScore)) boardAir += x;
+    }
   }
   if (total > 0) {
     for (const k in b) b[k] /= total;
     out.buckets = b;
     // a board that alone makes two pair or better: the line's parts by what each hand holds (STRAT, DESIGN)
-    if (bmCombos) out.boardParts = boardRangeParts(s.board, bmCombos).map(([label, x]) => [label, x / total]);
+    if (bmCombos) {
+      out.boardParts = boardRangeParts(s.board, bmCombos, { hole: s.hole[hero], score: evaluate([...s.hole[hero], ...s.board]) }).map(([label, x]) => [label, x / total]);
+      out.boardAir = boardAir / total;
+    }
     out.equity = (ahead + tie / 2) / total; // share of their range you beat right now
   }
   return out;

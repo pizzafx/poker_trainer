@@ -33,7 +33,10 @@ const bare = (o) => o.label.replace(/\s*\([^)]*\)\s*$/, '');
 // R7 ("not a habit to build"): one line on why, per kind of play
 // A habit play outside the bar keeps its reason on a fragile or unclear line (STRAT, Nov 2026), so a
 // shove there is never presented as plainly fine.
-const habitTail = (v) => (v.habitOut && HABIT_WHY[v.habitOut] ? ` ${HABIT_WHY[v.habitOut].replace(/\.$/, '')}; not a habit to build.` : '');
+// the habit's line; a draw overbet adds D2's advice as plain text, no estimate figures (STRAT YB-D2c (c), 19 Nov)
+const drawAdvice = (key, d) => (key === 'drawOverbet' ? ` With a draw, ${d && d.toCall > 0 ? 'calling is cheaper' : 'bet smaller or check'}.` : '');
+const habitWhy = (key, d) => (HABIT_WHY[key] ? HABIT_WHY[key] + drawAdvice(key, d) : '');
+const habitTail = (v, d) => (v.habitOut && HABIT_WHY[v.habitOut] ? ` ${HABIT_WHY[v.habitOut].replace(/\.$/, '')}; not a habit to build.${drawAdvice(v.habitOut, d)}` : '');
 
 const HABIT_WHY = {
   raiseCaller: 'A raise into a bettor and a caller is usually called by better.',
@@ -310,7 +313,7 @@ function goodHeadline(v, mine, best, d = {}) {
     return `${mine.label}: fine. (${v.thin.nick ? `Against ${v.thin.nick}, a bet` : 'A bet'} of about ${v.thin.size} ${by}.)`;
   }
   // "scores higher" only when it does; within the yellow bar but lower, "close to the best play" (QA M1)
-  if (v.note === 'mwHabit') return `${mine.label}: fine. (${v.habitHigher ? 'It scores higher against these opponents; not a habit to build.' : 'It is close to the best here, but not a habit to build.'}${HABIT_WHY[v.habit] ? ' ' + HABIT_WHY[v.habit] : ''})`;
+  if (v.note === 'mwHabit') return `${mine.label}: fine. (${v.habitHigher ? 'It scores higher against these opponents; not a habit to build.' : 'It is close to the best here, but not a habit to build.'}${HABIT_WHY[v.habit] ? ' ' + habitWhy(v.habit, d) : ''})`;
   if (v.note === 'mwCheck') {
     const m = v.mw || {};
     const whoBet = v.thin && v.thin.nick ? `Against ${v.thin.nick}, a bet` : 'A bet';
@@ -332,11 +335,11 @@ function goodHeadline(v, mine, best, d = {}) {
       const refName = best.type === 'check' ? 'a check' : best.type === 'fold' ? 'folding' : best.type === 'call' ? 'a call' : bare(best).toLowerCase();
       if (flip && flip.type === 'raise' && flip.to !== mine.to) {
         const big = /^All-in/.test(flip.label) || (flip.to - (d.currentBet || 0)) >= (2 / 3) * Math.max(1, v.pot);
-        return `${mine.label}: not graded. On our read ${refName} is better by about $${g}. If ${them} a little differently, a ${big ? 'big' : 'small'} ${d.toCall > 0 ? 'raise' : 'bet'} does better instead, so we don't grade it.${habitTail(v)}`;
+        return `${mine.label}: not graded. On our read ${refName} is better by about $${g}. If ${them} a little differently, a ${big ? 'big' : 'small'} ${d.toCall > 0 ? 'raise' : 'bet'} does better instead, so we don't grade it.${habitTail(v, d)}`;
       }
-      return `${mine.label}: not graded. On our read ${refName} is better by about $${g}, but that changes if ${them} a little differently, so we don't grade it.${habitTail(v)}`;
+      return `${mine.label}: not graded. On our read ${refName} is better by about $${g}, but that changes if ${them} a little differently, so we don't grade it.${habitTail(v, d)}`;
     }
-    return `${mine.label}: not graded. ${g > 0 && best !== mine ? `${bare(best)} scores about $${g} more on our read; the` : 'The'} best play changes with small differences in how ${who} play${d.opponents === 1 ? 's' : ''}.${habitTail(v)}`;
+    return `${mine.label}: not graded. ${g > 0 && best !== mine ? `${bare(best)} scores about $${g} more on our read; the` : 'The'} best play changes with small differences in how ${who} play${d.opponents === 1 ? 's' : ''}.${habitTail(v, d)}`;
   }
   if (v.note === 'checkOOP') return `${mine.label}: fine. (With several players or the preflop raiser still to act behind you, checking one pair is standard.)`;
   if (v.note === 'sizeCheck') return `${mine.label}: fine. (A bet of up to three-quarters of the pot ${more(best, 'rates about the same')}.)`;
@@ -358,7 +361,7 @@ function goodHeadline(v, mine, best, d = {}) {
     return `${mine.label}: fine. (Bigger bets score about ${lo === hi ? `$${lo}` : `$${lo}–${hi}`} more against these opponents, mostly because they call too often; ${size} is a sound value size${into}.)`;
   }
   if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A bluff ${more(top)} against these bots; not enough to rely on at a real table.)`;
-  if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read, so it is not graded.${habitTail(v)})`;
+  if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read, so it is not graded.${habitTail(v, d)})`;
   if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')}.)`;
   // ...never naming a play the coach does not teach here (R7 habits: the reference already leaves them out; STRAT, F10)
   if (gap(top) > bar(top) && v.ref !== 'habit') return `${mine.label}: fine. (${bare(top)} ${more(top)} on our read, but the coach does not hold you to it here.)`;

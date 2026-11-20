@@ -314,7 +314,9 @@ export const INVARIANTS = {
     if (!mine || mine.type !== 'raise' || mine.alpha === undefined || !(mine.alpha / (1 - mine.alpha) > 1.05)) return false;
     if (v.habit !== 'drawOverbet' && v.habitOut !== 'drawOverbet') return false;
     if (d.street === STREET.RIVER || !(handFeatures(d.hole, d.board).ownDrawEquity >= 0.14)) return false;
-    return /your draw comes in/.test(d.anchor || '') || !/With a draw, (bet smaller or check|calling is cheaper)/.test(d.anchor || '');
+    // a multiway-habit note carries no estimate line (applyAnchors skips it): its habit text carries the advice (STRAT (c))
+    const line = v.note === 'mwHabit' || v.habitOut === 'drawOverbet' ? d.headline || '' : d.anchor || '';
+    return /your draw comes in/.test(line) || !/With a draw, (bet smaller or check|calling is cheaper)/.test(line);
   },
   'YB-V4b "does not work" in the headline never sits over a break-even line': (d) => /estimate below it does not work/.test(d.headline || '') && /about breaks even|That is thin|: close\.$/.test(d.anchor || ''),
   // ---- STRAT 19 / MATH 19a (QA-C8a) ----

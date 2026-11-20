@@ -26,7 +26,7 @@ test('"you have": the board hand, the kicker, the coach phrase; the no-play and 
   const t = (h, b) => coachHandText(parseCards(h), parseCards(b), coachTier(parseCards(h), parseCards(b)));
   assert.equal(t('Ad Kc', '2s 2d 2h 7c'), 'trips on the board with an ace kicker: about as strong as middle pair');
   assert.equal(t('Ad Ks', '7s Tc 3h Ts 3c'), 'two pair on the board with an ace kicker: about as strong as a weak pair');
-  assert.equal(t('2c 2d', '7s 8d 5c 8h 7h'), "two pair on the board; your cards don't play");
+  assert.equal(t('2c 2d', '7s 8d 5c 8h 7h'), "two pair on the board; your cards don't play: the best you can do is split the pot");
   assert.equal(t('8d 4c', '9s 9h 7d 7c 2s'), 'two pair on the board with an eight kicker: most hands beat it');
   assert.equal(t('Ad Kc', 'Ah 9d 4c'), null, 'not board-made: describeHand stands');
 });
@@ -74,4 +74,24 @@ test('board-made bet lines: value lines when W >= need; the "do not bluff" line 
   assert.match(r(0.1, 13), /about the same as checking.*Fine, not needed/, 'within the bar: fine, not needed');
   assert.match(r(0.1, 3), /Do not bluff this field/, 'worse than checking by more than the bar: do not bluff');
   assert.match(r(0.1, 30, false), /when this bet is called you are ahead about 10%/, 'a real weak pair keeps the made-hand line');
+});
+
+import { rangePicture } from '../src/trainer/judge.js';
+import { STREET } from '../src/engine/game.js';
+test('range line on 2-2-2-7 (DESIGN): labels for kickers, and what beats the board', () => {
+  const board = parseCards('2s 2d 2h 7c');
+  const hole = parseCards('Qh Jh');
+  const reads = [null, newRead(TYPE_IDS.map((id) => (id === 'station' ? 1 : 0)))];
+  const bel = new HandBelief(reads, hole);
+  bel.setBoard(board);
+  const s = { street: STREET.TURN, board, hole: [hole, []] };
+  const picture = rangePicture(bel, 1, s, 0);
+  assert.ok(picture.buckets.air < 0.5, 'the board-made combos are not all nothing');
+  const d = { street: STREET.TURN, toCall: 0, raises: 0, opponents: 1, board, hole, tier: TIER.HIGH_CARD, villain: { seat: 1, nick: 'Golf Shirt', picture }, verdict: { grade: 'mistake', mine: 0, best: 1, small: 3, anchors: {}, options: [{ type: 'check', label: 'Check', ev: 0 }, { type: 'raise', to: 10, label: 'Bet $10', ev: 8, F: 0.3, C: 0.7, R: 0, W: 0.6, need: 0.5, alpha: 0.33 }] } };
+  const line = explain(d).reasons.join(' ') + ' ' + (explain(d).anchorExtra || '');
+  const all = JSON.stringify(explain(d));
+  assert.match(all, /a full house or better/);
+  assert.match(all, /an overpair or a top kicker/);
+  assert.match(all, /nothing better than the board/);
+  assert.doesNotMatch(all, /top pair or an overpair|trips or better \(or two pair/);
 });

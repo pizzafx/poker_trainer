@@ -75,12 +75,12 @@ const PHRASE = { [TIER.AIR]: 'nothing', [TIER.HIGH_CARD]: 'ace or king high', [T
 export function coachHandText(hole, board, ct) {
   if (!ct || !ct.boardMade) return null;
   const hand = BOARD_HAND[ct.category] || 'a made hand';
-  if (!ct.plays) return `${hand} on the board; your cards don't play`;
+  if (!ct.plays) return `${hand} on the board; your cards don't play: the best you can do is split the pot`;
   const onBoard = new Set(board.map((c) => c >> 2));
   const mine = hole.map((c) => c >> 2).filter((r) => !onBoard.has(r));
   const r = mine.length ? Math.max(...mine) : Math.max(...hole.map((c) => c >> 2));
   const tail = ct.tier <= TIER.AIR ? 'most hands beat it' : `about as strong as ${PHRASE[ct.tier]}`;
-  if (ct.category === CATEGORY.STRAIGHT || ct.category === CATEGORY.FLUSH) return `${hand} on the board, your ${RANK_WORD[r]} makes it higher: ${tail}`;
+  if (ct.category === CATEGORY.STRAIGHT || ct.category === CATEGORY.FLUSH) return `${hand} on the board, made higher by your ${RANK_WORD[r]}: ${tail}`;
   return `${hand} on the board with ${r === 12 || r === 6 ? 'an' : 'a'} ${RANK_WORD[r]} kicker: ${tail}`;
 }
 
@@ -112,3 +112,13 @@ export function coachTiersForRange(board, scores, raw) {
   }
   return out;
 }
+
+// What beats the board's own hand, for the range line's first bucket on a board-made board (DESIGN, 20 Nov)
+const BEATS_BOARD = { [CATEGORY.TWO_PAIR]: 'trips or better', [CATEGORY.TRIPS]: 'a full house or better', [CATEGORY.STRAIGHT]: 'a higher straight or better', [CATEGORY.FLUSH]: 'a higher flush or better', [CATEGORY.FULL_HOUSE]: 'a higher full house or better', [CATEGORY.QUADS]: 'a straight flush', [CATEGORY.STRAIGHT_FLUSH]: 'a higher straight flush' };
+// The board's own category when it alone makes two pair or better, else null
+export function boardCategory(board) {
+  if (board.length < 3) return null;
+  const c = categoryOf(evaluate(board));
+  return c >= CATEGORY.TWO_PAIR ? c : null;
+}
+export const beatsBoardLabel = (cat) => BEATS_BOARD[cat] || 'better than the board';

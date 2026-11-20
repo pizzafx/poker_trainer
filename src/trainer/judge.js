@@ -457,6 +457,9 @@ export function rangePicture(belief, seat, s, hero) {
   const out = { seat, buckets: null, equity: null, post };
   if (pre) return out;
   const feats = belief.features(s.street);
+  // the coach tier on a board that alone makes two pair or better (MATH, STRAT, DESIGN): combos the board makes
+  // are bucketed by their showdown rank, not all as "nothing"
+  const ct = belief.coachTiers ? belief.coachTiers(s.street) : null;
   const b = { monster: 0, strong: 0, twoPair: 0, topPair: 0, weakPair: 0, draw: 0, air: 0 };
   const mine = handFeatures(s.hole[hero], s.board).score;
   let ahead = 0;
@@ -465,7 +468,7 @@ export function rangePicture(belief, seat, s, hero) {
   for (let c = 0; c < 1326; c++) {
     const x = w[c];
     if (x <= 0 || !feats[c]) continue;
-    const f = feats[c];
+    const f = ct ? { ...feats[c], tier: ct[c] } : feats[c];
     total += x;
     if (f.tier >= TIER.MONSTER) b.monster += x;
     else if (f.tier >= TIER.STRONG) b.strong += x;

@@ -5,7 +5,8 @@ import { STREET } from '../engine/game.js';
 import { TIER, isRealDraw, handFeatures, boardTexture } from '../engine/features.js';
 import { CATEGORY, evaluate } from '../engine/evaluator.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
-import { anchorStatus, needOf, drawTest } from './grade.js';
+import { anchorStatus, needOf, drawTest, isoQuote, ISO_LIMP_PAIRS } from './grade.js';
+import { classOf, classNames } from '../engine/hands.js';
 
 export const CATEGORIES = {
   paidOff: 'Paying off: calling when their bet or raise is almost always the goods',
@@ -240,10 +241,10 @@ function goodHeadline(v, mine, best, d = {}) {
   };
   // STRAT YB-T1: a two-pair-or-better bet or raise, against players all read as passive, where checking scores
   // highest: never advise the trap with a dollar figure (checking-to-trap rests on them betting for you)
-  // STRAT's ruling on YB-T1 vs U1 (18 Nov): only when the check's gap is within the yellow bar (a gap above it is
-  // always stated), and never on a board that devalues the hand (t1Board)
+  // STRAT's ruling on YB-T1 vs U1 (18 Nov; at the bar, 19 Nov): only when the check's gap is strictly under the yellow
+  // bar (a gap at or above it is always stated, U1's figure), and never on a board that devalues the hand (t1Board)
   const PASSIVE = ['abc', 'station', 'nit', 'beginner', 'whale'];
-  const passiveTrap = mine.type === 'raise' && top.type === 'check' && (d.tier ?? -1) >= TIER.TWO_PAIR && Array.isArray(d.liveTypes) && d.liveTypes.length > 0 && d.liveTypes.every((t2) => PASSIVE.includes(t2)) && gap(top) <= bar() && t1Board(d.hole, d.board);
+  const passiveTrap = mine.type === 'raise' && top.type === 'check' && (d.tier ?? -1) >= TIER.TWO_PAIR && Array.isArray(d.liveTypes) && d.liveTypes.length > 0 && d.liveTypes.every((t2) => PASSIVE.includes(t2)) && gap(top) < bar() && t1Board(d.hole, d.board);
   // PRO's words for a TT-type re-raise when calling scores more (STRAT_YELLOW_BAND B), ahead of any tip
   if (v.note === 'iso3bet') return `${mine.label}: fine. Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.`;
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
@@ -554,6 +555,17 @@ export function shownCost(v) {
   return cap !== undefined ? Math.min(gap, Math.round(cap)) : gap;
 }
 
+// The live limpers in front of a preflop decision and how many the player reads as stations (top read station at
+// 50% or more, as shown: the reader-view rule of allNitLimpers), from the record's snapshot
+export function stationLimpers(d) {
+  const sn = d.snapshot;
+  if (!sn || !sn.actions || !sn.seats) return { n: 0, stations: 0 };
+  const seats = [...new Set(sn.actions.filter((a) => a.street === 'preflop' && a.type === 'call' && a.seat !== 0).map((a) => a.seat))];
+  const live = seats.map((i) => sn.seats.find((x) => x.seat === i)).filter((r) => r && !r.folded);
+  const stations = live.filter((r) => r.read && r.read[0] && r.read[0].type === 'station' && Math.round(r.read[0].p * 1000) / 1000 >= 0.5).length;
+  return { n: live.length, stations };
+}
+
 export function explain(d) {
   const v = d.verdict;
   if (v.mine < 0) return { category: 'other', headline: '', reasons: [], theory: null, cost: 0 };
@@ -629,10 +641,31 @@ export function explain(d) {
       const T = d.table || {};
       reasons.push(`From ${where}, with the action so far, this hand loses money on average: it will often be dominated${T.oop ? ' or out of position' : ''}${T.raked ? ' in a raked pot' : ''}.`);
     }
-    if (category === 'prePassive') reasons.push(`A raise here gets called by worse hands and gives you the betting lead; just calling lets everyone in cheaply against a hand that plays best against few opponents.`);
+    if (category === 'prePassive') {
+      // 77 and 88 limped on the button behind 3+ limpers who mostly call (STRAT, CEO, PRO): the pair-specific reason
+      const sl = stationLimpers(d);
+      const hand = d.hole && d.hole.length === 2 ? classNames[classOf(d.hole[0], d.hole[1])] : null;
+      if (hand && ISO_LIMP_PAIRS.has(hand) && d.raises === 0 && d.position === 'BTN' && sl.n >= 3 && sl.stations * 2 > sl.n) {
+        const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'][sl.n] || String(sl.n);
+        reasons.push(`Behind ${words} limpers who mostly call, raising ${hand} on the button makes more than limping: they call the raise with worse hands, and you play the bigger pot in position on all of them.`);
+      } else reasons.push(`A raise here gets called by worse hands and gives you the betting lead; just calling lets everyone in cheaply against a hand that plays best against few opponents.`);
+    }
     if (category === 'preTight') {
       if (d.raises === 0 && !(d.ctx && d.ctx.limpers > 0)) reasons.push(`This hand is a profitable open from ${where} here, even though a tight chart folds it.`);
-      else reasons.push(`The players in this pot enter with weak hands and pay off after the flop, so this hand is profitable here even though it is a fold at a tougher table.`);
+      else {
+        // 77 and 88 behind 3+ limpers (STRAT, 19 Nov): raise or limp both make money; the iso size as L2 and L4 quote it
+        const hand = d.hole && d.hole.length === 2 ? classNames[classOf(d.hole[0], d.hole[1])] : null;
+        const n = d.ctx && d.ctx.limpers;
+        if (hand && ISO_LIMP_PAIRS.has(hand) && n >= 3 && d.raises === 0) {
+          const to = isoQuote(v, d.ctx);
+          const limp = v.options.find((o) => o.type === 'call');
+          const fold = v.options.find((o) => o.type === 'fold');
+          const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'][n] || String(n);
+          reasons.push(limp && fold && limp.ev > fold.ev
+            ? `Behind ${words} limpers ${hand} makes money either way: raise to isolate, to about $${to}, or limp behind and play for a set. Folding throws away a profitable hand.`
+            : `${hand} makes money here: raise to isolate, to about $${to}. Folding throws away a profitable hand.`);
+        } else reasons.push(`The players in this pot enter with weak hands and pay off after the flop, so this hand is profitable here even though it is a fold at a tougher table.`);
+      }
     }
   }
   // The "theory would call" note only applies when the hand is strong enough that theory would.

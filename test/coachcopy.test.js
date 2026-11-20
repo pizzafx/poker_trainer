@@ -52,3 +52,38 @@ test('YB-T1 vs U1: a board that devalues a hand below a straight takes it out of
   assert.equal(b('8s 2d', '9c Tc Jd Qh 3s'), true, 'a straight of its own, no four-flush');
   assert.equal(b('2c 3d', 'Ah Kh 8h 4h 9h'), false, 'a board flush the hero plays');
 });
+
+// STRAT (19 Nov, YB-T1 at the bar): the passive-trap forms only strictly under the bar; at the bar U1's figure wins.
+// QA-VERDICT's case: aggressive 1/2 2-handed, seed 24, hand 48, BTN/SB 9s6s on Js Ts 3s Qs, bet $11; check $10.7
+// against the bet's $4.6, the bar $6
+test('YB-T1 at the bar: a check ahead by exactly the bar is named with its figure, not "scores about the same"', () => {
+  const opts = [{ type: 'check', label: 'Check', ev: 10.7 }, { type: 'raise', to: 11, label: 'Bet $11 (50% pot)', ev: 4.6 }];
+  const rec = (small, note) => ({
+    street: 3, toCall: 0, currentBet: 0, raises: 0, opponents: 1, position: 'BTN/SB', tier: 8,
+    hole: parseCards('9s 6s'), board: parseCards('Js Ts 3s Qs'), liveTypes: ['abc'],
+    verdict: { grade: 'good', note, mine: 1, best: 0, small, options: opts },
+  });
+  for (const note of ['unclear', 'fragile']) {
+    const at = explain(rec(6, note)).headline;
+    assert.doesNotMatch(at, /scores about the same/, `${note} at the bar: ${at}`);
+    const under = explain(rec(7, note)).headline;
+    assert.match(under, /checking to trap scores about the same here/, `${note} under the bar: ${under}`);
+  }
+  assert.match(explain(rec(6, 'unclear')).headline, /better by about \$6/);
+});
+
+// STRAT, CEO, PRO (19 Nov): 77/88 limped on the button behind 3+ limpers who mostly read as stations: the pair reason
+test('prePassive pair reason: 88 on the button behind three stations; not behind a mix, not AJo, not 77 in the cutoff', () => {
+  const rec = (hole, position, types) => ({
+    street: 0, toCall: 2, currentBet: 2, raises: 0, opponents: 4, position, hole: parseCards(hole), board: [], tier: null,
+    ctx: { limpers: types.length, raises: 0 }, table: { n: 8 },
+    snapshot: { actions: types.map((_, k) => ({ street: 'preflop', seat: 3 + k, type: 'call' })), seats: types.map((t2, k) => ({ seat: 3 + k, folded: false, read: [{ type: t2, p: 0.8 }] })) },
+    verdict: { grade: 'mistake', mine: 1, best: 2, small: 2, loss: 4, options: [{ type: 'fold', ev: 0, label: 'Fold' }, { type: 'call', ev: 3, label: 'Call $2' }, { type: 'raise', to: 16, ev: 8, label: 'Raise to $16' }] },
+  });
+  const why = (h, p, t2) => explain(rec(h, p, t2)).reasons.join(' ');
+  assert.match(why('8d 8c', 'BTN', ['station', 'station', 'station']), /^Behind three limpers who mostly call, raising 88 on the button makes more than limping: they call the raise with worse hands, and you play the bigger pot in position on all of them\.$/);
+  assert.match(why('8d 8c', 'BTN', ['station', 'station', 'abc']), /limpers who mostly call/, 'two of three is most');
+  for (const [h, p, t2] of [['8d 8c', 'BTN', ['abc', 'nit', 'station']], ['Ad Jc', 'BTN', ['station', 'station', 'station']], ['7d 7c', 'CO', ['station', 'station', 'station']], ['8d 8c', 'BTN', ['whale', 'whale', 'station']]]) {
+    assert.match(why(h, p, t2), /plays best against few opponents/, `${h} ${p} ${t2}`);
+  }
+});

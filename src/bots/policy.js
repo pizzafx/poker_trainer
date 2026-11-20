@@ -61,6 +61,7 @@ export function buildContext(s, seat = s.toAct) {
     odds: L.callAmt > 0 ? L.callAmt / (pot + L.callAmt) : 0,
     nOpp: 0,
     aggressor: s.lastRaiser,
+    lastRaiseFull: lastRaiseFull(s), // POOL batch 19c (PRO, rule 4 v3.5): was this street's last raise a full raise?
     villain: null, // optional: believed profile of the main opponent, for exploit-aware play
   };
   for (let i = 0; i < n; i++) if (i !== seat && !s.folded[i]) ctx.nOpp++;
@@ -99,6 +100,7 @@ export function buildContext(s, seat = s.toAct) {
       }
     }
     ctx.limpers = limpers;
+    ctx.limpedCount = limped.size; // POOL batch 19c (item 8): everyone who limped, folded since or not
     { let nr = 0, fl = false; for (const h of s.history) { if (h.street !== STREET.PRE) continue; if (h.type === 'raise') nr++; else if (h.type === 'call' && nr >= 1 && h.seat === seat) fl = true; } ctx.iFlatted = fl; }
     ctx.callers = callers;
     ctx.limpReraise = limpReraise && s.raises >= 2;
@@ -249,9 +251,34 @@ export function buildContext(s, seat = s.toAct) {
     // POOL batch 19a (PRO, rule 1): did the river card complete a flush or a straight (raise either board level)?
     ctx.riverDrawCompleted = L.length === 3 && (L[2].fl > L[1].fl || L[2].st > L[1].st);
     { const rk = s.board.map((c) => c >> 2); ctx.boardPaired = rk.some((r, i) => rk.indexOf(r) !== i); } // POOL batch 19b
+    // POOL batch 19c (item 4): a dry board, no three of a suit and no three ranks inside one five-rank window, unpaired
+    ctx.boardDry = Math.max(...suits3(s.board)) < 3 && maxConnected(s.board) < 3 && !ctx.boardPaired;
   }
   ctx.toActBehind = ctx.toCall > 0 ? toActBehind : 0;
+  // POOL batch 19c (item 2): is this street's bet or raise from the preflop raiser (the last aggressor before the flop)?
+  { let pfr = -1; for (const h of s.history) if (h.street === STREET.PRE && h.type === 'raise') pfr = h.seat; ctx.betByPfr = pfr >= 0 && s.lastRaiser === pfr; }
   return ctx;
+}
+const suits3 = (b) => { const su = [0, 0, 0, 0]; for (const c of b) su[c & 3]++; return su; };
+function maxConnected(b) {
+  let mask = 0; for (const c of b) mask |= 1 << (c >> 2);
+  const r = ((mask << 1) | ((mask >> 12) & 1)) & 0x3fff; let con = 0;
+  for (let lo = 0; lo <= 9; lo++) { let q = 0; for (let i = 0; i < 5; i++) if (r & (1 << (lo + i))) q++; if (q > con) con = q; }
+  return con;
+}
+
+// POOL batch 19c: replays this street's raises; a raise is full when it raises by at least the last full raise (the big
+// blind preflop), as the engine reopens the action
+function lastRaiseFull(s) {
+  let cur = s.street === STREET.PRE ? s.bbAmt : 0, minR = s.bbAmt, full = false;
+  for (const h of s.history) {
+    if (h.street !== s.street || (h.type !== 'bet' && h.type !== 'raise')) continue;
+    const by = h.to - cur;
+    full = by >= minR;
+    if (full) minR = by;
+    cur = Math.max(cur, h.to);
+  }
+  return full;
 }
 
 function maxOtherStack(s, seat) {
@@ -354,6 +381,12 @@ export function preflopPolicy(ctx, P, cls) {
     // The small blind completes cheaply; the big blind checks for free.
     const cheap = ctx.pos === POS.SB ? Math.max(limpShare, 0.6) : limpShare;
     call = (enter - raise) * (rp > 0.99 ? 1 : cheap);
+    // POOL batch 19c (item 8, option B, CEO): psLimp adds limps with pairs and suited hands that would otherwise fold first in
+    // (abc and the beginner; live recreational players limp any pair and most suited hands). Not the blinds.
+    if (P.psLimp && ctx.pos !== POS.SB && ctx.pos !== POS.BB) {
+      const ci = classInfo(cls);
+      if (ci.pair || ci.suited) call += Math.max(0, 1 - raise - call) * P.psLimp;
+    }
   } else if (ctx.raises === 1) {
     const st3 = P.steal3Bet ?? P.stealDefend;
     const tbW = P.threeBet * (ctx.stealSpot && st3 ? 1 + (st3 - 1) * ctx.stealSpot : 1);
@@ -375,6 +408,16 @@ export function preflopPolicy(ctx, P, cls) {
       const end = P.setMineEnd ?? 0.1;
       const wS = clamp((end - f) / (end - 0.07), 0, 1); // tapers from 7% to setMineEnd of the stack, no cliff (POOL batch 5)
       if (wS > 0) call = Math.max(call, wS * P.setMine * (1 - raise));
+    }
+    // POOL batch 19c (item 8, PRO + MATH option B, CEO): a limper facing one iso raise of up to 5bb + 1bb per limper (+1bb slack)
+    // folds less, by isoFoldMult: { all: [1, 2, 3+ limpers] } scales every fold (built to land at the live rates: whale 20,
+    // station 30, beginner 35), or { pair, suited } scales only those classes (abc and the nit: pairs <= 20, suited <= 40 / 50).
+    // A multiplier, not a cap, so the rate lands at its target rather than far under it; folds only become calls.
+    if (P.isoFoldMult && ctx.iLimped && ctx.raiseBB <= 6 + ctx.limpedCount) {
+      const ci = classInfo(cls), M = P.isoFoldMult;
+      const m = M.all ? M.all[Math.min(ctx.limpedCount, 3) - 1] : ci.pair ? M.pair : ci.suited ? M.suited : null;
+      const fold = Math.max(0, 1 - raise - call);
+      if (m != null && m < 1 && fold > 0) call = 1 - raise - fold * m;
     }
   } else {
     // Facing a 3-bet or more.
@@ -523,9 +566,9 @@ export function preflopPolicy(ctx, P, cls) {
   }
   if (raise > 0) out.sizes = preflopSizes(ctx, P, sp > 0.972);
   // POOL batch 19a (PRO, rule 4 A's and abc's B ceilings): facing a 3-bet or more (a real re-raise, or an all-in of
-  // 20bb+; a smaller all-in counts as one raise), the jam share is capped per group at jam3Cap (fractions; null groups
+  // 20bb+; a smaller all-in counts as one raise; POOL batch 19c, PRO v3.5: unless that all-in is a full re-raise), the jam share is capped per group at jam3Cap (fractions; null groups
   // uncapped), with jam3MinBB the effective depth it starts at. The excess goes to calling.
-  if (P.jam3Cap && raise > 0 && out.sizes && ctx.raises >= 2 && !(ctx.aggAllIn && ctx.currentBet < 20 * ctx.bb) && ctx.effBB >= (P.jam3MinBB ?? 0)) {
+  if (P.jam3Cap && raise > 0 && out.sizes && ctx.raises >= 2 && !(ctx.aggAllIn && ctx.currentBet < 20 * ctx.bb && !ctx.lastRaiseFull) && ctx.effBB >= (P.jam3MinBB ?? 0)) {
     const cap = P.jam3Cap[jamGroup3(cls)];
     const pj = out.sizes.reduce((a, z) => a + (z.to >= ctx.maxTo ? z.p : 0), 0);
     if (cap != null && raise * pj > cap) {
@@ -620,7 +663,8 @@ function mixWeights(a, wa, b, wb) {
 //     raised since the card. A four-flush or four-straight uses the square root of k (one-card hands check more).
 //     Holding a card of the flush suit (a blocker) keeps MD_SUIT of the flush k.
 // Facing a bet the full markdown stays: the bettor's range is not capped. The paired-board markdown is not touched.
-export const ODDS_FLOOR_AT = 0.1, ODDS_FLOOR = 0.995; // POOL batch 19 (review 2 A 14-03: the 2% residual fold was the A; PRO: near zero, never zero)
+export const ODDS_FLOOR_AT = 0.1, ODDS_FLOOR = 0.995;
+export const ODDS_FLOOR_DRAW_AT = 0.05, ODDS_FLOOR_DRAW_EQ = 0.1; // POOL batch 19c (item 6) // POOL batch 19 (review 2 A 14-03: the 2% residual fold was the A; PRO: near zero, never zero)
 export const MD_KEEP_FULL = 0.7, MD_KEEP_NOW = 0.7, MD_SUIT = 0.75, MD_KEEP_MIN = 0.5;
 function mdKeep(q, ctx) {
   if (q < 0) return 1;
@@ -692,7 +736,8 @@ export function postflopPolicy(ctx, P, f) {
     const ctBehind = ct && !ctx.inPosition && P.ctBehindTighten != null;
     const mwT = ct ? (ctBehind ? P.ctBehindTighten : P.mwTightenCheckedTo != null ? P.mwTightenCheckedTo : P.mwTighten) : P.mwTighten;
     const ctShift = ct ? (P.checkedToShift?.[st] ?? 0) * (ctBehind ? P.ctBehindShiftMult ?? 1 : 1) : 0;
-    const valueThr = P.valueBet[st] + mwT * extra + valueShiftFor(P, ctx) + m7 + ctShift;
+    // POOL batch 19c (item 4, PRO: a station value-bets a dry river no thinner than abc, 5 points under it): riverDryShift
+    const valueThr = P.valueBet[st] + mwT * extra + valueShiftFor(P, ctx) + m7 + ctShift + (st === 2 && ctx.boardDry && P.riverDryShift ? P.riverDryShift : 0);
     // MATH range-bots stage 2: a type with rangeRead[0] > 0 moves the strength it bets on toward a range-aware one,
     // "ahead of the hands that continue against my usual thin bet" against the type's bar (rangeBar[street]), put on
     // the strength scale around valueThr. At 0 (or with no range summary) it is today's number exactly. Only how
@@ -772,6 +817,20 @@ export function postflopPolicy(ctx, P, f) {
       const fl = ctx.riverDrawCompleted ? P.strongRiverFloorDraw : P.strongRiverFloor;
       if (fl) pValue = Math.max(pValue, fl[f.cat >= 6 ? 1 : 0]);
     }
+    // POOL batch 19c (PRO's V4 lead floor): flop, raised pot, out of position, multiway, first to act with the raiser
+    // behind: an overpair or top pair top kicker leads at least v4Lead
+    // ... and a passive type over PRO's ceiling leads at most v4LeadMax
+    if ((P.v4Lead || P.v4LeadMax) && st === 0 && ctx.preflopRaised && ctx.aggressorBehind && !ctx.checkedTo && !ctx.inPosition && extra >= 1 && f.tier === TIER.OVERPAIR_TPTK && ctx.canRaise) {
+      if (P.v4Lead) pValue = Math.max(pValue, P.v4Lead);
+      if (P.v4LeadMax) pValue = Math.min(pValue, P.v4LeadMax);
+    }
+    // POOL batch 19c (PRO's V5 dry-flop ceiling): checked to in position, last to act, on a dry flop, two pair or better
+    // checks at least dryFlopSlowIP (trapOnce then bets the next street)
+    if (P.dryFlopSlowIP && st === 0 && ctx.checkedTo && ctx.inPosition && !ctx.drawy && (f.tier === TIER.TWO_PAIR || f.tier >= TIER.STRONG))
+      pValue = Math.min(pValue, 1 - P.dryFlopSlowIP);
+    // POOL batch 19c (item 5, PRO's gto ceilings): air bets into two or more, [c-bet into 2, c-bet into 3+, stab or lead]
+    if (P.mwAirCap && extra >= 1 && f.tier <= TIER.HIGH_CARD && !isRealDraw(f)) // PRO's air: no pair, no real draw
+      bluff = Math.min(bluff, ctx.initiative && st === 0 ? P.mwAirCap[Math.min(extra, 2) - 1] : ctx.initiative ? 1 : P.mwAirCap[2]);
     const pBluff = (1 - pValue) * bluff;
     // river block bets (fix 2): medium hands out of position lead small
     const pBlock = P.blockBet && st === 2 && !ctx.inPosition && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.TOP_PAIR_GOOD ? P.blockBet * Math.max(0, 1 - pValue - pBluff) : 0;
@@ -844,6 +903,10 @@ export function postflopPolicy(ctx, P, f) {
   // POOL batch 6, H1: regulars check-raise some top pairs on wet boards (protection and value)
   if (P.tpCheckRaise && st < 2 && ctx.wet && ctx.iChecked && ctx.raises === 1 && f.tier >= TIER.TOP_PAIR_WEAK && f.tier < TIER.TWO_PAIR) pRaiseV = Math.max(pRaiseV, P.tpCheckRaise * (f.tier >= TIER.TOP_PAIR_GOOD ? 1 : 0.5));
   if (st < 2) pRaiseV *= 1 - (P.slowplayFacing != null ? P.slowplayFacing : P.slowplay); // passive types (POOL HX2) flat their monsters more facing a bet
+  // POOL batch 19c (PRO's V4 raise floor): flop, out of position, multiway, I checked and the preflop raiser c-bet (one bet):
+  // an overpair or top pair top kicker check-raises at least v4CheckRaise
+  if (P.v4CheckRaise && st === 0 && ctx.iChecked && ctx.raises === 1 && ctx.betByPfr && !ctx.inPosition && extra >= 1 && f.tier === TIER.OVERPAIR_TPTK)
+    pRaiseV = Math.max(pRaiseV, P.v4CheckRaise);
   // Many players call on "I have a pair" without discounting for a scary board.
   const Sc = S + P.textureBlind * (f.raw - S);
   let pCont = soft(Sc, callThr, 0.035);
@@ -897,12 +960,7 @@ export function postflopPolicy(ctx, P, f) {
   // Tiny bets (fix 5 v2, QA-VERDICT N3): almost nobody folds at 10 to 1 or better. Facing a single bet as
   // the first to respond (no caller in), the continue share is at least w x (1 - tinyFold x pot odds),
   // where w fades from 1 at a bet of 15% of the pot to 0 at 25%: it binds only on small bets, and never
-  // on overcalls (POOL's revision).
-  if (!facingRaise && !(ctx.callersIn > 0) && P.tinyFold) {
-    const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall);
-    const w = clamp((0.25 - bf) / 0.1, 0, 1);
-    if (w > 0) pCont = Math.max(pCont, w * (1 - P.tinyFold * ctx.odds));
-  }
+  // on overcalls (POOL's revision). Applied last, after the air caps (batch 19c item 9, below).
   // POOL batch 16 (PRO's ceilings): facing one small bet (1/3 pot or less, 4:1 or better), a pair continues at least
   // smallCont [top pair+, middle pair, weak pair], fading out by a half-pot bet. Overcalls included; raises not.
   if (!facingRaise && P.smallCont && !(P.smallContFirstOnly && ctx.callersIn > 0)) { // the solver-style type folds overcalls as equilibrium does
@@ -915,6 +973,11 @@ export function postflopPolicy(ctx, P, f) {
   // or less, e.g. the last chips against a bigger all-in), any pair or real draw continues; raises and overcalls too.
   // PRO: the pair must use a hole card (a board pair alone is tier HIGH_CARD or AIR, so it is out); no draws on the river
   if (ctx.odds <= ODDS_FLOOR_AT && (f.tier >= TIER.WEAK_PAIR || (st < 2 && isRealDraw(f)))) pCont = Math.max(pCont, ODDS_FLOOR);
+  // POOL batch 19c (item 6, CEO must-fix, gate 18000 02-40): at 20:1 or better on the flop or turn, a hand with 10%+ of
+  // draw equity (a gutshot and overcards) continues too; a call needs under 5%
+  // (the air caps below skip this spot: at 20:1 the big call is still a clear call)
+  const cheapDraw = st < 2 && ctx.odds <= ODDS_FLOOR_DRAW_AT && f.drawEquity >= ODDS_FLOOR_DRAW_EQ;
+  if (cheapDraw) pCont = Math.max(pCont, ODDS_FLOOR);
   // POOL batch 19 (PRO review 2, B ceilings v1.2): per-type fold caps facing a single bet (not a raise, first caller only), by price band.
   // Passive live players over-call rather than over-fold, so for the cells over PRO's ceilings the continue share is at
   // least 1 - 0.85 x cap(price). foldCap: { mid, weak, oesd, tpgk, tpwk: [flop, turn, river] }, each street null or
@@ -961,7 +1024,7 @@ export function postflopPolicy(ctx, P, f) {
   }
   // POOL batch 19 (PRO ceiling (c)): continuing for 10-30bb with no pair and no real draw is capped per type at
   // airContCap [heads-up, multiway] (%, aimed at 0.85 of PRO's ceiling); 30bb+ stays with airCallOff
-  if (P.airContCap && f.tier <= TIER.HIGH_CARD && !isRealDraw(f) && ctx.toCall >= 10 * ctx.bb && ctx.toCall < 30 * ctx.bb && !(ctx.toCall >= ctx.stack && ctx.toCall >= 20 * ctx.bb)) {
+  if (P.airContCap && !cheapDraw && f.tier <= TIER.HIGH_CARD && !isRealDraw(f) && ctx.toCall >= 10 * ctx.bb && ctx.toCall < 30 * ctx.bb && !(ctx.toCall >= ctx.stack && ctx.toCall >= 20 * ctx.bb)) {
     const cap = (FOLD_CAP_AIM * P.airContCap[ctx.nOpp >= 2 ? 1 : 0]) / 100;
     raise = Math.min(raise, cap);
     out.raise = raise;
@@ -970,12 +1033,31 @@ export function postflopPolicy(ctx, P, f) {
   // POOL batch 17 (PRO ceiling 6, B clarification 17 Nov 2026): calling off a stack or 30bb+ with no pair and no real
   // draw is capped per type at airCallOff [ace/king-high, worse], halved against two or more opponents
   // (PRO: only with 20bb+ at stake, as rule 3; the cap holds for raise and call together)
-  if (P.airCallOff && f.tier <= TIER.HIGH_CARD && !isRealDraw(f) && (ctx.toCall >= 30 * ctx.bb || (ctx.toCall >= ctx.stack && ctx.toCall >= 20 * ctx.bb))) {
+  // (PRO's guard on rule 3: at these sizes the item 6 spot stands aside only with a gutshot or a flush draw of its own,
+  // not bare overcards)
+  const airCallOffSpot = P.airCallOff && !(cheapDraw && (f.straightDraw >= 1 || f.flushDraw)) && f.tier <= TIER.HIGH_CARD && !isRealDraw(f) && (ctx.toCall >= 30 * ctx.bb || (ctx.toCall >= ctx.stack && ctx.toCall >= 20 * ctx.bb));
+  if (airCallOffSpot) {
     const cap = P.airCallOff[f.tier === TIER.HIGH_CARD ? 0 : 1] * (ctx.nOpp >= 2 ? 0.5 : 1);
     raise = Math.min(raise, cap);
     out.raise = raise;
     pCont = Math.min(pCont, raise < 1 ? (cap - raise) / (1 - raise) : 0);
   }
+  // Tiny-bet floor (fix 5 v2, above). POOL batch 19c (item 9, QA-VERDICT N3b, CEO must-fix): applied after the air caps,
+  // which count 10bb as a big bet whatever the pot, so a 10bb bet into a 300bb river pot was folded like a big one.
+  // It does not lift an air call-off of 30bb+ (airCallOff, rule 3) below 10:1: there rule 3 still calls the call an A
+  // (19c gate 21000: abc A4s calling a $47 all-in at 7.3:1 went 2% -> 59%); at 10:1 or better rule 3 stands aside (v3.6b).
+  if (!facingRaise && !(ctx.callersIn > 0) && P.tinyFold && !(airCallOffSpot && ctx.odds > ODDS_FLOOR_AT)) {
+    const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall);
+    const w = clamp((0.25 - bf) / 0.1, 0, 1);
+    if (w > 0) pCont = Math.max(pCont, w * (1 - P.tinyFold * ctx.odds));
+  }
+  // and a river hand that plays the board does not fold a chop where rule 6 (v3.6) calls the fold an A (CEO, PRO): a full
+  // house or better, or a straight with under four of one suit, at 10:1 or better; a flush or a four-suited straight board
+  // (any higher card of the suit wins) at 20:1 or better only; lower boards have no chop floor (a kicker usually beats
+  // them; the tiny-bet floor governs). Overcalls too. The floor adds calls only: raising a board-play is a pure bluff.
+  if ((f.playsBoard === 3 && ctx.odds <= ODDS_FLOOR_AT) || (f.playsBoard === 2 && ctx.odds <= ODDS_FLOOR_DRAW_AT)) pCont = Math.max(pCont, ODDS_FLOOR);
+  // on the safest group, up to a half-pot single bet the fold is held to the N3b line, tinyFold x pot odds (a 20% bet: about 40%)
+  if (f.playsBoard === 3 && !facingRaise && P.tinyFold && ctx.toCall <= 0.5 * Math.max(1, ctx.pot - ctx.toCall)) pCont = Math.max(pCont, 1 - P.tinyFold * ctx.odds);
   out.call = (1 - raise) * pCont;
   out.fold = Math.max(0, 1 - out.raise - out.call);
   if (raise > 0) out.sizes = raiseSizes(ctx, P);

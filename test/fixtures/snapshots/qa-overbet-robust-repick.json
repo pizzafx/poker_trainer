@@ -1,0 +1,404 @@
+{
+ "kind": "snapshot-fixture",
+ "name": "qa-overbet-robust-repick",
+ "why": "a flagged river check is never measured against an overbet: the scenario test re-picked a $358 overbet over the $200 pot bet that scores higher (QA-VERDICT, POOL 19c)",
+ "hole": "9c 7s",
+ "board": "2d Jh 6c Qd 2s",
+ "pot": 200,
+ "action": null,
+ "took": "Check",
+ "samples": 31,
+ "judgeSeed": 7616,
+ "table": {
+  "game": "casino",
+  "blinds": [
+   2,
+   3
+  ],
+  "straddle": 0,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 58,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "BB",
+    "startStack": 2422,
+    "stack": 2340,
+    "inPot": 82,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Golf Shirt",
+    "pos": "UTG",
+    "startStack": 800,
+    "stack": 800,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "nit",
+      "p": 0.807
+     },
+     {
+      "type": "abc",
+      "p": 0.07
+     },
+     {
+      "type": "station",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 45,
+     "vpip": 5,
+     "pfr": 1,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Shades",
+    "pos": "UTG+1",
+    "startStack": 440,
+    "stack": 358,
+    "inPot": 82,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.358
+     },
+     {
+      "type": "tag",
+      "p": 0.237
+     },
+     {
+      "type": "nit",
+      "p": 0.192
+     }
+    ],
+    "observed": {
+     "hands": 4,
+     "vpip": 0,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 3,
+    "name": "Hoodie",
+    "pos": "LJ",
+    "startStack": 500,
+    "stack": 500,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.752
+     },
+     {
+      "type": "lag",
+      "p": 0.105
+     },
+     {
+      "type": "gto",
+      "p": 0.036
+     }
+    ],
+    "observed": {
+     "hands": 57,
+     "vpip": 9,
+     "pfr": 6,
+     "showdowns": 3
+    }
+   },
+   {
+    "seat": 4,
+    "name": "Party Crew",
+    "pos": "HJ",
+    "startStack": 851,
+    "stack": 851,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "maniac",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 35,
+     "vpip": 22,
+     "pfr": 9,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Button-Down",
+    "pos": "CO",
+    "startStack": 224,
+    "stack": 224,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.609
+     },
+     {
+      "type": "nit",
+      "p": 0.267
+     },
+     {
+      "type": "station",
+      "p": 0.018
+     }
+    ],
+    "observed": {
+     "hands": 57,
+     "vpip": 8,
+     "pfr": 2,
+     "showdowns": 3
+    }
+   },
+   {
+    "seat": 6,
+    "name": "Cardigan",
+    "pos": "BTN",
+    "startStack": 315,
+    "stack": 297,
+    "inPot": 18,
+    "folded": true,
+    "read": [
+     {
+      "type": "whale",
+      "p": 0.862
+     },
+     {
+      "type": "nit",
+      "p": 0.017
+     },
+     {
+      "type": "abc",
+      "p": 0.017
+     }
+    ],
+    "observed": {
+     "hands": 57,
+     "vpip": 43,
+     "pfr": 3,
+     "showdowns": 6
+    }
+   },
+   {
+    "seat": 7,
+    "name": "Jeans",
+    "pos": "SB",
+    "startStack": 486,
+    "stack": 468,
+    "inPot": 18,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.423
+     },
+     {
+      "type": "station",
+      "p": 0.179
+     },
+     {
+      "type": "tag",
+      "p": 0.169
+     }
+    ],
+    "observed": {
+     "hands": 2,
+     "vpip": 1,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Jeans",
+    "type": "sb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "bb",
+    "to": 3,
+    "amount": 3
+   },
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Golf Shirt",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Shades",
+    "type": "call",
+    "to": 3,
+    "amount": 3
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Hoodie",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "Party Crew",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Button-Down",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Cardigan",
+    "type": "raise",
+    "to": 18,
+    "amount": 18
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Jeans",
+    "type": "call",
+    "to": 18,
+    "amount": 16
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 18,
+    "amount": 15
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Shades",
+    "type": "call",
+    "to": 18,
+    "amount": 15
+   },
+   {
+    "street": "flop",
+    "seat": 7,
+    "who": "Jeans",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 0,
+    "who": "You",
+    "type": "bet",
+    "to": 64,
+    "amount": 64
+   },
+   {
+    "street": "flop",
+    "seat": 2,
+    "who": "Shades",
+    "type": "call",
+    "to": 64,
+    "amount": 64
+   },
+   {
+    "street": "flop",
+    "seat": 6,
+    "who": "Cardigan",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 7,
+    "who": "Jeans",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "turn",
+    "seat": 0,
+    "who": "You",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "turn",
+    "seat": 2,
+    "who": "Shades",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   }
+  ],
+  "pot": 200,
+  "heat": 0.919,
+  "heatAt": {
+   "13": 0.9194833083480297,
+   "14": 0.9194833083480297,
+   "15": 0.9194833083480297
+  },
+  "judge": {
+   "seed": 7616,
+   "samples": 31
+  }
+ },
+ "villainPost": null,
+ "recorded": {
+  "grade": "mistake",
+  "best": "Bet $358 (179% pot)",
+  "took": "Check",
+  "loss": 140,
+  "headline": "Mistake: check costs about $140 compared with bet $358 (179% pot) (it beats your play under every read)."
+ },
+ "expect": {
+  "notBestOverbet": true
+ }
+}

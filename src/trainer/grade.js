@@ -7,7 +7,7 @@ import { handFeatures, TIER, isRealDraw } from '../engine/features.js';
 import { classOf, classNames } from '../engine/hands.js';
 import { buildContext, POS } from '../bots/policy.js';
 import { HERO_PROFILE } from '../bots/profiles.js';
-import { judgeDecision, pairedGap, refreshClose, tiltedEvs, redBar } from './judge.js';
+import { judgeDecision, pairedGap, refreshClose, tiltedEvs, redBar, isoTo } from './judge.js';
 import { groupOf, presetRanges, presetRaised, expandRange, LIMPER_OFFSUIT } from './ranges.js';
 
 const HERO = 0;
@@ -87,6 +87,23 @@ export function limpOutsideTipFor(v, ctx, name, group) {
 export const ISO_LIMP = new Set(['AJo', 'ATo', 'KQo', 'KJo', '88', '77']);
 // with 3+ limpers a raise rarely isolates: over-limping small pairs is the live play, and ATo/KJo are dominated multiway (PRO, STRAT)
 export const ISO_LIMP_FEW = new Set(['ATo', 'KJo', '88', '77']);
+// PRO (19 Nov): behind 3+ limpers over-limping is live play for the small pairs only; L2 stays silent for 77 and 88
+// there, and ATo and KJo get the usual gap-gated L2 tip. (ISO_LIMP_FEW stays for Drill P1's predicate, CURR.)
+export const ISO_LIMP_PAIRS = new Set(['88', '77']);
+// STRAT, MATH's tight-limper run (19 Nov): behind 2+ limpers all read as nits, KQo, KJo and ATo are thin (raise over
+// fold $1.42 or less, about level with the limp), so neither L2 nor L4 names a raise there. The read is the one the
+// player sees, as junk3betTipFor's (env.readOf, top read at 50% or more).
+export const NIT_SCOPE_HANDS = new Set(['KQo', 'KJo', 'ATo']);
+export const allNitLimpers = (s, env) => {
+  if (!env) return false;
+  const seats = [];
+  for (const h of s.history) if (h.street === STREET.PRE && h.type === 'call' && h.seat !== HERO && !s.folded[h.seat] && !seats.includes(h.seat)) seats.push(h.seat);
+  if (seats.length < 2) return false;
+  return seats.every((i) => {
+    const top = env.readOf(i).ranked[0];
+    return !!top && Math.round(top.p * 1000) / 1000 >= 0.5 && top.id === 'nit';
+  });
+};
 const LIMPER_KEEP = { default: new Set(expandRange(LIMPER_OFFSUIT.default)), button: new Set(expandRange(LIMPER_OFFSUIT.button)) };
 const behindLimpers = (v, ctx, name) => {
   if (v.grade !== 'good' || v.mine < 0 || ctx.street !== STREET.PRE) return false;
@@ -106,6 +123,23 @@ export const suitedLimpHand = (name) => {
   const hi = RANKS.indexOf(name[0]);
   const lo = RANKS.indexOf(name[1]);
   return hi === 12 || (lo >= 2 && (hi - lo === 1 || hi - lo === 2));
+};
+// the raise offered nearest the iso size (the candidate the judge built from the iso rule), for the "to about $X"
+// of the behind-limpers tips, so L2, L4 and the strip quote one number (STRAT)
+export const isoQuote = (v, ctx) => {
+  const want = isoTo(ctx.base || ctx.bb, ctx.limpers, ctx.pos >= POS.SB);
+  let best = null;
+  for (const o of v.options) if (o.type === 'raise' && (!best || Math.abs(o.to - want) < Math.abs(best.to - want))) best = o;
+  return best ? best.to : null;
+};
+// "$Y" for L2 and L4 (STRAT, CEO): the gain of the raise the tip quotes ("to about $X") over the play made, only when
+// that raise clears it by 2.2 SE and $1; 0 (no sentence) otherwise, or when no option sits at the quoted size
+export const quotedGain = (v, to, against) => {
+  const q = v.options.findIndex((o) => o.type === 'raise' && o.to === to);
+  if (q < 0 || against < 0) return 0;
+  const g = pairedGap(v, q, against);
+  if (!(g.mean > 2.2 * g.se && g.mean > 1)) return 0;
+  return Math.round(v.options[q].ev) - Math.round(v.options[against].ev);
 };
 // the highest-scoring raise, or -1
 const bestRaise = (v) => {
@@ -139,7 +173,7 @@ export function wideLimpTipFor(v, ctx, name, group) {
 // L2: an isolation hand limping behind, when the best raise clearly beats the limp
 export function isoLimpTipFor(v, ctx, name) {
   if (!behindLimpers(v, ctx, name) || !ISO_LIMP.has(name)) return null;
-  if (ctx.limpers >= 3 && ISO_LIMP_FEW.has(name)) return null;
+  if (ctx.limpers >= 3 && ISO_LIMP_PAIRS.has(name)) return null;
   const mine = v.options[v.mine];
   const raises = v.options.map((o, i) => [o, i]).filter(([o]) => o.type === 'raise');
   if (!raises.length) return null;
@@ -148,9 +182,9 @@ export function isoLimpTipFor(v, ctx, name) {
   const g = pairedGap(v, br, v.mine);
   if (!(g.mean > 2.2 * g.se)) return null;
   if (raises.some(([o]) => o.ev < mine.ev - 0.5)) return null; // no raise scores clearly below the limp
-  const to = raises[0][0].to;
-  const cost = Math.round(v.options[br].ev) - Math.round(mine.ev);
-  return { kind: 'isoLimp', to, text: `raising over the limpers, to about $${to}, usually does better than limping behind with ${name}: you isolate weaker hands and keep the lead. Here raising was about $${cost} better.` };
+  const to = isoQuote(v, ctx);
+  const cost = quotedGain(v, to, v.mine);
+  return { kind: 'isoLimp', to, text: `raising over the limpers, to about $${to}, usually does better than limping behind with ${name}: you isolate weaker hands and keep the lead.${cost > 0 ? ` Here raising was about $${cost} better.` : ''}` };
 }
 
 // A soft note on a re-raise of a single raise with a hand outside the Standard facing-a-raise range
@@ -218,6 +252,47 @@ export function valueVsLoose(name, ctx, env) {
 // Limping these is a yellow flag in every seat (owner, 14 Nov; STRAT L-S1).
 export const STRONG_LIMP = new Set(['AA', 'KK', 'QQ', 'JJ', 'TT', '99', 'AKs', 'AQs', 'AJs', 'AKo', 'AQo', 'KQs']);
 
+// L4 (STRAT, CURR, PRO's P1 blind check): folding a raising hand behind limpers. A tip, never a flag, and the
+// grade is unchanged (the owner's preflop sub-3bb principle). Rule-based like limpTip, not gap-gated like L2:
+// it fires unless the judge clearly prefers the fold, or the limp, to the best raise. ISO_FOLD is keyed by
+// seat group and limper count (1, 2, 3 = three or more) so MATH's per-seat list drops in without a rewrite.
+const ISO_FOLD_BASE = [...ISO_LIMP, ...STRONG_LIMP, 'ATs', 'KJs', 'KTs', 'QJs'];
+// From early position KJo and ATo are left out at every limper count (STRAT, POOL): the thinnest cells in MATH's
+// run ($1.85 and $2.67 over the fold), and bot limpers fold to iso raises more than live ones do
+const ISO_FOLD_EARLY_OUT = new Set(['KJo', 'ATo']);
+// behind 3+ limpers the full list (PRO, 19 Nov); 77 and 88 there get no tip (the preTight flag's wording covers them)
+const isoFoldRow = (n, g) => new Set(ISO_FOLD_BASE.filter((h) => !(g === 'early' && ISO_FOLD_EARLY_OUT.has(h))));
+export const ISO_FOLD = Object.fromEntries(['early', 'middle', 'cutoff', 'button'].map((g) => [g, { 1: isoFoldRow(1, g), 2: isoFoldRow(2, g), 3: isoFoldRow(3, g) }]));
+// silent when the judge prefers the fold (or the limp) to the best raise by more than 1 SE (MATH's 280-cell run,
+// STRAT): at 2,100 samples it costs at most 1.5% of true raises (KJo from EP) and is the only runtime guard where
+// MATH did not measure; the hand list is the real guard
+export const ISO_FOLD_VETO = 1.0;
+// the limp side keeps the spec's "clearly" (2.2 SE): the raise leads the limp by only $0.3-0.6 with 77-99 from EP
+export const ISO_FOLD_LIMP_VETO = 2.2;
+export const isoFoldHand = (name, group, limpers) => !!(ISO_FOLD[group] && ISO_FOLD[group][Math.min(3, limpers)] && ISO_FOLD[group][Math.min(3, limpers)].has(name));
+export function isoFoldTipFor(v, ctx, name, group) {
+  if (v.grade !== 'good' || v.mine < 0 || ctx.street !== STREET.PRE) return null;
+  if (v.options[v.mine].type !== 'fold' || ctx.raises !== 0 || !(ctx.limpers >= 1)) return null;
+  if (ctx.pos !== POS.EP && ctx.pos !== POS.MP && ctx.pos !== POS.LP) return null;
+  if (!isoFoldHand(name, group, ctx.limpers)) return null;
+  const br = bestRaise(v);
+  if (br < 0) return null;
+  const fold = v.mine;
+  const limp = v.options.findIndex((o) => o.type === 'call');
+  // 77 and 88 behind 3+ limpers: no tip (STRAT, 19 Nov). Their fold is graded a mistake there, and the preTight
+  // flag carries the raise-or-limp wording (explain.js); a fold graded fine gets nothing here.
+  if (ctx.limpers >= 3 && ISO_LIMP_PAIRS.has(name)) return null;
+  const gf = pairedGap(v, fold, br);
+  if (gf.mean > ISO_FOLD_VETO * gf.se) return null; // the judge clearly prefers the fold
+  if (limp >= 0) {
+    const gl = pairedGap(v, limp, br);
+    if (gl.mean > ISO_FOLD_LIMP_VETO * gl.se) return null; // the judge clearly prefers the limp
+  }
+  const to = isoQuote(v, ctx);
+  const cost = quotedGain(v, to, fold);
+  return { kind: 'isoFold', to, text: `${name} is a raise behind limpers from ${SEAT_WORDS[group]}: most players isolate with it here, to about $${to}.${cost > 0 ? ` Here raising was about $${cost} better.` : ''}` };
+}
+
 // Preflop with an all-in in play (STRAT P5-1): v.preShove marks it; when calling ends your betting (you
 // are all-in after the call, or every live opponent is all-in) the call is a pure showdown, so
 // v.preAllIn = { E, price }: E = (EV(call) + toCall) / P and price = toCall / P, P the pot you can win
@@ -280,7 +355,8 @@ export function gradeVerdict(verdict, s, action, judgeOpts, env) {
     const group = groupOf(positionName(s, HERO));
     // a limp with a hand outside the seat's Standard range gets "most players fold it here", never the
     // raise tip (STRAT G3: never tell a student to raise K5o from UTG+1); inside it, the raise tip
-    tip = limpOutsideTipFor(verdict, ctx, name, group) || wideLimpTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || isoLimpTipFor(verdict, ctx, name) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) || verdict.iso3bet ? null : junk3betTipFor(verdict, ctx, name, group, env)) || (verdict.iso3bet ? null : size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env));
+    const nitScope = NIT_SCOPE_HANDS.has(name) && allNitLimpers(s, env);
+    tip = limpOutsideTipFor(verdict, ctx, name, group) || wideLimpTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || (nitScope ? null : isoLimpTipFor(verdict, ctx, name)) || (nitScope ? null : isoFoldTipFor(verdict, ctx, name, group)) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) || verdict.iso3bet ? null : junk3betTipFor(verdict, ctx, name, group, env)) || (verdict.iso3bet ? null : size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env));
   } else tip = limpTipFor(verdict, ctx);
   if (tip) verdict.tip = tip;
   return verdict;
@@ -303,8 +379,9 @@ export function reRunOpts(judgeOpts, want, v) {
 const sameOption = (vv, o) => vv.options.findIndex((x) => x.type === o.type && (x.to || 0) === (o.to || 0));
 
 export function temper(v, s, ctx, action, judgeOpts, env) {
-  guardrails(v, s, ctx, action, judgeOpts, env);
-  if (v.mine >= 0 && v.anchors && s.street !== STREET.PRE) applyAnchors(v, s, ctx);
+  const cmp = {}; // cmp.allowed: the guardrails' comparison set, which the anchors' re-picks stay inside
+  guardrails(v, s, ctx, action, judgeOpts, env, cmp);
+  if (v.mine >= 0 && v.anchors && s.street !== STREET.PRE) applyAnchors(v, s, ctx, cmp.allowed);
   moneyInArm(v, s, ctx);
 }
 
@@ -375,7 +452,7 @@ function moneyInArm(v, s, ctx) {
   refreshClose(v);
 }
 
-function guardrails(v, s, ctx, action, judgeOpts, env) {
+function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
   if (v.mine < 0) return;
   v.small = Math.max(3 * s.bbAmt, 0.1 * v.pot); // the yellow bar, for the notes' copy
   const pre = s.street === STREET.PRE;
@@ -394,12 +471,20 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   // Re-grade against the best option among those `allow` accepts (your own play always counts).
   // The new gap has to clear its own margin of error, as the judge's first verdict did, and the
   // "too close to call" marks are redone against the new reference (R10).
-  let allowed = () => true; // the options a guardrail allows as the comparison (kept for the scenario test)
+  // the options the guardrails allow as the comparison, for the scenario test and the anchors (applyAnchors).
+  // Each guardrail only narrows it: a later re-pick never brings back a play an earlier one ruled out (the
+  // overbet rule's $75 re-pointed to a $135 overbet; QA-VERDICT, POOL 19c)
+  let allowed = () => true;
+  const narrow = (allow) => {
+    const prev = allowed;
+    allowed = (o) => prev(o) && allow(o);
+    cmp.allowed = allowed;
+  };
   const regrade = (allow, note, ref) => {
-    allowed = allow;
+    narrow(allow);
     let alt = -1;
     v.options.forEach((o, i) => {
-      if ((i === v.mine || allow(o)) && (alt < 0 || o.ev > v.options[alt].ev)) alt = i;
+      if ((i === v.mine || allowed(o)) && (alt < 0 || o.ev > v.options[alt].ev)) alt = i;
     });
     if (ref && alt !== v.best) v.ref = ref; // the headline names "the best bet up to ..." (QA K5)
     v.best = alt;
@@ -683,6 +768,8 @@ function guardrails(v, s, ctx, action, judgeOpts, env) {
   }
   // 2. Nobody is held to an overbet: compare with the best option up to a pot-sized bet.
   const over = (o) => isRaise(o) && o.to - s.currentBet > v.pot * 1.05;
+  //    ...nor by any later re-pick (the scenario test, the anchors), whether or not this rule re-graded
+  narrow((o) => !over(o));
   if (over(best()) && regrade((o) => !over(o), 'overbet', 'upToPot')) return;
   // R3. Multiway with one pair, the reference is the best bet up to 75% of the pot.
   const upTo75 = (o) => !isRaise(o) || o.to - s.currentBet <= 0.75 * v.pot + 0.5;
@@ -1163,7 +1250,8 @@ function stillToAct(s) {
   return k;
 }
 
-export function applyAnchors(v, s, ctx) {
+// `allow`: the guardrails' comparison set (temper passes it); a re-pick here never leaves it
+export function applyAnchors(v, s, ctx, allow = () => true) {
   const hf = handFeatures(s.hole[HERO], s.board);
   let opp = 0;
   for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) opp++;
@@ -1239,7 +1327,7 @@ export function applyAnchors(v, s, ctx) {
     v.ref = 'anchor';
     refreshClose(v);
   };
-  const supported = (o) => o.type !== 'raise' || st(o) === 'works';
+  const supported = (o) => allow(o) && (o.type !== 'raise' || st(o) === 'works');
   if (v.grade === 'good') {
     // A2, praise: a bet or raise the anchors do not support is never labelled best. One that fails
     // gets the "not a habit" note (line 5); one about break-even just its line (4b or 2).

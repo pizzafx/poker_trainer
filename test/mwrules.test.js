@@ -1,11 +1,11 @@
 // Coach rules from the multiway spec round (Nov 2026) that are not covered by scripts/mwbench.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STREET, legal } from '../src/engine/game.js';
+import { STREET, legal, potSize } from '../src/engine/game.js';
 import { handFeatures, TIER } from '../src/engine/features.js';
 import { POS } from '../src/bots/policy.js';
 import { judgeDecision } from '../src/trainer/judge.js';
-import { limpOutsideTipFor, robustVerdict, anchorStatus, applyAnchors, needOf } from '../src/trainer/grade.js';
+import { limpOutsideTipFor, robustVerdict, anchorStatus, applyAnchors, needOf, temper } from '../src/trainer/grade.js';
 import { build, gradeAll } from '../scripts/gradeall.js';
 import { SPOTS } from '../scripts/mwbench_spots.js';
 import { explain, anchorLine } from '../src/trainer/explain.js';
@@ -401,4 +401,36 @@ test('F10: the call is never flagged or noted as a miss; the $30 raise is never 
     if (isBig(r.o)) assert.ok(!r.best, `${r.o.label} is not shown as the best play`);
     if (r.v.grade !== 'good') assert.ok(!isBig(r.v.options[r.v.best]), `${r.o.label} is not measured against ${r.v.options[r.v.best].label}`);
   }
+});
+
+// QA-VERDICT, POOL 19c (session.test): a two-pair fold whose reference ended on a $135 overbet. The overbet
+// rule had picked the $75 bet, which scores higher; the anchors' A2 re-pick (that bet does not hold up) then
+// took the best supported play from every option, overbets included. Every re-pick stays inside the
+// guardrails' comparison set. F15: bottom two facing a c-bet and a call; numbers built to trip A2.
+test('a two-pair fold is never measured against an overbet, after the anchors re-pick either (POOL 19c)', () => {
+  const { s, env } = build(SPOTS.find((x) => x.id === 'F15'));
+  const ctx = buildContext(s);
+  const L = legal(s);
+  const pot = potSize(s);
+  const at = (f) => Math.min(L.maxTo, s.currentBet + Math.round(f * pot) + 1); // sizes no re-run lists
+  const upTo = at(0.6);
+  const over = at(1.6);
+  assert.ok(over - s.currentBet > 1.05 * pot && upTo - s.currentBet <= 1.05 * pot, `sizes ${upTo}, ${over} into ${pot}`);
+  const v = {
+    options: [
+      { type: 'fold', ev: 0, label: 'Fold' },
+      { type: 'call', ev: 4, label: 'Call' },
+      // scores highest of the bets up to the pot, but does not hold up on the anchors (ahead 30% of 50% needed)
+      { type: 'raise', to: upTo, ev: 75, label: `Raise to $${upTo}`, F: 0.3, W: 0.3, need: 0.5, called: 1000 },
+      // scores less, and holds up: the A2 re-pick's choice before the fix
+      { type: 'raise', to: over, ev: 60, label: `Raise to $${over}`, F: 0.3, W: 0.8, need: 0.5, called: 1000 },
+      // the judge's raw best: an all-in overbet
+      { type: 'raise', to: L.maxTo, ev: 90, label: `Raise to $${L.maxTo}`, F: 0.2, W: 0.3, need: 0.5, called: 1000 },
+    ],
+    best: 4, mine: 0, grade: 'blunder', loss: 90, se: 0, sameKind: false, pot, samples: 100, street: s.street,
+    anchors: { n: 1500, Q: 0.6, price: 0.25, topSizeBest: false },
+  };
+  temper(v, s, ctx, { type: 'fold' }, { samples: 40, seed: 1, heat: 0 }, env);
+  const b = v.options[v.best];
+  assert.ok(!(b.type === 'raise' && b.to - s.currentBet > 1.05 * pot), `best ${b.label} (${v.grade}, note ${v.note}, ref ${v.ref})`);
 });

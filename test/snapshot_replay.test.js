@@ -68,6 +68,11 @@ for (const f of files) {
     if (e.best) assert.equal(r.best, e.best, `${tag}: best`);
     // notBestType: the best line must not be this kind of play (STRAT: never the re-raise)
     if (e.notBestType) assert.notEqual(r.verdict.options[r.verdict.best].type, e.notBestType, `${tag}: best is a ${e.notBestType}`);
+    // notBestOverbet: a flagged verdict is never measured against a bet bigger than the pot (QA-VERDICT, POOL 19c)
+    if (e.notBestOverbet && r.grade !== 'good') {
+      const b = r.verdict.options[r.verdict.best];
+      assert.ok(!(b.type === 'raise' && b.to - r.currentBet > r.verdict.pot * 1.05), `${tag}: best ${b.label} is an overbet`);
+    }
     if (e.ref !== undefined) assert.equal(r.ref, e.ref, `${tag}: reference`);
     if (e.notNote) assert.notEqual(r.verdict.note, e.notNote, `${tag}: note`);
     if (e.note) assert.equal(r.verdict.note, e.note, `${tag}: note`);

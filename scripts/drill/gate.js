@@ -15,7 +15,7 @@ const DESIGNED = new Set(['thinValue', 'mwCheck', 'checkOOP', 'foldsBetter', 'pr
 // guardrails that decide a grade rather than measure it (G5)
 const GUARDRAIL_RULES = new Set(['R5b', 'R6']);
 // the answer family each preflop tip names (a tip naming the drill's answer counts as a flag, G4)
-const TIP_NAMES = { limp: ['raise'], wideOpen: ['fold'], wideLimp: ['fold'], isoLimp: ['raise'], junk3bet: ['fold', 'call'] };
+const TIP_NAMES = { limp: ['raise'], wideOpen: ['fold'], wideLimp: ['fold'], isoLimp: ['raise'], isoFold: ['raise'], junk3bet: ['fold', 'call'] };
 
 export const DEFAULTS = { N: 6000, Npre: 8000, NpreMax: 16000, screen: 1200, wrongBars: 2, screenBars: 1, preBase: 1, preShift: 0.5, preFoldLimp: 0.4, isoG4: true, seeds: [1, 2, 3], screenSeed: 901, screenPre: null };
 // seeds: the bank seeds (the first also grades G4); MATH's sign-off re-judge passes others. screenPre: the
@@ -182,10 +182,26 @@ export function gateSpot(s, belief, pinnedReads, skill, o = {}) {
   }
   const fine = others.filter((k) => cls[k] === 'fine');
   if (fine.length > 1) return reject('fine: two or more fine families (with the coach’s passes)');
+  // every offered bet wrong (V5, STRAT): the best bet is the raise family above; each other size must be wrong
+  // by the bar on every seed's base run and flagged by the coach, so no size scores fine
+  if (skill.allBets && !pre) {
+    if (cls.raise !== 'wrong') return reject(`G4b the best bet scores ${cls.raise || 'missing'}`);
+    for (let i = 0; i < vb.options.length; i++) {
+      const o = vb.options[i];
+      if (o.type !== 'raise' || i === fb.raise.i) continue;
+      const gap = Math.min(...bases.map((b) => (famVals(b.options, b.options.map((x) => x.ev))[want].ev - b.options[i].ev) / bar));
+      if (gap < opts.wrongBars) return reject(`G4b ${o.label} is within ${opts.wrongBars} bars (${gap.toFixed(2)})`);
+      const g = gradeOf(i);
+      if (g.grade === 'good' || g.note) return reject(`G4b ${o.label} graded ${g.grade}${g.note ? ' (' + g.note + ')' : ''}`);
+    }
+  }
   if (!others.some((k) => cls[k] === 'wrong') && !fine.length) return reject('no other family');
 
   // per family: its value in bb on the first seed's base run, and the least margin over all rows
   const families = { [want]: 'best', ...Object.fromEntries(others.map((k) => [k, cls[k]])) };
+  // D3 (CURR): fold must be wrong; with the raise best, a flagged call is not a call-or-raise spot
+  if (skill.foldWrong && families.fold !== 'wrong') return reject(`G9 fold scores ${families.fold || 'missing'}`);
+  if (skill.foldWrong && want === 'raise' && families.call === 'wrong') return reject('G9 the raise is best and the call is flagged');
   const optionsOut = Object.keys(f0).map((k) => {
     const op = vb.options[fb[k].i];
     return { family: k, label: op.label, type: op.type, ...(op.type === 'raise' ? { to: op.to } : {}), evBb: +(op.ev / bb).toFixed(2) };
@@ -194,5 +210,7 @@ export function gateSpot(s, belief, pinnedReads, skill, o = {}) {
   const marginBars = wrongs.length ? Math.min(...wrongs.map((k) => Math.min(...gaps[k]))) : 0;
   const marginBb = wrongs.length ? Math.min(...wrongs.map((k) => Math.min(...rows.map((r) => (r.vals[want].ev - r.vals[k].ev) / bb)))) : 0;
   const costBb = Object.fromEntries(others.map((k) => [k, +((fb[want] ? vb.options[fb[want].i].ev - vb.options[fb[k].i].ev : 0) / bb).toFixed(1)]));
-  return { ok: true, log, result: { want, families, options: optionsOut, marginBars: +marginBars.toFixed(2), marginBb: +marginBb.toFixed(2), costBb, costBucket, graded, base: vb, samples: n } };
+  // each family's least margin under the best, in bars, over every row (D3's abc rule reads fold's)
+  const minGapBars = Object.fromEntries(others.map((k) => [k, +Math.min(...gaps[k]).toFixed(2)]));
+  return { ok: true, log, result: { want, families, options: optionsOut, marginBars: +marginBars.toFixed(2), marginBb: +marginBb.toFixed(2), minGapBars, costBb, costBucket, graded, base: vb, samples: n } };
 }

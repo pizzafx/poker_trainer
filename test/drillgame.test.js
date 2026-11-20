@@ -62,6 +62,33 @@ test('drill run builder: tier 4 never appears, closed skills never appear, a thi
   assert.equal(buildRun('x', bank().filter((s) => s.skill === 'D1' && s.difficulty === 1), ['D1']), null);
 });
 
+// P1 and P2 interleaved (CEO, 19 Nov; CURR's spec): a run with one has the other, never 3 in a row from either
+const longestRun = (skills) => skills.reduce((m, c, i) => { let k = 0; while (i - k >= 0 && skills[i - k] === c && (c === 'P1' || c === 'P2')) k++; return Math.max(m, k); }, 0);
+test('drill run builder: with P1 and P2 open, every run has both or neither, and never three of one in a row', () => {
+  const b = bank();
+  const byId = Object.fromEntries(b.map((s) => [s.id, s]));
+  const banks = [
+    ['four skills', b, ['D1', 'V1', 'P2', 'P1']],
+    ['P1 and P2 only', b.filter((s) => s.skill === 'P1' || s.skill === 'P2'), ['P2', 'P1']],
+    ['P1 heavy', [...b.filter((s) => s.skill !== 'P1'), ...b.filter((s) => s.skill === 'P1').flatMap((s) => [s, { ...s, id: s.id + 'x', hand: s.hand + 'x' }, { ...s, id: s.id + 'y', hand: s.hand + 'y' }])], ['D1', 'V1', 'P2', 'P1']],
+  ];
+  for (const [name, bk, open] of banks) {
+    const idx = Object.fromEntries(bk.map((s) => [s.id, s]));
+    for (let k = 0; k < 200; k++) {
+      const ids = buildRun(`il-${k}`, bk, open);
+      const sk = ids.map((id) => idx[id].skill);
+      const has = (c) => sk.includes(c);
+      assert.ok(has('P1') === has('P2'), `${name} ${k}: ${sk.join(' ')}`);
+      assert.ok(longestRun(sk) <= 2, `${name} ${k}: ${sk.join(' ')}`);
+      assert.equal(ids.length, 10);
+      assert.deepEqual(ids.slots.slice(0, 3), [1, 1, 1], 'easy spots still lead');
+      assert.deepEqual(ids.slots.slice(-2), [2, 3], 'still ends on a standard then a tricky');
+    }
+  }
+  // P1 open without P2: no constraint, and P2 never appears
+  for (let k = 0; k < 20; k++) assert.ok(buildRun(`solo-${k}`, b, ['D1', 'P1']).every((id) => !byId[id].skill.startsWith('P2')));
+});
+
 test('drill totals, the honest line and the Daily line', () => {
   const ans = [
     ...Array(8).fill({ family: 'best', difficulty: 1 }),
@@ -113,4 +140,96 @@ test('drill badges: clean run, no big leaks, solid and sharp, hard ones right, t
   assert.ok(!runBadges(three, runTotals(three)).includes('noBigLeaks'));
   const two = [...ans.slice(0, 8), ...Array(2).fill({ family: 'wrong', difficulty: 2, bucket: 'medium' })];
   assert.ok(runBadges(two, runTotals(two)).includes('noBigLeaks'));
+});
+
+test('drill run builder, every pair: with all six Tier 1 lessons open, each pair is both-or-neither and never three in a row', () => {
+  const six = ['D1', 'D3', 'V1', 'B1', 'P1', 'P2'];
+  const bk = [];
+  for (const skill of six) for (const d of [1, 2, 3]) for (let k = 0; k < 6; k++) bk.push({ id: `${skill}-${d}-${k}`, skill, tier: 1, difficulty: d, hand: `${skill}${d}${k}`, spot: { board: [] }, families: { fold: 'best', call: 'wrong' } });
+  const idx = Object.fromEntries(bk.map((s) => [s.id, s]));
+  const pairs = [['P1', 'P2'], ['V1', 'B1'], ['D1', 'D3']];
+  for (let k = 0; k < 300; k++) {
+    const sk = buildRun(`six-${k}`, bk, six).map((id) => idx[id].skill);
+    for (const [a, b] of pairs) assert.ok(sk.includes(a) === sk.includes(b), `${k}: ${sk.join(' ')}`);
+    for (let i = 2; i < sk.length; i++) assert.ok(!(sk[i] === sk[i - 1] && sk[i] === sk[i - 2]), `${k}: ${sk.join(' ')}`);
+  }
+});
+
+// GAME, CEO (release requirement): the run builder validates its own result, retries from seed+1.., and swaps keep
+// the no-wrong count exact
+import { runProblem, checkBankRuns, RUN_TRIES } from '../src/drill/game.js';
+import fs from 'node:fs';
+test('drill run builder: swaps keep the no-wrong cap; a partner lesson whose spots all have no wrong answer adds at most 2', () => {
+  const bk = [];
+  for (const skill of ['P1', 'P2', 'D1']) for (const d of [1, 2, 3]) for (let k = 0; k < 6; k++) {
+    // P2's spots all have no wrong answer: every pair-in swap would bring one in
+    const noWrong = skill === 'P2';
+    bk.push({ id: `${skill}-${d}-${k}`, skill, tier: 1, difficulty: d, hand: `${skill}${d}${k}`, spot: { board: [] }, families: noWrong ? { fold: 'best', call: 'fine' } : { fold: 'best', call: 'wrong' } });
+  }
+  const idx = Object.fromEntries(bk.map((s) => [s.id, s]));
+  let runs = 0;
+  for (let k = 0; k < 300; k++) {
+    const ids = buildRun(`cap-${k}`, bk, ['P1', 'P2', 'D1']);
+    if (!ids) continue;
+    runs++;
+    assert.ok(ids.filter((id) => !hasWrong(idx[id])).length <= 2, ids.join(' '));
+    assert.equal(runProblem(ids, bk, ['P1', 'P2', 'D1']), null);
+  }
+  assert.ok(runs > 250, `${runs} valid runs`);
+});
+
+test('drill run builder: a run that cannot meet the pair rules is never returned (no run, logged)', () => {
+  // P1 has spots only at difficulty 1-2 and P2 none at all at difficulty 1: often fixable by a retry, sometimes not
+  const bk = [];
+  for (const d of [1, 2, 3]) for (let k = 0; k < 10; k++) bk.push({ id: `P1-${d}-${k}`, skill: 'P1', tier: 1, difficulty: d, hand: `P1${d}${k}`, spot: { board: [] }, families: { fold: 'wrong', raise: 'best' } });
+  bk.push({ id: 'P2-2-0', skill: 'P2', tier: 1, difficulty: 2, hand: 'P220', spot: { board: [] }, families: { fold: 'best', call: 'wrong' } });
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    // ten P1 spots and one P2 spot cannot avoid three P1 in a row: never a run
+    for (let k = 0; k < 20; k++) assert.equal(buildRun(`thin-${k}`, bk, ['P1', 'P2']), null);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(RUN_TRIES, 50);
+  // a problem the checker names
+  assert.match(runProblem(['P1-1-0', 'P1-1-1', 'P1-1-2', 'P1-2-0', 'P1-2-1', 'P1-2-2', 'P1-2-3', 'P1-3-0', 'P1-2-4', 'P1-3-1'], bk, ['P1', 'P2']), /without its partner|in a row/);
+});
+
+// the shipped bank, when there is one: 10,000 run seeds and every Daily seed for the next 366 days
+test('drill run builder on the shipped bank: 10,000 runs and a year of Dailies, all valid', { skip: !fs.existsSync(new URL('../src/drill/bank.json', import.meta.url)) && 'no shipped bank yet' }, () => {
+  const bank = JSON.parse(fs.readFileSync(new URL('../src/drill/bank.json', import.meta.url)));
+  const r = checkBankRuns(bank);
+  assert.equal(r.checked, 10366);
+  assert.deepEqual(r.failed.slice(0, 5), []);
+});
+
+// Serving weights (CEO, GAME, CURR): a lesson's spots are drawn by the bank's `weight` only while the partner is open
+import { weightedTake, drawWeight, runVersion, BUILDER } from '../src/drill/game.js';
+test('drill weights: weight 1 is the old uniform pick; heavier spots come up more; the builder version is in the seed', () => {
+  // all weights 1: the same index as floor(rnd() x n)
+  for (const u of [0, 0.2, 0.5, 0.99]) assert.equal(weightedTake([0, 1, 2, 3, 4], () => u, () => 1), Math.floor(u * 5));
+  // weights 3:1: the first is taken about 3 times in 4
+  let r = 11;
+  const rnd = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+  let first = 0;
+  for (let k = 0; k < 4000; k++) if (weightedTake(['a', 'b'], rnd, (x) => (x === 'a' ? 3 : 1)) === 'a') first++;
+  assert.ok(first > 2850 && first < 3150, `${first}`);
+  assert.equal(runVersion({ version: 'abc' }), `abc+b${BUILDER}`);
+  // only with the partner open
+  assert.equal(drawWeight({ skill: 'D1', weight: 2 }, () => true), 2);
+  assert.equal(drawWeight({ skill: 'D1', weight: 2 }, () => false), 1);
+  assert.equal(drawWeight({ skill: 'D1' }, () => true), 1);
+});
+
+test('drill weights in runs: with the partner closed a weighted bank deals exactly the unweighted runs', () => {
+  const bk = [];
+  for (const skill of ['D1', 'D3', 'P1', 'P2']) for (const d of [1, 2, 3]) for (let k = 0; k < 6; k++) bk.push({ id: `${skill}-${d}-${k}`, skill, tier: 1, difficulty: d, hand: `${skill}${d}${k}`, spot: { board: [] }, families: { fold: 'best', call: 'wrong' }, ...(skill === 'D1' ? { weight: k === 0 ? 1.9 : 0.8 } : {}) });
+  const plain = bk.map(({ weight, ...e }) => e);
+  for (let k = 0; k < 50; k++) assert.deepEqual([...buildRun(`w-${k}`, bk, ['D1', 'P1', 'P2'])], [...buildRun(`w-${k}`, plain, ['D1', 'P1', 'P2'])]);
+  // with D3 open the heavy D1 spots come up more often than the light ones
+  let heavy = 0;
+  let light = 0;
+  for (let k = 0; k < 3000; k++) for (const id of buildRun(`w-${k}`, bk, ['D1', 'D3', 'P1', 'P2'])) if (id.startsWith('D1-')) (id.endsWith('-0') ? heavy++ : light++);
+  assert.ok(heavy / 3 > (light / 15) * 1.5, `heavy ${heavy} light ${light}`);
 });

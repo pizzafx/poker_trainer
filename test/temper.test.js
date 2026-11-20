@@ -11,10 +11,12 @@ import { Session } from '../src/trainer/session.js';
 import { classOf, classNames } from '../src/engine/hands.js';
 import { STREET } from '../src/engine/game.js';
 
+// `also` is tested inside the deal loop, so a session keeps dealing past spots that fail it, and the search
+// runs wide: new opponent deals must not leave a rule without a spot (CEO, 19c broke the top-pair call test)
 function at(match, seed = 5, also = () => true) {
-  for (let k = 0; k < 20; k++) {
+  for (let k = 0; k < 60; k++) {
     const sess = new Session({ seed: seed + 1000 * k, samples: 30 });
-    if (!sess.dealUntil(match) || !also(sess)) continue;
+    if (!sess.dealUntil((p) => match(p) && also(sess))) continue;
     const s = sess.hand.state;
     return { sess, s, ctx: buildContext(s), L: legal(s), pot: potSize(s) };
   }

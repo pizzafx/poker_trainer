@@ -40,3 +40,68 @@ test('D1 draw rule (CURR, STRAT): a pair plus a draw that falls short is tricky;
   assert.equal(d1DrawStatus(noDraw, { options: [{ type: 'call' }] }, 1), null);
   assert.equal(d1DrawStatus(pairDraw, null, 1), null);
 });
+
+// D2 and D1 (CEO, 19 Nov): nobody left to act behind hero after the bettor
+import { leftToAct, SKILLS as SK2 } from '../scripts/drill/skills.js';
+test('drill leftToAct: live opponents short of the bet, not the bettor, not all-in', () => {
+  const s = { n: 5, folded: [false, false, true, false, false], allIn: [false, false, false, false, true], bet: [0, 40, 0, 0, 10], currentBet: 40 };
+  // seat 1 bet; seat 2 folded; seat 3 still to act; seat 4 all-in for less
+  assert.deepEqual(leftToAct(s, 1), [3]);
+  assert.deepEqual(leftToAct({ ...s, bet: [0, 40, 0, 40, 10] }, 1), []);
+  assert.deepEqual(Object.keys(SK2).filter((c) => SK2[c].tier === 1).sort(), ['B1', 'D1', 'D2', 'D3', 'P1', 'P2', 'V1', 'V5']);
+  assert.equal(SK2.B1.want, 'check');
+  assert.ok(SK2.B1.allBets);
+  assert.equal(SK2.V5.want, 'check');
+  assert.equal(SK2.D2.want, 'call');
+  assert.ok(SK2.V5.allBets);
+});
+
+import { boardChanged } from '../scripts/drill/skills.js';
+test('drill boardChanged: the board pairing, a third card of a suit, or a first three-to-a-straight on this street (D3, PRO)', () => {
+  const B = (s) => parseCards(s);
+  assert.equal(boardChanged(B('Kh 7d 2c')), null, 'the flop: nothing to compare');
+  assert.equal(boardChanged(B('Kh 7d 2c 7s')), 'paired');
+  assert.equal(boardChanged(B('Kh 7h 2c 4h')), 'flush');
+  assert.equal(boardChanged(B('Kh 7d 2c 8s')), null, 'K 8 7 2: no three within five');
+  assert.equal(boardChanged(B('Kh 9d 2c 8s')), null, 'K 9 8 2: only two within five');
+  assert.equal(boardChanged(B('Kh 9d 2c 8s Ts')), 'straight', 'T 9 8 completes three to a straight');
+  assert.equal(boardChanged(B('Ah 4d 9c 3s')), 'straight', 'A 4 3: the wheel counts');
+  assert.equal(SK2.D3.want.join(), 'call,raise');
+  assert.ok(SK2.D3.foldWrong);
+});
+
+import { beatenByLastCard } from '../scripts/drill/skills.js';
+test('drill D3 rule 1 (final): two pair out on a paired board; below a flush out when a flush came in, below a straight when a straight did; the made hand itself only near-nuts', () => {
+  const st = (h, b) => ({ hole: [parseCards(h)], board: parseCards(b) });
+  assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7c 2d 2s')), true, 'two pair, the board pairs');
+  assert.equal(beatenByLastCard(st('7h 7d', 'Kc 7s 2d 2h')), false, 'a set on the paired board is a full house');
+  assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7h 2d 9h')), true, 'two pair, a third heart');
+  assert.equal(beatenByLastCard(st('9d 9c', 'Kh 9h 2d 5h')), true, 'a set, a third heart');
+  assert.equal(beatenByLastCard(st('Ah Qh', 'Kh 7h 2d 9h')), false, 'the nut flush stays');
+  // a straight made on the card that brings the third heart: below a flush, out (STRAT, PRO)
+  assert.equal(beatenByLastCard(st('6d 7c', 'Kh 9h 2d 5s 8h')), true, 'a straight as the third heart lands: out');
+  // a straight on a card that completes a straight but no flush: stays at S >= 0.85
+  assert.equal(beatenByLastCard(st('6d 7c', 'Kh 9c 2d 5s 8h')), false, 'hero made the straight on a rainbow-ish board: stays');
+  assert.equal(beatenByLastCard(st('Kd 9d', 'Kh 9c 2d 5s 8h')), true, 'two pair when 9 8 5 opens a straight: out');
+  // a fourth heart: the flush was already possible, so the last card brought nothing new (rule 1 does not apply)
+  assert.equal(beatenByLastCard(st('6d 7c', '5h 9h 8h 2d 4h')), false, 'a fourth heart is not a flush that just came in');
+  assert.equal(beatenByLastCard(st('Kd 7d', 'Kh 7c 2d 9s')), false, 'nothing changed');
+});
+
+// P1 for the rebuild (CURR, STRAT, 19 Nov): only spots where the coach names the raise on both the limp and the fold
+import { build } from '../scripts/gradeall.js';
+import { buildContext } from '../src/bots/policy.js';
+test('drill P1 predicate: 77/88 out behind 3+ limpers; KJo/ATo out from early position; KQo/KJo/ATo out behind 2+ nit limpers', () => {
+  const m = (button, hole, seats, line) => {
+    const { s } = build({ id: 'p1', button, hole, board: '', seats, line });
+    const types = Array.from({ length: s.n }, (_, i) => (i === 0 ? null : seats[i] || 'abc'));
+    return SK2.P1.match(s, buildContext(s), null, types);
+  };
+  // the button (hero on the button: button 0), abc limpers
+  assert.equal(m(0, '7d 7c', { 3: 'abc', 4: 'abc' }, '3c 4c'), true, '77 behind 2: in');
+  assert.equal(m(0, '7d 7c', { 3: 'abc', 4: 'abc', 5: 'station' }, '3c 4c 5c'), false, '77 behind 3: out (P6)');
+  assert.equal(m(0, 'Kd Jc', { 3: 'abc', 4: 'abc', 5: 'station' }, '3c 4c 5c'), true, 'KJo behind 3 on the button: in');
+  assert.equal(m(0, 'Kd Qc', { 3: 'nit', 4: 'nit' }, '3c 4c'), false, 'KQo behind 2 nits: out');
+  assert.equal(m(0, 'Kd Qc', { 3: 'nit', 4: 'abc' }, '3c 4c'), true, 'KQo behind a nit and an abc: in');
+  assert.equal(m(0, 'Ad Jc', { 3: 'nit', 4: 'nit' }, '3c 4c'), true, 'AJo behind 2 nits: in (not in the nit scope)');
+});

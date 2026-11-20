@@ -2,6 +2,8 @@
 // a small store; it never changes a verdict. Scoring and run shape follow the approved Drill spec: best 100,
 // +25 on a standard spot and +50 on a tricky one, fine 50, wrong 0; ten spots, 3 easy / 4 standard / 3 tricky.
 
+import { INTERLEAVE, INTERLEAVE_MAX } from './learn.js';
+
 export const MAX_SCORE = 1250;
 export const RUN_LEN = 10;
 export const MIX = { 1: 3, 2: 4, 3: 3 };
@@ -31,12 +33,75 @@ export function rngFor(seed) {
   };
 }
 export const dailySeed = (isoDate, bankVersion) => `daily|${isoDate}|${bankVersion}`;
+// The run builder's own version (GAME, CURR): it goes into the Daily and run seeds and the records next to the bank's,
+// so a personal best set under an older builder shows as "older bank". 2: weighted draws for partner lessons.
+export const BUILDER = 2;
+export const runVersion = (bank) => `${bank.version}+b${BUILDER}`;
+// A spot's draw weight (drillmerge writes `weight` for a lesson served toward its partner's cue mix; CEO, GAME,
+// CURR): used only while the partner is open, else 1. A pure function of the bank and the open skills.
+export const drawWeight = (s, paired) => (s.weight != null && paired(s.skill) ? s.weight : 1);
+// one weighted pick from `cands` with `rnd`, without replacement (the pick is spliced out); null when empty
+export function weightedTake(cands, rnd, w) {
+  if (!cands.length) return null;
+  let total = 0;
+  for (const s of cands) total += w(s);
+  let r = rnd() * total;
+  let i = 0;
+  for (; i < cands.length - 1; i++) {
+    r -= w(cands[i]);
+    if (r < 0) break;
+  }
+  return cands.splice(i, 1)[0];
+}
 export const isoDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export const hasWrong = (spot) => Object.values(spot.families).includes('wrong');
 
+export const RUN_TRIES = 50;
+// the partner of a lesson when both are open and the pool has spots of both (PARTNERS; CEO, 19 Nov)
+const pairedIn = (pool, openSkills) => {
+  const has = new Set(pool.map((s) => s.skill));
+  return (code) => !!INTERLEAVE[code] && openSkills.includes(code) && openSkills.includes(INTERLEAVE[code]) && has.has(code) && has.has(INTERLEAVE[code]);
+};
+
+// Whether a built run may ship (DRILL_GAME_SPEC 3.2, a release requirement): every open pair both-or-neither,
+// never more than INTERLEAVE_MAX in a row from one lesson of a pair, at most NO_WRONG_CAP spots with no wrong
+// answer, and the 3/4/3 slots with the easy lead and the standard-then-tricky end. Returns null or the reason.
+export function runProblem(ids, spots, openSkills) {
+  const byId = new Map(spots.map((s) => [s.id, s]));
+  const pool = spots.filter((s) => openSkills.includes(s.skill) && s.tier < 4);
+  const paired = pairedIn(pool, openSkills);
+  const run = ids.map((id) => byId.get(id));
+  if (run.length !== RUN_LEN || run.some((s) => !s)) return 'not ten bank spots';
+  const sk = run.map((s) => s.skill);
+  for (const c of new Set(sk)) if (paired(c) && !sk.includes(INTERLEAVE[c])) return `${c} without its partner ${INTERLEAVE[c]}`;
+  for (let i = INTERLEAVE_MAX; i < sk.length; i++) if (paired(sk[i]) && sk.slice(i - INTERLEAVE_MAX, i).every((c) => c === sk[i])) return `more than ${INTERLEAVE_MAX} ${sk[i]} in a row`;
+  if (run.filter((s) => !hasWrong(s)).length > NO_WRONG_CAP) return `more than ${NO_WRONG_CAP} spots with no wrong answer`;
+  const slots = ids.slots || run.map((s) => s.difficulty);
+  for (const d of [1, 2, 3]) if (slots.filter((x) => x === d).length !== MIX[d]) return 'not 3/4/3';
+  if (slots.slice(0, MIX[1]).some((x) => x !== 1) || slots[RUN_LEN - 2] !== 2 || slots[RUN_LEN - 1] !== 3) return 'out of order';
+  return null;
+}
+
 // Ten bank spots for a run, deterministically from the seed, over the open skills (tier 4 never). Easy spots
-// lead and the run ends on a standard spot then a tricky one. Returns null when the skills are too thin.
+// lead and the run ends on a standard spot then a tricky one. A run that breaks the pair rules or the cap never
+// ships: it is rebuilt from seed+1, seed+2, ... (RUN_TRIES at most, so the Daily stays the same for everyone);
+// returns null when the skills are too thin or no try is valid (logged).
 export function buildRun(seed, spots, openSkills) {
+  for (let k = 0; k < RUN_TRIES; k++) {
+    const s = k === 0 ? seed : `${seed}+${k}`;
+    const ids = buildOnce(s, spots, openSkills);
+    if (!ids) return null; // too thin: another seed would not help
+    if (!runProblem(ids, spots, openSkills)) {
+      ids.tries = k + 1;
+      ids.seedUsed = s;
+      return ids;
+    }
+  }
+  console.warn(`Drill: no valid run from seed ${seed} in ${RUN_TRIES} tries (the bank is short of a partner lesson or of spots with a wrong answer)`);
+  return null;
+}
+
+function buildOnce(seed, spots, openSkills) {
   const rnd = rngFor(seed);
   const pool = spots.filter((s) => openSkills.includes(s.skill) && s.tier < 4).slice().sort((a, b) => (a.id < b.id ? -1 : 1));
   const picked = [];
@@ -44,9 +109,10 @@ export function buildRun(seed, spots, openSkills) {
   let fallback = 0;
   const hands = new Set();
   const used = new Set();
+  const pairedW = pairedIn(pool, openSkills);
   const draw = (cands) => {
     while (cands.length) {
-      const s = cands.splice(Math.floor(rnd() * cands.length), 1)[0];
+      const s = weightedTake(cands, rnd, (x) => drawWeight(x, pairedW));
       if (used.has(s.id)) continue;
       if (!hasWrong(s) && noWrong >= NO_WRONG_CAP) continue;
       if (hands.has(s.hand + s.spot.board.join(''))) continue;
@@ -74,17 +140,77 @@ export function buildRun(seed, spots, openSkills) {
     }
   }
   if (fallback) console.warn(`Drill: run ${seed} filled ${fallback} spot(s) from standard ones (the bank is short of easy or tricky spots)`);
+  // partner lessons together (PARTNERS; CEO, 19 Nov): while both are open, a run with a spot of one has a spot of the other
+  const paired = pairedIn(pool, openSkills);
+  // a swap keeps the no-wrong count exact (GAME): out goes `old`, in comes `got`
+  const swapIn = (old, got) => {
+    hands.delete(old.hand + old.spot.board.join(''));
+    used.delete(old.id);
+    if (!hasWrong(old)) noWrong--;
+    hands.add(got.hand + got.spot.board.join(''));
+    used.add(got.id);
+    if (!hasWrong(got)) noWrong++;
+  };
+  // the cap for a swap: `old` leaves first, so a no-wrong spot may replace a no-wrong spot
+  const drawFor = (old, cands) => {
+    if (!hasWrong(old)) noWrong--;
+    const got = draw(cands);
+    if (!hasWrong(old)) noWrong++;
+    return got;
+  };
+  // bring the missing partner in for a spot of a lesson that appears twice or more (so no other lesson drops out),
+  // in that spot's slot; repeat until every open pair is both-or-neither
+  for (let pass = 0; pass < 6; pass++) {
+    const count = (c) => picked.filter((s) => s.skill === c).length;
+    const missing = Object.keys(INTERLEAVE).find((c) => paired(c) && count(c) > 0 && count(INTERLEAVE[c]) === 0);
+    if (!missing) break;
+    const other = INTERLEAVE[missing];
+    let done = false;
+    for (const i of [...picked.keys()].reverse()) {
+      const old = picked[i];
+      if (old.fellBack || count(old.skill) < 2) continue;
+      const got = drawFor(old, pool.filter((s) => s.skill === other && s.difficulty === old.difficulty));
+      if (!got) continue;
+      swapIn(old, got);
+      picked[i] = got;
+      done = true;
+      break;
+    }
+    if (!done) break;
+  }
   const ones = picked.filter((s) => s.difficulty === 1);
   const twos = picked.filter((s) => s.difficulty === 2);
   const threes = picked.filter((s) => s.difficulty === 3);
   const lastTwo = twos.pop();
   const lastThree = threes.pop();
   const middle = [...twos, ...threes];
-  for (let i = middle.length - 1; i > 0; i--) {
-    const j = Math.floor(rnd() * (i + 1));
-    [middle[i], middle[j]] = [middle[j], middle[i]];
+  const shuffle = (xs) => {
+    for (let i = xs.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [xs[i], xs[j]] = [xs[j], xs[i]];
+    }
+  };
+  shuffle(middle);
+  // never more than INTERLEAVE_MAX in a row from one lesson of a pair while both are open: reshuffle the easy lead and
+  // the middle (the last two slots stay put), deterministically from the seed
+  const tooLong = (xs) => xs.some((s, i) => i >= INTERLEAVE_MAX && paired(s.skill) && xs.slice(i - INTERLEAVE_MAX, i).every((x) => x.skill === s.skill));
+  let order = [...ones, ...middle, lastTwo, lastThree];
+  for (let k = 0; k < 200 && tooLong(order); k++) {
+    shuffle(ones);
+    shuffle(middle);
+    order = [...ones, ...middle, lastTwo, lastThree];
   }
-  const order = [...ones, ...middle, lastTwo, lastThree];
+  // still too long (say three easy P1 spots): swap the third for a spot of its partner lesson, else of another
+  // open skill, at the same difficulty
+  for (let k = 0; k < 10 && tooLong(order); k++) {
+    const i = order.findIndex((s, j) => j >= INTERLEAVE_MAX && paired(s.skill) && order.slice(j - INTERLEAVE_MAX, j).every((x) => x.skill === s.skill));
+    const old = order[i];
+    const d = old.fellBack ? 2 : old.difficulty;
+    const got = drawFor(old, pool.filter((s) => s.skill === INTERLEAVE[old.skill] && s.difficulty === d)) || drawFor(old, pool.filter((s) => s.skill !== old.skill && s.difficulty === d));
+    if (!got) break;
+    swapIn(old, got);
+    order[i] = old.fellBack ? { ...got, difficulty: old.difficulty, fellBack: true } : got;
+  }
   const ids = order.map((s) => s.id);
   ids.fallback = fallback;
   ids.slots = order.map((s) => s.difficulty); // the slot each spot fills (a fill-in scores its slot's bonus)
@@ -192,4 +318,23 @@ export function recordRun(g, { kind, board, date, bankVersion, answers, earned }
   }
   g.current = null;
   return res;
+}
+
+// The whole-bank run check (GAME, CEO release requirement): `runs` run seeds and every Daily seed for `days` days
+// from `from`, over the bank's Tier 1 lessons, each built and validated. drillcheck runs it on every bank change
+// and the tests on the shipped bank. Returns { checked, failed: [{ seed, why }] }.
+export function checkBankRuns(bank, { runs = 10000, days = 366, from = new Date() } = {}) {
+  const tier1 = Object.keys(bank.skills).filter((c) => bank.skills[c].tier === 1);
+  const failed = [];
+  let checked = 0;
+  const one = (seed) => {
+    checked++;
+    const ids = buildRun(seed, bank.spots, tier1);
+    const why = ids ? runProblem(ids, bank.spots, tier1) : 'no run';
+    if (why) failed.push({ seed, why });
+  };
+  for (let k = 0; k < runs; k++) one(`run-${k}`);
+  const d0 = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
+  for (let k = 0; k < days; k++) one(dailySeed(isoDay(new Date(d0 + k * 86400000 + 12 * 3600000)), runVersion(bank)));
+  return { checked, failed };
 }

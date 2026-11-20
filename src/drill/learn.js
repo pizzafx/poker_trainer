@@ -8,11 +8,38 @@ export const LEARN_KEY = 'trainer-drill-learn';
 const DAY = 86400000;
 const BOX_DAYS = { 3: 3, 4: 7, 5: 21 };
 // confusable pairs (a miss on one schedules a spot of the other, once both are open)
-export const PAIRS = { P1: 'P2', P2: 'P1', D1: 'D2', D2: 'D1', V1: 'V5', V5: 'V1', O1: 'V3', V3: 'O1', P2b: 'P3', P3: 'P2b', M1: 'M2', M2: 'M1' };
+export const PAIRS = { P1: 'P2', P2: 'P1', D1: 'D3', D3: 'D1', D2: 'D1', V1: 'B1', B1: 'V1', V5: 'V1', O1: 'V3', V3: 'O1', P2b: 'P3', P3: 'P2b', M1: 'M2', M2: 'M1' };
 
 // credit for the level rules: best is right; fine is right at difficulty 1-2 and half at 3
 // opponent types Mastered needs: 3, but V1 has only two calling types (station and whale; CEO, 17 Nov)
-export const MASTER_TYPES = { V1: 2 };
+// B1 has two (station, whale) as V1; V5 two (nit and tag) and D2 one (maniac): their predicates allow no more (CEO, 19 Nov)
+export const MASTER_TYPES = { V1: 2, B1: 2, V5: 2, D2: 1 };
+// Tier 1's partner lessons (CEO, 19 Nov: V1/B1, D1/D2, P1/P2): each pair has opposite answers in look-alike spots, so one habit
+// ("always fold", "always bet") cannot pass both. The one table the scheduler, the run builder and the levels read:
+// - interleave: while both are open, never more than 2 spots in a row from either, and a run with one has the other;
+//   practising one alone mixes in the other at about 1 spot in 3
+// - partner gate: a lesson reaches Solid or Mastered only while its partner has 5 of its last 8 answers right
+// V1's partner is B1, "Don't bluff people who don't fold" (CEO, 19 Nov: V5 cannot fill a bank on true tables; it
+// stays in skills.js as a later second partner and is not paired yet)
+// D1's partner is D3, "Call big bets with real hands" (CEO, 19 Nov); D2 stays in skills.js, unpaired, for later
+export const PARTNERS = { P1: 'P2', P2: 'P1', V1: 'B1', B1: 'V1', D1: 'D3', D3: 'D1' };
+export const INTERLEAVE = PARTNERS;
+export const INTERLEAVE_MAX = 2;
+export const PARTNER_RIGHT = 5;
+export const PARTNER_OF = 8;
+// A shipped bank's lessons and their partners ship together or not at all (CEO's hold, CURR): the lessons with
+// spots whose partner has none. Empty means the bank may ship.
+export function partnerGaps(bank) {
+  const has = new Set(bank.spots.map((s) => s.skill));
+  return [...has].filter((c) => PARTNERS[c] && !has.has(PARTNERS[c])).map((c) => `${c} has spots, ${PARTNERS[c]} has none`);
+}
+// the partner's last 8 answers hold 5 right (credit: a fine at difficulty 3 is half)
+export function partnerOk(st, code) {
+  const p = PARTNERS[code];
+  if (!p) return true;
+  const ans = (st.skills[p] && st.skills[p].answers) || [];
+  return ans.slice(-PARTNER_OF).reduce((a, x) => a + x.c, 0) >= PARTNER_RIGHT;
+}
 export const credit = (family, d) => (family === 'best' ? 1 : family === 'fine' ? (d >= 3 ? 0.5 : 1) : 0);
 
 // the opponent type a spot is about: the last opponent to bet or raise, else the first live opponent
@@ -104,7 +131,8 @@ export function level(st, code, tierOpen = true, now = Date.now()) {
   if (!tierOpen) return 'Locked';
   const sk = st.skills[code];
   if (!sk) return 'Frontier';
-  if (sk.answers.length < 6) return sk.placed || 'Frontier'; // placement sets the start until six answers are in
+  const gate = (lv) => (['Solid', 'Mastered'].includes(lv) && !partnerOk(st, code) ? 'Learning' : lv);
+  if (sk.answers.length < 6) return gate(sk.placed || 'Frontier'); // placement sets the start until six answers are in
   const last = (k) => sk.answers.slice(-k);
   const sum = (xs) => xs.reduce((a, x) => a + x.c, 0);
   const types = (xs) => new Set(xs.filter((x) => x.c >= 1).map((x) => x.type)).size;
@@ -114,7 +142,7 @@ export function level(st, code, tierOpen = true, now = Date.now()) {
   const l8 = last(8);
   const solid = sum(l8) >= 6 && l8.some((x) => x.d >= 2 && x.c >= 1) && types(l8) >= 2;
   const recentMiss = sk.lastMiss != null && st.counter - sk.lastMiss <= 3;
-  let lv = mastered ? 'Mastered' : solid && !recentMiss ? 'Solid' : sum(l8) / l8.length >= 0.6 && !recentMiss ? 'Learning' : 'Frontier';
+  let lv = gate(mastered ? 'Mastered' : solid && !recentMiss ? 'Solid' : sum(l8) / l8.length >= 0.6 && !recentMiss ? 'Learning' : 'Frontier');
   // overdue by more than its interval: rusty
   if ((lv === 'Mastered' || lv === 'Solid') && sk.dueAt != null && now - sk.dueAt > (BOX_DAYS[sk.box] || 1) * DAY) lv = 'Rusty';
   return lv;
@@ -149,13 +177,34 @@ export function flagFromTable(st, skills, leak) {
 // skill code to practise only that skill. Returns { spot, why } or null.
 export function nextPractice(st, spots, skills, { now = Date.now(), rnd = Math.random, pin = null } = {}) {
   const tiers = openTiers(st, skills, now);
-  const open = Object.keys(skills).filter((c) => tiers.has(skills[c].tier) && (!pin || c === pin));
+  const hasSpots = (c) => spots.some((s) => s.skill === c);
+  let open = Object.keys(skills).filter((c) => tiers.has(skills[c].tier) && (!pin || c === pin));
   if (!open.length) return null;
+  // single-lesson practice of a paired lesson brings its partner in (PARTNERS)
+  const partner = pin && INTERLEAVE[pin];
+  if (partner && skills[partner] && tiers.has(skills[partner].tier) && hasSpots(partner)) open = [...open, partner];
+  // a pair: a third spot in a row from one lesson is not served while its partner is open
+  const capped = (code) => {
+    const other = INTERLEAVE[code];
+    return !!other && open.includes(other) && hasSpots(other) && st.recent.length >= INTERLEAVE_MAX && st.recent.slice(-INTERLEAVE_MAX).every((c) => c === code);
+  };
+  if (partner && open.includes(partner) && capped(pin)) open = open.filter((c) => c !== pin);
+  else if (partner) open = open.filter((c) => c !== partner);
   const fresh = (s) => !(st.seen[s.id] && now - st.seen[s.id] < 30 * DAY);
+  // weighted toward the partner's cue mix while the partner is open (the bank's `weight`; CEO, GAME, CURR)
+  const wOf = (s) => (s.weight != null && INTERLEAVE[s.skill] && open.includes(INTERLEAVE[s.skill]) ? s.weight : 1);
   const pickFrom = (cands) => {
     const ok = cands.filter(fresh);
     const pool = ok.length ? ok : cands;
-    return pool.length ? pool[Math.floor(rnd() * pool.length)] : null;
+    if (!pool.length) return null;
+    let total = 0;
+    for (const s of pool) total += wOf(s);
+    let r = rnd() * total;
+    for (const s of pool) {
+      r -= wOf(s);
+      if (r < 0) return s;
+    }
+    return pool[pool.length - 1];
   };
   const ofSkill = (code, want = {}) => {
     // narrow by each wish in turn while something is left: opponent type, then difficulty
@@ -168,7 +217,7 @@ export function nextPractice(st, spots, skills, { now = Date.now(), rnd = Math.r
     return c;
   };
   // a twin or pair spot whose time has come
-  const p = st.pending.findIndex((x) => st.counter >= x.at && open.includes(x.skill));
+  const p = st.pending.findIndex((x) => st.counter >= x.at && open.includes(x.skill) && !capped(x.skill));
   if (p >= 0) {
     const x = st.pending.splice(p, 1)[0];
     const spot = pickFrom(ofSkill(x.skill, { type: x.type, d: x.d, not: x.of }));
@@ -178,13 +227,14 @@ export function nextPractice(st, spots, skills, { now = Date.now(), rnd = Math.r
     }
   }
   // no more than three of one skill in a row once it is past Frontier
-  const tooMany = (code) => st.recent.length >= 3 && st.recent.slice(-3).every((c) => c === code) && level(st, code, true, now) !== 'Frontier';
+  const tooMany = (code) => capped(code) || (st.recent.length >= 3 && st.recent.slice(-3).every((c) => c === code) && level(st, code, true, now) !== 'Frontier');
   const due = open.filter((c) => st.skills[c] && isDue(st.skills[c], st, now) && !tooMany(c));
   const learning = open.filter((c) => ['Frontier', 'Learning'].includes(level(st, c, true, now)) && !tooMany(c));
   const upkeep = open.filter((c) => ['Solid', 'Mastered', 'Rusty'].includes(level(st, c, true, now)) && !tooMany(c));
   const r = rnd();
   let group = r < 0.25 ? due : r < 0.85 ? learning : upkeep;
-  if (!group.length) group = [due, learning, upkeep].find((g) => g.length) || open;
+  if (!group.length) group = [due, learning, upkeep].find((g) => g.length) || open.filter((c) => !capped(c));
+  if (!group.length) group = open;
   const code = group[Math.floor(rnd() * group.length)];
   // new skills serve easy spots first, then mix in harder ones as the answers come right
   const lv = level(st, code, true, now);

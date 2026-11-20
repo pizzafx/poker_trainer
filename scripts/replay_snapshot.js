@@ -195,6 +195,7 @@ export function rejudge(rec, opt = {}) {
     best: v.options[v.best].label,
     ref: v.ref || null,
     loss: v.loss,
+    currentBet: s.currentBet, // for the fixtures' overbet check (notBestOverbet)
     street: Object.keys(STREET).find((k) => STREET[k] === s.street).toLowerCase(),
     recorded: r.recorded,
   };

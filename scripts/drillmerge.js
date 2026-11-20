@@ -28,6 +28,18 @@ const seen = new Set();
 const bySkill = {};
 let stale = 0;
 let v1NoCaller = 0;
+// P1 spots rejected by drillentry's limp-and-fold-wrong rule, from the run logs (this bank version)
+let p1Dropped = 0;
+for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.log.jsonl'))) {
+  for (const line of fs.readFileSync(path.join(dir, f), 'utf8').split('\n').filter(Boolean)) {
+    try {
+      const l = JSON.parse(line);
+      if (l.skill === 'P1' && (l.bankVersion === version || process.argv.includes('--any-version')) && /^P1: .*not both wrong/.test(l.result || '')) p1Dropped++;
+    } catch {
+      // a partial line
+    }
+  }
+}
 for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.jsonl') && !x.endsWith('.log.jsonl'))) {
   for (const line of fs.readFileSync(path.join(dir, f), 'utf8').split('\n').filter(Boolean)) {
     const e = JSON.parse(line);
@@ -296,10 +308,12 @@ for (const [code, r] of Object.entries(report)) {
     cells[k] = (cells[k] || 0) + 1;
   }
   const thin = Object.entries(cells).filter(([, n]) => n < 3);
-  // P1's fine limps (CURR, 19 Nov): listed so a cluster in one hand or seat shows (kept: the fold is wrong there)
+  // P1 (CURR, 19 Nov): the spots the limp-and-fold-wrong rule dropped (from the run logs), any fine limp left (none
+  // should be: drillentry rejects them), and the 77/88 count from the cutoff and the button
   if (code === 'P1') {
     const fl = (bySkill.P1 || []).filter((e) => e.families.call === 'fine');
-    if (fl.length) console.log(`   fine limps ${fl.length}: ${fl.map((e) => `${e.hand} ${e.spot.actions.filter((a) => a.type === 'call' && a.seat !== 0).length}L ${e.position}`).join(', ')}`);
+    const pairs = (bySkill.P1 || []).filter((e) => ['77', '88'].includes(e.hand) && ['CO', 'BTN'].includes(e.position)).length;
+    console.log(`   dropped by the limp-and-fold-wrong rule: ${p1Dropped}; fine limps left: ${fl.length}; 77/88 from the CO and BTN: ${pairs}`);
   }
   if (code !== 'P2') console.log(`   cells ${Object.keys(cells).length}${thin.length ? `, under 3: ${thin.map(([k, n]) => `${k} (${n})`).join(', ')}` : ', none under 3'}`);
 }

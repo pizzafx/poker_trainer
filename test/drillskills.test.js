@@ -138,7 +138,7 @@ test('drill D3 nit clause in the predicate: out only for an under-pot nit lead a
 
 // P1's pairs (CURR, STRAT): 77/88 only from the cutoff and the button, and only where the limp scores wrong
 import { derive } from '../scripts/drillentry.js';
-test('drill P1 pairs: 88 from the lojack out of the predicate; a pair spot with a fine limp is rejected, a wrong limp kept', () => {
+test('drill P1: 88 from the lojack out of the predicate; any P1 spot with a fine limp or fold is rejected, both wrong kept', () => {
   const m = (button, hole, seats, line) => {
     const { s } = build({ id: 'p1p', button, hole, board: '', seats, line });
     const types = Array.from({ length: s.n }, (_, i) => (i === 0 ? null : seats[i] || 'abc'));
@@ -153,7 +153,12 @@ test('drill P1 pairs: 88 from the lojack out of the predicate; a pair spot with 
   const r = (call) => ({ families: { raise: 'best', fold: 'wrong', call }, graded: {}, marginBb: 1, marginBars: 0 });
   assert.equal(derive('P1', bt.s, null, null, bt.types, r('wrong'), null).reject, null, '77 behind 2 on the button with L2 firing: in');
   assert.match(derive('P1', bt.s, null, null, bt.types, r('fine'), null).reject, /limp fine/, '77 with a fine limp: out');
-  // other hands keep a fine limp
-  const aj = m(0, 'Ad Jc', { 3: 'abc' }, '3c');
-  assert.equal(derive('P1', aj.s, null, null, aj.types, r('fine'), null).reject, null, 'AJo with a fine limp: kept');
+  // every P1 hand now (CURR, STRAT): AJo in the cutoff behind one limper with a tag and a lag still to act, L2 silent
+  // (the limp fine), is out; with the limp wrong it is in
+  const aj = m(1, 'Ad Jc', { 4: 'station', 2: 'tag', 3: 'lag' }, '4c 5f 6f 7f');
+  assert.equal(aj.ok, true, 'AJo in the cutoff behind one limper is a P1 candidate');
+  assert.match(derive('P1', aj.s, null, null, aj.types, r('fine'), null).reject, /limp fine/, 'AJo with a fine limp: out');
+  assert.equal(derive('P1', aj.s, null, null, aj.types, r('wrong'), null).reject, null, 'AJo with a wrong limp: in');
+  // the fold must be wrong too
+  assert.match(derive('P1', aj.s, null, null, aj.types, { ...r('wrong'), families: { raise: 'best', fold: 'fine', call: 'wrong' } }, null).reject, /fold fine/);
 });

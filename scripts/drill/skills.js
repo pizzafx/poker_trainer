@@ -63,6 +63,11 @@ export function beatenByLastCard(s, f) {
   if (cat === need) return !(S() >= 0.85);
   return false;
 }
+// the turn went check-check (nobody bet or raised on it)
+export const turnCheckedThrough = (s) => {
+  const turn = s.history.filter((h) => h.street === STREET.TURN);
+  return turn.length > 0 && turn.every((h) => h.type === 'check');
+};
 // D3's hands: overpair or top pair top kicker or better; two pair only from hero's own cards (each hole card pairs
 // the board, no pocket pair)
 function realHand(s, f) {
@@ -140,12 +145,15 @@ export const SKILLS = {
     tier: 1,
     name: 'Call big bets with real hands',
     leak: 'overFold',
-    rule: 'A passive player’s big turn or river bet is rarely a bluff, but it isn’t always the nuts. Above top pair with a good kicker, lean call. Two pair or better calls. Slow down with two pair when the board just paired; with two pair or a set when a flush or straight just came in; and with a straight when a flush just came in. An overpair or top pair with the best kicker calls a station, folds to a nit, and is close against others.',
+    rule: 'A passive player’s big turn or river bet is rarely a bluff, but it isn’t always the nuts. Above top pair with a good kicker, lean call. Two pair or better calls. Slow down with two pair when the board just paired; with two pair or a set when a flush or straight just came in; and with a straight when a flush just came in. An overpair or top pair with the best kicker calls a station, folds to a nit who bet the turn too, and is close against others.',
     want: ['call', 'raise'], // call and raise may both be right; fold must be wrong
     foldWrong: true,
     match: (s, ctx, f, types) => {
       if (!bigLateBetShape(s, ctx) || !PASSIVE.has(types[ctx.aggressor]) || leftToAct(s, ctx.aggressor).length) return false;
       if (!realHand(s, f)) return false;
+      // the nit clause (STRAT, PRO, CURR, 19 Nov; QA-VERDICT's gate 6: call is best 46-50% there): an overpair or top
+      // pair top kicker facing a nit's river bet after the turn checked through is out
+      if (f.tier === TIER.OVERPAIR_TPTK && s.street === STREET.RIVER && types[ctx.aggressor] === 'nit' && turnCheckedThrough(s)) return false;
       // the line's exception (PRO, STRAT): two pair or better where the last card paired the board or completed a
       // flush or straight that hero does not hold
       return !(f.tier >= TIER.TWO_PAIR && beatenByLastCard(s, f));

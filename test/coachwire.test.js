@@ -26,7 +26,7 @@ test('"you have": the board hand, the kicker, the coach phrase; the no-play and 
   const t = (h, b) => coachHandText(parseCards(h), parseCards(b), coachTier(parseCards(h), parseCards(b)));
   assert.equal(t('Ad Kc', '2s 2d 2h 7c'), 'trips on the board with an ace kicker: about as strong as middle pair');
   assert.equal(t('Ad Ks', '7s Tc 3h Ts 3c'), 'two pair on the board with an ace kicker: about as strong as a weak pair');
-  assert.equal(t('2c 2d', '7s 8d 5c 8h 7h'), "two pair on the board; your cards don't play: the best you can do is split the pot");
+  assert.equal(t('2c 2d', '7s 8d 5c 8h 7h'), "two pair on the board; your twos don't play: the best you can do is split the pot");
   assert.equal(t('8d 4c', '9s 9h 7d 7c 2s'), 'two pair on the board with an eight kicker: most hands beat it');
   assert.equal(t('Ad Kc', 'Ah 9d 4c'), null, 'not board-made: describeHand stands');
 });
@@ -91,9 +91,9 @@ test('range line on board-made boards: every hand sits under its comparison with
     ['5s 6d 7c 8c 9s', 'Qh Jh', ['a better hand than the board', 'a higher straight', 'the board: a split']],
     ['Kd 9d 6d 4d 2d', 'Qh Jh', ['a better hand than the board', 'a higher flush', 'the board: a split']],
     ['7s 7d 7c 2s 2d', 'Qh Jh', ['quads or a higher full house', 'nothing better than the board']],
-    // quads on the board are board-made whatever handFeatures says (STRAT): the kicker comparison, or the board
-    ['Ks Kd Kc Kh 5s', 'Qh 3h', ['a higher kicker than yours', 'your kicker: a split', 'a lower kicker, or just the board']],
-    ['Ks Kd Kc Kh 5s', '4h 3h', ['a better hand than the board', 'the board: a split']],
+    // quads on the board: the plain comparison (STRAT, DESIGN), hero's kicker playing or not
+    ['Ks Kd Kc Kh 5s', 'Qh 3h', ['a better hand than yours', 'the same hand: a split', 'a worse hand']],
+    ['Ks Kd Kc Kh 5s', '4h 3h', ['a better hand than yours', 'the same hand: a split', 'a worse hand']],
     // hero's cards do not play on a trips board; hero improves (77 on 2-2-2-7)
     ['2s 2d 2h Kc Qd', '4h 3h', ['a better hand than the board', 'the board: a split']],
     ['2s 2d 2h 7c', '7d 7h', ['a better hand than yours', 'the same hand: a split', 'a worse hand']],
@@ -131,7 +131,7 @@ test('range line on board-made boards: every hand sits under its comparison with
 
 // MATH (20 Nov): the range's tiers are the same function of (combo, board) as coachTier, hero's cards dead or not
 test('range coach tiers equal coachTier for every board-made combo, with hero cards dead', () => {
-  for (const [B, H] of [['2s 2d 2h 7c', 'Qh Jh'], ['Ts Td 3h 3c 7s', 'As Kd'], ['Ks Kd Qc Qs', '9h 8h'], ['8c 8d 8h Jc 4s', 'Ad 2c'], ['Ks Kd Kc Kh 5s', 'Qh 3h']]) {
+  for (const [B, H] of [['2s 2d 2h 7c', 'Qh Jh'], ['Ts Td 3h 3c 7s', 'As Kd'], ['Ks Kd Qc Qs', '9h 8h'], ['8c 8d 8h Jc 4s', 'Ad 2c'], ['Ks Kd Kc Kh 5s', 'Qh 3h'], ['7s 7d As Ac 2h', 'Kd Qc'], ['9h Th Jh Qh Kh', 'Ad 2c']]) {
     const board = parseCards(B);
     const bel = new HandBelief([null, newRead(TYPE_IDS.map((id) => (id === 'abc' ? 1 : 0)))], parseCards(H));
     bel.setBoard(board);
@@ -162,14 +162,25 @@ test('the 15% "bets are nearly always real" test counts hands that only chop or 
   assert.ok(picture.buckets.air < picture.boardAir, 'the coach-tier air bucket alone would undercount it');
 });
 
-test('quads on the board: the coach tier and "you have" come from the showdown rank, not handFeatures (STRAT)', () => {
+test('quads, straight-flush and counterfeited boards: the lower of raw and the rank, raw kept at the top cut (MATH, STRAT)', () => {
   const b = parseCards('Ks Kd Kc Kh 5s');
   const q = coachTier(parseCards('Qh 3h'), b);
   assert.equal(q.raw, TIER.TOP_PAIR_GOOD, 'handFeatures calls Q3 top pair with a good kicker');
   assert.equal(q.boardMade, true);
-  assert.equal(q.tier, TIER.TOP_PAIR_WEAK);
-  assert.equal(coachHandText(parseCards('Qh 3h'), b, q), 'quads on the board with a queen kicker: about as strong as top pair with a weak kicker');
-  const low = coachTier(parseCards('6h 3h'), b);
-  assert.equal(low.tier, TIER.AIR, 'a six kicker: below the raw tier, no floor on a quads board');
-  assert.equal(coachHandText(parseCards('6h 3h'), b, low), 'quads on the board with a six kicker: most hands beat it');
+  // rank 0.77 reaches the river's top cut (0.76): the raw tier stands
+  assert.equal(q.tier, TIER.TOP_PAIR_GOOD);
+  assert.equal(coachHandText(parseCards('Qh 3h'), b, q), 'quads on the board with a queen kicker: about as strong as top pair, good kicker');
+  const ace = coachTier(parseCards('Ah 3h'), b);
+  assert.equal(ace.tier, TIER.MONSTER, 'an ace kicker on K-K-K-K-5 stays a monster');
+  const nine = coachTier(parseCards('9h 3h'), b);
+  assert.equal(nine.tier, TIER.HIGH_CARD, 'a nine kicker drops below its raw top pair');
+  assert.equal(coachTier(parseCards('Ad Tc'), parseCards('Qs Qd Qc Qh As')).plays, false);
+  assert.equal(coachTier(parseCards('2c 3c'), parseCards('9h Th Jh Qh Kh')).tier, TIER.WEAK_PAIR, 'a straight flush on the board, cards not playing: no monster');
+  // a counterfeited pocket pair (below both board pairs) is in scope; one above a board pair is not
+  const c4 = coachTier(parseCards('4h 4d'), parseCards('7s 7d As Ac 2h'));
+  assert.equal(c4.raw, TIER.WEAK_PAIR);
+  assert.ok(c4.tier < TIER.WEAK_PAIR);
+  assert.equal(coachHandText(parseCards('4h 4d'), parseCards('7s 7d As Ac 2h'), c4), 'two pair on the board with a four kicker: most hands beat it');
+  assert.equal(coachHandText(parseCards('4h 4d'), parseCards('7s 7d As Ac Kh'), coachTier(parseCards('4h 4d'), parseCards('7s 7d As Ac Kh'))), "two pair on the board; your fours don't play: the best you can do is split the pot");
+  assert.equal(coachTier(parseCards('9h 9d'), parseCards('7s 7d 4s 4c 3h')).boardMade, false, '99 above a board pair keeps its raw tier');
 });

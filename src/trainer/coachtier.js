@@ -7,7 +7,7 @@
 // most top pair with a weak kicker (above that the real tiers' ranks overlap). No read and no run-outs, so the
 // label and the rules agree and do not move with the opponents. The bots never call this.
 import { evaluate, categoryOf, CATEGORY } from '../engine/evaluator.js';
-import { handFeatures, TIER } from '../engine/features.js';
+import { handFeatures, TIER, TIER_NAMES } from '../engine/features.js';
 import { COMBOS } from '../engine/hands.js';
 
 // The lowest rank that reads as: ace or king high, a weak pair, middle pair, top pair with a weak kicker; by
@@ -47,21 +47,39 @@ export function coachTier(hole, board, hf = null) {
   const out = { tier: raw, raw, boardMade: false, rank: null, plays: true, category: null };
   if (board.length < 3) return out;
   const boardScore = evaluate(board);
-  // quads on the board (STRAT, 20 Nov): handFeatures rates every hand there top pair or a monster by its kicker, so
-  // the raw tier says nothing; the board-made path takes it whatever the raw tier, with no floor at the raw tier
-  const quads = categoryOf(boardScore) === CATEGORY.QUADS;
-  if (raw > TIER.HIGH_CARD && !quads) return out;
+  const bcat = categoryOf(boardScore);
+  const lower = lowerRule(hole, board, bcat);
+  if (raw > TIER.HIGH_CARD && !lower) return out;
   const score = evaluate([...hole, ...board]);
-  if (categoryOf(boardScore) < CATEGORY.TWO_PAIR || categoryOf(score) !== categoryOf(boardScore)) return out;
+  if (bcat < CATEGORY.TWO_PAIR || categoryOf(score) !== bcat) return out;
   out.boardMade = true;
-  out.category = categoryOf(boardScore);
+  out.category = bcat;
   out.plays = score !== boardScore;
   out.rank = showdownRank(hole, board);
-  const cuts = COACH_CUTS[board.length - 3];
-  let tier = TIER.AIR;
-  for (let i = 0; i < cuts.length; i++) if (out.rank >= cuts[i]) tier = CUT_TIERS[i];
-  out.tier = quads ? tier : Math.max(raw, tier);
+  out.lower = lower; // the lower-of-raw-and-rank scope (quads or straight-flush board, counterfeited pocket pair)
+  out.tier = tierFromRank(out.rank, raw, board.length, lower);
   return out;
+}
+
+// Where the raw tier is too high for a board-made hand (MATH, STRAT, 20 Nov): a board that alone makes quads or a
+// straight flush (handFeatures says top pair or a monster by the kicker), or a pocket pair below both pairs of a
+// two-pair board (counterfeited: raw "a weak pair"). There the tier is the lower of raw and the rank's, except at the
+// street's top cut, where the raw tier stands (an ace on K-K-K-K-5 is the nuts). A pocket pair above a board pair
+// (99 on 7-7-4-4) is not counterfeited and keeps its raw tier.
+function lowerRule(hole, board, bcat) {
+  if (bcat >= CATEGORY.QUADS) return true;
+  if (bcat !== CATEGORY.TWO_PAIR) return false;
+  const [a, b] = hole.map((c) => c >> 2);
+  if (a !== b) return false;
+  const pr = pairsOf(board).slice(0, 2);
+  return pr.length === 2 && pr.every((r) => r > a);
+}
+function tierFromRank(rank, raw, n, lower) {
+  const cuts = COACH_CUTS[n - 3];
+  let tier = TIER.AIR;
+  for (let i = 0; i < cuts.length; i++) if (rank >= cuts[i]) tier = CUT_TIERS[i];
+  if (!lower) return Math.max(raw, tier);
+  return rank >= cuts[cuts.length - 1] ? raw : Math.min(raw, tier);
 }
 
 // handFeatures with the coach's tier in place of the raw one (the coach reads this; the bots never do). `coach`
@@ -73,6 +91,7 @@ export function coachFeatures(hole, board, hf = null) {
 }
 
 const BOARD_HAND = { [CATEGORY.TWO_PAIR]: 'two pair', [CATEGORY.TRIPS]: 'trips', [CATEGORY.STRAIGHT]: 'a straight', [CATEGORY.FLUSH]: 'a flush', [CATEGORY.FULL_HOUSE]: 'a full house', [CATEGORY.QUADS]: 'quads', [CATEGORY.STRAIGHT_FLUSH]: 'a straight flush' };
+const RANK_PLURAL = ['twos', 'threes', 'fours', 'fives', 'sixes', 'sevens', 'eights', 'nines', 'tens', 'jacks', 'queens', 'kings', 'aces'];
 const RANK_WORD = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace'];
 const PHRASE = { [TIER.AIR]: 'nothing', [TIER.HIGH_CARD]: 'ace or king high', [TIER.WEAK_PAIR]: 'a weak pair', [TIER.MIDDLE_PAIR]: 'middle pair', [TIER.TOP_PAIR_WEAK]: 'top pair with a weak kicker' };
 // The "you have" line for a board-made hand (STRAT's templates, 19 Nov): the board's hand, then the kicker, then the
@@ -80,11 +99,15 @@ const PHRASE = { [TIER.AIR]: 'nothing', [TIER.HIGH_CARD]: 'ace or king high', [T
 export function coachHandText(hole, board, ct) {
   if (!ct || !ct.boardMade) return null;
   const hand = BOARD_HAND[ct.category] || 'a made hand';
-  if (!ct.plays) return `${hand} on the board; your cards don't play: the best you can do is split the pot`;
+  if (!ct.plays) {
+    const [p, q] = hole.map((c) => c >> 2);
+    const yours = p === q ? `your ${RANK_PLURAL[p]}` : 'your cards';
+    return `${hand} on the board; ${yours} don't play: the best you can do is split the pot`;
+  }
   const onBoard = new Set(board.map((c) => c >> 2));
   const mine = hole.map((c) => c >> 2).filter((r) => !onBoard.has(r));
   const r = mine.length ? Math.max(...mine) : Math.max(...hole.map((c) => c >> 2));
-  const tail = ct.tier <= TIER.AIR ? 'most hands beat it' : `about as strong as ${PHRASE[ct.tier]}`;
+  const tail = ct.tier <= TIER.AIR ? 'most hands beat it' : `about as strong as ${PHRASE[ct.tier] || TIER_NAMES[ct.tier]}`;
   if (ct.category === CATEGORY.STRAIGHT || ct.category === CATEGORY.FLUSH) return `${hand} on the board, made higher by your ${RANK_WORD[r]}: ${tail}`;
   return `${hand} on the board with ${r === 12 || r === 6 ? 'an' : 'a'} ${RANK_WORD[r]} kicker: ${tail}`;
 }
@@ -106,12 +129,12 @@ export function coachTiersForRange(board, scores, raw) {
   live.sort((a, b) => a - b);
   const lower = (x) => { let lo = 0, hi = live.length; while (lo < hi) { const m = (lo + hi) >> 1; if (live[m] < x) lo = m + 1; else hi = m; } return lo; };
   const upper = (x) => { let lo = 0, hi = live.length; while (lo < hi) { const m = (lo + hi) >> 1; if (live[m] <= x) lo = m + 1; else hi = m; } return lo; };
-  const cuts = COACH_CUTS[board.length - 3];
   const out = raw.slice();
-  const quads = bcat === CATEGORY.QUADS; // every hand board-made, no floor at the raw tier (STRAT, as coachTier)
   for (let c = 0; c < scores.length; c++) {
     const x = scores[c];
-    if (x == null || (raw[c] > TIER.HIGH_CARD && !quads) || categoryOf(x) !== bcat) continue;
+    if (x == null || categoryOf(x) !== bcat) continue;
+    const low = lowerRule(COMBOS[c], board, bcat); // the same scope as coachTier
+    if (raw[c] > TIER.HIGH_CARD && !low) continue;
     let below = lower(x), ties = upper(x) - below, tot = live.length;
     const [a, b] = COMBOS[c];
     // take out the combos that share a card with c (c itself once)
@@ -123,9 +146,7 @@ export function coachTiersForRange(board, scores, raw) {
       else if (y === x) ties--;
     }
     const rank = tot > 0 ? (below + ties / 2) / tot : 0;
-    let tier = TIER.AIR;
-    for (let i = 0; i < cuts.length; i++) if (rank >= cuts[i]) tier = CUT_TIERS[i];
-    out[c] = quads ? tier : Math.max(raw[c], tier);
+    out[c] = tierFromRank(rank, raw[c], board.length, low);
   }
   return out;
 }
@@ -157,14 +178,12 @@ export function boardRangeParts(board, combos, hero) {
   const ct = coachTier(hero.hole, board);
   const order = [];
   const put = (label, w) => { if (!order.includes(label)) order.push(label); add(label, w); };
-  if (!ct.boardMade) {
-    // hero improves on the board (77 on 2-2-2-7): the plain comparison
+  if (!ct.boardMade || bc === CATEGORY.QUADS) {
+    // hero improves on the board (77 on 2-2-2-7), or quads on the board (STRAT, DESIGN: only the kicker can differ):
+    // the plain comparison
     for (const x of combos) if (x.w > 0) put(x.score > hs ? 'a better hand than yours' : x.score === hs ? 'the same hand: a split' : 'a worse hand', x.w);
   } else if (bc === CATEGORY.FULL_HOUSE && full && !ct.plays) {
     for (const x of combos) if (x.w > 0) put(x.score > bs ? 'quads or a higher full house' : 'nothing better than the board', x.w);
-  } else if (bc === CATEGORY.QUADS && full && !ct.plays) {
-    // hero plays the board's quads (the fifth card is the kicker): better than the board, or the board
-    for (const x of combos) if (x.w > 0) put(x.score > hs ? 'a better hand than the board' : 'the board: a split', x.w);
   } else if (!ct.plays) {
     // hero's cards do not play: better than the board, or the board
     const same = bc === CATEGORY.STRAIGHT ? 'a higher straight' : bc === CATEGORY.FLUSH ? 'a higher flush' : null;

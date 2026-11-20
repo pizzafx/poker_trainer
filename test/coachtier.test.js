@@ -38,7 +38,7 @@ test('coach tier: a low kicker reads as high card or nothing, and cards that do 
   assert.equal(ct('Ah Kc', '2h 2s 2c').plays, true);
 });
 
-test('coach tier: never below the raw tier, never above top pair with a weak kicker', () => {
+test('coach tier: never below the raw tier, never above top pair with a weak kicker (the lower-of scope: never above raw)', () => {
   const rng = makeRng(77);
   let made = 0;
   for (let t = 0; t < 30000 && made < 300; t++) {
@@ -59,8 +59,13 @@ test('coach tier: never below the raw tier, never above top pair with a weak kic
       continue;
     }
     made++;
-    assert.ok(raw <= TIER.HIGH_CARD);
-    assert.ok(c.tier >= raw && c.tier <= TIER.TOP_PAIR_WEAK);
+    if (c.lower) {
+      // quads or straight-flush board, or a counterfeited pocket pair (MATH, STRAT, 20 Nov): never above raw
+      assert.ok(c.tier <= raw);
+    } else {
+      assert.ok(raw <= TIER.HIGH_CARD);
+      assert.ok(c.tier >= raw && c.tier <= TIER.TOP_PAIR_WEAK);
+    }
     assert.ok(c.rank >= 0 && c.rank <= 1);
   }
   assert.ok(made >= 100, `only ${made} board-made hands sampled`);

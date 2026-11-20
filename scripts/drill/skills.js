@@ -217,6 +217,14 @@ export const SKILLS = {
     match: (s, ctx, f, types) => {
       if (s.street === STREET.PRE || ctx.toCall > 0 || !ctx.canRaise) return false;
       if (f.tier > TIER.HIGH_CARD || isRealDraw(f)) return false;
+      // the flop (STRAT's ruling (b), PRO, CURR, 19 Nov): no hole card above the board's top card (ace-high and two
+      // overcards included) and no straight or flush draw at all, a gutshot included (backdoors do not count); a small
+      // flop bet there has outs against a station's range, so it is not the bluff the line names. Turn and river unchanged.
+      if (s.street === STREET.FLOP) {
+        const top = Math.max(...s.board.map((c) => c >> 2));
+        if (s.hole[0].some((c) => c >> 2 > top)) return false;
+        if (f.straightDraw || f.flushDraw) return false;
+      }
       const o = live(s);
       if (o.length < 1 || o.length > 2) return false;
       return o.every((i) => CALLERS.has(types[i])) && o.some((i) => types[i] === 'station' || types[i] === 'whale');

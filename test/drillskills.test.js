@@ -209,3 +209,19 @@ test('drill D1 nit drop: top pair facing a nit 2/3 lead after a checked flop and
   assert.equal(spot('Kd Tc', 40, 'abc'), true, 'TPGK vs an abc: in');
   assert.match(SK2.D1.rule, /usually fold\.$/, "D1's line unchanged");
 });
+
+// B1 on the flop (STRAT's ruling (b), PRO, CURR, 19 Nov): no card above the board's top card and no draw, a gutshot included
+test('drill B1 flop narrowing: overcards and any straight or flush draw out on the flop; the turn and river unchanged', () => {
+  const m = (hole, board, opp = 'station') => {
+    const s = { n: 2, street: board.split(' ').length === 3 ? 1 : board.split(' ').length === 4 ? 2 : 3, hole: [parseCards(hole), []], board: parseCards(board), folded: [false, false], allIn: [false, false], bet: [0, 0], currentBet: 0, history: [] };
+    return SK2.B1.match(s, { toCall: 0, canRaise: true, aggressor: -1, pot: 20, bb: 2 }, handFeatures(s.hole[0], s.board), [null, opp]);
+  };
+  assert.equal(m('Ad Qc', 'Jh 7s 3d'), false, 'AQo on J-7-3: out');
+  assert.equal(m('Kd 4c', 'Jh 7s 3d'), false, 'one overcard (K on J-7-3): out');
+  assert.equal(m('6d 5c', 'Kh Qs 9d'), true, '65o on K-Q-9 rainbow, no draw: in (the gate decides)');
+  assert.equal(m('Td 8c', 'Jh 7s 2d'), false, 'a gutshot on the flop: out');
+  assert.equal(m('6h 5h', 'Kh Qs 9h'), false, 'a flush draw on the flop: out');
+  assert.equal(m('Kd 4c', 'Ah 7s 3d 2c Jd', 'station'), true, 'king-high on the river vs a station: in');
+  assert.equal(m('Ad 4c', 'Kh 7s 3d 2c Jd', 'station'), true, 'ace-high on the river vs a station: in');
+  assert.equal(m('Ad Qc', 'Jh 7s 3d 2c', 'whale'), true, 'AQo on the turn vs a whale: in (turn unchanged)');
+});

@@ -12,6 +12,7 @@ import { classOf } from '../engine/hands.js';
 import { buildContext, preflopPolicy, postflopPolicy, sampleAction, POS } from '../bots/policy.js';
 import { PROFILES, TYPE_IDS, HERO_PROFILE } from '../bots/profiles.js';
 import { posterior } from './belief.js';
+import { boardRangeParts, boardCategory } from './coachtier.js';
 
 const roundChips = (x) => (x <= 20 ? Math.round(x) : Math.round(x / 5) * 5);
 
@@ -460,6 +461,7 @@ export function rangePicture(belief, seat, s, hero) {
   // the coach tier on a board that alone makes two pair or better (MATH, STRAT, DESIGN): combos the board makes
   // are bucketed by their showdown rank, not all as "nothing"
   const ct = belief.coachTiers ? belief.coachTiers(s.street) : null;
+  const bmCombos = boardCategory(s.board) !== null ? [] : null;
   const b = { monster: 0, strong: 0, twoPair: 0, topPair: 0, weakPair: 0, draw: 0, air: 0 };
   const mine = handFeatures(s.hole[hero], s.board).score;
   let ahead = 0;
@@ -479,10 +481,13 @@ export function rangePicture(belief, seat, s, hero) {
     else b.air += x;
     if (mine > f.score) ahead += x;
     else if (mine === f.score) tie += x;
+    if (bmCombos) bmCombos.push({ hole: COMBOS[c], score: f.score, tier: f.tier, draw: isRealDraw(f), w: x });
   }
   if (total > 0) {
     for (const k in b) b[k] /= total;
     out.buckets = b;
+    // a board that alone makes two pair or better: the line's parts by what each hand holds (STRAT, DESIGN)
+    if (bmCombos) out.boardParts = boardRangeParts(s.board, bmCombos).map(([label, x]) => [label, x / total]);
     out.equity = (ahead + tie / 2) / total; // share of their range you beat right now
   }
   return out;

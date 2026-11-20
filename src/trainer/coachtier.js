@@ -8,6 +8,7 @@
 // label and the rules agree and do not move with the opponents. The bots never call this.
 import { evaluate, categoryOf, CATEGORY } from '../engine/evaluator.js';
 import { handFeatures, TIER } from '../engine/features.js';
+import { COMBOS } from '../engine/hands.js';
 
 // The lowest rank that reads as: ace or king high, a weak pair, middle pair, top pair with a weak kicker; by
 // street (flop, turn, river). Halfway between the median ranks of neighbouring tiers on unpaired boards
@@ -84,14 +85,17 @@ export function coachHandText(hole, board, ct) {
   return `${hand} on the board with ${r === 12 || r === 6 ? 'an' : 'a'} ${RANK_WORD[r]} kicker: ${tail}`;
 }
 
-// The coach tier for every combo of a range on one board, from the scores the belief already holds (MATH: one sort,
-// no enumeration). scores[c] is evaluate() of combo c with the board, or null for a combo the board blocks; raw[c]
-// its features tier. Only combos that are board-made (raw tier ace or king high or lower, same category as the
-// board) can move. Returns null when the board alone is not two pair or better.
+// The coach tier for every combo of a range on one board, from one sort of the scores (MATH): the same function of
+// (combo, board) as showdownRank. scores[c] is evaluate() of combo c with the board for every combo the board does not
+// block (hero's cards included: they get no tier and no weight, but they are hands a combo is ranked against), or
+// null; raw[c] its features tier. Each combo is ranked against the combos that share no card with it. Only combos
+// that are board-made (raw tier ace or king high or lower, same category as the board) can move. Returns null when
+// the board alone is not two pair or better.
+const BY_CARD = Array.from({ length: 52 }, () => []);
+COMBOS.forEach(([a, b], c) => { BY_CARD[a].push(c); BY_CARD[b].push(c); });
 export function coachTiersForRange(board, scores, raw) {
   if (board.length < 3) return null;
-  const boardScore = evaluate(board);
-  const bcat = categoryOf(boardScore);
+  const bcat = categoryOf(evaluate(board));
   if (bcat < CATEGORY.TWO_PAIR) return null;
   const live = [];
   for (let c = 0; c < scores.length; c++) if (scores[c] != null) live.push(scores[c]);
@@ -100,12 +104,20 @@ export function coachTiersForRange(board, scores, raw) {
   const upper = (x) => { let lo = 0, hi = live.length; while (lo < hi) { const m = (lo + hi) >> 1; if (live[m] <= x) lo = m + 1; else hi = m; } return lo; };
   const cuts = COACH_CUTS[board.length - 3];
   const out = raw.slice();
-  const n = live.length - 1;
   for (let c = 0; c < scores.length; c++) {
-    const sc = scores[c];
-    if (sc == null || raw[c] > TIER.HIGH_CARD || categoryOf(sc) !== bcat) continue;
-    const below = lower(sc), ties = upper(sc) - below - 1;
-    const rank = n > 0 ? (below + ties / 2) / n : 0;
+    const x = scores[c];
+    if (x == null || raw[c] > TIER.HIGH_CARD || categoryOf(x) !== bcat) continue;
+    let below = lower(x), ties = upper(x) - below, tot = live.length;
+    const [a, b] = COMBOS[c];
+    // take out the combos that share a card with c (c itself once)
+    for (const card of [a, b]) for (const d of BY_CARD[card]) {
+      const y = scores[d];
+      if (y == null || (d === c && card === b)) continue;
+      tot--;
+      if (y < x) below--;
+      else if (y === x) ties--;
+    }
+    const rank = tot > 0 ? (below + ties / 2) / tot : 0;
     let tier = TIER.AIR;
     for (let i = 0; i < cuts.length; i++) if (rank >= cuts[i]) tier = CUT_TIERS[i];
     out[c] = Math.max(raw[c], tier);
@@ -113,12 +125,58 @@ export function coachTiersForRange(board, scores, raw) {
   return out;
 }
 
-// What beats the board's own hand, for the range line's first bucket on a board-made board (DESIGN, 20 Nov)
-const BEATS_BOARD = { [CATEGORY.TWO_PAIR]: 'trips or better', [CATEGORY.TRIPS]: 'a full house or better', [CATEGORY.STRAIGHT]: 'a higher straight or better', [CATEGORY.FLUSH]: 'a higher flush or better', [CATEGORY.FULL_HOUSE]: 'a higher full house or better', [CATEGORY.QUADS]: 'a straight flush', [CATEGORY.STRAIGHT_FLUSH]: 'a higher straight flush' };
 // The board's own category when it alone makes two pair or better, else null
 export function boardCategory(board) {
   if (board.length < 3) return null;
   const c = categoryOf(evaluate(board));
   return c >= CATEGORY.TWO_PAIR ? c : null;
 }
-export const beatsBoardLabel = (cat) => BEATS_BOARD[cat] || 'better than the board';
+const CAT_OR_BETTER = { [CATEGORY.STRAIGHT]: 'a straight or better', [CATEGORY.FLUSH]: 'a flush or better', [CATEGORY.FULL_HOUSE]: 'a full house or better', [CATEGORY.QUADS]: 'quads or better', [CATEGORY.STRAIGHT_FLUSH]: 'a straight flush' };
+// the paired ranks of a set of cards, highest count then highest rank first
+const pairsOf = (cards) => {
+  const n = {};
+  for (const c of cards) n[c >> 2] = (n[c >> 2] || 0) + 1;
+  return Object.entries(n).filter(([, k]) => k >= 2).map(([r, k]) => [+r, k]).sort((a, b) => b[1] - a[1] || b[0] - a[0]).map(([r]) => r);
+};
+// The range line's parts on a board that alone makes two pair or better (STRAT, DESIGN, 20 Nov): each live combo is
+// placed by what it really holds, so no label is false for a hand under it. `combos` is [{ hole, score, tier, draw,
+// w }] with `tier` the coach tier. Returns [[label, weight], ...] in order, empty parts left out, or null.
+export function boardRangeParts(board, combos) {
+  const bc = boardCategory(board);
+  if (bc === null) return null;
+  const parts = new Map();
+  const add = (label, w) => parts.set(label, (parts.get(label) || 0) + w);
+  const full = board.length === 5;
+  const bs = evaluate(board);
+  if (bc === CATEGORY.TWO_PAIR || bc === CATEGORY.TRIPS || (bc === CATEGORY.QUADS && !full)) {
+    // the lowest better category present names the top part ("a full house or better", ...)
+    let minBetter = null;
+    for (const x of combos) { const k = categoryOf(x.score); if (k > bc && x.w > 0) minBetter = minBetter === null ? k : Math.min(minBetter, k); }
+    const top = minBetter === null ? null : CAT_OR_BETTER[minBetter];
+    const bp = pairsOf(board);
+    for (const x of combos) {
+      if (x.w <= 0) continue;
+      const k = categoryOf(x.score);
+      if (k > bc) { add(top, x.w); continue; }
+      // on a two-pair board, a hand whose two pair is not the board's is a higher two pair
+      const higher = bc === CATEGORY.TWO_PAIR && pairsOf([...x.hole, ...board]).slice(0, 2).join() !== bp.slice(0, 2).join();
+      if (higher) add('a higher two pair or a top kicker', x.w);
+      else if (x.draw && !full) add('draws', x.w);
+      else if (x.tier >= TIER.TOP_PAIR_WEAK) add(bc === CATEGORY.TWO_PAIR ? 'a higher two pair or a top kicker' : 'a top kicker', x.w);
+      else if (x.tier >= TIER.WEAK_PAIR) add('a middling kicker', x.w);
+      else add('nothing better than the board', x.w);
+    }
+  } else {
+    // a straight, flush, full house or quads on a full board: better than the board or not (a tie plays the board)
+    const better = bc === CATEGORY.STRAIGHT ? 'a higher straight' : bc === CATEGORY.FLUSH ? 'a higher flush' : bc === CATEGORY.FULL_HOUSE ? 'quads or a higher full house' : bc === CATEGORY.QUADS ? "a higher kicker than the board's" : 'a better hand than the board';
+    for (const x of combos) {
+      if (x.w <= 0) continue;
+      const k = categoryOf(x.score);
+      if (k > bc && (bc === CATEGORY.STRAIGHT || bc === CATEGORY.FLUSH)) add('a better hand than the board', x.w);
+      else if (x.score > bs) add(better, x.w);
+      else add('nothing better than the board', x.w);
+    }
+  }
+  const order = ['a straight or better', 'a flush or better', 'a full house or better', 'quads or better', 'a straight flush', 'a better hand than the board', 'quads or a higher full house', 'a higher straight', 'a higher flush', "a higher kicker than the board's", 'a higher two pair or a top kicker', 'a top kicker', 'a middling kicker', 'draws', 'nothing better than the board'];
+  return order.filter((l) => parts.get(l) > 0).map((l) => [l, parts.get(l)]);
+}

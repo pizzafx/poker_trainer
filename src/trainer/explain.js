@@ -6,7 +6,6 @@ import { TIER, isRealDraw, handFeatures, boardTexture } from '../engine/features
 import { CATEGORY, evaluate } from '../engine/evaluator.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
 import { anchorStatus, needOf, drawTest, isoQuote, ISO_LIMP_PAIRS } from './grade.js';
-import { boardCategory, beatsBoardLabel } from './coachtier.js';
 import { classOf, classNames } from '../engine/hands.js';
 
 export const CATEGORIES = {
@@ -108,14 +107,10 @@ function rangeLine(d) {
   const strong = b.monster + b.strong + b.twoPair;
   const parts = [];
   const pairedBoard = new Set(d.board.map((c) => c >> 2)).size < d.board.length;
-  // a board that alone makes two pair or better (DESIGN, 20 Nov): the buckets hold kickers, not pairs, so say so
-  const bc = boardCategory(d.board);
-  if (bc !== null) {
-    parts.push(`${pct(strong)} ${beatsBoardLabel(bc)}`);
-    parts.push(`${pct(b.topPair)} an overpair or a top kicker`);
-    if (b.weakPair >= 0.03) parts.push(`${pct(b.weakPair)} a weaker pair or a middling kicker`);
-    if (b.draw >= 0.03) parts.push(`${pct(b.draw)} draws`);
-    parts.push(`${pct(b.air)} nothing better than the board`);
+  // a board that alone makes two pair or better (STRAT, DESIGN, 20 Nov): parts by what each hand really holds
+  const bp = vil.picture.boardParts;
+  if (bp) {
+    for (const [label, x] of bp) if (label !== 'draws' || x >= 0.03) parts.push(`${pct(x)} ${label}`);
   } else {
     parts.push(pairedBoard ? `${pct(strong)} trips or better (or two pair without the board's help)` : `${pct(strong)} two pair or better`);
     parts.push(`${pct(b.topPair)} top pair or an overpair`);

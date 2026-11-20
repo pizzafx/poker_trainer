@@ -9,6 +9,7 @@
 import { COMBOS, comboClass, comboIndex, CLASS_COUNT } from '../engine/hands.js';
 import { handFeatures, boardTexture, TIER } from '../engine/features.js';
 import { coachTiersForRange } from './coachtier.js';
+import { evaluate, categoryOf, CATEGORY } from '../engine/evaluator.js';
 import { STREET } from '../engine/game.js';
 import { preflopPolicy, postflopPolicy, actionLikelihood, betGrid } from '../bots/policy.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
@@ -116,7 +117,16 @@ export class HandBelief {
       const feats = this.features(street);
       const scores = new Array(1326).fill(null);
       const raw = new Array(1326).fill(0);
-      for (let c = 0; c < 1326; c++) if (feats[c]) { scores[c] = feats[c].score; raw[c] = feats[c].tier; }
+      const onBoard = new Set(this.board);
+      if (this.board.length >= 3 && categoryOf(evaluate(this.board)) >= CATEGORY.TWO_PAIR) {
+        for (let c = 0; c < 1326; c++) {
+          const [p, q] = COMBOS[c];
+          if (onBoard.has(p) || onBoard.has(q)) continue;
+          // combos holding hero's cards are scored too (ranked against, never weighted; MATH)
+          scores[c] = feats[c] ? feats[c].score : evaluate([p, q, ...this.board]);
+          raw[c] = feats[c] ? feats[c].tier : TIER.MONSTER;
+        }
+      }
       this.coach = coachTiersForRange(this.board, scores, raw);
       this.coachStreet = street;
     }

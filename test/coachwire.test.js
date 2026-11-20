@@ -78,20 +78,73 @@ test('board-made bet lines: value lines when W >= need; the "do not bluff" line 
 
 import { rangePicture } from '../src/trainer/judge.js';
 import { STREET } from '../src/engine/game.js';
-test('range line on 2-2-2-7 (DESIGN): labels for kickers, and what beats the board', () => {
-  const board = parseCards('2s 2d 2h 7c');
+import { boardRangeParts } from '../src/trainer/coachtier.js';
+import { categoryOf, CATEGORY } from '../src/engine/evaluator.js';
+// STRAT's and DESIGN's fixture (20 Nov): on each board type no label is false for any hand under it
+test('range line on board-made boards: every hand sits under a true label (trips, two pair, straight, flush, full house, quads)', () => {
   const hole = parseCards('Qh Jh');
-  const reads = [null, newRead(TYPE_IDS.map((id) => (id === 'station' ? 1 : 0)))];
-  const bel = new HandBelief(reads, hole);
-  bel.setBoard(board);
-  const s = { street: STREET.TURN, board, hole: [hole, []] };
-  const picture = rangePicture(bel, 1, s, 0);
-  assert.ok(picture.buckets.air < 0.5, 'the board-made combos are not all nothing');
-  const d = { street: STREET.TURN, toCall: 0, raises: 0, opponents: 1, board, hole, tier: TIER.HIGH_CARD, villain: { seat: 1, nick: 'Golf Shirt', picture }, verdict: { grade: 'mistake', mine: 0, best: 1, small: 3, anchors: {}, options: [{ type: 'check', label: 'Check', ev: 0 }, { type: 'raise', to: 10, label: 'Bet $10', ev: 8, F: 0.3, C: 0.7, R: 0, W: 0.6, need: 0.5, alpha: 0.33 }] } };
-  const line = explain(d).reasons.join(' ') + ' ' + (explain(d).anchorExtra || '');
-  const all = JSON.stringify(explain(d));
-  assert.match(all, /a full house or better/);
-  assert.match(all, /an overpair or a top kicker/);
-  assert.match(all, /nothing better than the board/);
-  assert.doesNotMatch(all, /top pair or an overpair|trips or better \(or two pair/);
+  const cases = [
+    ['2s 2d 2h 7c', ['a full house or better', 'a top kicker', 'a middling kicker', 'nothing better than the board']],
+    ['Ts Td 3h 3c 7s', ['a full house or better', 'a higher two pair or a top kicker', 'a middling kicker', 'nothing better than the board']],
+    ['Ks Kd Qc Qs 4s', null],
+    ['5s 6d 7c 8c 9s', ['a higher straight', 'nothing better than the board']],
+    ['Kd 9d 6d 4d 2d', ['a better hand than the board', 'a higher flush', 'nothing better than the board']],
+    ['7s 7d 7c 2s 2d', ['quads or a higher full house', 'nothing better than the board']],
+    ['Ks Kd Kc Kh 5s', ["a higher kicker than the board's", 'nothing better than the board']],
+  ];
+  for (const [B, want] of cases) {
+    const board = parseCards(B);
+    const bs = evaluate(board);
+    const bc = categoryOf(bs);
+    const reads = [null, newRead(TYPE_IDS.map((id) => (id === 'station' ? 1 : 0)))];
+    const bel = new HandBelief(reads, hole);
+    bel.setBoard(board);
+    const street = board.length === 3 ? STREET.FLOP : board.length === 4 ? STREET.TURN : STREET.RIVER;
+    const pic = rangePicture(bel, 1, { street, board, hole: [hole, []] }, 0);
+    assert.ok(pic.boardParts && pic.boardParts.length, B);
+    const labels = pic.boardParts.map(([l]) => l);
+    if (want) for (const l of labels) assert.ok(want.includes(l), `${B}: unexpected label ${l}`);
+    assert.ok(Math.abs(pic.boardParts.reduce((a, [, x]) => a + x, 0) - 1) < 1e-9, `${B}: parts sum to 1`);
+    // each hand alone: its label is true of it
+    const feats = bel.features(street);
+    const ct = bel.coachTiers(street);
+    for (let c = 0; c < 1326; c += 3) {
+      if (!feats[c]) continue;
+      const f = feats[c];
+      const parts = boardRangeParts(board, [{ hole: COMBOS[c], score: f.score, tier: ct[c], draw: false, w: 1 }]);
+      const [l] = parts[0];
+      const k = categoryOf(f.score);
+      const name = `${B}: combo ${c} under "${l}"`;
+      if (/or better$|^a better hand|^a straight flush$/.test(l)) assert.ok(k > bc, name);
+      else if (/^a higher (straight|flush|kicker)|^quads or a higher/.test(l)) assert.ok(f.score > bs && k >= bc, name);
+      else if (l === 'a higher two pair or a top kicker') assert.equal(k, CATEGORY.TWO_PAIR, name);
+      else assert.equal(k, bc, name); // a kicker, or nothing better than the board: the board's own category, no pair claimed
+      if (l === 'nothing better than the board' && board.length === 5 && bc >= CATEGORY.STRAIGHT) assert.equal(f.score, bs, name);
+      if ((l === 'a middling kicker' || l === 'nothing better than the board') && bc === CATEGORY.TWO_PAIR) {
+        const [a, b] = COMBOS[c].map((x) => x >> 2);
+        assert.ok(!(a === b && a > Math.min(...board.map((x) => x >> 2).filter((r, i, arr) => arr.indexOf(r) !== i))), `${name}: a higher pocket pair is a higher two pair`);
+      }
+    }
+  }
+});
+
+// MATH (20 Nov): the range's tiers are the same function of (combo, board) as coachTier, hero's cards dead or not
+test('range coach tiers equal coachTier for every board-made combo, with hero cards dead', () => {
+  for (const [B, H] of [['2s 2d 2h 7c', 'Qh Jh'], ['Ts Td 3h 3c 7s', 'As Kd'], ['Ks Kd Qc Qs', '9h 8h'], ['8c 8d 8h Jc 4s', 'Ad 2c']]) {
+    const board = parseCards(B);
+    const bel = new HandBelief([null, newRead(TYPE_IDS.map((id) => (id === 'abc' ? 1 : 0)))], parseCards(H));
+    bel.setBoard(board);
+    const street = board.length === 4 ? STREET.TURN : STREET.RIVER;
+    const ct = bel.coachTiers(street);
+    const feats = bel.features(street);
+    let n = 0;
+    for (let c = 0; c < 1326; c++) {
+      if (!feats[c]) continue;
+      const e = coachTier(COMBOS[c], board, feats[c]);
+      if (!e.boardMade) continue;
+      n++;
+      assert.equal(ct[c], e.tier, `${B}: combo ${c}`);
+    }
+    assert.ok(n > 100, `${B}: ${n} board-made combos checked`);
+  }
 });

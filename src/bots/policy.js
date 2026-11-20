@@ -162,6 +162,11 @@ export function buildContext(s, seat = s.toAct) {
   }
   ctx.myBarrels = myBarrels;
   ctx.priorAggressor = lastAggSeat;
+  // POOL batch 19e: the river after a flop and a turn with no bet or raise (a checked-down line)
+  ctx.checkedDown = s.street === STREET.RIVER && [STREET.FLOP, STREET.TURN].every((st) => !s.history.some((h) => h.street === st && (h.type === 'bet' || h.type === 'raise')));
+  // POOL batch 19e: did this street's bettor also bet or raise the flop and the turn (a three-street barrel)?
+  ctx.bettorBarrelled = s.street === STREET.RIVER && s.lastRaiser != null && s.lastRaiser >= 0 && s.lastRaiser !== seat &&
+    [STREET.FLOP, STREET.TURN].every((st) => s.history.some((h) => h.street === st && h.seat === s.lastRaiser && (h.type === 'bet' || h.type === 'raise')));
   // Order of action this street starts left of the button.
   const myOrder = (seat - s.button - 1 + n) % n;
   let behind = 0;
@@ -864,6 +869,10 @@ export function postflopPolicy(ctx, P, f) {
     // POOL batch 19c (item 5, PRO's gto ceilings): air bets into two or more, [c-bet into 2, c-bet into 3+, stab or lead]
     if (P.mwAirCap && extra >= 1 && f.tier <= TIER.HIGH_CARD && !isRealDraw(f)) // PRO's air: no pair, no real draw
       bluff = Math.min(bluff, ctx.initiative && st === 0 ? P.mwAirCap[Math.min(extra, 2) - 1] : ctx.initiative ? 1 : P.mwAirCap[2]);
+    // POOL batch 19e (PRO, STRAT, CEO; QA-VERDICT's forward play): a nit that bet or raised no earlier postflop street, first
+    // to bet the river after a checked-through turn, trims its river bluffs (air leads were 7.5% of its 2/3-pot leads
+    // against PRO's 5; PRO_RUBRIC keys the nit's river ceilings on "did the nit bet or raise an earlier street")
+    if (P.riverDownBluffMult != null && st === 2 && ctx.prevChecked && ctx.myBarrels === 0) bluff *= P.riverDownBluffMult;
     const pBluff = (1 - pValue) * bluff;
     // river block bets (fix 2): medium hands out of position lead small
     const pBlock = P.blockBet && st === 2 && !ctx.inPosition && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.TOP_PAIR_GOOD ? P.blockBet * Math.max(0, 1 - pValue - pBluff) : 0;
@@ -1068,6 +1077,10 @@ export function postflopPolicy(ctx, P, f) {
   // (PRO: only with 20bb+ at stake, as rule 3; the cap holds for raise and call together)
   // (PRO's guard on rule 3: at these sizes the item 6 spot stands aside only with a gutshot or a flush draw of its own,
   // not bare overcards)
+  // POOL batch 19e (PRO, STRAT, CEO; gate 25200 13-18): a regular's river call with air (no pair, no real draw) below 10:1,
+  // against a bettor who also bet the flop and the turn, continues at most riverAirCall [heads-up, multiway or a player
+  // still to act]; the excess folds (any call size). At 10:1 or better the floors keep the call.
+  const riverAirSpot = !!P.riverAirCall && st === 2 && ctx.toCall > 0 && ctx.bettorBarrelled && ctx.odds > ODDS_FLOOR_AT && f.tier <= TIER.HIGH_CARD && !isRealDraw(f) && !f.playsBoard;
   const airCallOffSpot = P.airCallOff && !(cheapDraw && (f.straightDraw >= 1 || f.flushDraw)) && f.tier <= TIER.HIGH_CARD && !isRealDraw(f) && (ctx.toCall >= 30 * ctx.bb || (ctx.toCall >= ctx.stack && ctx.toCall >= 20 * ctx.bb));
   if (airCallOffSpot) {
     const cap = P.airCallOff[f.tier === TIER.HIGH_CARD ? 0 : 1] * (ctx.nOpp >= 2 ? 0.5 : 1);
@@ -1084,6 +1097,13 @@ export function postflopPolicy(ctx, P, f) {
     const w = clamp((0.25 - bf) / 0.1, 0, 1);
     if (w > 0) pCont = Math.max(pCont, w * (1 - P.tinyFold * ctx.odds));
   }
+  // ... and the 19e cap comes after the tiny-bet floor, so the call is held to the line, not taken to zero (POOL: never
+  // zero a rare play; gate 25200 13-18 was this floor lifting K-high to 55%)
+  if (riverAirSpot) {
+    const cap = FOLD_CAP_AIM * P.riverAirCall[ctx.nOpp >= 2 || !ctx.inPosition ? 1 : 0]; // aimed under the ceiling
+    raise = Math.min(raise, cap); out.raise = raise;
+    pCont = Math.min(pCont, raise < 1 ? (cap - raise) / (1 - raise) : 0);
+  }
   // and a river hand that plays the board does not fold a chop where rule 6 (v3.6) calls the fold an A (CEO, PRO): a full
   // house or better, or a straight with under four of one suit, at 10:1 or better; a flush or a four-suited straight board
   // (any higher card of the suit wins) at 20:1 or better only; lower boards have no chop floor (a kicker usually beats
@@ -1098,7 +1118,8 @@ export function postflopPolicy(ctx, P, f) {
   // flushRiverRaiseCap and the excess goes into calls (folds unchanged). A station or whale with the straight folds at
   // most flushRiverStraightFold [bet over half pot, half pot or less], the excess into calls. V8's river floor is exempt here.
   if (st === 2 && ctx.riverFlushCompleted && !facingRaise && ctx.toCall > 0 && f.cat < CATEGORY.FLUSH && (f.cat === CATEGORY.STRAIGHT || f.cat === CATEGORY.TRIPS)) {
-    if (P.flushRiverRaiseCap != null && out.raise > P.flushRiverRaiseCap) { out.call += out.raise - P.flushRiverRaiseCap; out.raise = P.flushRiverRaiseCap; raise = out.raise; }
+    const rc = P.flushRiverRaiseCap != null ? FOLD_CAP_AIM * P.flushRiverRaiseCap : null; // POOL batch 19e (CEO): aim under the ceiling
+    if (rc != null && out.raise > rc) { out.call += out.raise - rc; out.raise = rc; raise = out.raise; }
     if (P.flushRiverStraightFold && f.cat === CATEGORY.STRAIGHT) {
       const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall * (1 + (ctx.callersIn || 0))); const cap = P.flushRiverStraightFold[bf <= 0.5 + 1e-9 ? 1 : 0]; // as flushriv.mjs measures it
       if (out.fold > cap) { out.call += out.fold - cap; out.fold = cap; }

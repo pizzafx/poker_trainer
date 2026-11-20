@@ -108,13 +108,13 @@ test('drill P1 predicate: 77/88 out behind 3+ limpers; KJo/ATo out from early po
 });
 
 // D3's nit clause (STRAT, PRO, CURR): tier 6 against a nit's river bet after a checked-through turn is out
-import { turnCheckedThrough } from '../scripts/drill/skills.js';
+import { turnCheckedThrough, nitRiverOut, strictQuiet } from '../scripts/drill/skills.js';
 test('drill D3 nit clause: tier 6 out after a checked turn, in after the nit bet the turn; tier 7 unaffected', () => {
   const s = (turnActs, hole, board) => ({ street: 3, hole: [parseCards(hole)], board: parseCards(board), history: [{ street: 2, seat: 1, type: turnActs[0] }, { street: 2, seat: 0, type: turnActs[1] }] });
   assert.equal(turnCheckedThrough(s(['check', 'check'], 'Qd Qc', 'Td 7c 2h 4s 9d')), true);
   assert.equal(turnCheckedThrough(s(['raise', 'call'], 'Qd Qc', 'Td 7c 2h 4s 9d')), false);
   // the line stays as it is (CEO's final ruling): the cell is dropped, the words are not changed
-  assert.match(SK2.D3.rule, /calls a station, folds to a nit, and is close against others\.$/);
+  assert.match(SK2.D3.rule, /calls a station, folds to a nit, and is close against others\. Against a nit’s big river bet, two pair is close at best, and a set calls or raises on a quiet board: no pair, and never three cards of one suit or three cards to a straight\.$/);
 });
 
 test('drill D3 nit clause in the predicate: out only for an under-pot nit lead after a checked turn when the nit did not bet the flop', () => {
@@ -133,7 +133,9 @@ test('drill D3 nit clause in the predicate: out only for an under-pot nit lead a
   assert.equal(spot('Qd Qc', [[1, 'check'], [0, 'raise'], [1, 'call']], checks, 40), false, 'hero bet the flop, the nit called, the turn checked, a 2/3 lead: out');
   assert.equal(spot('Qd Qc', checks, [[1, 'check'], [0, 'raise'], [1, 'call']], 40), true, 'the nit called a turn bet, then leads 2/3: in (PRO)');
   // a river king changes nothing, so rule 1 allows two pair after a checked turn
-  assert.equal(spot('Td 7d', checks, checks, 40, 'nit', 'Td 7c 2h 4s Kh'), true, 'two pair vs a nit after a checked turn: in');
+  // two pair against a nit's big river bet is out on any board now (the nit clause, 19 Nov); against a station it stays
+  assert.equal(spot('Td 7d', checks, checks, 40, 'nit', 'Td 7c 2h 4s Kh'), false, 'two pair vs a nit after a checked turn: out (nit clause)');
+  assert.equal(spot('Td 7d', checks, checks, 40, 'station', 'Td 7c 2h 4s Kh'), true, 'two pair vs a station: in');
 });
 
 // P1's pairs (CURR, STRAT): 77/88 only from the cutoff and the button, and only where the limp scores wrong
@@ -161,4 +163,49 @@ test('drill P1: 88 from the lojack out of the predicate; any P1 spot with a fine
   assert.equal(derive('P1', aj.s, null, null, aj.types, r('wrong'), null).reject, null, 'AJo with a wrong limp: in');
   // the fold must be wrong too
   assert.match(derive('P1', aj.s, null, null, aj.types, { ...r('wrong'), families: { raise: 'best', fold: 'fine', call: 'wrong' } }, null).reject, /fold fine/);
+});
+
+// the nit clause (CEO's final ruling, 19 Nov): against a nit's big river bet D3 keeps only a set on PRO's strict quiet
+// board (ace low too); D1 drops top pair on D3's quiet-lead nit cell
+test('drill D3 nit clause: only a set on the strict quiet board stays against a nit; stations unchanged', () => {
+  // heads-up river, the nit (seat 1) bets the pot ($60) into $60 after it bet the flop and the turn (so the 7ac18ca
+  // cell plays no part); hero has $150 behind
+  const spot = (hole, board, bettor = 'nit') => {
+    const hist = [{ street: 1, seat: 1, type: 'raise', to: 10 }, { street: 1, seat: 0, type: 'call' }, { street: 2, seat: 1, type: 'raise', to: 25 }, { street: 2, seat: 0, type: 'call' }, { street: 3, seat: 1, type: 'raise', to: 60 }];
+    const s = { n: 2, street: 3, hole: [parseCards(hole), []], board: parseCards(board), folded: [false, false], allIn: [false, false], bet: [0, 60], currentBet: 60, history: hist };
+    const ctx = { toCall: 60, aggressor: 1, pot: 120, bb: 2, raises: 1, stack: 150 };
+    return SK2.D3.match(s, ctx, handFeatures(s.hole[0], s.board), [null, bettor]);
+  };
+  assert.equal(spot('7d 7h', 'Qd 7c 2h Ks Jh'), false, 'a set on Q-J-K (three to a straight): out');
+  assert.equal(spot('7d 7h', 'Ts 7c 2h Ks 4d'), true, 'a set vs a nit on a strict quiet board: in');
+  assert.equal(spot('Td 7d', 'Ts 7c 2h Ks 4d'), false, 'two pair vs a nit on the same board: out');
+  assert.equal(spot('Td 7d', 'Ts 7c 2h Ks 4d', 'station'), true, 'two pair vs a station: in (unchanged)');
+  assert.equal(spot('7d 7h', 'Ts 7s 2h Ks 4d'), false, 'a set, three spades from the turn and a blank river: out');
+  assert.equal(spot('7d 7h', 'Ts 7c 2h Ks Td'), false, 'a set on a just-paired river (a full house): out (held)');
+  assert.equal(spot('As Ah', 'Ad 3d 5c Kh 9s'), false, 'a set on A-3-5 (three to a straight, ace low): out');
+  assert.equal(spot('8s 8h', 'Ad 8d 3c Kh 9s'), true, 'a set on A-8-3-K-9: in');
+  assert.equal(spot('Ad Kd', 'Ac 7c 2h 4s As'), false, 'trips vs a nit: out');
+  assert.equal(spot('Qd Qc', 'Ts 7c 2h 4s 9d'), true, 'an overpair vs a nit after it bet the flop: in (the 7ac18ca rule decides)');
+  assert.equal(strictQuiet(parseCards('As 3d 5c Kh 9s')), false);
+  assert.equal(strictQuiet(parseCards('As 8d 3c Kh 9s')), true);
+  assert.equal(strictQuiet(parseCards('Ah 2d 4c 9h Ks')), false, 'A-2-4 counts');
+});
+test('drill nitRiverOut: a nit river bet only; a strict-board set stays', () => {
+  const hist = [{ street: 1, seat: 1, type: 'raise', to: 10 }, { street: 1, seat: 0, type: 'call' }, { street: 2, seat: 1, type: 'raise', to: 25 }, { street: 2, seat: 0, type: 'call' }, { street: 3, seat: 1, type: 'raise', to: 60 }];
+  assert.equal(nitRiverOut({ street: 3, hole: [parseCards('7d 7h')], board: parseCards('Ts 7c 2h Ks 4d'), history: hist }, { aggressor: 1 }, [null, 'nit']), false);
+  assert.equal(nitRiverOut({ street: 3, hole: [parseCards('7d 7h')], board: parseCards('Ts 7c 2h Ks 4d'), history: hist }, { aggressor: 1 }, [null, 'station']), false);
+  assert.equal(nitRiverOut({ street: 2, hole: [parseCards('Td 7d')], board: parseCards('Ts 7c 2h Ks'), history: hist }, { aggressor: 1 }, [null, 'nit']), false, 'a turn bet: unchanged');
+});
+test('drill D1 nit drop: top pair facing a nit 2/3 lead after a checked flop and turn is out; middle pair and pot-size leads are in', () => {
+  const spot = (hole, lead, bettor = 'nit') => {
+    const hist = [{ street: 1, seat: 1, type: 'check' }, { street: 1, seat: 0, type: 'check' }, { street: 2, seat: 1, type: 'check' }, { street: 2, seat: 0, type: 'check' }, { street: 3, seat: 1, type: 'raise', to: lead }];
+    const s = { n: 2, street: 3, hole: [parseCards(hole), []], board: parseCards('Kh 7c 2h 4s 9d'), folded: [false, false], allIn: [false, false], bet: [0, lead], currentBet: lead, history: hist };
+    const ctx = { toCall: lead, aggressor: 1, pot: 60 + lead, bb: 2, raises: 1, stack: 150 };
+    return SK2.D1.match(s, ctx, handFeatures(s.hole[0], s.board), [null, bettor]);
+  };
+  assert.equal(spot('Kd Tc', 40), false, 'TPGK vs a nit 2/3 lead after a checked flop and turn: out');
+  assert.equal(spot('9s 8c', 40), true, 'middle pair on the same line: in (the gate decides)');
+  assert.equal(spot('Kd Tc', 60), true, 'TPGK vs a pot-size lead: in');
+  assert.equal(spot('Kd Tc', 40, 'abc'), true, 'TPGK vs an abc: in');
+  assert.match(SK2.D1.rule, /usually fold\.$/, "D1's line unchanged");
 });

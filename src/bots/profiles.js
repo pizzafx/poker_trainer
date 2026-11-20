@@ -160,6 +160,8 @@ const BASE = {
   v4Lead: null,
   v4LeadMax: null,
   v4CheckRaise: null,
+  riverDownBluffMult: null, // POOL batch 19e: river bluffs on a checked-down line (nit)
+  riverAirCall: null, // POOL batch 19e: a regular's river air call below 10:1 vs a three-street bettor, [HU, MW or player behind]
   riverTPFloor: null, // POOL batch 19d: river TPGK/overpair value-bet floors by cell (PRO's V1, nit)
   flushRiverRaiseCap: null, // POOL batch 19d: raise share facing a bet on a flush-completing river, set/straight, no flush
   flushRiverStraightFold: null, // POOL batch 19d: [bet over half pot, half pot or less] fold ceiling with the straight
@@ -216,6 +218,7 @@ const BASE = {
 
 const DEFS = {
   nit: {
+    riverDownBluffMult: 0.55, // POOL batch 19e (PRO, STRAT, CEO: air <= 5 of its river leads after a checked-down flop and turn; aims about 4.3)
     riverTPFloor: { dryHU: 0.72, dryMW: 0.62, scaryHU: 0.47, scaryMW: 0.37, dryOOP: 0.52, scaryOOP: 0.32 }, // POOL batch 19d (PRO's V1 floors + 7; twin gaps 20+)
     flushRiverRaiseCap: 0.03, // POOL batch 19d (PRO's flush-river ceiling)
     secondCheckCap: 0.05, // POOL batch 19d (rule 1)
@@ -647,6 +650,7 @@ const DEFS = {
     bigFloorBase: 0.7,
   },
   gto: {
+    riverAirCall: [0.03, 0.01], // POOL batch 19e (PRO's ceiling; excess folds)
     flushRiverRaiseCap: 0.06, // POOL batch 19d (PRO's flush-river ceiling)
     v4Lead: 0.13, // POOL batch 19c
     v4CheckRaise: 0.3, // POOL batch 19c
@@ -746,6 +750,7 @@ const DEFS = {
     ctBehindShiftMult: 0.5,
   },
   tag: {
+    riverAirCall: [0.03, 0.01], // POOL batch 19e (PRO's ceiling; excess folds)
     flushRiverRaiseCap: 0.06, // POOL batch 19d (PRO's flush-river ceiling)
     v4Lead: 0.18, // POOL batch 19c
     v4CheckRaise: 0.3, // POOL batch 19c
@@ -845,6 +850,7 @@ const DEFS = {
     ctBehindShiftMult: 0.5,
   },
   lag: {
+    riverAirCall: [0.06, 0.02], // POOL batch 19e (PRO's ceiling; excess folds)
     flushRiverRaiseCap: 0.12, // POOL batch 19d (PRO's flush-river ceiling)
     v4Lead: 0.23, // POOL batch 19c
     v4CheckRaise: 0.35, // POOL batch 19c
@@ -1037,6 +1043,8 @@ const HERO_DEF = {
   secondCheckCap: null, // POOL batch 19d: pinned off for the stand-in (adoption is a separate step)
   flushRiverRaiseCap: null, // POOL batch 19d: pinned off for the stand-in (QA-VERDICT flip check first)
   riverTPFloor: null,
+  riverAirCall: null, // POOL batch 19e: pinned off for the stand-in (QA-VERDICT flip check first)
+  riverDownBluffMult: null,
   flushRiverStraightFold: null,
   wetFlopCheckCap: null,
   // the stand-in hero (and the judge's play-out profile) keeps the pre-bundle tag until STRAT and MATH rule

@@ -990,7 +990,8 @@ export function postflopPolicy(ctx, P, f) {
   // (PRO: only with 20bb+ at stake, as rule 3; the cap holds for raise and call together)
   // (PRO's guard on rule 3: at these sizes the item 6 spot stands aside only with a gutshot or a flush draw of its own,
   // not bare overcards)
-  if (P.airCallOff && !(cheapDraw && (f.straightDraw >= 1 || f.flushDraw)) && f.tier <= TIER.HIGH_CARD && !isRealDraw(f) && (ctx.toCall >= 30 * ctx.bb || (ctx.toCall >= ctx.stack && ctx.toCall >= 20 * ctx.bb))) {
+  const airCallOffSpot = P.airCallOff && !(cheapDraw && (f.straightDraw >= 1 || f.flushDraw)) && f.tier <= TIER.HIGH_CARD && !isRealDraw(f) && (ctx.toCall >= 30 * ctx.bb || (ctx.toCall >= ctx.stack && ctx.toCall >= 20 * ctx.bb));
+  if (airCallOffSpot) {
     const cap = P.airCallOff[f.tier === TIER.HIGH_CARD ? 0 : 1] * (ctx.nOpp >= 2 ? 0.5 : 1);
     raise = Math.min(raise, cap);
     out.raise = raise;
@@ -998,7 +999,9 @@ export function postflopPolicy(ctx, P, f) {
   }
   // Tiny-bet floor (fix 5 v2, above). POOL batch 19c (item 9, QA-VERDICT N3b, CEO must-fix): applied after the air caps,
   // which count 10bb as a big bet whatever the pot, so a 10bb bet into a 300bb river pot was folded like a big one.
-  if (!facingRaise && !(ctx.callersIn > 0) && P.tinyFold) {
+  // It does not lift an air call-off of 30bb+ (airCallOff, rule 3) below 10:1: there rule 3 still calls the call an A
+  // (19c gate 21000: abc A4s calling a $47 all-in at 7.3:1 went 2% -> 59%); at 10:1 or better rule 3 stands aside (v3.6b).
+  if (!facingRaise && !(ctx.callersIn > 0) && P.tinyFold && !(airCallOffSpot && ctx.odds > ODDS_FLOOR_AT)) {
     const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall);
     const w = clamp((0.25 - bf) / 0.1, 0, 1);
     if (w > 0) pCont = Math.max(pCont, w * (1 - P.tinyFold * ctx.odds));

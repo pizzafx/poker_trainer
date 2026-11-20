@@ -40,3 +40,13 @@ test('item 9: air facing a 10bb+ bet of 4% of a big river pot folds at most 3x t
     assert.ok(p.fold <= 3 * ctx.odds + 1e-9, `${t} folds ${p.fold.toFixed(3)} against a line of ${(3 * ctx.odds).toFixed(3)}`);
   }
 });
+
+test('item 9 (19c gate 21000): below 10:1 the tiny-bet floor leaves the 30bb+ air call-off cap in place (rule 3)', () => {
+  for (const t of TYPES) {
+    const P = PROFILES[t]; if (!P.airCallOff) continue;
+    const { s } = river(['6c 2d', 'As 9s', '4h 5h'], 'Kd Jc 8h 3s Qd', 290); // 145bb, 16% of the pot: about 7.3:1
+    const ctx = buildContext(s); assert.ok(ctx.odds > 0.1 && ctx.toCall >= 60);
+    const p = pol(s, t);
+    assert.ok(1 - p.fold <= Math.max(...P.airCallOff) + 1e-9, `${t} continues ${(1 - p.fold).toFixed(3)} with air against a 145bb bet at 7:1`);
+  }
+});

@@ -202,3 +202,28 @@ test('LD1: flag re-runs get no time budget; their samples follow the base run, f
   assert.equal(reRunOpts(o, 150, { samples: 600 }).samples, 150);
   assert.equal(reRunOpts({ samples: 600 }, 300, { samples: 600 }).budgetMs, 0);
 });
+
+// rule 6's value split (STRAT, PRO, CEO, 20 Nov): a river check with a weak or middle pair whose reference bet wins
+// when called or raised clearly more often than it needs leaves rule 6 (missed value, graded as usual)
+test('temper: a river value check with a weak or middle pair leaves rule 6; a bluff stays under it', () => {
+  const spot = at((p) => p.street === 3 && p.toCall === 0 && p.canRaise && p.tier >= TIER.WEAK_PAIR && p.tier <= TIER.MIDDLE_PAIR, 9,
+    (sess) => noStickyRead(sess) && potSize(sess.hand.state) >= 6 * sess.hand.state.bbAmt);
+  const to = Math.max(spot.L.minTo, Math.round(spot.pot / 2));
+  const small = smallOf(spot);
+  const mk = (W) => {
+    const v = verdict(spot, [['check', 0, 0], ['raise', to, 1.5 * small]], 0, 1, 'mistake');
+    Object.assign(v.options[1], { W, C: 0.8, R: 0.05, F: 0.15, need: 0.5 });
+    v.anchors = { n: 2000 };
+    return v;
+  };
+  const bluff = run(spot, mk(0.2), { type: 'check' });
+  assert.equal(bluff.note, 'passedBluff', 'W under need: rule 6 passes it as before');
+  assert.ok(!bluff.valueCheck);
+  const value = run(spot, mk(0.8), { type: 'check' });
+  assert.equal(value.valueCheck, true, 'W_net 0.75 against need 0.5: a value check');
+  assert.notEqual(value.note, 'passedBluff');
+  // W_net within 2 SE of need: still rule 6
+  const close = mk(0.55);
+  close.anchors = { n: 100 };
+  assert.ok(!run(spot, close, { type: 'check' }).valueCheck, 'W_net 0.52 on 100 samples does not clear need by 2 SE');
+});

@@ -78,7 +78,8 @@ function categorise(d) {
     if (m === 'call' && b === 'raise') return 'missedValue';
     return 'other';
   }
-  if (m === 'check' && b === 'raise') return d.tier >= TIER.TOP_PAIR_WEAK ? 'missedValue' : 'missedBluff';
+  // a river value check that left rule 6 (STRAT, PRO, CEO, 20 Nov) is missed value, whatever the pair
+  if (m === 'check' && b === 'raise') return d.tier >= TIER.TOP_PAIR_WEAK || v.valueCheck ? 'missedValue' : 'missedBluff';
   if (m === 'raise' && b === 'check') return bluffy(d) ? 'badBluff' : 'overplay';
   return 'other';
 }
@@ -344,8 +345,9 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'checkOOP') return `${mine.label}: fine. (With several players or the preflop raiser still to act behind you, checking one pair is standard.)`;
   if (v.note === 'sizeCheck') return `${mine.label}: fine. (A bet of up to three-quarters of the pot ${more(best, 'rates about the same')}.)`;
   if (v.note === 'callPrice') return `${mine.label}: fine. (Folding ${more(best, 'rates a little higher')}, but this call can only cost its price; later decisions are graded when you make them.)`;
-  // a hand the board makes: "bluff" only when the top play does not win when called as often as it needs (MATH, STRAT)
-  const bluffWord = (o) => (d.boardMade && o.W !== null && o.W !== undefined && o.need !== null && o.need !== undefined && o.W >= o.need ? null : 'bluff');
+  // "bluff" only when the top play does not win when called as often as it needs, for every hand (STRAT, 20 Nov;
+  // board-made hands, MATH)
+  const bluffWord = (o) => (o.W !== null && o.W !== undefined && o.need !== null && o.need !== undefined && o.W >= o.need ? null : 'bluff');
   if (v.note === 'bluffRaise') return `${mine.label}: fine. (A ${bluffWord(top) ? 'bluff-raise' : 'raise'} ${more(top)} against these bots, but that only works on bots; it is not a habit to build.)`;
   if (v.note === 'overbet') return `${mine.label}: fine. (A bet bigger than the pot ${more(top)} against these bots; a pot-sized bet or smaller is all you are held to.)`;
   if (v.note === 'preBluff') return `${mine.label}: fine. (A light re-raise ${v.preHigher ? 'scores higher' : 'is close to the best'} against these bots; it is not a habit to build.)`; // STRAT M3

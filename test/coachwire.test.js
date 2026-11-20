@@ -40,8 +40,9 @@ const rec = (W, need, evBet) => ({
 test('board-made headline: "A bet scores" when the bet wins when called as often as it needs, "A bluff" otherwise', () => {
   assert.match(explain(rec(0.7, 0.5, 20)).headline, /\(A bet scores about \$10 more/);
   assert.match(explain(rec(0.1, 0.5, 20)).headline, /\(A bluff scores about \$10 more/);
-  // a hand that is not board-made keeps the word
-  assert.match(explain({ ...rec(0.7, 0.5, 20), boardMade: false }).headline, /\(A bluff scores/);
+  // the same for every hand (STRAT, 20 Nov): "A bet scores" on a value bet, "A bluff" otherwise
+  assert.match(explain({ ...rec(0.7, 0.5, 20), boardMade: false }).headline, /\(A bet scores/);
+  assert.match(explain({ ...rec(0.1, 0.5, 20), boardMade: false }).headline, /\(A bluff scores/);
 });
 
 test('range buckets: on a board-made board, combos the board makes read by rank among the live combos', () => {

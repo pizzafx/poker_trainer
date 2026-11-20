@@ -522,6 +522,27 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
   for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) live.push(i);
   // Is a live opponent read as someone who does not fold?
   const stickyRead = () => live.some((i) => readAs(i, ['station', 'whale', 'maniac', 'beginner']));
+  // rule 6's value test (STRAT, PRO, CEO, 20 Nov): the bet wins when called or raised clearly more often than it
+  // needs, treating every raise as from a better hand
+  const valueBet = (o) => {
+    if (o.W === null || o.W === undefined || o.need === null || o.need === undefined || !v.anchors || !v.anchors.n) return false;
+    const seen = (o.C || 0) + (o.R || 0);
+    if (seen <= 0) return false;
+    const wNet = (o.W * o.C) / seen;
+    const se = Math.sqrt(Math.max(wNet * (1 - wNet), 1e-9) / (v.anchors.n * seen));
+    return wNet - o.need > 2 * se;
+  };
+  // PRO's guards for a value check: a maniac or lag read still to act behind hero, or hero's pair was top pair on
+  // the turn and the river is an overcard to it
+  const valueGuard = () => {
+    const order = (i) => (i - s.button - 1 + s.n) % s.n;
+    if (live.some((i) => order(i) > order(HERO) && !s.allIn[i] && readAs(i, ['maniac', 'lag']))) return true;
+    if (s.board.length === 5) {
+      const topT = Math.max(...s.board.slice(0, 4).map((c) => c >> 2));
+      if (s.hole[HERO].some((c) => c >> 2 === topT) && s.board[4] >> 2 > topT) return true;
+    }
+    return false;
+  };
 
   // ---- multiway facts (after the flop) ----
   const tier = hf ? hf.tier : null;
@@ -890,17 +911,27 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
     // pot (STRAT, QA-VERDICT N3; the model folds too often to tiny bets)
     if (betFrac(best()) < 0.25 && regrade((o) => !isRaise(o) || betFrac(o) >= 0.25, 'passedBluff', 'quarterPot')) return;
     if (!isRaise(best())) return;
-    const margin = (river ? 3 : 2) * small;
-    if (v.loss < margin || stickyRead()) return pass('passedBluff');
-    // On the river the flag stands only if the bet still beats the check by the bar when the players
-    // call a little wider (R12's "calls wider" scenario; POOL and STRAT G6). Otherwise it is the pass.
-    if (river && env) {
-      const vw = judgeDecision(s, HERO, env.belief, action, { ...reRunOpts(judgeOpts, Math.round(judgeOpts.samples / 2), v), shift: -0.05 });
-      const b2 = sameOption(vw, best());
-      const m2 = sameOption(vw, mine);
-      if (b2 >= 0 && m2 >= 0 && vw.options[b2].ev - vw.options[m2].ev < small) return pass('passedBluff');
+    // a river value bet is not a bluff (STRAT, PRO, CEO, 20 Nov): when the reference bet wins when called or raised
+    // clearly more often than it needs (W_net = ahead / (called + raised), every raise from a better hand, clears
+    // 1/(callers+1) by 2 SE), the check leaves rule 6 and is graded as usual as missed value. Yellow at most when a
+    // maniac or lag read is still to act behind, or when hero's pair was top pair on the turn and the river is an
+    // overcard to it (PRO's guards); the scenario test below still runs (calls tighter, ranges halved).
+    if (river && valueBet(best())) {
+      v.valueCheck = true;
+      if (valueGuard()) capYellow();
+    } else {
+      const margin = (river ? 3 : 2) * small;
+      if (v.loss < margin || stickyRead()) return pass('passedBluff');
+      // On the river the flag stands only if the bet still beats the check by the bar when the players
+      // call a little wider (R12's "calls wider" scenario; POOL and STRAT G6). Otherwise it is the pass.
+      if (river && env) {
+        const vw = judgeDecision(s, HERO, env.belief, action, { ...reRunOpts(judgeOpts, Math.round(judgeOpts.samples / 2), v), shift: -0.05 });
+        const b2 = sameOption(vw, best());
+        const m2 = sameOption(vw, mine);
+        if (b2 >= 0 && m2 >= 0 && vw.options[b2].ev - vw.options[m2].ev < small) return pass('passedBluff');
+      }
+      v.grade = 'mistake';
     }
-    v.grade = 'mistake';
   }
   // 7. A call against a fold is graded on what it can lose here: at most its price. Money
   //    lost later is graded at those later decisions (PRO review, item 3).

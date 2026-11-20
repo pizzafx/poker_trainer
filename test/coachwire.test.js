@@ -91,8 +91,9 @@ test('range line on board-made boards: every hand sits under its comparison with
     ['5s 6d 7c 8c 9s', 'Qh Jh', ['a better hand than the board', 'a higher straight', 'the board: a split']],
     ['Kd 9d 6d 4d 2d', 'Qh Jh', ['a better hand than the board', 'a higher flush', 'the board: a split']],
     ['7s 7d 7c 2s 2d', 'Qh Jh', ['quads or a higher full house', 'nothing better than the board']],
-    // on a quads board handFeatures rates the hand above ace-high, so it is not board-made: the plain comparison
-    ['Ks Kd Kc Kh 5s', 'Qh 3h', ['a better hand than yours', 'the same hand: a split', 'a worse hand']],
+    // quads on the board are board-made whatever handFeatures says (STRAT): the kicker comparison, or the board
+    ['Ks Kd Kc Kh 5s', 'Qh 3h', ['a higher kicker than yours', 'your kicker: a split', 'a lower kicker, or just the board']],
+    ['Ks Kd Kc Kh 5s', '4h 3h', ['a better hand than the board', 'the board: a split']],
     // hero's cards do not play on a trips board; hero improves (77 on 2-2-2-7)
     ['2s 2d 2h Kc Qd', '4h 3h', ['a better hand than the board', 'the board: a split']],
     ['2s 2d 2h 7c', '7d 7h', ['a better hand than yours', 'the same hand: a split', 'a worse hand']],
@@ -130,7 +131,7 @@ test('range line on board-made boards: every hand sits under its comparison with
 
 // MATH (20 Nov): the range's tiers are the same function of (combo, board) as coachTier, hero's cards dead or not
 test('range coach tiers equal coachTier for every board-made combo, with hero cards dead', () => {
-  for (const [B, H] of [['2s 2d 2h 7c', 'Qh Jh'], ['Ts Td 3h 3c 7s', 'As Kd'], ['Ks Kd Qc Qs', '9h 8h'], ['8c 8d 8h Jc 4s', 'Ad 2c']]) {
+  for (const [B, H] of [['2s 2d 2h 7c', 'Qh Jh'], ['Ts Td 3h 3c 7s', 'As Kd'], ['Ks Kd Qc Qs', '9h 8h'], ['8c 8d 8h Jc 4s', 'Ad 2c'], ['Ks Kd Kc Kh 5s', 'Qh 3h']]) {
     const board = parseCards(B);
     const bel = new HandBelief([null, newRead(TYPE_IDS.map((id) => (id === 'abc' ? 1 : 0)))], parseCards(H));
     bel.setBoard(board);
@@ -159,4 +160,16 @@ test('the 15% "bets are nearly always real" test counts hands that only chop or 
   const split = picture.boardParts.find(([l]) => l === 'the board: a split')[1];
   assert.ok(Math.abs(picture.boardAir - split) < 1e-9, 'the board-only hands are the air');
   assert.ok(picture.buckets.air < picture.boardAir, 'the coach-tier air bucket alone would undercount it');
+});
+
+test('quads on the board: the coach tier and "you have" come from the showdown rank, not handFeatures (STRAT)', () => {
+  const b = parseCards('Ks Kd Kc Kh 5s');
+  const q = coachTier(parseCards('Qh 3h'), b);
+  assert.equal(q.raw, TIER.TOP_PAIR_GOOD, 'handFeatures calls Q3 top pair with a good kicker');
+  assert.equal(q.boardMade, true);
+  assert.equal(q.tier, TIER.TOP_PAIR_WEAK);
+  assert.equal(coachHandText(parseCards('Qh 3h'), b, q), 'quads on the board with a queen kicker: about as strong as top pair with a weak kicker');
+  const low = coachTier(parseCards('6h 3h'), b);
+  assert.equal(low.tier, TIER.AIR, 'a six kicker: below the raw tier, no floor on a quads board');
+  assert.equal(coachHandText(parseCards('6h 3h'), b, low), 'quads on the board with a six kicker: most hands beat it');
 });

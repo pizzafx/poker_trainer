@@ -45,8 +45,12 @@ export function showdownRank(hole, board) {
 export function coachTier(hole, board, hf = null) {
   const raw = (hf || handFeatures(hole, board)).tier;
   const out = { tier: raw, raw, boardMade: false, rank: null, plays: true, category: null };
-  if (board.length < 3 || raw > TIER.HIGH_CARD) return out;
+  if (board.length < 3) return out;
   const boardScore = evaluate(board);
+  // quads on the board (STRAT, 20 Nov): handFeatures rates every hand there top pair or a monster by its kicker, so
+  // the raw tier says nothing; the board-made path takes it whatever the raw tier, with no floor at the raw tier
+  const quads = categoryOf(boardScore) === CATEGORY.QUADS;
+  if (raw > TIER.HIGH_CARD && !quads) return out;
   const score = evaluate([...hole, ...board]);
   if (categoryOf(boardScore) < CATEGORY.TWO_PAIR || categoryOf(score) !== categoryOf(boardScore)) return out;
   out.boardMade = true;
@@ -56,7 +60,7 @@ export function coachTier(hole, board, hf = null) {
   const cuts = COACH_CUTS[board.length - 3];
   let tier = TIER.AIR;
   for (let i = 0; i < cuts.length; i++) if (out.rank >= cuts[i]) tier = CUT_TIERS[i];
-  out.tier = Math.max(raw, tier);
+  out.tier = quads ? tier : Math.max(raw, tier);
   return out;
 }
 
@@ -104,9 +108,10 @@ export function coachTiersForRange(board, scores, raw) {
   const upper = (x) => { let lo = 0, hi = live.length; while (lo < hi) { const m = (lo + hi) >> 1; if (live[m] <= x) lo = m + 1; else hi = m; } return lo; };
   const cuts = COACH_CUTS[board.length - 3];
   const out = raw.slice();
+  const quads = bcat === CATEGORY.QUADS; // every hand board-made, no floor at the raw tier (STRAT, as coachTier)
   for (let c = 0; c < scores.length; c++) {
     const x = scores[c];
-    if (x == null || raw[c] > TIER.HIGH_CARD || categoryOf(x) !== bcat) continue;
+    if (x == null || (raw[c] > TIER.HIGH_CARD && !quads) || categoryOf(x) !== bcat) continue;
     let below = lower(x), ties = upper(x) - below, tot = live.length;
     const [a, b] = COMBOS[c];
     // take out the combos that share a card with c (c itself once)
@@ -120,7 +125,7 @@ export function coachTiersForRange(board, scores, raw) {
     const rank = tot > 0 ? (below + ties / 2) / tot : 0;
     let tier = TIER.AIR;
     for (let i = 0; i < cuts.length; i++) if (rank >= cuts[i]) tier = CUT_TIERS[i];
-    out[c] = Math.max(raw[c], tier);
+    out[c] = quads ? tier : Math.max(raw[c], tier);
   }
   return out;
 }
@@ -158,7 +163,8 @@ export function boardRangeParts(board, combos, hero) {
   } else if (bc === CATEGORY.FULL_HOUSE && full && !ct.plays) {
     for (const x of combos) if (x.w > 0) put(x.score > bs ? 'quads or a higher full house' : 'nothing better than the board', x.w);
   } else if (bc === CATEGORY.QUADS && full && !ct.plays) {
-    for (const x of combos) if (x.w > 0) put(x.score > bs ? "a higher kicker than the board's" : 'nothing better than the board', x.w);
+    // hero plays the board's quads (the fifth card is the kicker): better than the board, or the board
+    for (const x of combos) if (x.w > 0) put(x.score > hs ? 'a better hand than the board' : 'the board: a split', x.w);
   } else if (!ct.plays) {
     // hero's cards do not play: better than the board, or the board
     const same = bc === CATEGORY.STRAIGHT ? 'a higher straight' : bc === CATEGORY.FLUSH ? 'a higher flush' : null;
@@ -182,6 +188,6 @@ export function boardRangeParts(board, combos, hero) {
       else put(x.score > hs ? 'a higher kicker than yours' : x.score === hs ? 'your kicker: a split' : 'a lower kicker, or just the board', x.w);
     }
   }
-  const RANKED = ['a straight or better', 'a flush or better', 'a full house or better', 'quads or better', 'a straight flush', 'a better hand than yours', 'a better hand than the board', 'quads or a higher full house', 'a higher straight', 'a higher flush', "a higher kicker than the board's", 'a higher two pair', 'a higher kicker than yours', 'your kicker: a split', 'the same hand: a split', 'the board: a split', 'a lower kicker, or just the board', 'a worse hand', 'nothing better than the board'];
+  const RANKED = ['a straight or better', 'a flush or better', 'a full house or better', 'quads or better', 'a straight flush', 'a better hand than yours', 'a better hand than the board', 'quads or a higher full house', 'a higher straight', 'a higher flush', 'a higher two pair', 'a higher kicker than yours', 'your kicker: a split', 'the same hand: a split', 'the board: a split', 'a lower kicker, or just the board', 'a worse hand', 'nothing better than the board'];
   return RANKED.filter((l) => parts.get(l) > 0).map((l) => [l, parts.get(l)]);
 }

@@ -30,11 +30,20 @@ let stale = 0;
 let v1NoCaller = 0;
 // P1 spots rejected by drillentry's limp-and-fold-wrong rule, from the run logs (this bank version)
 let p1Dropped = 0;
+// D3's nit clause drops (CEO, CURR, 19 Nov): strict-board sets against a nit dropped because the call is not best or
+// fine, by the raise family (how many call-wrong spots have raise best decides "calls" or "continues"), and the other
+// two pair+ spots the clause took out
+const d3Nit = { callDrop: {}, clause: 0 };
 for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.log.jsonl'))) {
   for (const line of fs.readFileSync(path.join(dir, f), 'utf8').split('\n').filter(Boolean)) {
     try {
       const l = JSON.parse(line);
       if (l.skill === 'P1' && (l.bankVersion === version || process.argv.includes('--any-version')) && /^P1: .*not both wrong/.test(l.result || '')) p1Dropped++;
+      if (l.skill === 'D3' && (l.bankVersion === version || process.argv.includes('--any-version'))) {
+        const m = /^D3: a strict-board set vs a nit with the call (\w+) \(raise (\w+)\)/.exec(l.result || '');
+        if (m) d3Nit.callDrop[`call ${m[1]}, raise ${m[2]}`] = (d3Nit.callDrop[`call ${m[1]}, raise ${m[2]}`] || 0) + 1;
+        if (/^D3: not a strict-board set vs a nit/.test(l.result || '')) d3Nit.clause++;
+      }
     } catch {
       // a partial line
     }
@@ -314,6 +323,10 @@ for (const [code, r] of Object.entries(report)) {
     const fl = (bySkill.P1 || []).filter((e) => e.families.call === 'fine');
     const pairs = (bySkill.P1 || []).filter((e) => ['77', '88'].includes(e.hand) && ['CO', 'BTN'].includes(e.position)).length;
     console.log(`   dropped by the limp-and-fold-wrong rule: ${p1Dropped}; fine limps left: ${fl.length}; 77/88 from the CO and BTN: ${pairs}`);
+  }
+  if (code === 'D3') {
+    const drops = Object.entries(d3Nit.callDrop).map(([k, n]) => `${k}: ${n}`).join('; ') || 'none';
+    console.log(`   nit clause (from the run logs): strict-board sets dropped for the call (${drops}); other two pair+ vs a nit's river bet dropped in derive: ${d3Nit.clause}`);
   }
   if (code !== 'P2') console.log(`   cells ${Object.keys(cells).length}${thin.length ? `, under 3: ${thin.map(([k, n]) => `${k} (${n})`).join(', ')}` : ', none under 3'}`);
 }

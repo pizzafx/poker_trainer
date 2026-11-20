@@ -5,7 +5,7 @@
 // - the coach's estimate line for each family, as the table would show it for that play (pinned reads)
 // Not in the bank version hash (scripts/drill/version.js): it only re-derives labels from the gate's result.
 
-import { SKILLS, live, difficultyOf, d1DrawStatus, d1DrawRejects, nitQuietLead, nitRiverOut } from './drill/skills.js';
+import { SKILLS, live, difficultyOf, d1DrawStatus, d1DrawRejects, nitQuietLead, nitRiverOut, d1NitTopPair } from './drill/skills.js';
 import { envFor } from './gradeall.js';
 import { Session } from '../src/trainer/session.js';
 import { buildContext } from '../src/bots/policy.js';
@@ -65,8 +65,13 @@ export function derive(code, s, pinned, reads, types, r, nicks) {
     return { reject: `D3: overpair/TPTK vs ${types[ctx.aggressor]}, fold wrong by ${r.minGapBars ? r.minGapBars.fold : '?'} bars (under 3)`, drawSt };
   }
   // the nit filters (CEO, CURR, 19 Nov), also in the predicates; here so the re-gate drops banked spots too
-  if (code === 'D1' && nitQuietLead(s, ctx, types)) return { reject: 'D1: a nit\'s under-pot river lead after a checked turn (nit drop)', drawSt };
-  if (code === 'D3' && f && f.tier >= TIER.TWO_PAIR && nitRiverOut(s, ctx, types)) return { reject: 'D3: two pair+ vs a nit\'s big river bet (nit clause)', drawSt };
+  if (code === 'D1' && d1NitTopPair(f) && nitQuietLead(s, ctx, types)) return { reject: 'D1: top pair vs a nit\'s under-pot river lead after a checked turn (nit drop)', drawSt };
+  if (code === 'D3' && f && f.tier >= TIER.TWO_PAIR && nitRiverOut(s, ctx, types)) return { reject: 'D3: not a strict-board set vs a nit\'s big river bet (nit clause)', drawSt };
+  // a strict-board set against a nit stays only where call is graded best or fine (CURR, CEO); the raise family is in
+  // the reason so the merge can count the call-wrong spots with raise best ("calls" or "continues")
+  if (code === 'D3' && f && f.tier >= TIER.TWO_PAIR && s.street === STREET.RIVER && types[ctx.aggressor] === 'nit' && r.families && !['best', 'fine'].includes(r.families.call)) {
+    return { reject: `D3: a strict-board set vs a nit with the call ${r.families.call || 'missing'} (raise ${r.families.raise || 'missing'})`, drawSt };
+  }
   const tricky = skill.tricky(s, ctx, f, types, drawSt);
   const difficulty = difficultyOf(skill, tricky, pre, r);
   const estimate = estimateLines(s, pinned, reads, r.graded, nicks);

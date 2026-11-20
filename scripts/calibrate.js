@@ -42,6 +42,7 @@ let playersAtFlop = 0;
 let headsUpFlops = 0;
 let fivePlus = 0;
 let limpedPots = 0;
+const limpCallBySize = {}; // POOL batch 19c
 let totalHands = 0;
 let rakeTotal = 0;
 let potTotal = 0; // final pot, in big blinds
@@ -88,6 +89,10 @@ for (let h = 0; h < HANDS; h++) {
       if (ctx.raises === 1 && did[seat].limped) {
         st.limpFaceRaise++;
         if (a.type !== 'fold') st.limpCallRaise++;
+      }
+      if (ctx.raises === 1 && did[seat].limped) { // POOL batch 19c (CEO): limp-call split by the raise size, iso-sized (4-8bb) vs bigger
+        const bbs = s.currentBet / s.bbAmt, k = bbs < 4 ? 'under 4bb' : bbs <= 8 ? '4-8bb (iso-sized)' : 'over 8bb';
+        const o = (limpCallBySize[k] ||= [0, 0]); o[0]++; if (a.type !== 'fold') o[1]++;
       }
       if (a.type === 'call') {
         did[seat].vpip = true;
@@ -177,3 +182,4 @@ console.log(
 // Average pot, the one live pot figure there is: about 25 big blinds at $1/$2 and 31 at $2/$5 (a
 // Las Vegas sample of about 1,000 hands, 2019). Win rate by type is the bb/100 column above.
 console.log(`average pot ${(potTotal / totalHands).toFixed(1)}bb per hand, ${(potFlopTotal / Math.max(1, flops)).toFixed(1)}bb in hands that see a flop | live sample: about 25bb at $1/$2, 31bb at $2/$5`);
+console.log('limp-call by raise size: ' + Object.entries(limpCallBySize).sort().map(([k, o]) => `${k} ${((100 * o[1]) / o[0]).toFixed(1)}% (n ${o[0]})`).join(' | ')); // POOL batch 19c

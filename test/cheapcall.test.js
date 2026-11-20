@@ -31,3 +31,31 @@ test('14-03: the last $17 against a $28 river jam into $183 (7.8% of the final p
     assert.ok(p.fold > 0, `${t}: rare, never zero`);
   }
 });
+
+// POOL batch 19c (item 6, CEO must-fix): gate 18000 hand 02-40, a tag folded AhQs (a gutshot and two overcards, 15% of
+// draw equity) on Td Jd 4c 5c to an $8 all-in into $310 (38.8:1). At 20:1 or better on the flop or turn a hand with 10%+
+// of draw equity continues, every type.
+function spot0240() {
+  const hole = ['3s 5d', 'Ac Qh', '3d Ad', '8c 5s', 'Ks 9c', 'Ah Qs', '2h Th', 'Js 8d'].map(parseCards);
+  const s = newHand({ stacks: [154, 120, 270, 160, 76, 720, 128, 174], button: 0, sb: 1, bb: 2, hole, rng: () => 0.5 });
+  s.plan = parseCards('Td Jd 4c 5c 6d');
+  const A = [['fold'], ['call'], ['raise', 12], ['fold'], ['fold'], ['fold'], ['call'], ['fold'], ['call'],
+    ['raise', 19], ['call'], ['raise', 100], ['call'], ['call'], ['raise', 120]];
+  for (const [type, to] of A) applyAction(s, to ? { type, to } : { type }, () => 0.5);
+  return s;
+}
+
+test('02-40: AhQs on Td Jd 4c 5c facing an $8 all-in into $310 (38.8:1) continues, every type', () => {
+  const s = spot0240();
+  assert.equal(s.toAct, 5);
+  const ctx = buildContext(s);
+  assert.equal(ctx.toCall, 8);
+  assert.ok(ctx.odds <= 0.05, `odds ${ctx.odds}`);
+  const f = handFeatures(s.hole[5], s.board, boardTexture(s.board));
+  assert.ok(f.drawEquity >= 0.1 && f.tier <= 1, `drawEquity ${f.drawEquity}, tier ${f.tier}`);
+  for (const t of TYPE_IDS) {
+    const p = postflopPolicy(ctx, PROFILES[t], f);
+    assert.ok(p.fold <= 0.005 + 1e-9, `${t} folds ${p.fold}`);
+    assert.ok(p.fold > 0, `${t}: rare, never zero`);
+  }
+});

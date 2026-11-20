@@ -155,6 +155,16 @@ const BASE = {
   // overpair or TPTK+ overcalling a bet of about half pot or less is not a marginal overcall
   initSlow: false,
   trapOnce: null,
+  // POOL batch 19c (PRO, STRAT, CEO): V4 lead and check-raise floors, the V5 dry-flop check share, a dry-river value shift,
+  // and caps on air bets into two or more [c-bet into 2, c-bet into 3+, stab or lead]
+  v4Lead: null,
+  v4LeadMax: null,
+  v4CheckRaise: null,
+  dryFlopSlowIP: null,
+  riverDryShift: null,
+  mwAirCap: null,
+  isoFoldMult: null, // POOL batch 19c (item 8, option B): { all: [1, 2, 3+ limpers] } or { pair, suited }: fold multipliers facing one iso raise
+  psLimp: null, // POOL batch 19c (item 8, option B): share of otherwise-folded pairs and suited hands that limp first in or behind
   smallCont: null,
   smallContFirstOnly: false,
   realDrawOnStack: false,
@@ -191,6 +201,8 @@ const BASE = {
 
 const DEFS = {
   nit: {
+    isoFoldMult: { pair: 0.45, suited: 0.75 }, // POOL batch 19c (item 8, option B: PRO + MATH, CEO)
+    v4CheckRaise: 0.2, // POOL batch 19c
     stabFoldCap: { river: { wm: [65, 92], tpgk: { dry: 20, paired: 25, comp: 60, flush: 40 }, tpwk: { dry: 35, paired: 40, comp: 75, flush: 55 }, tptk: { dry: 15, paired: 18, comp: 50, flush: 30 } }, turn: { wm: [null, 85], tp: 15 } }, // POOL batch 19b (PRO's stab-fold ceilings)
     strongRiverFloor: [0.97, 0.99], // POOL batch 19a
     strongRiverFloorDraw: [0.9, 0.97], // POOL batch 19a (PRO's V5 river floors on a river that completed a draw)
@@ -267,6 +279,11 @@ const DEFS = {
     missBluff: 0.06,
   },
   abc: {
+    psLimp: 0.25, // POOL batch 19c (item 8, option B: VPIP back to 35+ through pair and suited limps)
+    isoFoldMult: { pair: 0.85, suited: 0.65 }, // POOL batch 19c (item 8, option B: PRO + MATH, CEO)
+    v4CheckRaise: 0.2, // POOL batch 19c
+    dryFlopSlowIP: 0.13, // POOL batch 19c
+    riverDryShift: -0.015, // POOL batch 19c
     foldCap: { mid: [[null, null, 20, 20], [70, 55, 20, 10], [null, 65, 20, 15]], weak: [[null, null, 40, 40], [70, 55, 30, 10], [null, 65, 35, 15]], oesd: [null, [40, 25, 8, 2], null] }, // POOL batch 19b
     strongRiverFloor: [0.97, 0.99], // POOL batch 19a
     strongRiverFloorDraw: [0.9, 0.97], // POOL batch 19a (PRO's V5 river floors on a river that completed a draw)
@@ -347,6 +364,10 @@ const DEFS = {
     opRaiseContR: 0.6,
   },
   station: {
+    isoFoldMult: { all: [0.86, 0.73, 0.69] }, // POOL batch 19c (item 8, option B: PRO + MATH, CEO)
+    v4LeadMax: 0.3, // POOL batch 19c (PRO's V4 lead target; the type was over its ceiling)
+    v4CheckRaise: 0.1, // POOL batch 19c
+    riverDryShift: 0.03, // POOL batch 19c
     foldCap: { mid: [[20, 15, 10, 5], [35, 25, 10, 5], [null, 35, 20, 10]], weak: [[20, 15, 10, 5], [35, 25, 10, 5], [null, 35, 20, 10]], oesd: [null, [20, 10, 3, 1], null] }, // POOL batch 19b
     strongRiverFloor: [0.97, 0.99], // POOL batch 19a
     strongRiverFloorDraw: [0.9, 0.97], // POOL batch 19a (PRO's V5 river floors on a river that completed a draw)
@@ -440,6 +461,10 @@ const DEFS = {
     opRaiseContR: 0.85,
   },
   whale: {
+    isoFoldMult: { all: [0.86, 0.84, 0.77] }, // POOL batch 19c (item 8, option B: PRO + MATH, CEO)
+    v4LeadMax: 0.47, // POOL batch 19c (PRO's V4 lead target; the type was over its ceiling)
+    v4CheckRaise: 0.15, // POOL batch 19c
+    dryFlopSlowIP: 0.12, // POOL batch 19c
     strongRiverFloor: [0.97, 0.99], // POOL batch 19a
     strongRiverFloorDraw: [0.9, 0.97], // POOL batch 19a (PRO's V5 river floors on a river that completed a draw)
     airContCap: [25, 15], // POOL batch 19
@@ -589,6 +614,10 @@ const DEFS = {
     bigFloorBase: 0.7,
   },
   gto: {
+    v4Lead: 0.13, // POOL batch 19c
+    v4CheckRaise: 0.3, // POOL batch 19c
+    dryFlopSlowIP: 0.12, // POOL batch 19c
+    mwAirCap: [0.17, 0.068, 0.068], // POOL batch 19c
     stabFoldCap: { river: { wm: [50, 85], tpgk: { dry: 10, paired: 15, comp: 50, flush: 30 }, tpwk: { dry: 25, paired: 30, comp: 65, flush: 45 }, tptk: { dry: 5, paired: 8, comp: 40, flush: 20 } }, turn: { wm: [null, 75], tp: 10 } }, // POOL batch 19b (PRO's stab-fold ceilings)
     valueMd: 0.86, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tbCont: [0.52, 0.45], // POOL batches 7-11 (Nov 2026)
@@ -683,6 +712,9 @@ const DEFS = {
     ctBehindShiftMult: 0.5,
   },
   tag: {
+    v4Lead: 0.18, // POOL batch 19c
+    v4CheckRaise: 0.3, // POOL batch 19c
+    dryFlopSlowIP: 0.12, // POOL batch 19c
     stabFoldCap: { river: { wm: [50, 85], tpgk: { dry: 10, paired: 15, comp: 50, flush: 30 }, tpwk: { dry: 25, paired: 30, comp: 65, flush: 45 }, tptk: { dry: 5, paired: 8, comp: 40, flush: 20 } }, turn: { wm: [null, 75], tp: 10 } }, // POOL batch 19b (PRO's stab-fold ceilings)
     valueMd: 0.87, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tpLabel: 0.25, // POOL batch 18
@@ -772,6 +804,9 @@ const DEFS = {
     ctBehindShiftMult: 0.5,
   },
   lag: {
+    v4Lead: 0.23, // POOL batch 19c
+    v4CheckRaise: 0.35, // POOL batch 19c
+    dryFlopSlowIP: 0.12, // POOL batch 19c
     stabFoldCap: { river: { wm: [40, 75], tpgk: { dry: 10, paired: 15, comp: 50, flush: 30 }, tpwk: { dry: 25, paired: 30, comp: 65, flush: 45 }, tptk: { dry: 5, paired: 8, comp: 40, flush: 20 } }, turn: { wm: [null, 65], tp: 10 } }, // POOL batch 19b (PRO's stab-fold ceilings)
     valueMd: 0.85, // POOL batch 18 (PRO's scary-board floors and ceilings)
     tbCont: [0.6, 0.58], // POOL batches 7-11 (Nov 2026)
@@ -858,6 +893,10 @@ const DEFS = {
     ctBehindShiftMult: 0.5,
   },
   beginner: {
+    psLimp: 0.25, // POOL batch 19c (item 8, option B: VPIP back to 35+ through pair and suited limps)
+    isoFoldMult: { all: [1, 0.85, 0.73] }, // POOL batch 19c (item 8, option B: PRO + MATH, CEO)
+    v4LeadMax: 0.38, // POOL batch 19c (PRO's V4 lead target; the type was over its ceiling)
+    v4CheckRaise: 0.1, // POOL batch 19c
     strongRiverFloor: [0.97, 0.99], // POOL batch 19a
     strongRiverFloorDraw: [0.9, 0.97], // POOL batch 19a (PRO's V5 river floors on a river that completed a draw)
     valueMd: 0.88, // POOL batch 18 (PRO's scary-board floors and ceilings)
@@ -947,6 +986,10 @@ const DEFS = {
 // a solid player who adjusts to who they are up against.
 const HERO_DEF = {
   ...DEFS.tag,
+  // POOL batch 19c (CEO): the new tag fields stay off on the stand-in until QA-VERDICT's flip check and STRAT and MATH rule
+  v4Lead: null,
+  v4CheckRaise: null,
+  dryFlopSlowIP: null,
   // the stand-in hero (and the judge's play-out profile) keeps the pre-bundle tag until STRAT and MATH rule
   // on it: the POOL batches 7-12 tag changes are for the opponents only (POOL, 16 Nov 2026)
   pfr: [0.13, 0.18, 0.3, 0.15, 0.1],

@@ -307,7 +307,11 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
   let prevTier = -1;
   if (board.length >= 4 && tier >= TIER.STRONG) prevTier = handFeatures(hole, board.slice(0, board.length - 1)).tier;
   const holdsSuit = tex.maxSuit >= 3 && hole.some((c) => (c & 3) === tex.flushSuit); // POOL batch 18: holds a card of the board's flush suit
-  return { tier, strength, raw, mdFlush, mdStraight, holdsSuit, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, overEquity, nutFlush, missedDraw, prevTier };
+  // POOL batch 19c (item 9, PRO's rule 6 v3.6 groups): the best five are the board's. 0 no; 3 a full house or better, or
+  // a straight with fewer than four of one suit; 2 a flush, or a straight with four of one suit; 1 anything lower
+  const playsBoard = board.length !== 5 || score !== boardScore ? 0
+    : cat >= CATEGORY.FULL_HOUSE || (cat === CATEGORY.STRAIGHT && tex.maxSuit < 4) ? 3 : cat === CATEGORY.FLUSH || cat === CATEGORY.STRAIGHT ? 2 : 1;
+  return { tier, strength, raw, mdFlush, mdStraight, holdsSuit, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, overEquity, nutFlush, missedDraw, prevTier, playsBoard };
 }
 
 export function describeHand(f, board) {

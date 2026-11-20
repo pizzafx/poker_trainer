@@ -183,18 +183,20 @@ test('L3: K5o in the cutoff behind a limper gets the behind-limpers fold note; v
 });
 
 // STRAT: one real judged L2 spot, so the isolation tip is pinned end to end (the judge, the grade and
-// the tip chain), not only on a hand-built verdict. KJo in the hijack behind one abc limper; the seed
+// the tip chain), not only on a hand-built verdict. KJo in the hijack behind two abc limpers; the seed
 // is fixed, and the dollar figures are left free so small judge changes do not break it.
 import { gradeDecision } from '../src/trainer/grade.js';
 import { build } from '../scripts/gradeall.js';
-test('L2 fixture: KJo in the hijack limping behind an abc limper gets the isolation tip, graded fine', () => {
-  const { s, belief, env } = build({ id: 'l2-kjo-hj', button: 2, hole: 'Kd Jc', board: '', seats: { 7: 'abc' }, line: '7c' });
-  // the iso size (5bb + 1bb per limper; PRO, STRAT, 19 Nov) at this table's $3 base: $18 (was $15 under 4bb + 1bb)
-  // 6000 samples (STRAT, MATH): at 1500 the SE is about $2 and KJo's $4 edge sat near the 2.2 SE bar; at 6000 it is near 4 SE
+test('L2 fixture: KJo in the hijack limping behind two abc limpers gets the isolation tip, graded fine', () => {
+  // Re-pinned for batch 19c (STRAT, 19 Nov): behind one abc limper KJo's edge fell to 1.7 SE (limping behind the abc is
+  // worth more after 19c), under the tip's bar. The fixture pins the tip chain, not KJo's margin, so it moved to a spot
+  // that clears 3+ SE on 19c: two abc limpers, raise - limp about $8 at SE 1.4 (5.6 SE).
+  const { s, belief, env } = build({ id: 'l2-kjo-hj-2abc', button: 2, hole: 'Kd Jc', board: '', seats: { 6: 'abc', 7: 'abc' }, line: '6c 7c' });
+  // the iso size (5bb + 1bb per limper; PRO, STRAT, 19 Nov) at this table's $3 base, as the tip rounds it: $20
   const v = gradeDecision(s, belief, { type: 'call' }, { samples: 6000, seed: 1 }, env);
   assert.equal(v.grade, 'good');
   assert.equal(v.tip && v.tip.kind, 'isoLimp');
-  assert.match(v.tip.text, /^raising over the limpers, to about \$18, usually does better than limping behind with KJo: you isolate weaker hands and keep the lead\. Here raising was about \$\d+ better\.$/);
+  assert.match(v.tip.text, /^raising over the limpers, to about \$20, usually does better than limping behind with KJo: you isolate weaker hands and keep the lead\. Here raising was about \$\d+ better\.$/);
 });
 
 test('L2: behind 3 or more limpers, 77 and 88 get no isolation tip; ATo, KJo, AJo and KQo still do (PRO, 19 Nov)', () => {

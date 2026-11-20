@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseCards } from '../src/engine/cards.js';
+import { handFeatures } from '../src/engine/features.js';
 import { SKILLS, difficultyOf, scaryBoard, d1DrawStatus, d1DrawRejects } from '../scripts/drill/skills.js';
 import { TIER } from '../src/engine/features.js';
 
@@ -98,10 +99,66 @@ test('drill P1 predicate: 77/88 out behind 3+ limpers; KJo/ATo out from early po
     return SK2.P1.match(s, buildContext(s), null, types);
   };
   // the button (hero on the button: button 0), abc limpers
-  assert.equal(m(0, '7d 7c', { 3: 'abc', 4: 'abc' }, '3c 4c'), true, '77 behind 2: in');
+  assert.equal(m(0, '7d 7c', { 3: 'abc', 4: 'abc' }, '3c 4c'), true, '77 behind 2 on the button: in');
   assert.equal(m(0, '7d 7c', { 3: 'abc', 4: 'abc', 5: 'station' }, '3c 4c 5c'), false, '77 behind 3: out (P6)');
   assert.equal(m(0, 'Kd Jc', { 3: 'abc', 4: 'abc', 5: 'station' }, '3c 4c 5c'), true, 'KJo behind 3 on the button: in');
   assert.equal(m(0, 'Kd Qc', { 3: 'nit', 4: 'nit' }, '3c 4c'), false, 'KQo behind 2 nits: out');
   assert.equal(m(0, 'Kd Qc', { 3: 'nit', 4: 'abc' }, '3c 4c'), true, 'KQo behind a nit and an abc: in');
   assert.equal(m(0, 'Ad Jc', { 3: 'nit', 4: 'nit' }, '3c 4c'), true, 'AJo behind 2 nits: in (not in the nit scope)');
+});
+
+// D3's nit clause (STRAT, PRO, CURR): tier 6 against a nit's river bet after a checked-through turn is out
+import { turnCheckedThrough } from '../scripts/drill/skills.js';
+test('drill D3 nit clause: tier 6 out after a checked turn, in after the nit bet the turn; tier 7 unaffected', () => {
+  const s = (turnActs, hole, board) => ({ street: 3, hole: [parseCards(hole)], board: parseCards(board), history: [{ street: 2, seat: 1, type: turnActs[0] }, { street: 2, seat: 0, type: turnActs[1] }] });
+  assert.equal(turnCheckedThrough(s(['check', 'check'], 'Qd Qc', 'Td 7c 2h 4s 9d')), true);
+  assert.equal(turnCheckedThrough(s(['raise', 'call'], 'Qd Qc', 'Td 7c 2h 4s 9d')), false);
+  // the line stays as it is (CEO's final ruling): the cell is dropped, the words are not changed
+  assert.match(SK2.D3.rule, /calls a station, folds to a nit, and is close against others\.$/);
+});
+
+test('drill D3 nit clause in the predicate: out only for an under-pot nit lead after a checked turn when the nit did not bet the flop', () => {
+  // heads-up river, the nit (seat 1) leads `lead` into $60; flop and turn as given; hero has $150 behind
+  const spot = (hole, flop, turn, lead, bettor = 'nit', board = 'Td 7c 2h 4s 9d') => {
+    const hist = [...flop.map(([seat, type]) => ({ street: 1, seat, type })), ...turn.map(([seat, type]) => ({ street: 2, seat, type })), { street: 3, seat: 1, type: 'raise', to: lead }];
+    const s = { n: 2, street: 3, hole: [parseCards(hole), []], board: parseCards(board), folded: [false, false], allIn: [false, false], bet: [0, lead], currentBet: lead, history: hist };
+    const ctx = { toCall: lead, aggressor: 1, pot: 60 + lead, bb: 2, raises: 1, stack: 150 };
+    return SK2.D3.match(s, ctx, handFeatures(s.hole[0], s.board), [null, bettor]);
+  };
+  const checks = [[1, 'check'], [0, 'check']];
+  assert.equal(spot('Qd Qc', checks, checks, 45), false, '3/4-pot lead after a checked flop and turn: out');
+  assert.equal(spot('Qd Qc', checks, checks, 60), true, 'pot-size lead after a checked flop and turn: in');
+  assert.equal(spot('Qd Qc', [[1, 'raise'], [0, 'call']], checks, 40), true, '2/3 lead when the nit bet the flop and the turn checked: in');
+  assert.equal(spot('Qd Qc', checks, checks, 40, 'station'), true, 'against a station on the 2/3 line: in');
+  assert.equal(spot('Qd Qc', [[1, 'check'], [0, 'raise'], [1, 'call']], checks, 40), false, 'hero bet the flop, the nit called, the turn checked, a 2/3 lead: out');
+  assert.equal(spot('Qd Qc', checks, [[1, 'check'], [0, 'raise'], [1, 'call']], 40), true, 'the nit called a turn bet, then leads 2/3: in (PRO)');
+  // a river king changes nothing, so rule 1 allows two pair after a checked turn
+  assert.equal(spot('Td 7d', checks, checks, 40, 'nit', 'Td 7c 2h 4s Kh'), true, 'two pair vs a nit after a checked turn: in');
+});
+
+// P1's pairs (CURR, STRAT): 77/88 only from the cutoff and the button, and only where the limp scores wrong
+import { derive } from '../scripts/drillentry.js';
+test('drill P1: 88 from the lojack out of the predicate; any P1 spot with a fine limp or fold is rejected, both wrong kept', () => {
+  const m = (button, hole, seats, line) => {
+    const { s } = build({ id: 'p1p', button, hole, board: '', seats, line });
+    const types = Array.from({ length: s.n }, (_, i) => (i === 0 ? null : seats[i] || 'abc'));
+    return { s, ok: SK2.P1.match(s, buildContext(s), null, types), types };
+  };
+  // hero on the button (button 0) behind one limper; the same hand three seats earlier is the lojack
+  assert.equal(m(0, '8d 8c', { 3: 'abc' }, '3c').ok, true, '88 behind 1 on the button: in');
+  const lj = m(3, '8d 8c', { 6: 'abc' }, '6c');
+  assert.equal(lj.ok, false, '88 behind 1 from the lojack: out');
+  // the family rule, on a button spot: limp wrong kept, limp fine (L2 silent) rejected
+  const bt = m(0, '7d 7c', { 3: 'abc', 4: 'abc' }, '3c 4c');
+  const r = (call) => ({ families: { raise: 'best', fold: 'wrong', call }, graded: {}, marginBb: 1, marginBars: 0 });
+  assert.equal(derive('P1', bt.s, null, null, bt.types, r('wrong'), null).reject, null, '77 behind 2 on the button with L2 firing: in');
+  assert.match(derive('P1', bt.s, null, null, bt.types, r('fine'), null).reject, /limp fine/, '77 with a fine limp: out');
+  // every P1 hand now (CURR, STRAT): AJo in the cutoff behind one limper with a tag and a lag still to act, L2 silent
+  // (the limp fine), is out; with the limp wrong it is in
+  const aj = m(1, 'Ad Jc', { 4: 'station', 2: 'tag', 3: 'lag' }, '4c 5f 6f 7f');
+  assert.equal(aj.ok, true, 'AJo in the cutoff behind one limper is a P1 candidate');
+  assert.match(derive('P1', aj.s, null, null, aj.types, r('fine'), null).reject, /limp fine/, 'AJo with a fine limp: out');
+  assert.equal(derive('P1', aj.s, null, null, aj.types, r('wrong'), null).reject, null, 'AJo with a wrong limp: in');
+  // the fold must be wrong too
+  assert.match(derive('P1', aj.s, null, null, aj.types, { ...r('wrong'), families: { raise: 'best', fold: 'fine', call: 'wrong' } }, null).reject, /fold fine/);
 });

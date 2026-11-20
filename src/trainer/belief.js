@@ -9,7 +9,7 @@
 import { COMBOS, comboClass, comboIndex, CLASS_COUNT } from '../engine/hands.js';
 import { handFeatures, boardTexture, TIER } from '../engine/features.js';
 import { STREET } from '../engine/game.js';
-import { preflopPolicy, postflopPolicy, actionLikelihood } from '../bots/policy.js';
+import { preflopPolicy, postflopPolicy, actionLikelihood, betGrid } from '../bots/policy.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
 
 const T = TYPE_IDS.length;
@@ -129,10 +129,12 @@ export class HandBelief {
           after += w[c];
         }
       } else {
+        // a bet with nobody having bet yet is read against every size a hand could bet here (see actionLikelihood)
+        const grid = ctx.toCall === 0 && (action.type === 'bet' || action.type === 'raise') ? betGrid(ctx) : null;
         for (let c = 0; c < 1326; c++) {
           if (w[c] === 0) continue;
           before += w[c];
-          w[c] *= actionLikelihood(postflopPolicy(ctx, P, feats[c]), action);
+          w[c] *= actionLikelihood(postflopPolicy(ctx, P, feats[c]), action, grid);
           after += w[c];
         }
       }

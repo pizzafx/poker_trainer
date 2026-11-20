@@ -11,6 +11,7 @@ import { Session } from '../src/trainer/session.js';
 import { buildContext } from '../src/bots/policy.js';
 import { handFeatures, TIER } from '../src/engine/features.js';
 import { STREET } from '../src/engine/game.js';
+import { classOf, classNames } from '../src/engine/hands.js';
 
 // The coach's estimate lines without a live session: decisionRecord needs only the hand, a belief, the reads, the
 // judge options and the seat names, all of which the replayed spot carries.
@@ -50,6 +51,13 @@ export function derive(code, s, pinned, reads, types, r, nicks) {
   const f = pre ? null : handFeatures(s.hole[0], s.board);
   const drawSt = code === 'D1' ? d1DrawStatus(f, r.graded.call, live(s).length) : null;
   if (d1DrawRejects(drawSt)) return { reject: drawSt === 'even' ? 'D1: the draw is about even' : 'D1: the draw covers the price', drawSt };
+  // P1 (CURR, STRAT, 19 Nov): every P1 spot is kept only when the bank's limp family is wrong under G4 (the L2 tip
+  // counts as a flag there) and the fold is wrong too; a spot with a fine limp cannot teach "don't limp behind" (live,
+  // L2 rightly stays silent when regulars act behind, STRAT's AJo record)
+  if (code === 'P1' && pre && r.families && (r.families.call !== 'wrong' || r.families.fold !== 'wrong')) {
+    const hand = classNames[classOf(s.hole[0][0], s.hole[0][1])];
+    return { reject: `P1: ${hand} with the limp ${r.families.call || 'missing'} and the fold ${r.families.fold || 'missing'} (not both wrong)`, drawSt };
+  }
   // D3 (PRO): an overpair or top pair top kicker against an abc's or a beginner's bet (the line's "close against
   // others") is kept only where fold is wrong by the easy spot's 3 bars in every scenario; stations and nits take
   // the normal gate

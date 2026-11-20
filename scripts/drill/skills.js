@@ -63,6 +63,11 @@ export function beatenByLastCard(s, f) {
   if (cat === need) return !(S() >= 0.85);
   return false;
 }
+// the turn went check-check (nobody bet or raised on it)
+export const turnCheckedThrough = (s) => {
+  const turn = s.history.filter((h) => h.street === STREET.TURN);
+  return turn.length > 0 && turn.every((h) => h.type === 'check');
+};
 // D3's hands: overpair or top pair top kicker or better; two pair only from hero's own cards (each hole card pairs
 // the board, no pocket pair)
 function realHand(s, f) {
@@ -146,6 +151,14 @@ export const SKILLS = {
     match: (s, ctx, f, types) => {
       if (!bigLateBetShape(s, ctx) || !PASSIVE.has(types[ctx.aggressor]) || leftToAct(s, ctx.aggressor).length) return false;
       if (!realHand(s, f)) return false;
+      // the nit clause (CEO, STRAT, PRO, CURR, 19 Nov): an overpair or top pair top kicker facing a nit's river bet after
+      // the turn checked through is out until POOL's nit fix ships (QA-VERDICT's gate 6: call best 46-50% there, the
+      // bots' nit line is off; a live nit's big river bet there is strong, so the line stays as it is)
+      // narrowed (PRO, STRAT, POOL, CEO, 19 Nov): only an under-pot lead after a checked turn from a nit who did not bet or
+      // raise the flop; pot-size or bigger leads, and any lead after the nit bet the flop, come back through the gate
+      if (f.tier === TIER.OVERPAIR_TPTK && s.street === STREET.RIVER && types[ctx.aggressor] === 'nit' && turnCheckedThrough(s)
+        && !s.history.some((h) => h.street === STREET.FLOP && h.seat === ctx.aggressor && (h.type === 'raise' || h.type === 'bet'))
+        && ctx.toCall < ctx.pot - ctx.toCall) return false;
       // the line's exception (PRO, STRAT): two pair or better where the last card paired the board or completed a
       // flush or straight that hero does not hold
       return !(f.tier >= TIER.TWO_PAIR && beatenByLastCard(s, f));
@@ -262,6 +275,8 @@ export const SKILLS = {
       if (!['AJo', 'ATo', 'KQo', 'KJo', '77', '88'].includes(n)) return false;
       const L = limpers(s);
       if (L >= 3 && (n === '77' || n === '88')) return false;
+      // 77 and 88 only from the cutoff and the button (CURR, STRAT: L2 is silent from earlier seats by its 2.2 SE gate)
+      if ((n === '77' || n === '88') && g !== 'cutoff' && g !== 'button') return false;
       if (g === 'early' && (n === 'KJo' || n === 'ATo')) return false;
       if (['KQo', 'KJo', 'ATo'].includes(n) && L >= 2 && types) {
         const seats = [...new Set(s.history.filter((h) => h.type === 'call' && h.street === STREET.PRE && !s.folded[h.seat]).map((h) => h.seat))];

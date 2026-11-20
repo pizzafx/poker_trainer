@@ -87,3 +87,16 @@ test('prePassive pair reason: 88 on the button behind three stations; not behind
     assert.match(why(h, p, t2), /plays best against few opponents/, `${h} ${p} ${t2}`);
   }
 });
+
+// STRAT YB-D2c (c), 19 Nov: a draw overbet's multiway-habit line carries D2's advice as plain text
+test('YB-D2c: the draw-overbet habit line says "With a draw, bet smaller or check" (calling is cheaper facing a bet)', () => {
+  const rec = (toCall) => ({
+    street: 1, toCall, currentBet: toCall, raises: toCall ? 1 : 0, opponents: 2, position: 'BTN', tier: 1,
+    hole: parseCards('As 4s'), board: parseCards('3d 6s 3s'),
+    verdict: { grade: 'good', note: 'mwHabit', habit: 'drawOverbet', mine: 1, best: 0, small: 3, options: [{ type: 'check', label: 'Check', ev: 5 }, { type: 'raise', to: 39, label: 'Bet $39 (150% pot)', ev: 4.5 }] },
+  });
+  const h = explain(rec(0)).headline;
+  assert.match(h, /An overbet with a draw into several players\. With a draw, bet smaller or check\.\)$/);
+  assert.doesNotMatch(h, /your draw comes in/);
+  assert.match(explain(rec(10)).headline, /With a draw, calling is cheaper\.\)$/);
+});

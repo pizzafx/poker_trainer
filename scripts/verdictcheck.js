@@ -18,7 +18,7 @@ import { classOf, classNames } from '../src/engine/hands.js';
 import { handFeatures, TIER, isRealDraw } from '../src/engine/features.js';
 import { HERO_PROFILE } from '../src/bots/profiles.js';
 import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
-import { shownCost, dryBoard, blockerHand, t1Board } from '../src/trainer/explain.js';
+import { shownCost, dryBoard, blockerHand, t1Board, stationLimpers } from '../src/trainer/explain.js';
 import { pairedGap, redBar } from '../src/trainer/judge.js';
 import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest, ISO_LIMP, ISO_LIMP_FEW, ISO_LIMP_PAIRS, NIT_SCOPE_HANDS, isoFoldHand, ISO_FOLD_VETO, outsideBehindLimpers, raiseClears, suitedLimpHand } from '../src/trainer/grade.js';
 // the bet an estimate line is about: "A bet of $X:" names it; otherwise hero's bet or raise, else the reference (QA-VERDICT)
@@ -363,6 +363,10 @@ export const INVARIANTS = {
   },
   'L4e no isoFold tip for 77 or 88 behind 3 or more limpers (STRAT: the preTight flag covers them)': (d) => d.tipKind === 'isoFold' && !!(d.ctx && d.ctx.limpers >= 3) && ISO_LIMP_PAIRS.has(classNames[classOf(d.hole[0], d.hole[1])]),
   'L4f no isoFold or isoLimp for KQo, KJo or ATo behind 2+ limpers all read as nits (STRAT)': (d) => ['isoFold', 'isoLimp'].includes(d.tipKind) && NIT_SCOPE_HANDS.has(classNames[classOf(d.hole[0], d.hole[1])]) && !!d.snapshot && nitLimpersOf(d) >= 2,
+  // STRAT, CEO, PRO (19 Nov): 77/88 limped behind 3+ limpers: flagged only on the button behind mostly stations (PP1, reported
+  // to STRAT and PRO, not suppressed), and there always with the pair reason (PP2)
+  'PP1 a prePassive flag on 77/88 behind 3+ limpers is on the button behind mostly stations (report to STRAT and PRO)': (d, v) => d.category === 'prePassive' && ['77', '88'].includes(classNames[classOf(d.hole[0], d.hole[1])]) && !!(d.ctx && d.ctx.limpers >= 3) && !(d.position === 'BTN' && (() => { const s = stationLimpers(d); return s.n >= 3 && s.stations * 2 > s.n; })()),
+  'PP2 an in-scope 77/88 prePassive flag has the pair reason, never "plays best against few opponents"': (d) => d.category === 'prePassive' && ['77', '88'].includes(classNames[classOf(d.hole[0], d.hole[1])]) && d.position === 'BTN' && !!(d.ctx && d.ctx.limpers >= 3) && (() => { const s = stationLimpers(d); return s.n >= 3 && s.stations * 2 > s.n; })() && (/plays best against few opponents/.test((d.reasons || []).join(' ')) || !/limpers who mostly call/.test((d.reasons || []).join(' '))),
   'L4b isoFold says "raising was about $" only when raising clears the fold by 2.2 SE and $1 (STRAT)': (d, v) => d.tipKind === 'isoFold' && /raising was about \$/.test(d.tip || '') && !raiseClears(v, v.mine),
   'L4c isoFold never on a flagged decision (the grade is unchanged)': (d, v) => d.tipKind === 'isoFold' && v.grade !== 'good',
   'L23 a behind-limpers tip only with one or more limpers and no raise': (d) => ['isoLimp', 'wideLimp', 'isoFold'].includes(d.tipKind) && !(d.ctx && d.ctx.limpers >= 1 && d.ctx.raises === 0),

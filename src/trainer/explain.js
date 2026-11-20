@@ -555,6 +555,17 @@ export function shownCost(v) {
   return cap !== undefined ? Math.min(gap, Math.round(cap)) : gap;
 }
 
+// The live limpers in front of a preflop decision and how many the player reads as stations (top read station at
+// 50% or more, as shown: the reader-view rule of allNitLimpers), from the record's snapshot
+export function stationLimpers(d) {
+  const sn = d.snapshot;
+  if (!sn || !sn.actions || !sn.seats) return { n: 0, stations: 0 };
+  const seats = [...new Set(sn.actions.filter((a) => a.street === 'preflop' && a.type === 'call' && a.seat !== 0).map((a) => a.seat))];
+  const live = seats.map((i) => sn.seats.find((x) => x.seat === i)).filter((r) => r && !r.folded);
+  const stations = live.filter((r) => r.read && r.read[0] && r.read[0].type === 'station' && Math.round(r.read[0].p * 1000) / 1000 >= 0.5).length;
+  return { n: live.length, stations };
+}
+
 export function explain(d) {
   const v = d.verdict;
   if (v.mine < 0) return { category: 'other', headline: '', reasons: [], theory: null, cost: 0 };
@@ -630,7 +641,15 @@ export function explain(d) {
       const T = d.table || {};
       reasons.push(`From ${where}, with the action so far, this hand loses money on average: it will often be dominated${T.oop ? ' or out of position' : ''}${T.raked ? ' in a raked pot' : ''}.`);
     }
-    if (category === 'prePassive') reasons.push(`A raise here gets called by worse hands and gives you the betting lead; just calling lets everyone in cheaply against a hand that plays best against few opponents.`);
+    if (category === 'prePassive') {
+      // 77 and 88 limped on the button behind 3+ limpers who mostly call (STRAT, CEO, PRO): the pair-specific reason
+      const sl = stationLimpers(d);
+      const hand = d.hole && d.hole.length === 2 ? classNames[classOf(d.hole[0], d.hole[1])] : null;
+      if (hand && ISO_LIMP_PAIRS.has(hand) && d.raises === 0 && d.position === 'BTN' && sl.n >= 3 && sl.stations * 2 > sl.n) {
+        const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'][sl.n] || String(sl.n);
+        reasons.push(`Behind ${words} limpers who mostly call, raising ${hand} on the button makes more than limping: they call the raise with worse hands, and you play the bigger pot in position on all of them.`);
+      } else reasons.push(`A raise here gets called by worse hands and gives you the betting lead; just calling lets everyone in cheaply against a hand that plays best against few opponents.`);
+    }
     if (category === 'preTight') {
       if (d.raises === 0 && !(d.ctx && d.ctx.limpers > 0)) reasons.push(`This hand is a profitable open from ${where} here, even though a tight chart folds it.`);
       else {

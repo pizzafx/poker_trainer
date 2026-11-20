@@ -102,14 +102,17 @@ export function nitRiverOut(s, ctx, types) {
   if (s.street !== STREET.RIVER || types[ctx.aggressor] !== 'nit') return false;
   return !(isSet(s) && strictQuiet(s.board));
 }
-// the board alone holds trips, two pair, a full house or quads (CURR, 19 Nov): then hero's "high card" is a made hand
+// the board alone holds trips, two pair, a straight, a flush, a full house or quads (CURR, 19 Nov): then hero's "high card" is a made hand
 // the features tier does not see (AQ on 6-6-6 is trips with the best kickers). One pair on the board is shared, so it
 // does not count.
 export function boardMade(board) {
   const n = {};
   for (const c of board) n[c >> 2] = (n[c >> 2] || 0) + 1;
   const v = Object.values(n);
-  return v.some((x) => x >= 3) || v.filter((x) => x >= 2).length >= 2;
+  if (v.some((x) => x >= 3) || v.filter((x) => x >= 2).length >= 2) return true;
+  // a five-card board that is itself a straight or a flush (CURR, 19 Nov: KQ on Qd-7d-Td-Ad-Kd plays the board flush)
+  if (board.length === 5) { const c = categoryOf(evaluate(board)); return c === CATEGORY.STRAIGHT || c >= CATEGORY.FLUSH; }
+  return false;
 }
 // D3's hands: overpair or top pair top kicker or better; two pair only from hero's own cards (each hole card pairs
 // the board, no pocket pair)

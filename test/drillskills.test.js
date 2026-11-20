@@ -231,4 +231,7 @@ test('drill B1 flop narrowing: overcards and any straight or flush draw out on t
   assert.equal(m('5d 4c', '9h 9s 2d'), true, '54o on 9-9-2: in (the gate decides)');
   assert.equal(m('Ad 3c', 'Kh Ks 7d 7c 2s'), false, 'ace-high on a two-pair river board: out');
   assert.equal(m('Ad 3c', 'Kh Ks 7d 4c 2s'), true, 'ace-high on a one-pair river board: in');
+  assert.equal(m('Kc Qc', 'Qd 7d Td Ad Kd'), false, 'KQo under a five-diamond board: out');
+  assert.equal(m('Kc 2c', '9d Ts Jh Qs 8c'), false, 'a board straight: out');
+  assert.equal(m('5c 2h', '9d Ts Jh Qs 3c'), true, 'four to a straight on the board, hero no straight: in');
 });

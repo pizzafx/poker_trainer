@@ -275,6 +275,8 @@ export const SKILLS = {
       if (!['AJo', 'ATo', 'KQo', 'KJo', '77', '88'].includes(n)) return false;
       const L = limpers(s);
       if (L >= 3 && (n === '77' || n === '88')) return false;
+      // 77 and 88 only from the cutoff and the button (CURR, STRAT: L2 is silent from earlier seats by its 2.2 SE gate)
+      if ((n === '77' || n === '88') && g !== 'cutoff' && g !== 'button') return false;
       if (g === 'early' && (n === 'KJo' || n === 'ATo')) return false;
       if (['KQo', 'KJo', 'ATo'].includes(n) && L >= 2 && types) {
         const seats = [...new Set(s.history.filter((h) => h.type === 'call' && h.street === STREET.PRE && !s.folded[h.seat]).map((h) => h.seat))];

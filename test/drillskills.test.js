@@ -99,7 +99,7 @@ test('drill P1 predicate: 77/88 out behind 3+ limpers; KJo/ATo out from early po
     return SK2.P1.match(s, buildContext(s), null, types);
   };
   // the button (hero on the button: button 0), abc limpers
-  assert.equal(m(0, '7d 7c', { 3: 'abc', 4: 'abc' }, '3c 4c'), true, '77 behind 2: in');
+  assert.equal(m(0, '7d 7c', { 3: 'abc', 4: 'abc' }, '3c 4c'), true, '77 behind 2 on the button: in');
   assert.equal(m(0, '7d 7c', { 3: 'abc', 4: 'abc', 5: 'station' }, '3c 4c 5c'), false, '77 behind 3: out (P6)');
   assert.equal(m(0, 'Kd Jc', { 3: 'abc', 4: 'abc', 5: 'station' }, '3c 4c 5c'), true, 'KJo behind 3 on the button: in');
   assert.equal(m(0, 'Kd Qc', { 3: 'nit', 4: 'nit' }, '3c 4c'), false, 'KQo behind 2 nits: out');
@@ -134,4 +134,26 @@ test('drill D3 nit clause in the predicate: out only for an under-pot nit lead a
   assert.equal(spot('Qd Qc', checks, [[1, 'check'], [0, 'raise'], [1, 'call']], 40), true, 'the nit called a turn bet, then leads 2/3: in (PRO)');
   // a river king changes nothing, so rule 1 allows two pair after a checked turn
   assert.equal(spot('Td 7d', checks, checks, 40, 'nit', 'Td 7c 2h 4s Kh'), true, 'two pair vs a nit after a checked turn: in');
+});
+
+// P1's pairs (CURR, STRAT): 77/88 only from the cutoff and the button, and only where the limp scores wrong
+import { derive } from '../scripts/drillentry.js';
+test('drill P1 pairs: 88 from the lojack out of the predicate; a pair spot with a fine limp is rejected, a wrong limp kept', () => {
+  const m = (button, hole, seats, line) => {
+    const { s } = build({ id: 'p1p', button, hole, board: '', seats, line });
+    const types = Array.from({ length: s.n }, (_, i) => (i === 0 ? null : seats[i] || 'abc'));
+    return { s, ok: SK2.P1.match(s, buildContext(s), null, types), types };
+  };
+  // hero on the button (button 0) behind one limper; the same hand three seats earlier is the lojack
+  assert.equal(m(0, '8d 8c', { 3: 'abc' }, '3c').ok, true, '88 behind 1 on the button: in');
+  const lj = m(3, '8d 8c', { 6: 'abc' }, '6c');
+  assert.equal(lj.ok, false, '88 behind 1 from the lojack: out');
+  // the family rule, on a button spot: limp wrong kept, limp fine (L2 silent) rejected
+  const bt = m(0, '7d 7c', { 3: 'abc', 4: 'abc' }, '3c 4c');
+  const r = (call) => ({ families: { raise: 'best', fold: 'wrong', call }, graded: {}, marginBb: 1, marginBars: 0 });
+  assert.equal(derive('P1', bt.s, null, null, bt.types, r('wrong'), null).reject, null, '77 behind 2 on the button with L2 firing: in');
+  assert.match(derive('P1', bt.s, null, null, bt.types, r('fine'), null).reject, /limp fine/, '77 with a fine limp: out');
+  // other hands keep a fine limp
+  const aj = m(0, 'Ad Jc', { 3: 'abc' }, '3c');
+  assert.equal(derive('P1', aj.s, null, null, aj.types, r('fine'), null).reject, null, 'AJo with a fine limp: kept');
 });

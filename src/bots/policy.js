@@ -596,17 +596,22 @@ function jamGroup3(cls) {
 // ---------------------------------------------------------------------------------------
 // Postflop.
 
-function betSizes(ctx, weights) {
+function betTosOf(ctx) {
   // The dollar amount for each bet fraction depends only on the situation, so work it out
   // once per decision (this runs for every possible hand when ranges are updated).
-  let tos = ctx.betTos;
-  if (!tos) {
-    tos = ctx.betTos = BET_FRACS.map((f) => {
-      let to = roundChips(f * ctx.pot);
-      if (to >= 0.7 * ctx.maxTo) to = ctx.maxTo;
-      return clamp(to, ctx.minTo, ctx.maxTo);
-    });
-  }
+  return (ctx.betTos ||= BET_FRACS.map((f) => {
+    let to = roundChips(f * ctx.pot);
+    if (to >= 0.7 * ctx.maxTo) to = ctx.maxTo;
+    return clamp(to, ctx.minTo, ctx.maxTo);
+  }));
+}
+// Every size any hand can bet here when nobody has bet yet this street, smallest first, each once (the same for
+// every hand and every type): what actionLikelihood reads a bet against.
+export function betGrid(ctx) {
+  return (ctx.betGrid ||= [...new Set(betTosOf(ctx))].sort((a, b) => a - b));
+}
+function betSizes(ctx, weights) {
+  const tos = betTosOf(ctx);
   const out = [];
   let total = 0;
   for (let i = 0; i < tos.length; i++) {
@@ -1078,12 +1083,39 @@ export function sampleAction(pol, rng) {
 
 const FLOOR = 1e-5;
 
-// Probability that this policy produces the observed action (raise sizes matched to the
-// nearest size the policy considers).
-export function actionLikelihood(pol, action) {
+// Probability that this policy produces the observed action.
+// A bet when nobody has bet yet this street (pass `grid`, betGrid(ctx)) is read against the sizes any hand can bet
+// there (MATH, 19 Nov 2026; found by QA-VERDICT on D3). The bet is first placed on that grid: a size on the grid is
+// itself, a size between two grid sizes is split between them by closeness in log size, and a size under the smallest
+// or over the largest is the smallest or the largest. The hand is then credited with its own chance of those grid
+// sizes, which is zero for a size its menu does not have. Before, the hand was credited with the share of its own
+// nearest size however far away, so a nit's pot-sized river bet was credited to air at air's 3/4-pot share though air
+// never bets the pot. SIZE_ANY of all bets are taken to come at a size that says nothing about the hand, so a hand
+// that bets at all is never ruled out by the size alone.
+// Without a grid (preflop, and raises over a bet, where every hand of a type has the same sizes) the size is matched
+// to the nearest size on the hand's own menu, as before.
+export const SIZE_ANY = 0.005;
+export function actionLikelihood(pol, action, grid = null) {
   const t = action.type === 'bet' ? 'raise' : action.type;
   if (t === 'raise') {
     if (!pol.sizes || pol.raise <= 0) return FLOOR;
+    if (grid && grid.length) {
+      const pOf = (to) => { let p = 0; for (const sz of pol.sizes) if (sz.to === to) p += sz.p; return p; };
+      const x = action.to, n = grid.length;
+      let c;
+      if (x <= grid[0]) c = pOf(grid[0]);
+      else if (x >= grid[n - 1]) c = pOf(grid[n - 1]);
+      else {
+        let i = 1;
+        while (grid[i] < x) i++;
+        if (grid[i] === x) c = pOf(x);
+        else {
+          const hi = Math.log(x / grid[i - 1]) / Math.log(grid[i] / grid[i - 1]); // 0 at the lower size, 1 at the upper
+          c = (1 - hi) * pOf(grid[i - 1]) + hi * pOf(grid[i]);
+        }
+      }
+      return Math.max(FLOOR, pol.raise * ((1 - SIZE_ANY) * Math.min(1, c) + SIZE_ANY));
+    }
     let best = pol.sizes[0];
     let bd = Infinity;
     for (const sz of pol.sizes) {

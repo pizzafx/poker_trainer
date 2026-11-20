@@ -44,7 +44,7 @@ const HABIT_WHY = {
   passiveLead: 'One pair is rarely best when a passive player leads into a crowd.',
   drawStation: 'A bet with a draw into a player who does not fold wins only when it hits.',
   drawOverbet: 'An overbet with a draw into several players.',
-  foldsBetter: 'A big bet here mostly folds better hands and gets called by the best ones.',
+  foldsBetter: 'A big bet here is a bluff with a pair: worse hands fold and the best ones call.',
 };
 
 function kind(a) {
@@ -329,7 +329,7 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'mwDraw') return `${mine.label}: fine. (With a draw and several players in, checking or calling is standard; ${bare(best).toLowerCase()} ${more(best)} against these opponents.)`;
   if (v.note === 'mwSize') return `${mine.label}: fine. (A bigger bet ${more(top, 'rates a little higher')}, but with several players in and this hand, a small bet is reasonable.)`;
   if (v.note === 'tinyPot') return `${mine.label}: fine. (A bet ${more(best, 'rates a little higher')}, but in a pot this small it is not worth a flag.)`;
-  if (v.note === 'foldsBetter') return `${mine.label}: fine. (A bet here mostly folds the better hands; checking is the habit to keep.)`;
+  if (v.note === 'foldsBetter') return `${mine.label}: fine. (Worse hands won't call a bet here, so it would only be a bluff; with a pair, checking to showdown is the habit to keep.)`;
   if (v.note === 'passiveFold') return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`;
   if (v.note === 'unclear') {
     // labelled "not graded", not "fine"

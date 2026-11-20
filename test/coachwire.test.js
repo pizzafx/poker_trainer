@@ -191,3 +191,16 @@ test('quads, straight-flush and counterfeited boards: the rank tier, capped; onl
   assert.equal(coachHandText(parseCards('4h 4d'), parseCards('7s 7d As Ac Kh'), coachTier(parseCards('4h 4d'), parseCards('7s 7d As Ac Kh'))), "two pair on the board; your fours don't play: the best you can do is split the pot");
   assert.equal(coachTier(parseCards('9h 9d'), parseCards('7s 7d 4s 4c 3h')).boardMade, false, '99 above a board pair keeps its raw tier');
 });
+
+import { foldsBetterHand } from '../src/trainer/grade.js';
+test('foldsBetter takes real pairs only: a board-made hand is out, a real K9 pair stays (STRAT, 20 Nov)', () => {
+  const k158 = coachFeatures(parseCards('Qs 7s'), parseCards('Kh Kc Td 9s Ks'));
+  assert.equal(k158.coach.boardMade, true);
+  assert.ok(k158.tier >= TIER.WEAK_PAIR, 'K-158 reads as a pair on the coach tier');
+  assert.equal(foldsBetterHand(k158), false, 'K-158 (Qs7s on K-K-T-9-K vs a nit) is no longer foldsBetter');
+  const k183 = coachFeatures(parseCards('Ks 6d'), parseCards('3d 3c 2c 8s 8c'));
+  assert.equal(foldsBetterHand(k183), false, 'K-183 the same');
+  const k9 = coachFeatures(parseCards('Kd 9c'), parseCards('Ks 7h 4d 2c 3s'));
+  assert.equal(k9.coach.boardMade, false);
+  assert.equal(foldsBetterHand(k9), true, 'a real K9 pair: foldsBetter as before');
+});

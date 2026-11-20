@@ -453,6 +453,10 @@ function moneyInArm(v, s, ctx) {
   refreshClose(v);
 }
 
+// foldsBetter's hand (STRAT): a real pair below top pair top kicker; a hand the board makes is not one, whatever its
+// coach tier (Qs7s on K-K-T-9-K)
+export const foldsBetterHand = (hf) => !!hf && hf.tier >= TIER.WEAK_PAIR && hf.tier < TIER.OVERPAIR_TPTK && !(hf.coach && hf.coach.boardMade);
+
 function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
   if (v.mine < 0) return;
   v.small = Math.max(3 * s.bbAmt, 0.1 * v.pot); // the yellow bar, for the notes' copy
@@ -561,7 +565,8 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
   // STRAT's interim river rule (K9 vs a nit, Nov 2026): one pair below top pair top kicker, checked to
   // on the river, against players read as nits or solid regulars. A bet there wins mostly by folding
   // better hands, which is not a value bet. (MATH's anchor A1 replaces this when it ships.)
-  const foldsBetter = river && ctx.toCall === 0 && onePair && tier < TIER.OVERPAIR_TPTK && opp >= 1 && live.every((i) => readAs(i, ['nit', 'tag']));
+  // ...a real pair only (STRAT, 20 Nov): a hand the board makes is not one pair, whatever its coach tier
+  const foldsBetter = river && ctx.toCall === 0 && opp >= 1 && foldsBetterHand(hf) && live.every((i) => readAs(i, ['nit', 'tag']));
   // R7: plays the coach does not teach, whatever the simulation says ("not a habit to build").
   const habitOf = (o) => {
     if (pre || !isRaise(o)) return null;
@@ -755,7 +760,8 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
 
   // ---------------- after the flop ----------------
   // STRAT's interim river rule: the check is fine (and a big bet carries the note, above).
-  if (foldsBetter && mine.type === 'check') return pass('foldsBetter');
+  // ...and never a check whose reference bet is a clear value bet (STRAT, 20 Nov: rule 6's value test)
+  if (foldsBetter && mine.type === 'check' && !(isRaise(best()) && valueBet(best()))) return pass('foldsBetter');
   // 1. Declining to bluff-raise is never a mistake: compare with the best non-raise.
   if (ctx.toCall > 0 && isRaise(best()) && !isRaise(mine) && weak && regrade((o) => !isRaise(o), 'bluffRaise', 'noRaise')) return;
   // R5. Declining to raise with one pair facing a bet is never flagged.

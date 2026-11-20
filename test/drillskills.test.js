@@ -131,6 +131,7 @@ test('drill D3 nit clause in the predicate: out only for an under-pot nit lead a
   assert.equal(spot('Qd Qc', [[1, 'raise'], [0, 'call']], checks, 40), true, '2/3 lead when the nit bet the flop and the turn checked: in');
   assert.equal(spot('Qd Qc', checks, checks, 40, 'station'), true, 'against a station on the 2/3 line: in');
   assert.equal(spot('Qd Qc', [[1, 'check'], [0, 'raise'], [1, 'call']], checks, 40), false, 'hero bet the flop, the nit called, the turn checked, a 2/3 lead: out');
+  assert.equal(spot('Qd Qc', checks, [[1, 'check'], [0, 'raise'], [1, 'call']], 40), true, 'the nit called a turn bet, then leads 2/3: in (PRO)');
   // a river king changes nothing, so rule 1 allows two pair after a checked turn
   assert.equal(spot('Td 7d', checks, checks, 40, 'nit', 'Td 7c 2h 4s Kh'), true, 'two pair vs a nit after a checked turn: in');
 });

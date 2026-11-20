@@ -224,4 +224,11 @@ test('drill B1 flop narrowing: overcards and any straight or flush draw out on t
   assert.equal(m('Kd 4c', 'Ah 7s 3d 2c Jd', 'station'), true, 'king-high on the river vs a station: in');
   assert.equal(m('Ad 4c', 'Kh 7s 3d 2c Jd', 'station'), true, 'ace-high on the river vs a station: in');
   assert.equal(m('Ad Qc', 'Jh 7s 3d 2c', 'whale'), true, 'AQo on the turn vs a whale: in (turn unchanged)');
+  // the board alone holds trips or two pair (CURR, 19 Nov): out on any street; one pair on the board stays
+  assert.equal(m('Ad Qc', '6s 6d 6h'), false, 'AQo on 6-6-6: out');
+  assert.equal(m('3d 2c', '9s 9d 9h'), false, '32o on 9-9-9 (no overcard, no draw): out by the board rule');
+  assert.equal(m('Ad Qc', 'Kh Ks 7d 7c'), false, 'AQo on K-K-7-7 at the turn: out');
+  assert.equal(m('5d 4c', '9h 9s 2d'), true, '54o on 9-9-2: in (the gate decides)');
+  assert.equal(m('Ad 3c', 'Kh Ks 7d 7c 2s'), false, 'ace-high on a two-pair river board: out');
+  assert.equal(m('Ad 3c', 'Kh Ks 7d 4c 2s'), true, 'ace-high on a one-pair river board: in');
 });

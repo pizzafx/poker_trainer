@@ -102,6 +102,15 @@ export function nitRiverOut(s, ctx, types) {
   if (s.street !== STREET.RIVER || types[ctx.aggressor] !== 'nit') return false;
   return !(isSet(s) && strictQuiet(s.board));
 }
+// the board alone holds trips, two pair, a full house or quads (CURR, 19 Nov): then hero's "high card" is a made hand
+// the features tier does not see (AQ on 6-6-6 is trips with the best kickers). One pair on the board is shared, so it
+// does not count.
+export function boardMade(board) {
+  const n = {};
+  for (const c of board) n[c >> 2] = (n[c >> 2] || 0) + 1;
+  const v = Object.values(n);
+  return v.some((x) => x >= 3) || v.filter((x) => x >= 2).length >= 2;
+}
 // D3's hands: overpair or top pair top kicker or better; two pair only from hero's own cards (each hole card pairs
 // the board, no pocket pair)
 function realHand(s, f) {
@@ -217,6 +226,8 @@ export const SKILLS = {
     match: (s, ctx, f, types) => {
       if (s.street === STREET.PRE || ctx.toCall > 0 || !ctx.canRaise) return false;
       if (f.tier > TIER.HIGH_CARD || isRealDraw(f)) return false;
+      // a board that holds trips, two pair, a full house or quads on its own: not air (CURR, 19 Nov), any street
+      if (boardMade(s.board)) return false;
       // the flop (STRAT's ruling (b), PRO, CURR, 19 Nov): no hole card above the board's top card (ace-high and two
       // overcards included) and no straight or flush draw at all, a gutshot included (backdoors do not count); a small
       // flop bet there has outs against a station's range, so it is not the bluff the line names. Turn and river unchanged.

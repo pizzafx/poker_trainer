@@ -113,7 +113,8 @@ test('drill D3 nit clause: tier 6 out after a checked turn, in after the nit bet
   const s = (turnActs, hole, board) => ({ street: 3, hole: [parseCards(hole)], board: parseCards(board), history: [{ street: 2, seat: 1, type: turnActs[0] }, { street: 2, seat: 0, type: turnActs[1] }] });
   assert.equal(turnCheckedThrough(s(['check', 'check'], 'Qd Qc', 'Td 7c 2h 4s 9d')), true);
   assert.equal(turnCheckedThrough(s(['raise', 'call'], 'Qd Qc', 'Td 7c 2h 4s 9d')), false);
-  assert.match(SK2.D3.rule, /folds to a nit who bet the turn too, and is close against others\.$/);
+  // the line stays as it is (CEO's final ruling): the cell is dropped, the words are not changed
+  assert.match(SK2.D3.rule, /calls a station, folds to a nit, and is close against others\.$/);
 });
 
 test('drill D3 nit clause in the predicate: QQ vs a nit river bet out after a checked turn, in after a turn bet; two pair in', () => {

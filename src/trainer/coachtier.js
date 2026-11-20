@@ -52,7 +52,7 @@ export function coachTier(hole, board, hf = null) {
   if (board.length < 3) return out;
   const boardScore = evaluate(board);
   const bcat = categoryOf(boardScore);
-  const lower = lowerRule(hole, board, bcat);
+  const lower = lowerRule(hole, board, bcat, raw);
   if (raw > TIER.HIGH_CARD && !lower) return out;
   const score = evaluate([...hole, ...board]);
   if (bcat < CATEGORY.TWO_PAIR || categoryOf(score) !== bcat) return out;
@@ -71,9 +71,10 @@ export function coachTier(hole, board, hf = null) {
 // two-pair board (counterfeited: raw "a weak pair"). A quads or straight-flush board takes the rank's tier, capped,
 // except a hand that cannot lose and whose cards play, which keeps raw; a counterfeited pair takes the lower of raw
 // and the rank's tier. A pocket pair above a board pair (99 on 7-7-4-4) keeps its raw tier.
-function lowerRule(hole, board, bcat) {
+function lowerRule(hole, board, bcat, raw) {
   if (bcat >= CATEGORY.QUADS) return true;
-  if (bcat !== CATEGORY.TWO_PAIR) return false;
+  // a counterfeited pair already rated ace or king high or lower takes the ordinary raise-only path (MATH)
+  if (bcat !== CATEGORY.TWO_PAIR || raw <= TIER.HIGH_CARD) return false;
   const [a, b] = hole.map((c) => c >> 2);
   if (a !== b) return false;
   const pr = pairsOf(board).slice(0, 2);
@@ -145,7 +146,7 @@ export function coachTiersForRange(board, scores, raw) {
   for (let c = 0; c < scores.length; c++) {
     const x = scores[c];
     if (x == null || categoryOf(x) !== bcat) continue;
-    const low = lowerRule(COMBOS[c], board, bcat); // the same scope as coachTier
+    const low = lowerRule(COMBOS[c], board, bcat, raw[c]); // the same scope as coachTier
     if (raw[c] > TIER.HIGH_CARD && !low) continue;
     let below = lower(x), ties = upper(x) - below, tot = live.length;
     let above = live.length - upper(x);

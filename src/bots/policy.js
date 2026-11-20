@@ -4,6 +4,7 @@
 
 import { legal, potSize, STREET } from '../engine/game.js';
 import { TIER, isRealDraw } from '../engine/features.js';
+import { CATEGORY } from '../engine/evaluator.js';
 
 import { EQ_HEADS_UP } from '../data/preflop.js';
 import { classInfo, classIndex, CLASS_COUNT } from '../engine/hands.js';
@@ -194,6 +195,7 @@ export function buildContext(s, seat = s.toAct) {
   ctx.checkedTo = s.history.some((h) => h.street === s.street && h.street > STREET.PRE);
   ctx.iChecked = s.history.some((h) => h.street === s.street && h.street > STREET.PRE && h.seat === seat && h.type === 'check'); // POOL batch 6
   ctx.iCheckedPrev = s.street > STREET.FLOP && s.history.some((h) => h.street === s.street - 1 && h.seat === seat && h.type === 'check'); // POOL batch 16
+  ctx.iBetPrev = s.street > STREET.FLOP && s.history.some((h) => h.street === s.street - 1 && h.seat === seat && (h.type === 'bet' || h.type === 'raise')); // POOL batch 19d
   ctx.preflopRaised = s.history.some((h) => h.street === STREET.PRE && h.type === 'raise');
   {
     const suits = [0, 0, 0, 0];
@@ -241,6 +243,9 @@ export function buildContext(s, seat = s.toAct) {
     { const rk = s.board.map((c) => c >> 2); ctx.boardPaired = rk.some((r, i) => rk.indexOf(r) !== i); } // POOL batch 19b
     // POOL batch 19c (item 4): a dry board, no three of a suit and no three ranks inside one five-rank window, unpaired
     ctx.boardDry = Math.max(...suits3(s.board)) < 3 && maxConnected(s.board) < 3 && !ctx.boardPaired;
+    // POOL batch 19d: the river is the third card of a suit (exactly three after it, at most two before)
+    ctx.boardSuitMax = Math.max(...suits3(s.board)); // POOL batch 19d
+    ctx.riverFlushCompleted = s.board.length === 5 && Math.max(...suits3(s.board)) === 3 && Math.max(...suits3(s.board.slice(0, 4))) <= 2;
   }
   ctx.toActBehind = ctx.toCall > 0 ? toActBehind : 0;
   // POOL batch 19c (item 2): is this street's bet or raise from the preflop raiser (the last aggressor before the flop)?
@@ -772,6 +777,29 @@ export function postflopPolicy(ctx, P, f) {
       const fl = ctx.riverDrawCompleted ? P.strongRiverFloorDraw : P.strongRiverFloor;
       if (fl) pValue = Math.max(pValue, fl[f.cat >= 6 ? 1 : 0]);
     }
+    // POOL batch 19d (PRO's V1 floors, v7 re-read; CEO: the nit first): river, nobody has bet, not into the last aggressor,
+    // no bet of mine on the turn, checked to (any seat) or first to act after a checked-through turn: top pair good kicker
+    // (or an overpair / TPTK) bets at least riverTPFloor { dryHU, dryMW, scaryHU, scaryMW, dryOOP, scaryOOP }. Scary = a
+    // three-flush the hand doesn't hold or a one-card straight it doesn't make; a four-flush the hand has no card of gets none.
+    if (P.riverTPFloor && st === 2 && ctx.canRaise && !ctx.aggressorBehind && !ctx.iBetPrev &&
+      (f.tier === TIER.TOP_PAIR_GOOD || f.tier === TIER.OVERPAIR_TPTK) && (ctx.checkedTo || ctx.prevChecked)) {
+      const ms = ctx.boardSuitMax ?? 0, four = ms >= 4 && !f.holdsSuit;
+      const scary = (ms === 3 && !f.holdsSuit) || (f.mdStraight ?? 1) < 0.9;
+      const F = P.riverTPFloor, k = ctx.checkedTo ? `${scary ? 'scary' : 'dry'}${ctx.nOpp >= 2 ? 'MW' : 'HU'}` : `${scary ? 'scary' : 'dry'}OOP`;
+      if (!four && F[k] != null) pValue = Math.max(pValue, F[k]);
+    }
+    // POOL batch 19d (rule 1, the hand-461 complaint; PRO, STRAT, CEO): a strong hand (two pair or better, both streets)
+    // that checked a flop which was then checked through bets the turn: it checks again at most secondCheckCap (5%).
+    // Not on a four-flush or one-card-straight turn the hand doesn't beat (rule 1's v3.4 exemption, extended to the turn: g1).
+    if (P.secondCheckCap != null && st === 1 && ctx.canRaise && ctx.prevChecked && ctx.iCheckedPrev &&
+      (f.tier === TIER.TWO_PAIR || f.tier >= TIER.STRONG) && (f.prevTier === TIER.TWO_PAIR || f.prevTier >= TIER.STRONG) &&
+      !(((f.mdFlush ?? 1) < 0.7 && f.cat < 5) || ((f.mdStraight ?? 1) < 0.9 && f.cat < 4)))
+      pValue = Math.max(pValue, 1 - P.secondCheckCap);
+    // ... and on a wet flop, where V5 scores (checked to in position last, or first to act on a clean line), a station or
+    // whale with two pair or better checks at most wetFlopCheckCap (PRO's wet-flop ceiling: 22)
+    if (P.wetFlopCheckCap != null && st === 0 && ctx.canRaise && ctx.drawy && !ctx.aggressorBehind && (f.tier === TIER.TWO_PAIR || f.tier >= TIER.STRONG) &&
+      ((ctx.checkedTo && ctx.inPosition) || (!ctx.checkedTo && (ctx.initiative || !ctx.preflopRaised))))
+      pValue = Math.max(pValue, 1 - P.wetFlopCheckCap);
     // POOL batch 19c (PRO's V4 lead floor): flop, raised pot, out of position, multiway, first to act with the raiser
     // behind: an overpair or top pair top kicker leads at least v4Lead
     // ... and a passive type over PRO's ceiling leads at most v4LeadMax
@@ -1015,6 +1043,17 @@ export function postflopPolicy(ctx, P, f) {
   if (f.playsBoard === 3 && !facingRaise && P.tinyFold && ctx.toCall <= 0.5 * Math.max(1, ctx.pot - ctx.toCall)) pCont = Math.max(pCont, 1 - P.tinyFold * ctx.odds);
   out.call = (1 - raise) * pCont;
   out.fold = Math.max(0, 1 - out.raise - out.call);
+  // POOL batch 19d (PRO's flush-river ceilings, CEO): the river completed a flush, the bot holds a set (or trips) or a
+  // straight and no flush, and faces one bet. A raise only gets called by better: the raise share is held to
+  // flushRiverRaiseCap and the excess goes into calls (folds unchanged). A station or whale with the straight folds at
+  // most flushRiverStraightFold [bet over half pot, half pot or less], the excess into calls. V8's river floor is exempt here.
+  if (st === 2 && ctx.riverFlushCompleted && !facingRaise && ctx.toCall > 0 && f.cat < CATEGORY.FLUSH && (f.cat === CATEGORY.STRAIGHT || f.cat === CATEGORY.TRIPS)) {
+    if (P.flushRiverRaiseCap != null && out.raise > P.flushRiverRaiseCap) { out.call += out.raise - P.flushRiverRaiseCap; out.raise = P.flushRiverRaiseCap; raise = out.raise; }
+    if (P.flushRiverStraightFold && f.cat === CATEGORY.STRAIGHT) {
+      const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall * (1 + (ctx.callersIn || 0))); const cap = P.flushRiverStraightFold[bf <= 0.5 + 1e-9 ? 1 : 0]; // as flushriv.mjs measures it
+      if (out.fold > cap) { out.call += out.fold - cap; out.fold = cap; }
+    }
+  }
   if (raise > 0) out.sizes = raiseSizes(ctx, P);
   return out;
 }

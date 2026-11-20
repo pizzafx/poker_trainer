@@ -68,6 +68,23 @@ export const turnCheckedThrough = (s) => {
   const turn = s.history.filter((h) => h.street === STREET.TURN);
   return turn.length > 0 && turn.every((h) => h.type === 'check');
 };
+// a nit's under-pot river lead after a checked-through turn, from a nit who did not bet or raise the flop (D3's
+// 7ac18ca cell; D1 takes the same drop, CURR and CEO, 19 Nov)
+export function nitQuietLead(s, ctx, types) {
+  return s.street === STREET.RIVER && types[ctx.aggressor] === 'nit' && turnCheckedThrough(s)
+    && !s.history.some((h) => h.street === STREET.FLOP && h.seat === ctx.aggressor && (h.type === 'raise' || h.type === 'bet'))
+    && ctx.toCall < ctx.pot - ctx.toCall;
+}
+// D3's nit clause (CEO, CURR, 19 Nov): against a nit's big river bet, two pair is out on any board, and a set, trips,
+// a straight or a flush is out when the river paired the board or completed a flush or straight; a set or better on
+// a quiet river, and a full house or better, stay
+export function nitRiverOut(s, ctx, types) {
+  if (s.street !== STREET.RIVER || types[ctx.aggressor] !== 'nit') return false;
+  const cat = categoryOf(evaluate([...s.hole[0], ...s.board]));
+  if (cat === CATEGORY.TWO_PAIR) return true;
+  if (cat >= CATEGORY.FULL_HOUSE || cat < CATEGORY.TWO_PAIR) return false;
+  return boardChanged(s.board) !== null;
+}
 // D3's hands: overpair or top pair top kicker or better; two pair only from hero's own cards (each hole card pairs
 // the board, no pocket pair)
 function realHand(s, f) {
@@ -113,7 +130,10 @@ export const SKILLS = {
     want: 'fold',
     // pot of 15bb or more at the bet (CURR); the shape D2 shares. Nobody left to act behind hero (CEO, 19 Nov):
     // a player behind is a cue D2 does not have (64 of the first 180 had one)
-    match: (s, ctx, f, types) => bigLateBet(s, ctx, f) && PASSIVE.has(types[ctx.aggressor]) && leftToAct(s, ctx.aggressor).length === 0,
+    // the nit drop (CURR, CEO, 19 Nov): D3's 7ac18ca cell, a nit's under-pot river lead after a checked turn when the nit
+    // did not bet or raise the flop, is out of D1 too; the line is unchanged
+    match: (s, ctx, f, types) => bigLateBet(s, ctx, f) && PASSIVE.has(types[ctx.aggressor]) && leftToAct(s, ctx.aggressor).length === 0
+      && !nitQuietLead(s, ctx, types),
     // tricky (CURR, STRAT sign-off 18 Nov): top pair good kicker, a pair plus a real draw whose call the combined
     // test (19b) rates as not enough, or a bet of 50-60% of the pot; a passive player's big bet is the textbook case,
     // a station's included. (A pair plus a draw that covers the price is rejected from D1 in the bank script.)
@@ -145,7 +165,7 @@ export const SKILLS = {
     tier: 1,
     name: 'Call big bets with real hands',
     leak: 'overFold',
-    rule: 'A passive player’s big turn or river bet is rarely a bluff, but it isn’t always the nuts. Above top pair with a good kicker, lean call. Two pair or better calls. Slow down with two pair when the board just paired; with two pair or a set when a flush or straight just came in; and with a straight when a flush just came in. An overpair or top pair with the best kicker calls a station, folds to a nit, and is close against others.',
+    rule: 'A passive player’s big turn or river bet is rarely a bluff, but it isn’t always the nuts. Above top pair with a good kicker, lean call. Two pair or better calls. Slow down with two pair when the board just paired; with two pair or a set when a flush or straight just came in; and with a straight when a flush just came in. An overpair or top pair with the best kicker calls a station, folds to a nit, and is close against others. Against a nit’s big river bet, two pair is close at best. A set or better calls on a quiet board; when the board paired or a draw came in, only a full house calls.',
     want: ['call', 'raise'], // call and raise may both be right; fold must be wrong
     foldWrong: true,
     match: (s, ctx, f, types) => {
@@ -156,9 +176,9 @@ export const SKILLS = {
       // bots' nit line is off; a live nit's big river bet there is strong, so the line stays as it is)
       // narrowed (PRO, STRAT, POOL, CEO, 19 Nov): only an under-pot lead after a checked turn from a nit who did not bet or
       // raise the flop; pot-size or bigger leads, and any lead after the nit bet the flop, come back through the gate
-      if (f.tier === TIER.OVERPAIR_TPTK && s.street === STREET.RIVER && types[ctx.aggressor] === 'nit' && turnCheckedThrough(s)
-        && !s.history.some((h) => h.street === STREET.FLOP && h.seat === ctx.aggressor && (h.type === 'raise' || h.type === 'bet'))
-        && ctx.toCall < ctx.pot - ctx.toCall) return false;
+      if (f.tier === TIER.OVERPAIR_TPTK && nitQuietLead(s, ctx, types)) return false;
+      // the nit clause for two pair and up (CEO, CURR, 19 Nov; QA-VERDICT's re-run on e372fdb)
+      if (f.tier >= TIER.TWO_PAIR && nitRiverOut(s, ctx, types)) return false;
       // the line's exception (PRO, STRAT): two pair or better where the last card paired the board or completed a
       // flush or straight that hero does not hold
       return !(f.tier >= TIER.TWO_PAIR && beatenByLastCard(s, f));

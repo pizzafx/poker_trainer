@@ -5,7 +5,7 @@
 // - the coach's estimate line for each family, as the table would show it for that play (pinned reads)
 // Not in the bank version hash (scripts/drill/version.js): it only re-derives labels from the gate's result.
 
-import { SKILLS, live, difficultyOf, d1DrawStatus, d1DrawRejects } from './drill/skills.js';
+import { SKILLS, live, difficultyOf, d1DrawStatus, d1DrawRejects, nitQuietLead, nitRiverOut } from './drill/skills.js';
 import { envFor } from './gradeall.js';
 import { Session } from '../src/trainer/session.js';
 import { buildContext } from '../src/bots/policy.js';
@@ -64,6 +64,9 @@ export function derive(code, s, pinned, reads, types, r, nicks) {
   if (code === 'D3' && f && f.tier === TIER.OVERPAIR_TPTK && ['abc', 'beginner'].includes(types[ctx.aggressor]) && !((r.minGapBars && r.minGapBars.fold) >= 3)) {
     return { reject: `D3: overpair/TPTK vs ${types[ctx.aggressor]}, fold wrong by ${r.minGapBars ? r.minGapBars.fold : '?'} bars (under 3)`, drawSt };
   }
+  // the nit filters (CEO, CURR, 19 Nov), also in the predicates; here so the re-gate drops banked spots too
+  if (code === 'D1' && nitQuietLead(s, ctx, types)) return { reject: 'D1: a nit\'s under-pot river lead after a checked turn (nit drop)', drawSt };
+  if (code === 'D3' && f && f.tier >= TIER.TWO_PAIR && nitRiverOut(s, ctx, types)) return { reject: 'D3: two pair+ vs a nit\'s big river bet (nit clause)', drawSt };
   const tricky = skill.tricky(s, ctx, f, types, drawSt);
   const difficulty = difficultyOf(skill, tricky, pre, r);
   const estimate = estimateLines(s, pinned, reads, r.graded, nicks);

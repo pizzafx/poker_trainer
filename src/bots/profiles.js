@@ -1021,18 +1021,20 @@ const DEFS = {
 // type folds one pair on the river facing a single bet, heads-up and calm, in % at [2/3 pot, pot, 1.5x pot] by the class
 // of the pair from the hole cards (top: a hole card pairs the top board rank; mid: a lower board rank; ppUnder: a pocket
 // pair below the top rank; null: inside the ceiling, left alone (PRO: station and whale top pair, ceilings 5/10/15)).
-// mw: the multiway add [top, mid/under]. A scary river adds 10, the total is capped at 95 and
+// mw: the multiway add [top, mid/under]. POOL batch 19g (PRO 20 Nov): topRow, the station and whale top row that 19f leaves
+// alone on unpaired first responders but that 19g's paired-board, overpair, after-fold and behind-a-caller cells use;
+// s2, the second-responder add behind a caller [top and overpair, mid/under]. A scary river adds 10, the total is capped at 95 and
 // the policy aims at 0.85 of it. The 1M probe on 7152a18 had 253 cells over (notes/qa/riverpair_7152_1M.md).
 const RIVER_PAIR_FOLD_CAP = {
-  station: { top: null, mid: [25, 30, 35], ppUnder: [40, 50, 55], mw: [5, 5] },
-  whale: { top: null, mid: [20, 25, 30], ppUnder: [35, 45, 50], mw: [5, 5] },
-  beginner: { top: [10, 15, 20], mid: [35, 45, 50], ppUnder: [50, 60, 65], mw: [10, 10] },
-  abc: { top: [20, 25, 30], mid: [45, 55, 60], ppUnder: [65, 75, 80], mw: [10, 10] },
-  nit: { top: [25, 35, 50], mid: [60, 70, 80], ppUnder: [75, 85, 90], mw: [10, 15] },
-  tag: { top: [15, 25, 35], mid: [50, 60, 70], ppUnder: [60, 70, 80], mw: [10, 15] },
-  gto: { top: [15, 25, 35], mid: [50, 60, 70], ppUnder: [60, 70, 80], mw: [10, 15] },
-  lag: { top: [10, 20, 30], mid: [40, 50, 60], ppUnder: [50, 60, 70], mw: [10, 15] },
-  maniac: { top: [5, 10, 15], mid: [25, 30, 40], ppUnder: [35, 45, 50], mw: [10, 15] },
+  station: { top: null, topRow: [5, 10, 15], mid: [25, 30, 35], ppUnder: [40, 50, 55], mw: [5, 5], s2: [10, 15] },
+  whale: { top: null, topRow: [5, 10, 15], mid: [20, 25, 30], ppUnder: [35, 45, 50], mw: [5, 5], s2: [10, 15] },
+  beginner: { top: [10, 15, 20], mid: [35, 45, 50], ppUnder: [50, 60, 65], mw: [10, 10], s2: [20, 25] },
+  abc: { top: [20, 25, 30], mid: [45, 55, 60], ppUnder: [65, 75, 80], mw: [10, 10], s2: [20, 25] },
+  nit: { top: [25, 35, 50], mid: [60, 70, 80], ppUnder: [75, 85, 90], mw: [10, 15], s2: [20, 25] },
+  tag: { top: [15, 25, 35], mid: [50, 60, 70], ppUnder: [60, 70, 80], mw: [10, 15], s2: [20, 25] },
+  gto: { top: [15, 25, 35], mid: [50, 60, 70], ppUnder: [60, 70, 80], mw: [10, 15], s2: [20, 25] },
+  lag: { top: [10, 20, 30], mid: [40, 50, 60], ppUnder: [50, 60, 70], mw: [10, 15], s2: [20, 25] },
+  maniac: { top: [5, 10, 15], mid: [25, 30, 40], ppUnder: [35, 45, 50], mw: [10, 15], s2: [20, 25] },
 };
 for (const t of Object.keys(RIVER_PAIR_FOLD_CAP)) DEFS[t].riverPairFoldCap = RIVER_PAIR_FOLD_CAP[t];
 const HERO_DEF = {

@@ -97,15 +97,29 @@ test('solver fixture: one pair folds more facing a bet and a call, and at least 
   assert.deepEqual(misses, []);
 });
 
-test('solver fixture: a one-pair value bet is flat from half pot to 1.5x pot (R01)', (t) => {
+// STRAT ruling (20 Nov 2026, batch 19f): the solver-style field is no longer held to equilibrium flatness (population
+// over GTO; with 19f's river one-pair fold cap the bigger bet earns more). Flatness is report-only (a todo, like check 1);
+// the hard assert is that every size is still a value bet (above the check).
+let r01 = null;
+function r01Evs() {
+  if (r01) return r01;
   const { s, belief } = balanced('R01');
-  const evs = sizesOf('R01').map((b) => {
+  r01 = sizesOf('R01').map((b) => {
     const v = judgeDecision(s, 0, belief, { type: 'raise', to: b }, { samples: 2000, seed: 5 });
     return { b, ev: v.options.find((x) => x.type === 'raise' && x.to === b).ev, check: v.options.find((x) => x.type === 'check').ev, pot: v.pot };
   });
+  return r01;
+}
+test('solver fixture: a one-pair value bet stays above the check at every size (R01)', (t) => {
+  for (const e of r01Evs()) {
+    t.diagnostic(`R01 bet $${e.b}: EV ${e.ev.toFixed(1)}, over check ${(e.ev - e.check).toFixed(1)} | equilibrium over check ${FIX.R01[`b${e.b}`].evGapVsCheck.map((x) => x.toFixed(1)).join('-')}`);
+    assert.ok(e.ev > e.check, `R01 bet $${e.b}: EV ${e.ev.toFixed(1)} is not above the check ${e.check.toFixed(1)}`);
+  }
+});
+test('solver fixture: a one-pair value bet is flat from half pot to 1.5x pot (R01; report only, STRAT 19f)', { todo: 'report only' }, (t) => {
+  const evs = r01Evs();
   const bar = Math.max(9, 0.1 * evs[0].pot);
   const spread = Math.max(...evs.map((e) => e.ev)) - Math.min(...evs.map((e) => e.ev));
-  for (const e of evs) t.diagnostic(`R01 bet $${e.b}: EV ${e.ev.toFixed(1)}, over check ${(e.ev - e.check).toFixed(1)} | equilibrium over check ${FIX.R01[`b${e.b}`].evGapVsCheck.map((x) => x.toFixed(1)).join('-')}`);
   t.diagnostic(`spread across sizes $${spread.toFixed(1)} against a yellow bar of $${bar.toFixed(1)}${spread > bar ? '  <- not flat' : ''}`);
   assert.ok(spread <= bar, `spread ${spread.toFixed(1)} > bar ${bar.toFixed(1)}`);
 });

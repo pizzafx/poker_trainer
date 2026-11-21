@@ -3,6 +3,10 @@
 // profile as shipped with batch 16, which adopts the tag's batch 15-16 fields. A field that differs fails; a new
 // field passes only while it is off (null, false or absent), so a new tag knob cannot reach the stand-in silently.
 // Changing the stand-in on purpose means updating the snapshot, reviewed by STRAT and MATH.
+// riverPairFoldCap (POOL 19f/19g) stays off on the stand-in permanently, by design (STRAT, MATH, CEO, 20 Nov): The cap
+// models a pool leak (regulars paying off one pair); the stand-in models sound hero play, and live river bets are
+// value-heavy. Adopting it moved 1.71% of verdicts against hero (QA-VERDICT, 19f). Re-measure if a later batch raises the
+// bots' river bluff share materially (MATH).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

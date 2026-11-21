@@ -1051,7 +1051,9 @@ const HERO_DEF = {
   flushRiverStraightFold: null,
   wetFlopCheckCap: null,
   drawBetMult: null, // POOL batch 19f: pinned off for the stand-in (QA-VERDICT flip check first)
-  riverPairFoldCap: null, // POOL batch 19f (item 0): pinned off for the stand-in (QA-VERDICT flip check first)
+  riverPairFoldCap: null, // POOL batch 19f/19g: pinned off for the stand-in BY DESIGN, not pending adoption: the stand-in models the
+  // hero playing well against this pool, not the pool's payoff leak (STRAT and MATH, 20 Nov; QA-VERDICT's adopt cost 1.71%, every
+  // moved verdict worse for hero; re-measure if bot river bluff share rises materially)
   // the stand-in hero (and the judge's play-out profile) keeps the pre-bundle tag until STRAT and MATH rule
   // on it: the POOL batches 7-12 tag changes are for the opponents only (POOL, 16 Nov 2026)
   pfr: [0.13, 0.18, 0.3, 0.15, 0.1],

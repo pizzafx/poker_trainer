@@ -951,7 +951,7 @@ const DEFS = {
     probeCT: true, // POOL batch 15
     ctSlowMult: 0.5, // POOL batch 15
     donkWet: 0.8, // POOL batch 15
-    blurb: 'Still learning. Plays most hands, limps, bets small, calls with any piece of the board, and gets scared off by big bets.',
+    blurb: 'Still learning. Plays most hands, limps, bets small, calls with any piece of the board, and folds more to big bets than small ones.',
     share: 0, // never dealt into the casino pool; you seat them in a home game
     vpip: [0.55, 0.58, 0.62, 0.65, 0.7],
     pfr: [0.03, 0.03, 0.04, 0.03, 0.03],

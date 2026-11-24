@@ -83,6 +83,12 @@ const HERO = 0;
 
 const LIMPER_KEEP = { default: expandRange(LIMPER_OFFSUIT.default), button: expandRange(LIMPER_OFFSUIT.button) };
 
+// A decision's verdict while the worker grades it: no option is the trainee's yet (mine -1), so nothing reads it as
+// graded; record.pending marks it
+export const PENDING_VERDICT = Object.freeze({ pending: true, grade: 'pending', mine: -1, best: -1, options: [], loss: 0, se: 0 });
+// a decision the coach could not grade: good, no option chosen, so nothing flags or counts it
+export const NOT_GRADED_VERDICT = Object.freeze({ grade: 'good', note: 'timedOut', mine: -1, best: -1, options: [], loss: 0, se: 0 });
+
 export class Session {
   constructor(opts = {}) {
     // Home game: custom stakes ({ sb, bb, minBuy, maxBuy }), a chosen line-up of player
@@ -347,6 +353,10 @@ export class Session {
     const s = h.state;
     const ctx = buildContext(s);
     const record = this.decisionRecord(verdict);
+    // the hand this decision belongs to, so a late verdict finds it; not enumerable, so it is never saved or copied
+    Object.defineProperty(record, 'handRef', { value: h, enumerable: false });
+    record.played = action.type === 'raise' ? (ctx.toCall > 0 ? 'raise' : 'bet') : action.type; // "Checking your call…"
+    record.playedAmt = action.type === 'call' ? ctx.toCall : action.type === 'raise' ? action.to - (s.bet[HERO] || 0) : 0;
     h.decisions.push(record);
     this.decisions.push(record);
     // The table notices raises and big bets after the flop.
@@ -357,6 +367,65 @@ export class Session {
     applyAction(s, action, this.rng);
     this.logAction(HERO, before, action, ctx);
     return record;
+  }
+
+  // The hand goes on while the page's worker grades (CEO, owner, 23 Nov): the decision is recorded now, from the table as
+  // it stands, with a pending verdict; resolveDecision fills it in when the grade comes back, in the order the decisions
+  // were made. Everything that needs the verdict (the hand record, saving, the totals) waits for it.
+  heroCommitPending(action) {
+    return this.heroCommit(action, null);
+  }
+
+  // A pending decision's verdict, from the grade job built at that decision. Returns true when this was the hand's last
+  // pending decision and the hand is over (its end-of-hand record went out now).
+  resolveDecision(record, verdict) {
+    if (!record.pending) return false;
+    record.verdict = verdict;
+    delete record.pending;
+    Object.assign(record, explain(record));
+    const bh = bestHeadline(record.verdict, record);
+    if (bh) record.headline = bh;
+    const h = record.handRef;
+    if (h && h.endDeferred && !h.decisions.some((d) => d.pending)) {
+      h.endDeferred = false;
+      if (this.onHandEnd && !this.quiet) this.onHandEnd(this.handRecord(h));
+      return true;
+    }
+    return false;
+  }
+
+  // a grade job graded on the page, as the worker does it (the worker stopped or timed out); `job` is a copy taken when
+  // the decision was made, so the verdict is the one the worker would have given
+  static gradeJobHere(job) {
+    const belief = HandBelief.fromPlain(job.belief);
+    const env = { belief, readOf: (i) => job.reads[i], name: (i) => job.names[i] };
+    return gradeDecision(job.state, belief, job.action, job.opts, env);
+  }
+
+  // The worker timed out on a decision twice (CEO, 23 Nov: the page never grades on its own thread): it is shown as not
+  // graded, with no flag, and left out of the totals and the leak counts. Returns as resolveDecision does.
+  resolveNotGraded(record, why = 'timeout') {
+    if (!record.pending) return false;
+    record.verdict = { ...NOT_GRADED_VERDICT };
+    record.notGraded = why;
+    delete record.pending;
+    const word = record.played ? record.played[0].toUpperCase() + record.played.slice(1) : 'Your play';
+    record.headline = `${word}: not graded (the coach ${why === 'load' ? "couldn't load" : 'timed out'}).`;
+    record.reasons = [];
+    record.category = null;
+    record.cost = 0;
+    const h = record.handRef;
+    if (h && h.endDeferred && !h.decisions.some((d) => d.pending)) {
+      h.endDeferred = false;
+      if (this.onHandEnd && !this.quiet) this.onHandEnd(this.handRecord(h));
+      return true;
+    }
+    return false;
+  }
+
+  // decisions still waiting for their verdict, oldest first
+  pendingDecisions() {
+    return this.decisions.filter((d) => d.pending);
   }
 
   // The decision's record and its explanation, for a verdict at the hero's decision now. `use` can stand in a
@@ -409,7 +478,8 @@ export class Session {
       // each live opponent's likeliest type, for copy that depends on who is in (STRAT YB-T1)
       liveTypes: live.map((i) => readOf(i).ranked[0].id),
       table: tableFacts(s, HERO),
-      verdict,
+      verdict: verdict || PENDING_VERDICT,
+      ...(verdict ? {} : { pending: true }),
       villain: villain >= 0 ? { seat: villain, nick: this.name(villain), picture, steaming: this.seats[villain].steaming } : null,
       handText: feats ? coachHandText(s.hole[HERO], s.board, feats.coach) || describeHand(feats, s.board) : null,
       tier: feats ? feats.tier : null,
@@ -423,6 +493,7 @@ export class Session {
       // The table as the trainee saw it, for a "Disagree?" report.
       snapshot: snapshotDecision(this, s, judgeOpts),
     };
+    if (record.pending) return record; // explained when its verdict comes (resolveDecision)
     Object.assign(record, explain(record));
     // a ringed play is stored as one (QA BP2): the record's own headline never says "fine" under the ring
     const bh = bestHeadline(record.verdict, record);
@@ -489,14 +560,17 @@ export class Session {
     }
     h.summary = { net: r.net[HERO], showdown: r.showdown };
     this.results.push(r.net[HERO]);
-    if (this.onHandEnd && !this.quiet) this.onHandEnd(this.foldingOut ? { kind: 'skip', session: this.id, no: this.handNo, position: positionName(this.hand.state, HERO) } : this.handRecord());
+    if (!this.onHandEnd || this.quiet) return;
+    if (this.foldingOut) return this.onHandEnd({ kind: 'skip', session: this.id, no: this.handNo, position: positionName(this.hand.state, HERO) });
+    // a decision still being graded: the record goes out when its verdict comes (resolveDecision)
+    if (h.decisions.some((d) => d.pending)) h.endDeferred = true;
+    else this.onHandEnd(this.handRecord());
   }
 
   // Everything the hand history and the replayer need about the hand just finished, as plain data.
   // Verdicts are kept as the coach gave them; ranges are rebuilt from the reads at the start of the
   // hand by replaying the actions (see replay.js).
-  handRecord() {
-    const h = this.hand;
+  handRecord(h = this.hand) {
     const s = h.state;
     const r = s.result;
     const strip = (d) => {
@@ -536,7 +610,8 @@ export class Session {
     // each profile's cache of tilted versions is rebuilt when needed
     const seats = this.seats.map((p) => (p.profile ? { ...p, profile: { ...p.profile, tiltVersions: undefined } } : p));
     // fine decisions keep what Leak review and the totals use; only flagged ones keep their report
-    const decisions = this.decisions.map((d) => {
+    // a decision still being graded is saved with the next save, once its verdict is in
+    const decisions = this.decisions.filter((d) => !d.pending).map((d) => {
       const { ctx, snapshot, truth, ...keep } = d;
       return d.verdict.grade === 'good' ? keep : { ...keep, snapshot, truth };
     });
@@ -601,7 +676,9 @@ export class Session {
   gradeJob(action) {
     const s = this.hand.state;
     const reads = this.seats.map((p, i) => (p.hero ? null : this.readOf(i)));
-    return { state: s, belief: this.hand.belief.toPlain(), action, opts: this.judgeOpts(), reads: reads.map((r) => r && { ranked: r.ranked }), names: this.seats.map((p) => p.nick) };
+    // a copy taken now: a job held for the worker's hello or resent after a timeout goes out later, when the table has
+    // moved on (QA AG6)
+    return structuredClone({ state: s, belief: this.hand.belief.toPlain(), action, opts: this.judgeOpts(), reads: reads.map((r) => r && { ranked: r.ranked }), names: this.seats.map((p) => p.nick) });
   }
 
   judgeOpts() {
@@ -718,6 +795,15 @@ export class Session {
   // At the start of a session, hands folded for you before the first one you play do not count:
   // your stack and result start at that hand, and it is hand 1. Later skips count as usual.
   startPlayable() {
+    const g = this.startPlayableSteps();
+    let r = g.next();
+    while (!r.done) r = g.next();
+    return r.value;
+  }
+
+  // startPlayable one skipped hand at a time: it yields after each hand folded for the trainee, so the page can deal
+  // in slices that let the browser draw between them (each skipped hand costs about 35ms)
+  *startPlayableSteps() {
     const news = [];
     let skipped = 0;
     const first = !this.started;
@@ -739,6 +825,7 @@ export class Session {
         if (!first) break;
         forget();
         skipped++;
+        yield skipped; // a hand decided as skipped; the next is dealt when the page resumes (QA AG3)
         this.startHand();
         continue;
       }
@@ -750,6 +837,7 @@ export class Session {
       this.foldOut();
       skipped++;
       if (first) forget();
+      yield skipped;
       this.startHand();
     }
     this.quiet = quiet;
@@ -871,6 +959,7 @@ export class Session {
     let judged = 0;
     let flagged = 0;
     for (const d of this.decisions) {
+      if (d.pending || d.notGraded) continue; // counted once graded; one the coach could not grade never counts
       judged++;
       if (d.verdict.grade === 'good') continue;
       flagged++;

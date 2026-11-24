@@ -454,6 +454,15 @@ function goodHeadline(v, mine, best, d = {}) {
     if (!bigger.length) return `${mine.label}: fine. (This is a sound value size${into}.)`;
     return `${mine.label}: fine. (Bigger bets score about ${lo === hi ? `$${lo}` : `$${lo}–${hi}`} more against these opponents, mostly because they call too often; ${size} is a sound value size${into}.)`;
   }
+  // STRAT, CEO (thin-value copy): a passed river bet the headline names reads as value when its win rate once raises
+  // are counted (wNet, as valueBet) reaches its need: thin under need + 0.10, clear value above. Under need it keeps
+  // the line below, where bluffWord still reads W (a bet that wins when called but loses to raises is "a bet")
+  const seenTop = (top.C || 0) + (top.R || 0);
+  const wNet = top.W == null || top.need == null ? null : seenTop > 0 ? (top.W * (top.C || 0)) / seenTop : top.W;
+  if (v.note === 'passedBluff' && d.street === STREET.RIVER && wNet !== null && wNet >= top.need) {
+    if (wNet < top.need + 0.1) return `${mine.label}: fine. (A thin value bet ${more(top)}; once raises are counted it barely wins often enough, so checking is fine.)`;
+    return `${mine.label}: fine. (A value bet ${more(top)}; it wins clearly more often than it needs when called, so betting is the better habit.)`;
+  }
   if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A ${bluffWord(top) || 'bet'} ${more(top)} against these bots; not enough to rely on at a real table.)`;
   // STRAT, CEO (fragile label fix): the scenario test's own fragile (fragileRead) is not graded and names the read that
   // flips it; the other two fragile passes stay 'fine' and no longer say "not graded" (they contradicted themselves)

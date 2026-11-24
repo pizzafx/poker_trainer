@@ -108,3 +108,27 @@ test('YB-D2c: the draw-overbet habit line says "With a draw, bet smaller or chec
   assert.doesNotMatch(h, /your draw comes in/);
   assert.match(explain(rec(10)).headline, /With a draw, calling is cheaper\.\)$/);
 });
+
+// STRAT, CEO (thin-value copy): a passed river bet that wins often enough when called reads as value, in two bands
+const passed = (top, street = STREET.RIVER) => {
+  const d = JSON.parse(readFileSync(new URL('./fixtures/records/ybv4b-a2.json', import.meta.url), 'utf8'));
+  d.street = street;
+  d.toCall = 0;
+  d.board = street === STREET.RIVER ? [...d.board, 20] : d.board;
+  d.verdict = { ...d.verdict, best: 1, mine: 0, grade: 'good', note: 'passedBluff', anchorWhy: null, small: 25, options: [{ type: 'check', label: 'Check', ev: 0 }, { type: 'raise', to: 35, label: 'Bet $35', ev: 27, F: 0.2, ...top, need: 0.5 }] };
+  return explain(d).headline;
+};
+test('thin-value copy: a river value bet barely past its need once raises count (h73d214-like, wNet 0.529) is a thin value bet', () => {
+  assert.equal(passed({ W: 0.59, C: 0.7, R: 0.0805 }), 'Check: fine. (A thin value bet scores about $27 more; once raises are counted it barely wins often enough, so checking is fine.)');
+});
+test('thin-value copy: a river bet whose wNet is need + 0.15 is a value bet', () => {
+  assert.equal(passed({ W: 0.65, C: 0.8, R: 0 }), 'Check: fine. (A value bet scores about $27 more; it wins clearly more often than it needs when called, so betting is the better habit.)');
+});
+test('thin-value copy: raises that pull wNet under need keep the real-table line, as "a bet" (h14d37-like, wNet 0.29)', () => {
+  assert.equal(passed({ W: 0.84, C: 0.29, R: 0.55 }), 'Check: fine. (A bet scores about $27 more against these bots; not enough to rely on at a real table.)');
+  assert.match(passed({ W: 0.84, C: 0.4, R: 0.2 }), /A thin value bet/);
+});
+test('thin-value copy: a river bluff (W under need) and a turn passed bet keep the real-table line', () => {
+  assert.equal(passed({ W: 0, C: 0.8, R: 0 }), 'Check: fine. (A bluff scores about $27 more against these bots; not enough to rely on at a real table.)');
+  assert.match(passed({ W: 0.84, C: 0.8, R: 0 }, STREET.TURN), /against these bots; not enough to rely on at a real table/);
+});

@@ -106,7 +106,8 @@ const shareOf = (es, test) => (es.length ? es.filter(test).length / es.length : 
 // (iterative proportional fitting on the three marginals), with no spot above WEIGHT_CAP x its uniform rate and none
 // below WEIGHT_FLOOR x (every spot stays servable). The weights are written into the bank; the scheduler and the run
 // builder use them only while the partner is open. D3 is then thinned only where served D1 still cannot match it.
-const WEIGHTED = { D1: { toward: 'D3', keys: ['street', 'pot', 'bettor'] } };
+// B1 joins (CEO, GAME, 24 Nov): B1 is served toward V1's street, pot and type mix, capped as D1, and never thinned
+const WEIGHTED = { D1: { toward: 'D3', keys: ['street', 'pot', 'bettor'] }, B1: { toward: 'V1', keys: ['street', 'pot', 'type'] } };
 export const WEIGHT_CAP = 2;
 export const WEIGHT_FLOOR = 0.5; // CURR, 19 Nov: served down to 0.5x of uniform, never lower (measured, as the cap)
 const WEIGHT_AIM = 1.4; // the fit's own cap, under WEIGHT_CAP: the served rate runs above the raw weight
@@ -201,8 +202,38 @@ function servedRatios(spots, skills) {
 }
 
 const thinned = {};
+// The acceptance rule for a weighted lesson against its partner (CEO, GAME, 24 Nov): every cue within 10 points, as
+// served; street alone may miss by up to 20 when on every street the smaller lesson holds at least 25% of the street's
+// spots, the two lessons weighted equally (river 5 vs 25 fails, 15 vs 35 passes). The per-bucket floors (street and
+// pot, CURR) are printed beside it.
+export const BAL_TOL = 0.1;
+export const BAL_STREET_TOL = 0.2;
+export const BAL_FLOOR = 0.25;
+const floorOf = (a, b) => (a + b > 0 ? Math.min(a, b) / (a + b) : 1);
+export const balanceFloors = {};
+export function servedGaps(es, ps, keys) {
+  const rows = keys.map((k) => CUE[k].map(([label, f]) => ({ key: k, label, a: servedShare(es, f), b: shareOf(ps, f) }))).flat();
+  for (const r of rows) {
+    r.d = r.a - r.b;
+    r.floor = floorOf(r.a, r.b);
+  }
+  const streetFloorsOk = rows.filter((r) => r.key === 'street').every((r) => r.floor >= BAL_FLOOR - 1e-9);
+  const left = rows.filter((r) => {
+    const ad = Math.abs(r.d);
+    if (ad <= BAL_TOL + 1e-9) return false;
+    return !(r.key === 'street' && streetFloorsOk && ad <= BAL_STREET_TOL + 1e-9);
+  });
+  return { rows, left, streetFloorsOk };
+}
 for (const [code, { vs, keys }] of Object.entries(BALANCE)) {
   if (!bySkill[code] || !bySkill[vs] || !bySkill[vs].length) continue;
+  if (WEIGHTED[code]) {
+    // weighted toward its partner (B1): no thinning; the check is on the lesson as served
+    const g = servedGaps(bySkill[code], bySkill[vs], keys);
+    balanceFloors[code] = g.rows.filter((r) => r.key === 'street' || r.key === 'pot');
+    if (g.left.length) balanceLeft[code] = g.left.map((r) => `${r.label} ${r.d > 0 ? '+' : ''}${Math.round(100 * r.d)} pts`);
+    continue;
+  }
   const tests = keys.flatMap((k) => CUE[k]);
   // the lesson as served: weighted where it carries serving weights
   const target = tests.map(([, f]) => servedShare(bySkill[vs], f));
@@ -305,6 +336,10 @@ for (const [code] of Object.entries(WEIGHTED)) if (bySkill[code] && bySkill[code
   // effective variety (CURR): (sum w)^2 / sum w^2, the number of equally weighted spots the served lesson is worth
   const eff = ws.reduce((a, x) => a + x, 0) ** 2 / ws.reduce((a, x) => a + x * x, 0);
   console.log(`weights ${code}: max ${Math.max(...ws)}x, min ${Math.min(...ws)}x the uniform rate (cap ${WEIGHT_CAP}, floor ${WEIGHT_FLOOR}); effective variety ${eff.toFixed(0)} of ${ws.length} spots${eff < 60 ? ' (UNDER 60: to CURR before it ships)' : ''}`);
+}
+for (const [code, rows] of Object.entries(balanceFloors)) {
+  console.log(`balance ${code} as served vs ${BALANCE[code].vs} (smaller lesson's share of each bucket; floor ${Math.round(100 * BAL_FLOOR)}%):`);
+  for (const r of rows) console.log(`   ${r.label.padEnd(14)} ${code} ${Math.round(100 * r.a)}%, ${BALANCE[code].vs} ${Math.round(100 * r.b)}%, gap ${r.d > 0 ? '+' : ''}${Math.round(100 * r.d)} pts, floor ${Math.round(100 * r.floor)}%${r.floor < BAL_FLOOR - 1e-9 && r.a + r.b > 0 ? ' (UNDER)' : ''}`);
 }
 for (const [code, left] of Object.entries(balanceLeft)) console.log(`BALANCE NOT MET ${code} vs ${BALANCE[code].vs}: ${left.join(', ')} (report to CURR before it ships)`);
 for (const [code, r] of Object.entries(report)) {

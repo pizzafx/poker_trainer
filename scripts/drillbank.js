@@ -26,6 +26,9 @@ import { captureSpot, pinnedReads } from './drill/spot.js';
 import { bankVersion } from './drill/version.js';
 
 const cfg = JSON.parse(process.argv[2] || '{}');
+// cfg.streets (CEO, CURR, 24 Nov): sample only these streets (1 flop, 2 turn, 3 river), e.g. B1's remainder on [1, 2]
+// toward V1's cue mix. A sampling filter only: every rule, gate and table is unchanged; each entry records its streets in
+// gate.source, so a run is reproduced from its seed and that metadata (CEO: the version hash is unchanged).
 const skill = SKILLS[cfg.skill];
 if (!skill) throw new Error(`unknown skill ${cfg.skill}`);
 const tag = cfg.tag || `${cfg.table || 'typical'}-${cfg.seed || 1}`;
@@ -70,7 +73,7 @@ function entryFor(s, ctx, f, pinned, reads, types, g) {
     costBb: r.costBb,
     costBucket: r.costBucket,
     estimate,
-    gate: { seeds: 3, samples: r.samples, tricky, proChecked: false, source: { table: cfg.table || 'typical', seed: cfg.seed || 1, hand: sess.handNo, lineup: cfg.lineup || null } },
+    gate: { seeds: 3, samples: r.samples, tricky, proChecked: false, source: { table: cfg.table || 'typical', seed: cfg.seed || 1, hand: sess.handNo, lineup: cfg.lineup || null, streets: cfg.streets || null } },
   };
 }
 
@@ -104,7 +107,7 @@ while (kept < (cfg.target || 150) && hands < (cfg.maxHands || 200000) && cands <
     const pre = s.street === STREET.PRE;
     const f = pre ? null : handFeatures(s.hole[0], s.board);
     // G7: four or more players dealt in
-    if (!taken && hands > (cfg.warmup ?? 60) && s.n > 3 && skill.match(s, ctx, f, types)) {
+    if (!taken && hands > (cfg.warmup ?? 60) && s.n > 3 && (!cfg.streets || cfg.streets.includes(s.street)) && skill.match(s, ctx, f, types)) {
       taken = true;
       cands++;
       const t1 = Date.now();

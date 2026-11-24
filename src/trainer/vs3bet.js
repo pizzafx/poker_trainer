@@ -41,7 +41,22 @@ export function vs3betFacts(s, belief, readOf, hero = 0) {
       }
     }
   }
-  const eq = equityVsRange(s.hole[hero], g.cells.map((c) => c.share), 400).equity;
+  const ev = equityVsRange(s.hole[hero], g.cells.map((c) => c.share), 400);
+  const eq = ev.equity;
+  // STRAT (QA-VERDICT's AK vs QQ+/AK): the share of the range's combos left after hero's cards that hero has under 45%
+  // against; the 4-bet's "almost all ahead" line needs at least 80%. Measured only when that line can print (P >= 0.85).
+  let aheadShare = null;
+  if (P >= 0.85) {
+    let w = 0;
+    let a = 0;
+    g.cells.forEach((c, k) => {
+      if (!(c.share > 0) || !(ev.live[k] > 0) || Number.isNaN(ev.cls[k])) return;
+      const x = c.share * ev.live[k];
+      w += x;
+      if (ev.cls[k] < 0.45) a += x;
+    });
+    aheadShare = w > 0 ? +(a / w).toFixed(3) : null;
+  }
   const call = ctx.toCall;
   const pot = ctx.pot; // what is in the middle now, the re-raise included
   const heroLeft = s.stacks[hero];
@@ -63,6 +78,7 @@ export function vs3betFacts(s, belief, readOf, hero = 0) {
     set,
     S,
     eq: +eq.toFixed(3),
+    aheadShare,
     need: +need.toFixed(3),
     short,
     call,

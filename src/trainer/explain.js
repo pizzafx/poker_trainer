@@ -109,7 +109,10 @@ function vs3betLines(d, v) {
   const facts = (oop ? ', out of position' : '') + (f.behind > 4 * f.potAfter ? ', with a lot left to lose when behind' : '');
   if (mine.type === 'raise') {
     // a 4-bet: against an almost-all-strong range the hands that continue are ahead; otherwise a plain line (STRAT)
-    out.push(f.P >= 0.85 ? 'The hands that continue are almost all ahead of yours.' : 'Re-raising here scores worse than folding against this range.');
+    // "almost all ahead" only when at least 80% of the range's combos leave hero under 45%; else "ahead or about even"
+    // (STRAT, QA-VERDICT: AK or QQ against QQ+ and AK)
+    const almost = f.aheadShare == null || f.aheadShare >= 0.8;
+    out.push(f.P >= 0.85 ? (almost ? 'The hands that continue are almost all ahead of yours.' : 'The hands that continue are ahead of yours or about even with it.') : 'Re-raising here scores worse than folding against this range.');
   } else if (f.eq < f.need - 0.03) {
     out.push(`You need about ${pctR(f.need)}% to call, and this hand wins only about ${pctR(f.eq)}% against that range, even seeing all five cards.`);
   } else if (f.eq < f.need + 0.05) {

@@ -6,6 +6,7 @@ import { build } from '../scripts/gradeall.js';
 import { vs3betFacts } from '../src/trainer/vs3bet.js';
 import { explain } from '../src/trainer/explain.js';
 import { parseCards } from '../src/engine/cards.js';
+import { classNames } from '../src/engine/hands.js';
 
 const facts = (spot) => {
   const { s, belief, env } = build(spot);
@@ -60,8 +61,11 @@ test('a straightforward player with TT: thin; under 1.5x the pot behind never re
   assert.match(t2, /Against this range, the call scores worse than folding/);
   assert.doesNotMatch(t2, /if all the cards come/);
   // a 4-bet where folding is best, against an almost-all-strong range
-  const t3 = explain(rec(s, { ...f, P: 0.9, set: 'QQ+ and AK', S: 90 }, { play: 'raise' })).reasons.join(' ');
+  const t3 = explain(rec(s, { ...f, P: 0.9, set: 'QQ+ and AK', S: 90, aheadShare: 0.9 }, { play: 'raise' })).reasons.join(' ');
   assert.match(t3, /The hands that continue are almost all ahead of yours\./);
+  // TT against QQ+ and AK: the AK combos are a coin flip, so not "almost all ahead" (STRAT, QA-VERDICT)
+  const t4 = explain(rec(s, { ...f, P: 0.9, set: 'QQ+ and AK', S: 90, aheadShare: 0.6 }, { play: 'raise' })).reasons.join(' ');
+  assert.match(t4, /The hands that continue are ahead of yours or about even with it\./);
 });
 
 // the owner's real line (QA's h551s.mjs): $1/$3 build, UTG and UTG+1 limp, hero isolates to $21 from the LJ, the station on
@@ -133,4 +137,29 @@ test("a near-shove (STRAT): the call leaves hero under 2x the call behind, the v
   const text = e.reasons.join(' ');
   assert.doesNotMatch(text, /times the call left behind/);
   assert.ok((text.match(/You need about \d+%/g) || []).length <= 1, text);
+});
+
+// STRAT (QA-VERDICT): the 4-bet line against an almost-all-premium range says "almost all ahead" only when at least 80% of
+// the range's live combos leave hero under 45%. A re-raiser's range of exactly these classes, weighted by combos.
+const rangeOf = (cls) => {
+  const n = { AA: 6, KK: 6, QQ: 6, JJ: 6, AKs: 4, AKo: 12 };
+  const tot = cls.reduce((a, c) => a + n[c], 0);
+  return { grid: () => ({ cells: classNames.map((c) => ({ share: cls.includes(c) ? n[c] / tot : 0 })) }) };
+};
+const fourBet = (hole, cls) => {
+  const { s, env } = build({ id: 'FB', button: 3, hole, board: '', seats: { 3: 'abc' }, stacks: { 0: 1000, 3: 1000 }, line: '0r21 3r90' });
+  const f = vs3betFacts(s, rangeOf(cls), env.readOf);
+  return { f, text: explain(rec(s, f, { play: 'raise' })).reasons.join(' ') };
+};
+test('the 4-bet line (STRAT): AKo against QQ+ and AK is ahead or about even; 99 against QQ+ is almost all ahead', () => {
+  const ak = fourBet('As Kh', ['AA', 'KK', 'QQ', 'AKs', 'AKo']);
+  assert.ok(ak.f.P >= 0.85 && ak.f.aheadShare < 0.8, `AKo: P ${ak.f.P}, aheadShare ${ak.f.aheadShare}`);
+  assert.match(ak.text, /The hands that continue are ahead of yours or about even with it\./);
+  const nn = fourBet('9s 9h', ['AA', 'KK', 'QQ']);
+  assert.ok(nn.f.aheadShare >= 0.8, `99 vs QQ+: aheadShare ${nn.f.aheadShare}`);
+  assert.match(nn.text, /The hands that continue are almost all ahead of yours\./);
+  // 99 against QQ+ and AK: the AK combos are a coin flip for 99, so not "almost all ahead"
+  const nk = fourBet('9s 9h', ['AA', 'KK', 'QQ', 'AKs', 'AKo']);
+  assert.ok(nk.f.aheadShare < 0.8, `99 vs QQ+/AK: aheadShare ${nk.f.aheadShare}`);
+  assert.match(nk.text, /ahead of yours or about even with it\./);
 });

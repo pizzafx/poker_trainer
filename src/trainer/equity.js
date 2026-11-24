@@ -19,6 +19,7 @@ export function equityVsRange(hero, shares, trials = 64, seed = 7) {
   const rng = makeRng(seed);
   const [h1, h2] = hero;
   const cls = new Float64Array(CLASS_COUNT).fill(NaN);
+  const live = new Float64Array(CLASS_COUNT); // the share of the class's combos hero's cards leave
   const deck = new Int8Array(52);
   const seven = [h1, h2, 0, 0, 0, 0, 0];
   const vill = [0, 0, 0, 0, 0, 0, 0];
@@ -28,6 +29,7 @@ export function equityVsRange(hero, shares, trials = 64, seed = 7) {
     const share = shares[k];
     if (!(share > 0)) continue;
     const combos = BY_CLASS[k].filter(([a, b]) => a !== h1 && a !== h2 && b !== h1 && b !== h2);
+    live[k] = combos.length / BY_CLASS[k].length;
     if (!combos.length) continue;
     let won = 0;
     for (let t = 0; t < trials; t++) {
@@ -53,5 +55,5 @@ export function equityVsRange(hero, shares, trials = 64, seed = 7) {
     total += share * cls[k];
     weight += share;
   }
-  return { equity: weight > 0 ? total / weight : NaN, cls };
+  return { equity: weight > 0 ? total / weight : NaN, cls, live };
 }

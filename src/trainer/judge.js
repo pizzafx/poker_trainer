@@ -199,6 +199,32 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   // A time budget (the app sets one; tests do not): stop sampling once it is spent, after at least
   // 200 samples, so no decision takes much more than a few seconds on a slow machine.
   const t0 = opts.budgetMs ? performance.now() : 0;
+  // Which option the trainee took (-1 with no action)
+  const mineIdx = (() => {
+    let m = -1;
+    if (!heroAction) return m;
+    const t = heroAction.type === 'bet' ? 'raise' : heroAction.type;
+    if (t === 'raise') {
+      let bd = Infinity;
+      for (let c = 0; c < cands.length; c++) {
+        if (cands[c].type !== 'raise') continue;
+        const d = Math.abs(cands[c].to - heroAction.to);
+        if (d < bd) {
+          bd = d;
+          m = c;
+        }
+      }
+    } else {
+      m = cands.findIndex((c) => c.type === t);
+    }
+    if (m < 0) m = cands.findIndex((c) => c.type === 'check' || c.type === 'call');
+    return m;
+  })();
+  // The budget extension (MATH_JUDGE_FLOOR, CEO): when the budget is first found spent and the trainee's option trails
+  // the best by the plain yellow bar or more, sampling goes on to 800 (or N) with no further clock, so a flag is not
+  // dropped for want of samples. `extended` says it ran.
+  let extended = false;
+  let stopAt = 0;
   let n = 0;
   let guard = 0;
   heroP = opts.heroProfile || HERO_PROFILE;
@@ -287,7 +313,30 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
       }
     }
     n++;
-    if (opts.budgetMs && n >= 200 && (n & 31) === 0 && performance.now() - t0 > opts.budgetMs) break;
+    if (stopAt) {
+      if (n >= stopAt) break;
+      continue;
+    }
+    if (opts.budgetMs && n >= 200 && (n & 31) === 0 && performance.now() - t0 > opts.budgetMs) {
+      const to = Math.min(N, 800);
+      if (mineIdx >= 0 && n < to) {
+        let bestMean = -Infinity;
+        const mean = (c) => {
+          let sum = 0;
+          for (let k = 0; k < n; k++) sum += res[c][k];
+          return sum / n;
+        };
+        for (let c = 0; c < cands.length; c++) bestMean = Math.max(bestMean, mean(c));
+        const gap = bestMean - mean(mineIdx);
+        const bar = Math.max(3 * s.bbAmt, 0.1 * potSize(s)); // the plain yellow bar, no same-kind factor
+        if (gap >= bar) {
+          extended = true;
+          stopAt = to;
+          continue;
+        }
+      }
+      break;
+    }
   }
 
   const evs = res.map((r) => {
@@ -298,25 +347,8 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   let best = 0;
   for (let c = 1; c < C; c++) if (evs[c] > evs[best]) best = c;
 
-  // Which option did the trainee take?
-  let mine = -1;
-  if (heroAction) {
-    const t = heroAction.type === 'bet' ? 'raise' : heroAction.type;
-    if (t === 'raise') {
-      let bd = Infinity;
-      for (let c = 0; c < C; c++) {
-        if (cands[c].type !== 'raise') continue;
-        const d = Math.abs(cands[c].to - heroAction.to);
-        if (d < bd) {
-          bd = d;
-          mine = c;
-        }
-      }
-    } else {
-      mine = cands.findIndex((c) => c.type === t);
-    }
-    if (mine < 0) mine = cands.findIndex((c) => c.type === 'check' || c.type === 'call');
-  }
+  // Which option did the trainee take? (worked out before sampling too, for the budget extension)
+  const mine = mineIdx;
 
   let loss = 0;
   let se = 0;
@@ -374,6 +406,7 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     grade,
     sameKind,
     samples: n,
+    extended, // the budget extension ran (MATH_JUDGE_FLOOR)
     pot,
     street: s.street,
   };

@@ -237,3 +237,24 @@ test('drill B1 flop narrowing: overcards and any straight or flush draw out on t
   assert.equal(m('Kc 2c', '9d Ts Jh Qs 8c'), false, 'a board straight: out');
   assert.equal(m('5c 2h', '9d Ts Jh Qs 3c'), true, 'four to a straight on the board, hero no straight: in');
 });
+
+// B1's package (CEO, STRAT, PRO, GAME, CURR, 21 Nov): the rule line, the narrowed tricky test and B1's own easy rule
+import { fourToFlushOrStraight, freshThreeFlush, B1_FRESH_FLUSH } from '../scripts/drill/skills.js';
+test('drill B1 package: tricky by hand or a four-flush/four-straight board (and a fresh three-flush); easy at 2.5 bars with a 7.5bb, quarter-pot cost', () => {
+  assert.equal(SK2.B1.rule, 'A bluff needs folds. Stations and crowds rarely fold a pair, and usually have one: check.');
+  const tr = (hole, board) => SK2.B1.tricky({ hole: [parseCards(hole)], board: parseCards(board) }, {}, null);
+  assert.equal(tr('7d 4c', 'Ks Kd 9h 2c Qh'), false, 'a paired-board river spot is not tricky');
+  assert.equal(tr('7d 4c', 'Kh 9h 2c 5h'), B1_FRESH_FLUSH, 'a turn bringing the third heart is tricky (STRAT)');
+  assert.equal(tr('7d 4c', 'Kh 9h 5h 2c Js'), false, 'a stale three-flush is not tricky');
+  assert.equal(tr('7d 4c', 'Kh 9h 5h 2h Js'), true, 'four to a flush: tricky');
+  assert.equal(tr('7d 2c', '9s Th Jc Qd 3s'), true, 'four to a straight: tricky');
+  assert.equal(tr('Ad 4c', 'Ks 9d 6h 2c Qh'), true, 'ace-high: tricky');
+  assert.equal(fourToFlushOrStraight(parseCards('As 2d 3h 4c Kh')), true, 'A-2-3-4 counts (ace low)');
+  assert.equal(freshThreeFlush(parseCards('Kh 9h 5h')), true, 'a monotone flop counts');
+  const r = (bars, cost, pot) => ({ marginBars: bars, costBb: { raise: cost }, potBb: pot });
+  assert.equal(difficultyOf(SK2.B1, false, false, r(2.5, 8, 30)), 1, '2.5 bars, 8bb of a 30bb pot: easy');
+  assert.equal(difficultyOf(SK2.B1, false, false, r(2.4, 8, 30)), 2, 'easy fails at 2.4 bars');
+  assert.equal(difficultyOf(SK2.B1, false, false, r(3, 7, 20)), 2, 'easy fails when the cost is 7bb');
+  assert.equal(difficultyOf(SK2.B1, false, false, r(3, 8, 40)), 2, 'easy fails under a quarter of the pot');
+  assert.equal(difficultyOf(SK2.D1, false, false, { marginBars: 2.9 }), 2, 'other lessons keep the 3-bar cut');
+});

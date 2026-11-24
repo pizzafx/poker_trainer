@@ -149,6 +149,24 @@ export function scaryBoard(board) {
   return false;
 }
 
+// B1's tricky boards (21 Nov): four to a flush (four of a suit) or four to a straight (four ranks within five, the ace
+// high and low); and STRAT's fresh three-flush, a third card of a suit that arrived on this street (a monotone flop)
+export const B1_FRESH_FLUSH = true;
+export function fourToFlushOrStraight(board) {
+  for (let k = 0; k < 4; k++) if (board.filter((c) => (c & 3) === k).length >= 4) return true;
+  const r = new Set(board.map((c) => (c >> 2) + 1));
+  if (r.has(13)) r.add(0);
+  for (let lo = 0; lo <= 9; lo++) if ([0, 1, 2, 3, 4].filter((d) => r.has(lo + d)).length >= 4) return true;
+  return false;
+}
+export function freshThreeFlush(board) {
+  const n = (b, k) => b.filter((c) => (c & 3) === k).length;
+  if (board.length === 3) return [0, 1, 2, 3].some((k) => n(board, k) === 3);
+  const prev = board.slice(0, -1);
+  const last = board[board.length - 1] & 3;
+  return n(board, last) === 3 && n(prev, last) === 2;
+}
+
 export const SKILLS = {
   D1: {
     tier: 1,
@@ -223,7 +241,7 @@ export const SKILLS = {
     tier: 1,
     name: "Don't bluff people who don't fold",
     leak: 'badBluff',
-    rule: 'A bluff needs folds. Stations and crowds don’t fold: check.',
+    rule: 'A bluff needs folds. Stations and crowds rarely fold a pair, and usually have one: check.',
     want: 'check',
     allBets: true,
     match: (s, ctx, f, types) => {
@@ -243,13 +261,18 @@ export const SKILLS = {
       if (o.length < 1 || o.length > 2) return false;
       return o.every((i) => CALLERS.has(types[i])) && o.some((i) => types[i] === 'station' || types[i] === 'whale');
     },
-    // tricky: ace-high or two overcards to the board with no draw (the "I'll just bet" hand), or a scary board (a
-    // bet "represents" something)
+    // tricky (CEO, STRAT, PRO, GAME, CURR, 21 Nov): ace-high or two overcards to the board (the "I'll just bet" hand), or
+    // a board with four to a flush or a straight (a bet "represents" something); paired and three-suit boards no longer
+    // count. STRAT's amendment (B1_FRESH_FLUSH): a three-flush whose third suited card came on this street, or a
+    // monotone flop, counts too
     tricky: (s, ctx, f) => {
       const hi = s.hole[0].map((c) => c >> 2);
       const top = Math.max(...s.board.map((c) => c >> 2));
-      return hi.includes(12) || hi.every((r) => r > top) || scaryBoard(s.board);
+      return hi.includes(12) || hi.every((r) => r > top) || fourToFlushOrStraight(s.board) || (B1_FRESH_FLUSH && freshThreeFlush(s.board));
     },
+    // easy, B1 only (CEO, GAME, 21 Nov): no tricky feature, the worst scenario's margin at 2.5 bars or more, and the
+    // bet's base cost at 7.5bb or more and a quarter of the pot or more (so the card shows a real loss)
+    easy: (r) => r.marginBars >= 2.5 - 1e-9 && r.costBb && r.costBb.raise >= 7.5 - 1e-9 && r.potBb > 0 && r.costBb.raise >= 0.25 * r.potBb - 1e-9,
   },
   // V1's partner (CEO, 19 Nov; DRILL_CURRICULUM_SPEC 2.6): the same hands checked to on the river, against the
   // players who only call with better; the opponent's type is the only cue
@@ -354,6 +377,7 @@ export const SKILLS = {
 // 1.5x the gate's floor (postflop 3 bars; raise-or-limp 1.5bb; fold-or-limp 0.6bb); 2 otherwise
 export function difficultyOf(skill, tricky, pre, r) {
   if (tricky) return 3;
+  if (skill.easy) return skill.easy(r) ? 1 : 2; // a lesson's own easy rule (B1)
   const floor = pre ? (skill.gate && skill.gate.preBase) || 1 : 2;
   return (pre ? r.marginBb : r.marginBars) >= 1.5 * floor - 1e-9 ? 1 : 2;
 }

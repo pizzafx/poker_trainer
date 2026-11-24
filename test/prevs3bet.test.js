@@ -125,3 +125,12 @@ test('an open or a defend with folding best keeps preLoose; no facts, no preVs3b
   const { s } = build({ id: 'open', button: 3, hole: 'Ts Th', board: '', seats: { 3: 'station' }, line: '' });
   assert.equal(vs3betFacts(s, null, () => null), null, 'no re-raise: no facts');
 });
+
+test("a near-shove (STRAT): the call leaves hero under 2x the call behind, the villain not all-in: no set clause, the price once", () => {
+  const { s, f } = facts({ id: 'NEAR', button: 3, hole: 'Ts Th', board: '', seats: { 3: 'station' }, stacks: { 0: 120, 3: 413 }, line: '0r21 3r90' });
+  assert.ok(f.behind < 2 * f.call, `behind ${f.behind}, call ${f.call}`);
+  const e = explain(rec(s, f));
+  const text = e.reasons.join(' ');
+  assert.doesNotMatch(text, /times the call left behind/);
+  assert.ok((text.match(/You need about \d+%/g) || []).length <= 1, text);
+});

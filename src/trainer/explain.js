@@ -124,7 +124,8 @@ function vs3betLines(d, v) {
   }
   // the set clause: pocket pairs with too little behind to be paid for a set
   const pair = d.hole && d.hole.length === 2 && d.hole[0] >> 2 === d.hole[1] >> 2;
-  if (pair && mine.type === 'call' && f.behind < 15 * f.call) {
+  // only with at least 2x the call behind: no 'about 0 times' or '1 times' (STRAT)
+  if (pair && mine.type === 'call' && f.behind >= 2 * f.call && f.behind < 15 * f.call) {
     const n = Math.round((10 * f.behind) / f.call) / 10;
     out.push(`With only about ${n} times the call left behind, hitting a set doesn't pay enough${oop ? ", and you'd play the rest out of position" : ''}.`);
   }

@@ -311,7 +311,8 @@ export function handFeatures(hole, board, tex = boardTexture(board)) {
   // a straight with fewer than four of one suit; 2 a flush, or a straight with four of one suit; 1 anything lower
   const playsBoard = board.length !== 5 || score !== boardScore ? 0
     : cat >= CATEGORY.FULL_HOUSE || (cat === CATEGORY.STRAIGHT && tex.maxSuit < 4) ? 3 : cat === CATEGORY.FLUSH || cat === CATEGORY.STRAIGHT ? 2 : 1;
-  return { tier, strength, raw, mdFlush, mdStraight, holdsSuit, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, overEquity, nutFlush, missedDraw, prevTier, playsBoard };
+  // hole: the two cards these features describe (POOL 23 Nov: the bots' one-pair classes are read from them, per hand)
+  return { tier, strength, raw, mdFlush, mdStraight, holdsSuit, score, cat, flushDraw, straightDraw, outs, drawEquity, drawOuts, ownDrawEquity, overEquity, nutFlush, missedDraw, prevTier, playsBoard, hole };
 }
 
 export function describeHand(f, board) {

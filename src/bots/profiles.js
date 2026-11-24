@@ -173,6 +173,7 @@ const BASE = {
   isoFoldMult: null, // POOL batch 19c (item 8, option B): { all: [1, 2, 3+ limpers] } or { pair, suited }: fold multipliers facing one iso raise; 19f: { all } may add short (under 40bb) and caller (after a caller)
   drawBetMult: null, // POOL batch 19f (item 2): scales a real-draw, no-pair bet on the flop or turn when nobody has bet
   riverPairFoldCap: null, // POOL batch 19f (item 0): PRO's one-pair river fold ceilings (set per type below DEFS)
+  turnPairFoldCap: null, // POOL batch 19h: PRO's one-pair turn fold ceilings (set per type below DEFS)
   psLimp: null, // POOL batch 19c (item 8, option B): share of otherwise-folded pairs and suited hands that limp first in or behind
   smallCont: null,
   smallContFirstOnly: false,
@@ -1037,6 +1038,22 @@ const RIVER_PAIR_FOLD_CAP = {
   maniac: { top: [5, 10, 15], mid: [25, 30, 40], ppUnder: [35, 45, 50], mw: [10, 15], s2: [20, 25] },
 };
 for (const t of Object.keys(RIVER_PAIR_FOLD_CAP)) DEFS[t].riverPairFoldCap = RIVER_PAIR_FOLD_CAP[t];
+// POOL batch 19h (CEO-approved 21 Nov; PRO_RUBRIC.md "Turn one-pair fold ceilings", B, judgement): the most a type folds one
+// pair facing a single turn bet, heads-up, first responder, no draw, calm turn, in % at [2/3 pot, pot, 1.5x pot], by class.
+// mw: the multiway add [top and over, mid/under]; s2: the behind-a-caller add. Paired board +10, scary turn +10, real draw -15
+// (floor 2), cap 95, aimed at 0.85 in the policy.
+const TURN_PAIR_FOLD_CAP = {
+  station: { topGood: [5, 10, 15], topWeak: [5, 10, 15], mid: [35, 45, 55], ppUnder: [45, 55, 65], ppOver: [5, 10, 15], mw: [5, 5], s2: [10, 15] },
+  whale: { topGood: [5, 10, 15], topWeak: [5, 10, 15], mid: [30, 40, 50], ppUnder: [40, 50, 60], ppOver: [5, 10, 15], mw: [5, 5], s2: [10, 15] },
+  beginner: { topGood: [10, 15, 20], topWeak: [15, 20, 30], mid: [45, 55, 65], ppUnder: [55, 65, 75], ppOver: [10, 15, 20], mw: [10, 10], s2: [20, 25] },
+  abc: { topGood: [15, 20, 30], topWeak: [20, 35, 50], mid: [70, 80, 85], ppUnder: [75, 85, 90], ppOver: [10, 20, 30], mw: [10, 10], s2: [20, 25] },
+  nit: { topGood: [20, 30, 45], topWeak: [30, 45, 60], mid: [75, 85, 90], ppUnder: [80, 90, 95], ppOver: [20, 30, 45], mw: [10, 15], s2: [20, 25] },
+  tag: { topGood: [15, 25, 35], topWeak: [25, 40, 55], mid: [60, 70, 80], ppUnder: [65, 75, 85], ppOver: [10, 20, 30], mw: [10, 15], s2: [20, 25] },
+  gto: { topGood: [15, 25, 35], topWeak: [25, 40, 55], mid: [60, 70, 80], ppUnder: [65, 75, 85], ppOver: [10, 20, 30], mw: [10, 15], s2: [20, 25] },
+  lag: { topGood: [10, 20, 30], topWeak: [20, 35, 50], mid: [50, 60, 70], ppUnder: [55, 65, 75], ppOver: [5, 15, 25], mw: [10, 15], s2: [20, 25] },
+  maniac: { topGood: [5, 10, 15], topWeak: [10, 15, 25], mid: [30, 40, 50], ppUnder: [40, 50, 60], ppOver: [5, 10, 15], mw: [10, 15], s2: [20, 25] },
+};
+// (19h step A: the turn cap is not switched on yet; step B adds: for (const t of Object.keys(TURN_PAIR_FOLD_CAP)) DEFS[t].turnPairFoldCap = TURN_PAIR_FOLD_CAP[t];)
 const HERO_DEF = {
   ...DEFS.tag,
   // POOL batch 19c (CEO): the new tag fields stay off on the stand-in until QA-VERDICT's flip check and STRAT and MATH rule
@@ -1051,6 +1068,7 @@ const HERO_DEF = {
   flushRiverStraightFold: null,
   wetFlopCheckCap: null,
   drawBetMult: null, // POOL batch 19f: pinned off for the stand-in (QA-VERDICT flip check first)
+  turnPairFoldCap: null, // POOL batch 19h: pinned off for the stand-in (QA-VERDICT's adopt-vs-pinned check first; STRAT rules)
   riverPairFoldCap: null, // POOL batch 19f/19g: pinned off for the stand-in BY DESIGN, not pending adoption: the stand-in models the
   // hero playing well against this pool, not the pool's payoff leak (STRAT and MATH, 20 Nov; QA-VERDICT's adopt cost 1.71%, every
   // moved verdict worse for hero; re-measure if bot river bluff share rises materially)

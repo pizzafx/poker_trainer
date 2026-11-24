@@ -1053,7 +1053,7 @@ const TURN_PAIR_FOLD_CAP = {
   lag: { topGood: [10, 20, 30], topWeak: [20, 35, 50], mid: [50, 60, 70], ppUnder: [55, 65, 75], ppOver: [5, 15, 25], mw: [10, 15], s2: [20, 25] },
   maniac: { topGood: [5, 10, 15], topWeak: [10, 15, 25], mid: [30, 40, 50], ppUnder: [40, 50, 60], ppOver: [5, 10, 15], mw: [10, 15], s2: [20, 25] },
 };
-// (19h step A: the turn cap is not switched on yet; step B adds: for (const t of Object.keys(TURN_PAIR_FOLD_CAP)) DEFS[t].turnPairFoldCap = TURN_PAIR_FOLD_CAP[t];)
+for (const t of Object.keys(TURN_PAIR_FOLD_CAP)) DEFS[t].turnPairFoldCap = TURN_PAIR_FOLD_CAP[t];
 const HERO_DEF = {
   ...DEFS.tag,
   // POOL batch 19c (CEO): the new tag fields stay off on the stand-in until QA-VERDICT's flip check and STRAT and MATH rule

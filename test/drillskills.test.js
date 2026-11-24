@@ -209,3 +209,52 @@ test('drill D1 nit drop: top pair facing a nit 2/3 lead after a checked flop and
   assert.equal(spot('Kd Tc', 40, 'abc'), true, 'TPGK vs an abc: in');
   assert.match(SK2.D1.rule, /usually fold\.$/, "D1's line unchanged");
 });
+
+// B1 on the flop (STRAT's ruling (b), PRO, CURR, 19 Nov): no card above the board's top card and no draw, a gutshot included
+test('drill B1 flop narrowing: overcards and any straight or flush draw out on the flop; the turn and river unchanged', () => {
+  const m = (hole, board, opp = 'station') => {
+    const s = { n: 2, street: board.split(' ').length === 3 ? 1 : board.split(' ').length === 4 ? 2 : 3, hole: [parseCards(hole), []], board: parseCards(board), folded: [false, false], allIn: [false, false], bet: [0, 0], currentBet: 0, history: [] };
+    return SK2.B1.match(s, { toCall: 0, canRaise: true, aggressor: -1, pot: 20, bb: 2 }, handFeatures(s.hole[0], s.board), [null, opp]);
+  };
+  assert.equal(m('Ad Qc', 'Jh 7s 3d'), false, 'AQo on J-7-3: out');
+  assert.equal(m('Kd 4c', 'Jh 7s 3d'), false, 'one overcard (K on J-7-3): out');
+  assert.equal(m('6d 5c', 'Kh Qs 9d'), true, '65o on K-Q-9 rainbow, no draw: in (the gate decides)');
+  assert.equal(m('Td 8c', 'Jh 7s 2d'), false, 'a gutshot on the flop: out');
+  assert.equal(m('6h 5h', 'Kh Qs 9h'), false, 'a flush draw on the flop: out');
+  assert.equal(m('Kd 4c', 'Ah 7s 3d 2c Jd', 'station'), true, 'king-high on the river vs a station: in');
+  assert.equal(m('Ad 4c', 'Kh 7s 3d 2c Jd', 'station'), true, 'ace-high on the river vs a station: in');
+  assert.equal(m('Ad Qc', 'Jh 7s 3d 2c', 'whale'), true, 'AQo on the turn vs a whale: in (turn unchanged)');
+  // the board alone holds trips or two pair (CURR, 19 Nov): out on any street; one pair on the board stays
+  assert.equal(m('Ad Qc', '6s 6d 6h'), false, 'AQo on 6-6-6: out');
+  assert.equal(m('3d 2c', '9s 9d 9h'), false, '32o on 9-9-9 (no overcard, no draw): out by the board rule');
+  assert.equal(m('Ad Qc', 'Kh Ks 7d 7c'), false, 'AQo on K-K-7-7 at the turn: out');
+  assert.equal(m('5d 4c', '9h 9s 2d'), true, '54o on 9-9-2: in (the gate decides)');
+  assert.equal(m('Ad 3c', 'Kh Ks 7d 7c 2s'), false, 'ace-high on a two-pair river board: out');
+  assert.equal(m('Ad 3c', 'Kh Ks 7d 4c 2s'), true, 'ace-high on a one-pair river board: in');
+  assert.equal(m('Kc Qc', 'Qd 7d Td Ad Kd'), false, 'KQo under a five-diamond board: out');
+  assert.equal(m('3c 2h', '9d Ts Jh Qs Kc'), false, '32o on a 9-T-J-Q-K board: out');
+  assert.equal(m('3c 2h', '9d Td 5d Qd 7s'), true, 'a four-flush board, hero holds no diamond and has air: in');
+  assert.equal(m('Kc 2c', '9d Ts Jh Qs 8c'), false, 'a board straight: out');
+  assert.equal(m('5c 2h', '9d Ts Jh Qs 3c'), true, 'four to a straight on the board, hero no straight: in');
+});
+
+// B1's package (CEO, STRAT, PRO, GAME, CURR, 21 Nov): the rule line, the narrowed tricky test and B1's own easy rule
+import { fourToFlushOrStraight, freshThreeFlush, B1_FRESH_FLUSH } from '../scripts/drill/skills.js';
+test('drill B1 package: tricky by hand or a four-flush/four-straight board (and a fresh three-flush); easy at 2.5 bars with a 7.5bb, quarter-pot cost', () => {
+  assert.equal(SK2.B1.rule, 'A bluff needs folds. Stations and crowds rarely fold a pair, and usually have one: check.');
+  const tr = (hole, board) => SK2.B1.tricky({ hole: [parseCards(hole)], board: parseCards(board) }, {}, null);
+  assert.equal(tr('7d 4c', 'Ks Kd 9h 2c Qh'), false, 'a paired-board river spot is not tricky');
+  assert.equal(tr('7d 4c', 'Kh 9h 2c 5h'), B1_FRESH_FLUSH, 'a turn bringing the third heart is tricky (STRAT)');
+  assert.equal(tr('7d 4c', 'Kh 9h 5h 2c Js'), false, 'a stale three-flush is not tricky');
+  assert.equal(tr('7d 4c', 'Kh 9h 5h 2h Js'), true, 'four to a flush: tricky');
+  assert.equal(tr('7d 2c', '9s Th Jc Qd 3s'), true, 'four to a straight: tricky');
+  assert.equal(tr('Ad 4c', 'Ks 9d 6h 2c Qh'), true, 'ace-high: tricky');
+  assert.equal(fourToFlushOrStraight(parseCards('As 2d 3h 4c Kh')), true, 'A-2-3-4 counts (ace low)');
+  assert.equal(freshThreeFlush(parseCards('Kh 9h 5h')), true, 'a monotone flop counts');
+  const r = (bars, cost, pot) => ({ marginBars: bars, costBb: { raise: cost }, potBb: pot });
+  assert.equal(difficultyOf(SK2.B1, false, false, r(2.5, 8, 30)), 1, '2.5 bars, 8bb of a 30bb pot: easy');
+  assert.equal(difficultyOf(SK2.B1, false, false, r(2.4, 8, 30)), 2, 'easy fails at 2.4 bars');
+  assert.equal(difficultyOf(SK2.B1, false, false, r(3, 7, 20)), 2, 'easy fails when the cost is 7bb');
+  assert.equal(difficultyOf(SK2.B1, false, false, r(3, 8, 40)), 2, 'easy fails under a quarter of the pot');
+  assert.equal(difficultyOf(SK2.D1, false, false, { marginBars: 2.9 }), 2, 'other lessons keep the 3-bar cut');
+});

@@ -212,5 +212,5 @@ export function gateSpot(s, belief, pinnedReads, skill, o = {}) {
   const costBb = Object.fromEntries(others.map((k) => [k, +((fb[want] ? vb.options[fb[want].i].ev - vb.options[fb[k].i].ev : 0) / bb).toFixed(1)]));
   // each family's least margin under the best, in bars, over every row (D3's abc rule reads fold's)
   const minGapBars = Object.fromEntries(others.map((k) => [k, +Math.min(...gaps[k]).toFixed(2)]));
-  return { ok: true, log, result: { want, families, options: optionsOut, marginBars: +marginBars.toFixed(2), marginBb: +marginBb.toFixed(2), minGapBars, costBb, costBucket, graded, base: vb, samples: n } };
+  return { ok: true, log, result: { want, families, options: optionsOut, marginBars: +marginBars.toFixed(2), marginBb: +marginBb.toFixed(2), minGapBars, costBb, costBucket, potBb: +(vb.pot / bb).toFixed(1), graded, base: vb, samples: n } };
 }

@@ -3042,3 +3042,38 @@ body.in-drill { overflow: hidden; }
 }
 #drill .dr-where .boxes { margin-left: 8px; }
 #drill .dr-copyfield { width: 100%; font: 500 12.5px/1.5 var(--mono); color: var(--chalk); padding: 10px 12px; border-radius: 10px; background: var(--rail); border: 1px solid var(--line); }
+
+/* The coach's pending state (DESIGN, COACH_PENDING_HANDOFF, CEO-approved 23 Nov; dark only). Three quiet dots, no spinner;
+   a landed verdict fades in over 220ms on its new content only. */
+.dots { display: inline-flex; gap: 3px; flex: none; align-items: center; }
+.dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--slate); opacity: 0.35; }
+@media (prefers-reduced-motion: no-preference) {
+  .dots i { animation: coach-dot 1.2s ease-in-out infinite; }
+  .dots i:nth-child(2) { animation-delay: 0.2s; }
+  .dots i:nth-child(3) { animation-delay: 0.4s; }
+  .landing, .cs.landing > *, .fb.landing > :not(.where) { animation: coach-land 220ms ease-out; }
+}
+@media (prefers-reduced-motion: reduce) { .dots i:nth-child(2) { opacity: 1; } }
+@keyframes coach-dot { 0%, 60%, 100% { opacity: 0.35; } 30% { opacity: 1; } }
+@keyframes coach-land { from { opacity: 0; } }
+#toast .cs.checking { border-color: var(--line-2); color: var(--slate); }
+#toast .cs.checking .dots, #toast .cs.checking .slot { width: 22px; justify-content: center; }
+#toast .cs .tail { display: inline-flex; align-items: center; gap: 6px; font: 500 11px/1 var(--mono); letter-spacing: 0.04em; color: var(--slate); padding-left: 10px; margin-right: 10px; border-left: 1px solid var(--line); }
+@media (max-width: 520px) { #toast .cs .tail .tx { display: none; } }
+#log .hl-v { min-width: 84px; }
+#log .hl-ln.me.pending { border-left-color: var(--slate-dim); }
+#log .hl-ln .hl-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#log .hl-v.pending { display: inline-flex; align-items: center; gap: 6px; color: var(--slate); font: 500 11px/1 var(--mono); }
+.fb.pending { border-left-color: var(--line-2); min-height: 92px; }
+.fb.pending .head { color: var(--slate); font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.fb.pending .sk { display: block; height: 9px; border-radius: 5px; background: var(--panel-3); margin-top: 10px; }
+.fb.pending .sk + .sk { margin-top: 7px; }
+.fb.pending .sk1 { width: 72%; }
+.fb.pending .sk2 { width: 46%; }
+/* the coach's verdicts for screen readers, once each (DESIGN, QA AG2) */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* the hand-end slot while a verdict is still coming: in the buttons' footprint, quiet, not clickable (DESIGN) */
+#actions .checking-slot { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 200px; height: 52px; color: var(--slate); font-weight: 500; }
+@media (max-width: 520px) { #actions .checking-slot { flex: 1 1 auto; } }
+/* the coach couldn't load (CEO): one quiet banner, never over the actions */
+.coach-banner { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); z-index: 40; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel-3); color: var(--slate); font-size: 13px; }

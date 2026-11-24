@@ -16,7 +16,7 @@
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/space-grotesk-var.woff2?v=86547af457" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="src/ui/fonts.css?v=1b671c242f">
-<link rel="stylesheet" href="src/ui/table.css?v=3be0c9ce7a">
+<link rel="stylesheet" href="src/ui/table.css?v=dbc5f52358">
 </head>
 <body>
 <!-- Drawn avatars, one symbol per look (assets/avatars/sprite.svg, inlined so <use href="#av-id"> works). -->
@@ -79,7 +79,7 @@
     <div id="bottom">
       <div id="bottom-left">
         <div id="news"></div>
-        <div id="toast" role="status" aria-live="polite"></div>
+        <div id="toast"></div><div id="coach-said" class="sr-only" aria-live="polite"></div>
       </div>
       <div id="actions"></div>
     </div>
@@ -104,9 +104,11 @@
 <script type="importmap">
 {
  "imports": {
-  "./src/bots/policy.js": "./src/bots/policy.js?v=9fce50b476",
-  "./src/bots/profiles.js": "./src/bots/profiles.js?v=a251c36ff6",
+  "./src/bots/policy.js": "./src/bots/policy.js?v=aff6e0f54e",
+  "./src/bots/profiles.js": "./src/bots/profiles.js?v=192f0e4d76",
   "./src/data/preflop.js": "./src/data/preflop.js?v=9a6872fc8f",
+  "./src/data/riverpairref.js": "./src/data/riverpairref.js?v=43d1c726c6",
+  "./src/data/riverpairref2.js": "./src/data/riverpairref2.js?v=f2f389e6bb",
   "./src/drill/card.js": "./src/drill/card.js?v=b2d42060ce",
   "./src/drill/game.js": "./src/drill/game.js?v=fa549950f5",
   "./src/drill/learn.js": "./src/drill/learn.js?v=a9d00bfb35",
@@ -115,28 +117,31 @@
   "./src/engine/features.js": "./src/engine/features.js?v=a6db130f42",
   "./src/engine/game.js": "./src/engine/game.js?v=8980847767",
   "./src/engine/hands.js": "./src/engine/hands.js?v=dc6326610a",
-  "./src/trainer/belief.js": "./src/trainer/belief.js?v=9eb4d5df17",
+  "./src/trainer/belief.js": "./src/trainer/belief.js?v=11c99159e3",
   "./src/trainer/best.js": "./src/trainer/best.js?v=8cb20c7fa5",
+  "./src/trainer/coachtier.js": "./src/trainer/coachtier.js?v=5929ef035b",
   "./src/trainer/dispute.js": "./src/trainer/dispute.js?v=f038279f63",
   "./src/trainer/drills.js": "./src/trainer/drills.js?v=7b08b0b52c",
   "./src/trainer/equity.js": "./src/trainer/equity.js?v=84121ab0b7",
-  "./src/trainer/explain.js": "./src/trainer/explain.js?v=8d880cf0cb",
-  "./src/trainer/grade.js": "./src/trainer/grade.js?v=d0fd76ce66",
-  "./src/trainer/judge.js": "./src/trainer/judge.js?v=e26af691c2",
+  "./src/trainer/explain.js": "./src/trainer/explain.js?v=67ee840777",
+  "./src/trainer/grade.js": "./src/trainer/grade.js?v=70bdaa97c2",
+  "./src/trainer/judge.js": "./src/trainer/judge.js?v=500072cde0",
   "./src/trainer/judge.worker.js": "./src/trainer/judge.worker.js?v=c1f8a3fcae",
   "./src/trainer/players.js": "./src/trainer/players.js?v=06a6995a77",
   "./src/trainer/ranges.js": "./src/trainer/ranges.js?v=570aa5cae3",
   "./src/trainer/replay.js": "./src/trainer/replay.js?v=09b1feab9d",
-  "./src/trainer/session.js": "./src/trainer/session.js?v=089ea2d304",
+  "./src/trainer/session.js": "./src/trainer/session.js?v=ec0802bc0c",
   "./src/trainer/tuning.js": "./src/trainer/tuning.js?v=ac5d58551d",
-  "./src/trainer/version.js": "./src/trainer/version.js?v=3e101577e5",
+  "./src/trainer/version.js": "./src/trainer/version.js?v=ef255d7657",
   "./src/ui/countdown.js": "./src/ui/countdown.js?v=1afa8ac2d2",
   "./src/ui/drill.js": "./src/ui/drill.js?v=08cdfd3f60",
+  "./src/ui/judgeclient.js": "./src/ui/judgeclient.js?v=634e5f0619",
   "./src/ui/presets.js": "./src/ui/presets.js?v=6a951228d7",
-  "./src/ui/store.js": "./src/ui/store.js?v=78c7440b74"
+  "./src/ui/store.js": "./src/ui/store.js?v=78c7440b74",
+  "./src/ui/verdictqueue.js": "./src/ui/verdictqueue.js?v=1375bc1f5d"
  }
 }
 </script>
-<script type="module" src="src/ui/app.js?v=a0c5ee41df"></script>
+<script type="module" src="src/ui/app.js?v=b4b36f408c"></script>
 </body>
 </html>

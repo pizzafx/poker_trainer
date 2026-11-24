@@ -14,7 +14,9 @@ import crypto from 'node:crypto';
 import { replayTable } from '../src/drill/card.js';
 import { potSize } from '../src/engine/game.js';
 import path from 'node:path';
-import { SKILLS } from './drill/skills.js';
+import { SKILLS, nitQuietLead } from './drill/skills.js';
+import { buildContext } from '../src/bots/policy.js';
+import { handFeatures, TIER } from '../src/engine/features.js';
 import { bankVersion } from './drill/version.js';
 
 const dir = process.argv[2];
@@ -323,6 +325,16 @@ for (const [code, r] of Object.entries(report)) {
     const fl = (bySkill.P1 || []).filter((e) => e.families.call === 'fine');
     const pairs = (bySkill.P1 || []).filter((e) => ['77', '88'].includes(e.hand) && ['CO', 'BTN'].includes(e.position)).length;
     console.log(`   dropped by the limp-and-fold-wrong rule: ${p1Dropped}; fine limps left: ${fl.length}; 77/88 from the CO and BTN: ${pairs}`);
+  }
+  // D1 (CURR, 19 Nov): spots kept on D3's quiet-lead nit line (tiers 2-3 only: top pair there is dropped); expect few,
+  // since call is graded fine there most of the time and the gate needs it wrong
+  if (code === 'D1') {
+    const onLine = (bySkill.D1 || []).filter((e) => {
+      const { s } = replayTable(e.spot);
+      const types = e.spot.types || [];
+      return nitQuietLead(s, buildContext(s, 0), types) && handFeatures(s.hole[0], s.board).tier <= TIER.MIDDLE_PAIR;
+    }).length;
+    console.log(`   on the nit quiet-lead line (tiers 2-3 kept there): ${onLine}`);
   }
   if (code === 'D3') {
     const drops = Object.entries(d3Nit.callDrop).map(([k, n]) => `${k}: ${n}`).join('; ') || 'none';

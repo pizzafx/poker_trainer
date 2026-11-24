@@ -9,6 +9,8 @@ import { CONTROLS } from '../trainer/tuning.js';
 import { CATEGORIES, shownCost } from '../trainer/explain.js';
 import { DRILLS } from '../trainer/drills.js';
 import { createDrill } from './drill.js';
+import { createVerdictQueue } from './verdictqueue.js';
+import { createJudge } from './judgeclient.js';
 import { createCountdown, countdownDue, armWindow as armMs } from './countdown.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
@@ -164,69 +166,23 @@ function applyTuning() {
   judge.tune();
 }
 
-// ---- the judge worker: grading runs off the main thread so the table stays responsive. If the
-// worker cannot start, or its cached modules are a different build from the page's, decisions
-// are graded here instead, as before.
-const judge = {
-  worker: null,
-  ready: false,
-  next: 1,
-  waiting: new Map(),
-  start() {
-    try {
-      this.worker = new Worker(new URL(`../trainer/judge.worker.js?v=${BUILD}`, import.meta.url), { type: 'module' });
-    } catch {
-      return;
-    }
-    this.worker.onmessage = (e) => {
-      const m = e.data;
-      if (m.type === 'hello') {
-        // ready only when the modules the worker loaded are byte for byte the page's (W2). Its own
-        // copy of version.js is not compared: that file changes on every push and is only a label.
-        this.ready = Array.isArray(m.stale) && !m.stale.length;
-        if (this.ready) this.tune();
-        else this.stop();
-        return;
-      }
-      const w = this.waiting.get(m.id);
-      if (!w) return;
-      this.waiting.delete(m.id);
-      if (m.type === 'graded') w.resolve(m.verdict);
-      else w.reject(new Error(m.error));
-    };
-    this.worker.onerror = () => this.stop();
-    this.worker.postMessage({ type: 'hello', hashes: HASHES });
-  },
-  stop() {
-    this.ready = false;
-    if (this.worker) this.worker.terminate();
-    this.worker = null;
-    for (const w of this.waiting.values()) w.reject(new Error('judge worker stopped'));
-    this.waiting.clear();
-  },
-  tune() {
-    if (this.worker && this.ready) this.worker.postMessage({ type: 'tuning', overrides });
-  },
-  // A grade the worker has not answered within 20 seconds is made on the page instead (W3).
-  slowNoted: false,
-  grade(job) {
-    const id = this.next++;
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        if (!this.waiting.has(id)) return;
-        this.waiting.delete(id);
-        if (!this.slowNoted) {
-          this.slowNoted = true;
-          console.warn('The judge worker took more than 20 s; grading on the page instead.');
-        }
-        reject(new Error('timeout'));
-      }, 20000);
-      this.waiting.set(id, { resolve: (v) => { clearTimeout(timeout); resolve(v); }, reject: (e) => { clearTimeout(timeout); reject(e); } });
-      this.worker.postMessage({ type: 'grade', id, job });
-    });
-  },
-};
-judge.start();
+// ---- the judge worker (src/ui/judgeclient.js): grading runs off the main thread, in order; the page never grades
+const judge = createJudge({
+  makeWorker: () => new Worker(new URL(`../trainer/judge.worker.js?v=${BUILD}`, import.meta.url), { type: 'module' }),
+  hashes: HASHES,
+  refresh: (stale) => Promise.all(stale.map((path) => fetch(new URL(`../../${path}`, import.meta.url), { cache: 'reload' }).catch(() => null))),
+  getOverrides: () => overrides,
+  onFail: () => coachBanner(),
+});
+function coachBanner() {
+  if (document.getElementById('coach-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'coach-banner';
+  b.className = 'coach-banner';
+  b.setAttribute('role', 'status');
+  b.textContent = "The coach couldn't load. Reload to get verdicts.";
+  document.body.appendChild(b);
+}
 applyTuning();
 
 // Leaks tracked across sessions: { category: { count, loss, streets: { street: count } } }
@@ -720,6 +676,11 @@ function renderActions() {
     // After a hand with nothing flagged, "Next hand" counts down for 3s and then deals on its own (DESIGN,
     // NEXT_HAND_HANDOFF). It sits over Call and Raise, never over Fold, and a late click on it is a deal the player
     // asked for (QA NH1). A flagged hand, a low stack or a held table shows the plain button.
+    if (anyPending(h)) {
+      const n = h.decisions.filter((x) => x.pending).length;
+      el.innerHTML = `<div class="act-row over"><div class="checking-slot">${DOTS}<span>${n > 1 ? `Checking your last ${n} plays…` : 'Checking your last play…'}</span></div><span class="hint">${msg}</span></div>`;
+      return;
+    }
     const dealing = autoDealDue(h) && !autoHeld;
     el.innerHTML = dealing
       ? `<div class="act-row over counting"><span class="hint">${msg}</span>${countdownBtn()}</div>`
@@ -930,13 +891,20 @@ function renderFeedback() {
     el.innerHTML = '<div class="empty">Feedback is held until the hand ends.</div>';
     return;
   }
-  let html = [...h.decisions].reverse().map((d) => fbCard(d, false)).join('');
+  // a decision still being graded: its card waits at the top with the real where line, the head line and two skeleton
+  // bars (DESIGN); a landed card fades in its head and body once
+  const pendCard = (d) =>
+    `<div class="fb pending"><div class="where">${esc(d.streetName)}${d.handText ? ' · you have ' + esc(d.handText) : ''}</div><div class="head">${pendShown(d) ? DOTS : ''}Checking your ${esc(d.played || 'play')}…</div><span class="sk sk1"></span><span class="sk sk2"></span></div>`;
+  const prevH = el.scrollHeight;
+  const prevTop = el.scrollTop;
+  const ngCard = (d) => `<div class="fb ng"><div class="where">${esc(d.streetName)}</div><div class="head">${esc(d.headline)}</div></div>`;
+  let html = [...h.decisions].reverse().map((d) => (d.pending ? pendCard(d) : d.notGraded ? ngCard(d) : landing(d, 'card') ? fbCard(d, false).replace('<div class="fb ', '<div class="fb landing ') : fbCard(d, false))).join('');
   // The best-play pop plays once, on the newest card, and only if the Coach tab is showing as it
   // lands; opening the tab later shows the final state (Addendum B). The card keeps "pop" for the
   // 1.3s it runs, and an identical re-render leaves the element alone, so the pop is not cut short.
   const d0 = h.decisions[h.decisions.length - 1];
   const key = `${sess.id}:${d0.id}`;
-  if (isBest(d0)) {
+  if (!d0.pending && isBest(d0)) {
     if (!CARD_POPPED.has(key)) CARD_POPPED.set(key, { t: performance.now(), live: el.getClientRects().length > 0 });
     const c = CARD_POPPED.get(key);
     if (c.live && performance.now() - c.t < 1300) html = html.replace('<div class="fb-best">', '<div class="fb-best pop">');
@@ -945,6 +913,8 @@ function renderFeedback() {
   el.innerHTML = html;
   el._fbHtml = html;
   el._fbEl = el.firstElementChild;
+  // a player reading an older card further down keeps it in place as a card above grows (Safari has no overflow-anchor)
+  if (prevTop > 0) el.scrollTop = prevTop + (el.scrollHeight - prevH);
 }
 const CARD_POPPED = new Map();
 
@@ -1018,6 +988,9 @@ function renderToast() {
   const h = sess.hand;
   const el = $('toast');
   const d = h.decisions[h.decisions.length - 1];
+  // what was on screen when this decision began (DESIGN: only those verdicts are dimmed with .prev; QA AG5)
+  const turnKey = `${h.no}:${h.state.history.length}`;
+  if (sess.status() === 'hero' && prevTurn.key !== turnKey) prevTurn = { key: turnKey, seen: new Set(h.decisions.filter((x) => !x.pending).map((x) => x.id)) };
   if (hintOn) {
     el.innerHTML = `<div class="toast hint"><svg class="tile" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#1f5c4a"/><rect x=".5" y=".5" width="31" height="31" rx="7.5" fill="none" stroke="#f3f0e8" stroke-opacity=".22"/><g fill="none" stroke="#f3f0e8" stroke-width="2.1"><path d="M9.51 13.56A3.8 3.8 0 1 0 10.4 16H7.3"/><path d="M12.4 12.2h7.2M16 12.2v8.65"/><circle cx="25.4" cy="16" r="3.8"/></g><path d="M3 18.2C10 13.8 19 19.6 29 14.4" fill="none" stroke="#b4e46e" stroke-width="2.1" stroke-linecap="round"/></svg>
       <span class="t-main">Play it the way you would live. The coach speaks up when a play costs you money.</span>
@@ -1032,7 +1005,32 @@ function renderToast() {
     el.innerHTML = '<div class="cs quiet thinking" role="status"><span class="spin" aria-hidden="true"></span><span class="main">Checking…</span></div>';
     return;
   }
-  if (!d || d.verdict.mine < 0) {
+  // Pending plays (DESIGN): before any verdict has landed this hand, a quiet strip that says what is being checked
+  // (no dots in the grace); once one has landed, the newest landed verdict, with a "checking" tail while a later play
+  // is still pending
+  const pend = h.decisions.filter((x) => x.pending);
+  const landed = h.decisions.filter((x) => !x.pending && x.verdict.mine >= 0);
+  let tail = '';
+  if (pend.length) {
+    const newest = pend[pend.length - 1];
+    const shown = pend.some(pendShown);
+    const st = STREET_WORD[newest.street] || '';
+    if (!landed.length) {
+      el._stripHtml = null;
+      el.innerHTML = shown
+        ? `<div class="cs checking">${DOTS}<span class="st">${st}</span><span class="main">${pend.length > 1 ? `Checking your last ${pend.length} plays…` : `Checking your ${esc(newest.played || 'play')}…`}</span></div>`
+        : `<div class="cs checking"><span class="slot" aria-hidden="true"></span><span class="st">${st}</span><span class="main">You ${esc(newest.played || 'act')}${newest.playedAmt ? ` $${newest.playedAmt}` : ''}</span></div>`;
+      return;
+    }
+    if (shown) tail = `<span class="tail" aria-label="The coach is still checking your ${esc(st.toLowerCase())} ${esc(newest.played || 'play')}">${DOTS}<span class="tx">checking ${esc(st.toLowerCase())}</span></span>`;
+  }
+  const dShow = pend.length ? landed[landed.length - 1] : d;
+  if (dShow && dShow.notGraded) {
+    el._stripHtml = null;
+    el.innerHTML = `<div class="cs quiet"><span class="slot" aria-hidden="true"></span><span class="st">${STREET_WORD[dShow.street] || ''}</span><span class="main">${esc(dShow.headline)}</span></div>`;
+    return;
+  }
+  if (!dShow || dShow.verdict.mine < 0) {
     const ev = !drill && stripEvent && stripEvent.hand === h.no ? stripEvent : null;
     if (ev) {
       el.innerHTML = `<button type="button" class="cs quiet ev" id="toast-open"><span class="main">${esc(ev.text)}</span><span class="go">›</span></button>`;
@@ -1052,14 +1050,19 @@ function renderToast() {
     return;
   }
   // When the hand is over, surface the worst play of the hand rather than the last one.
-  let show = d;
-  if (h.over) {
+  let show = dShow;
+  if (h.over && !pend.length) {
     for (const x of h.decisions) {
       if (x.verdict.grade !== 'good' && (show.verdict.grade === 'good' || x.verdict.loss > show.verdict.loss)) show = x;
     }
   }
-  const pending = !h.over && sess.status() === 'hero';
-  const html = stripHtml(show, { worst: h.over && show.verdict.grade !== 'good' && h.decisions.length > 1, prev: pending });
+  // .prev dims the previous play's verdict once it is your turn again, but only one that was already on screen when
+  // this decision began; one that lands during it shows at full strength (DESIGN)
+  const pending = !h.over && sess.status() === 'hero' && prevTurn.key === turnKey && prevTurn.seen.has(show.id);
+  let html = stripHtml(show, { worst: h.over && show.verdict.grade !== 'good' && h.decisions.length > 1, prev: pending });
+  if (tail) html = html.replace('<span class="go">', `<span class="go">${tail}`);
+  const land = landing(show, 'strip');
+  if (land) html = html.replace('class="cs', 'class="cs landing');
   // an identical strip that is still on screen is left as it is, so a running pop is not restarted
   if (!(el._stripHtml === html && el._stripEl && el.firstElementChild === el._stripEl)) {
     el.innerHTML = html;
@@ -1352,7 +1355,7 @@ const GRADE_WORD = { good: 'fine', mistake: 'mistake', blunder: 'blunder' };
 const MARK = { good: '✓', mistake: '!', blunder: '✕' };
 // Best play (header design, Addendum B): a ringed check and "best play" in caps, only when
 // bestPlayEdge (trainer/best.js, STRAT's rule) says the play was clearly the best. Display only.
-const isBest = (d) => !!d && !!bestPlayEdge(d.verdict, d);
+const isBest = (d) => !!d && !d.pending && !d.notGraded && !!bestPlayEdge(d.verdict, d);
 // "Not graded" (unclear, closeCall) has its own neutral mark: a hollow grey ring with a dash, never the
 // green check (Addendum D1).
 const isNg = (d) => !!d && d.verdict.grade === 'good' && notGraded(d.verdict);
@@ -1503,7 +1506,7 @@ function closeReview() {
     if (from === 'history') return openHistory();
     render();
     if (sess.status() === 'bot') advance();
-    else if (sess.status() === 'over') scheduleAuto();
+    else afterOverlay();
   }
 }
 
@@ -1511,13 +1514,19 @@ function closeReview() {
 
 function advance() {
   clearTimeout(timer);
-  // Once you are out of the hand, play it out immediately.
+  // Once you are out of the hand, play it out immediately, in slices of about 12ms that yield to the browser between
+  // them, so a long fold-out (a postflop bot step costs about 16ms) never blocks a frame for a second (CEO, 23 Nov)
   if (!sess.heroInHand()) {
+    const t0 = performance.now();
     let guard = 0;
     try {
-      while (sess.status() === 'bot' && guard++ < 500) sess.stepBot();
+      while (sess.status() === 'bot' && guard++ < 500 && performance.now() - t0 < 12) sess.stepBot();
     } catch (e) {
       return recoverTable('play the hand out', e);
+    }
+    if (sess.status() === 'bot') {
+      timer = setTimeout(advance, 0); // the next slice; anything that clears the timer (a new hand, a session) stops it
+      return;
     }
   }
   render();
@@ -1531,9 +1540,13 @@ function advance() {
       advance();
     }, settings.speed);
   } else if (sess.status() === 'over') {
-    scheduleAuto();
-    if (REVIEW_V2 && !drill && sess.hand.decisions.some((d) => d.verdict.grade !== 'good')) openReview();
+    if (!anyPending()) handOver(); // else when the last verdict comes (onVerdict)
   }
+}
+// the end of a hand whose verdicts are all in: the auto-deal or the review
+function handOver() {
+  scheduleAuto();
+  if (REVIEW_V2 && !drill && sess.hand.decisions.some((d) => d.verdict.grade !== 'good')) openReview();
 }
 
 // When the hand is over and nothing you did in it was flagged (all green), deal the next one
@@ -1658,7 +1671,30 @@ async function act(action) {
   if (RP || sess.status() !== 'hero' || thinking) return;
   endHint();
   let d;
-  if (judge.ready) {
+  // The hand goes on while the coach grades (CEO, owner, 23 Nov): the grade job is built from the table as it is now
+  // and sent to the worker, the action is played at once, and the verdict fills in its own decision when it comes
+  // back, in order. Drill keeps waiting for each verdict before it moves on.
+  if (!judge.failed && !drill) {
+    const job = sess.gradeJob(action);
+    // a grade the worker cannot give (it timed out twice, or stopped) leaves the decision not graded (CEO)
+    const graded = judge.grade(job).catch((e) => (e && e.message === 'load' ? NOT_LOADED : NOT_GRADED));
+    d = sess.heroCommitPending(action);
+    uiPend.set(d, { since: performance.now() });
+    // the dots appear only once the grace is over and the verdict has not come
+    setTimeout(() => {
+      if (d.pending && !RP) {
+        renderToast();
+        if (currentTab === 'log') renderLog();
+        if (currentTab === 'coach') renderFeedback();
+      }
+    }, GRACE_MS + 10);
+    queueVerdict(sess, d, graded);
+    raiseTo = 0;
+    if (RP || document.body.classList.contains('in-history')) return render();
+    advance();
+    return;
+  }
+  if (!judge.failed) {
     const here = sess;
     const hand = sess.hand;
     const step = hand.state.history.length;
@@ -1672,15 +1708,25 @@ async function act(action) {
     try {
       verdict = await judge.grade(sess.gradeJob(action));
     } catch {
-      verdict = null; // graded here instead, below
+      verdict = null; // the worker timed out twice or stopped: not graded (CEO: never graded on the page)
     }
     // A new session, hand or drill started meanwhile: this decision no longer applies.
     if (turn !== gradeTurn) return;
     thinking = false;
     pendingAction = null;
     if (sess !== here || sess.hand !== hand || hand.state.history.length !== step) return render();
-    d = verdict ? sess.heroCommit(action, verdict) : sess.heroAct(action);
-  } else d = sess.heroAct(action);
+    if (verdict) d = sess.heroCommit(action, verdict);
+    else {
+      d = sess.heroCommitPending(action);
+      sess.resolveNotGraded(d, judge.failed ? 'load' : 'timeout');
+      announceVerdict(d);
+    }
+  } else {
+    // the coach couldn't load: never graded on the page
+    d = sess.heroCommitPending(action);
+    sess.resolveNotGraded(d, 'load');
+    announceVerdict(d);
+  }
   noteLeak(d);
   noteHabit(d);
   raiseTo = 0;
@@ -1699,7 +1745,95 @@ async function act(action) {
   advance();
 }
 
+// The coach's pending state (DESIGN's COACH_PENDING_HANDOFF, CEO-approved 23 Nov): nothing shows for the first 250ms;
+// once the dots show they stay at least 300ms; a landed verdict fades in over 220ms on its new content only, once per
+// place (strip, hand log row, Coach tab card). Per decision, kept apart from the record so it is never saved.
+const GRACE_MS = 250;
+const MIN_SHOWN_MS = 300;
+const uiPend = new WeakMap();
+const DOTS = '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>';
+function pendShown(d) {
+  const u = uiPend.get(d);
+  if (!u || performance.now() - u.since < GRACE_MS) return false;
+  if (!u.shownAt) u.shownAt = performance.now();
+  return true;
+}
+// a just-landed verdict's fade, once per place
+function landing(d, where) {
+  const u = uiPend.get(d);
+  if (!u || !u.fresh || !u.fresh[where]) return '';
+  u.fresh[where] = false;
+  return ' landing';
+}
+const STREET_WORD = ['Preflop', 'Flop', 'Turn', 'River'];
+let prevTurn = { key: null, seen: new Set() };
+// Verdicts attach to their own decisions in the order the decisions were made (FIFO), whichever grade finishes first;
+// one whose dots showed stays pending at least 300ms from when they showed
+const verdicts = createVerdictQueue(async ({ s, d }, v) => {
+  const u = uiPend.get(d);
+  const hold = u && u.shownAt ? u.shownAt + MIN_SHOWN_MS - performance.now() : 0;
+  if (hold > 0) await new Promise((r) => setTimeout(r, hold));
+  if (u) u.fresh = { strip: true, row: true, card: true };
+  onVerdict(s, d, v);
+});
+const queueVerdict = (s, d, graded) => verdicts.push({ s, d }, graded);
+const NOT_GRADED = Symbol('not graded');
+const NOT_LOADED = Symbol('not loaded');
+let reviewDue = false; // the hand's verdicts came in while history or the replayer was open (QA AG1)
+function onVerdict(s, d, verdict) {
+  if (verdict === NOT_GRADED || verdict === NOT_LOADED) {
+    s.resolveNotGraded(d, verdict === NOT_LOADED ? 'load' : 'timeout');
+    console.warn(`hand ${d.hand}: decision ${d.id} not graded (${verdict === NOT_LOADED ? "the coach couldn't load" : 'the coach timed out'})`);
+  } else {
+    s.resolveDecision(d, verdict);
+    noteLeak(d);
+    noteHabit(d);
+  }
+  announceVerdict(d);
+  if (s !== sess) return;
+  if (!RP) render();
+  // the hand ended while this decision was being graded: what waited for its verdict happens now, unless Hand history,
+  // the replayer or a dialog is open; then when it closes
+  if (d.handRef === sess.hand && sess.status() === 'over' && !anyPending()) {
+    if (overlayOpen()) reviewDue = true;
+    else handOver();
+  }
+}
+const overlayOpen = () => !!RP || document.body.classList.contains('in-history') || !$('modal').classList.contains('hidden');
+// once an overlay closes on a finished hand: its review or auto-deal, if they waited for it (QA AG1)
+function afterOverlay() {
+  if (sess.status() !== 'over' || anyPending()) return;
+  if (reviewDue) {
+    reviewDue = false;
+    handOver();
+  } else scheduleAuto();
+}
+// Screen readers hear each landed verdict once, from a hidden live region; the strip itself is not live, so "checking"
+// is never read out (DESIGN, QA AG2)
+function announceVerdict(d) {
+  const el = $('coach-said');
+  if (!el || d.pending) return;
+  el.textContent = '';
+  const said = d.notGraded ? d.headline : `${d.streetName} ${d.played || 'play'}: ${verdictWord(d.verdict, d)}.`;
+  setTimeout(() => (el.textContent = said), 30);
+}
+const anyPending = (h = sess && sess.hand) => !!h && h.decisions.some((x) => x.pending);
+// a reload with a decision still being graded would lose its verdict: the browser asks first
+addEventListener('beforeunload', (e) => {
+  if (sess && sess.pendingDecisions().length) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+let dealing = false; // the next hand is being dealt in slices (its own timer: nothing else clears it; QA AG3)
+let dealTimer = 0;
+function stopDealing() {
+  clearTimeout(dealTimer);
+  dealing = false;
+}
 function nextHand(auto = false) {
+  if (anyPending() || dealing) return; // the coach is still grading this hand: its review and totals come first
   dropPendingGrade();
   if (RP || document.body.classList.contains('in-history')) return;
   if (sess.status() !== 'over') return;
@@ -1709,15 +1843,35 @@ function nextHand(auto = false) {
   const tapHint = tapHintPending;
   tapHintPending = false; // shown once, as the second hand starts
   pastLog = [...pastLog, ...sess.hand.log].slice(-120);
-  try {
-    sess.startPlayable();
-  } catch (e) {
-    return recoverTable('deal the next hand', e);
-  }
-  markDealt(auto === true);
-  if (tapHint) stripEvent = { hand: sess.hand.no, text: `${TOUCH.matches || PHONE.matches ? 'Tap' : 'Click'} any player to see what you've noticed about them.` };
-  raiseTo = 0;
-  advance();
+  reviewDue = false;
+  // hands folded for you are skipped in slices of about 12ms, so the deal never blocks a frame (CEO, 23 Nov)
+  const here = sess;
+  const steps = sess.startPlayableSteps();
+  dealing = true;
+  const pump = () => {
+    if (sess !== here) return stopDealing();
+    const t0 = performance.now();
+    let r;
+    try {
+      do r = steps.next();
+      while (!r.done && performance.now() - t0 < 12);
+    } catch (e) {
+      stopDealing();
+      return recoverTable('deal the next hand', e);
+    }
+    if (!r.done) {
+      dealTimer = setTimeout(pump, 0);
+      return;
+    }
+    dealing = false;
+    markDealt(auto === true);
+    if (tapHint) stripEvent = { hand: sess.hand.no, text: `${TOUCH.matches || PHONE.matches ? 'Tap' : 'Click'} any player to see what you've noticed about them.` };
+    raiseTo = 0;
+    // dealt while Hand history or the replayer was open: the table carries on when it closes (closeHistory, closeReview)
+    if (RP || document.body.classList.contains('in-history')) return;
+    advance();
+  };
+  pump();
 }
 
 // Fast-forwards the table: plays hands in an instant (yours are played for you and do not
@@ -1737,6 +1891,7 @@ function quickSim(hands = 40) {
 // button is hidden for a leak with none; before that, the old leak drill (DESIGN, DRILL_SPEC 2.5)
 const drillable = (cat) => !!cat && (drillLive ? drillUI.leaks().includes(cat) : !!DRILLS[cat]);
 async function startDrill(cat) {
+  stopDealing();
   if (drillLive) {
     const skill = await drillUI.skillForLeak(cat);
     if (skill) openDrill(skill);
@@ -1859,6 +2014,7 @@ function keepPlaying(s) {
 }
 
 function newSession() {
+  stopDealing();
   dropPendingGrade();
   clearTimeout(timer);
   drill = null;
@@ -1879,6 +2035,7 @@ function newSession() {
 // Anything that throws while restoring, dealing or playing a bot's turn starts a fresh session (the
 // hand history is kept), with one console line, so the table is never left empty or stuck.
 function recoverTable(where, e) {
+  stopDealing();
   console.warn(`Could not ${where}; starting a new session.`, e);
   clearTimeout(timer);
   try {
@@ -2013,6 +2170,8 @@ function closeModal() {
   $('modal').classList.add('hidden');
   if (modalOpener && modalOpener.isConnected && modalOpener !== document.body) modalOpener.focus({ preventScroll: true });
   modalOpener = null;
+  // a verdict that landed while the dialog was open: its review or the auto-deal now (QA AG1)
+  if (sess && !drill && !RP && !document.body.classList.contains('in-history')) afterOverlay();
 }
 $('modal').addEventListener('click', (e) => {
   if (e.target === $('modal') && sess) closeModal();
@@ -2568,7 +2727,7 @@ function reviewModal() {
     <div class="kv">
       <div class="stat"><small>Hands</small><b>${rev.hands}</b></div>
       <div class="stat"><small>Result</small><b class="${rev.net > 0 ? 'pos' : rev.net < 0 ? 'neg' : ''}">${signed(rev.net)}</b></div>
-      <div class="stat best-tile"><small>Best plays</small><b class="pos">${sess.decisions.filter(isBest).length}</b><small class="of">of ${rev.judged} judged</small></div>
+      <div class="stat best-tile"><small>Best plays</small><b class="pos">${sess.decisions.filter((d) => !d.pending && isBest(d)).length}</b><small class="of">of ${rev.judged} judged</small></div>
       <div class="stat"><small>Cost of mistakes</small><b>${money(rev.lost)}</b></div>
     </div>
     ${(() => {
@@ -2577,11 +2736,11 @@ function reviewModal() {
       const rows = Object.keys(HABITS).filter((k) => habits[k] || here[k]);
       // Multiway notes this session, once a kind reaches 3 (MULTIWAY_COACH_SPEC R9): without this a
       // player who never bets top pair into a crowd would see nothing.
-      const noted = (note) => sess.decisions.filter((d) => d.verdict.note === note);
+      const noted = (note) => sess.decisions.filter((d) => !d.pending && d.verdict.note === note);
       const mwRows = [];
       const times = (n) => `${n} time${n === 1 ? '' : 's'} this session`;
       // every one-pair check note with two or more opponents in counts, whichever rule gave it (STRAT)
-      const chk = sess.decisions.filter((d) => d.opponents >= 2 && ['mwCheck', 'thinValue', 'checkOOP'].includes(d.verdict.note));
+      const chk = sess.decisions.filter((d) => !d.pending && d.opponents >= 2 && ['mwCheck', 'thinValue', 'checkOOP'].includes(d.verdict.note));
       if (chk.length >= 3) {
         const gains = chk.map((d) => (d.verdict.mw && d.verdict.mw.gain) || (d.verdict.thin && d.verdict.thin.gain) || 0).filter((g) => g > 0);
         const avg = gains.length ? Math.round(gains.reduce((a, g) => a + g, 0) / gains.length) : 0;
@@ -3426,6 +3585,7 @@ drillUI.hasBank().then((ok) => {
   $('btn-drill').classList.toggle('hidden', !ok);
 });
 async function openDrill(pin = null) {
+  stopDealing();
   closeModal();
   hideReview();
   clearTimeout(timer);
@@ -3466,7 +3626,7 @@ function closeHistory() {
   document.body.classList.remove('in-history');
   render();
   if (sess.status() === 'bot') advance();
-  else if (sess.status() === 'over') scheduleAuto();
+  else afterOverlay();
 }
 
 function handMarker(r) {
@@ -3630,9 +3790,14 @@ function handCardHtml(p) {
       if (H.slice(k + 1).some((x) => x.seat === HERO && x.street === e.street)) facing.add(k);
     }
   }
+  const verdictOfLanded = (d) => verdictOf(d);
   const verdictOf = (d) => {
     if (!d) return '';
+    if (d.pending) return `<span class="hl-v pending">${pendShown(d) ? `${DOTS}checking` : ''}</span>`;
+    if (d.notGraded) return '<span class="hl-v ng">not graded</span>';
     const g = d.verdict.grade;
+    const land = landing(d, 'row');
+    if (land) return verdictOfLanded(d).replace('class="hl-v', 'class="hl-v landing');
     if (g === 'good') return `<span class="hl-v good${isNg(d) ? ' ng' : ''}${isBest(d) ? ' best' : ''}">${markHtml(d)}${d.tipKind && !notGraded(d.verdict) ? 'fine · tip' : verdictWord(d.verdict, d)}</span>`;
     return `<span class="hl-v ${g}">${g === 'blunder' ? 'Blunder' : 'Mistake'} · ${money(d.cost)}${p.why ? ` <button type="button" class="link-btn hl-why" data-why="${decisions.indexOf(d)}">Why ›</button>` : ''}</span>`;
   };
@@ -3669,7 +3834,7 @@ function handCardHtml(p) {
     }
     if (e.allIn || (s.allIn && s.allIn[e.seat] && !H.slice(k + 1).some((x) => x.seat === e.seat))) text += ' <small>all-in</small>';
     const d = me ? decisions[heroN++] : null;
-    lines[e.street].push({ html: `<span class="hl-t">${text}</span>`, vhtml: me ? verdictOf(d) : '', me, grade: d ? `${d.verdict.grade}${isBest(d) ? ' best' : ''}` : null, quiet: e.type === 'fold' && !me, facing: facing.has(k), idx: k });
+    lines[e.street].push({ html: `<span class="hl-t">${text}</span>`, vhtml: me ? verdictOf(d) : '', me, pending: !!(d && d.pending), grade: d && !d.pending && !d.notGraded ? `${d.verdict.grade}${isBest(d) ? ' best' : ''}` : null, quiet: e.type === 'fold' && !me, facing: facing.has(k), idx: k });
   }
   // your action while the coach is checking it
   if (p.pending && p.live) {
@@ -3748,7 +3913,7 @@ function earlierHtml() {
 }
 
 // Handle for debugging from the browser console.
-window.trainer = { get session() { return sess; }, settings, act, nextHand, get workerReady() { return judge.ready; } };
+window.trainer = { get session() { return sess; }, settings, act, nextHand, get workerReady() { return judge.ready; }, get coachFailed() { return judge.failed; } };
 
 // http://localhost:5173/play.html?demo=7 jumps to a mid-session decision
 // with coach feedback showing (used for screenshots). The number picks the session.

@@ -6,6 +6,8 @@ import { legal, potSize, STREET } from '../engine/game.js';
 import { TIER, isRealDraw } from '../engine/features.js';
 import { binOf } from './rangetrack.js';
 import { CATEGORY } from '../engine/evaluator.js';
+import { RIVER_PAIR_FOLD_REF } from '../data/riverpairref.js'; // POOL batch 19f (item 0)
+import { RIVER_PAIR_FOLD_REF2 } from '../data/riverpairref2.js'; // POOL batch 19g
 
 import { EQ_HEADS_UP } from '../data/preflop.js';
 import { classInfo, classIndex, CLASS_COUNT } from '../engine/hands.js';
@@ -205,6 +207,10 @@ export function buildContext(s, seat = s.toAct) {
       else if (h.type === 'call' && lastTo > 0 && h.to >= lastTo) full++;
     }
     ctx.fullCallersIn = full;
+    // POOL batch 19g (item 3, after-fold): players who folded to this street's last bet or raise before me
+    let fz = 0, ab = false;
+    for (const h of s.history) { if (h.street !== s.street) continue; if (h.type === 'bet' || h.type === 'raise') { ab = true; fz = 0; } else if (ab && h.type === 'fold') fz++; }
+    ctx.foldsIn = fz;
   }
   ctx.iBetThisStreet = s.history.some((h) => h.street === s.street && h.seat === seat && (h.type === 'bet' || h.type === 'raise'));
   // Passivity, Revision D (POOL, owner-approved 13 Nov 2026): has anyone already acted (checked) on
@@ -263,6 +269,37 @@ export function buildContext(s, seat = s.toAct) {
     // POOL batch 19d: the river is the third card of a suit (exactly three after it, at most two before)
     ctx.boardSuitMax = Math.max(...suits3(s.board)); // POOL batch 19d
     ctx.riverFlushCompleted = s.board.length === 5 && Math.max(...suits3(s.board)) === 3 && Math.max(...suits3(s.board.slice(0, 4))) <= 2;
+    // POOL batch 19f (item 0, PRO's one-pair river ceilings): the class of a river one pair from the hole cards, as the
+    // 1M probe keys it (notes/scripts/riverpair.mjs): unpaired board with no four of a suit; top = exactly one hole card
+    // pairs the top board rank, mid = a lower rank, ppUnder = a pocket pair below the top rank (overpairs are not in).
+    // riverScary: the river made three to a flush, or made a straight possible that the turn board did not allow.
+    ctx.riverPairClass = null; ctx.riverScary = false;
+    if (s.board.length === 5 && s.hole?.[seat]) {
+      const B = s.board, rk = B.map((c) => c >> 2), top = Math.max(...rk), h = s.hole[seat].map((c) => c >> 2);
+      if (!ctx.boardPaired && Math.max(...suits3(B)) < 4) {
+        if (h[0] === h[1]) ctx.riverPairClass = h[0] < top ? 'ppUnder' : null;
+        else { const hit = h.filter((x) => rk.includes(x)); if (hit.length === 1) ctx.riverPairClass = hit[0] === top ? 'top' : 'mid'; }
+      }
+      ctx.riverScary = suits3(B)[B[4] & 3] === 3 || (straightPossible(B) && !straightPossible(B.slice(0, 4)));
+      // POOL batch 19g (items 1-2; PRO's classes, CEO-approved): riverPairBoard / riverPairClass2 widen 19f's class to a
+      // single-paired board (no trips or two-pair board, no four-flush; the hand's own pair, not on the paired rank) and to
+      // pocket overpairs (above every board card) on both boards. On a paired board top = pairs the highest UNPAIRED rank.
+      // 19f's riverPairClass is unchanged.
+      ctx.riverPairBoard = null; ctx.riverPairClass2 = null;
+      if (Math.max(...suits3(B)) < 4) {
+        const cnt = {}; for (const r of rk) cnt[r] = (cnt[r] || 0) + 1;
+        const pairs = Object.keys(cnt).filter((r) => cnt[r] === 2).map(Number), trips = Object.values(cnt).some((c) => c >= 3);
+        if (!ctx.boardPaired) {
+          ctx.riverPairBoard = 'unpaired';
+          ctx.riverPairClass2 = h[0] === h[1] && h[0] > top ? 'ppOver' : ctx.riverPairClass;
+        } else if (pairs.length === 1 && !trips) {
+          const pr = pairs[0], topU = Math.max(...rk.filter((r) => r !== pr));
+          ctx.riverPairBoard = 'paired';
+          if (h[0] === h[1]) ctx.riverPairClass2 = h[0] === pr ? null : h[0] > top ? 'ppOver' : 'ppUnder';
+          else { const hit = h.filter((x) => rk.includes(x)); if (hit.length === 1 && hit[0] !== pr) ctx.riverPairClass2 = hit[0] === topU ? 'top' : 'mid'; }
+        }
+      }
+    }
   }
   ctx.toActBehind = ctx.toCall > 0 ? toActBehind : 0;
   // POOL batch 19c (item 2): is this street's bet or raise from the preflop raiser (the last aggressor before the flop)?
@@ -270,6 +307,12 @@ export function buildContext(s, seat = s.toAct) {
   return ctx;
 }
 const suits3 = (b) => { const su = [0, 0, 0, 0]; for (const c of b) su[c & 3]++; return su; };
+// three ranks inside one five-rank window (the wheel counts the ace low): a straight is possible with two hole cards
+function straightPossible(b) {
+  const rs = new Set(b.map((c) => c >> 2)); if (rs.has(12)) rs.add(-1);
+  for (let lo = -1; lo <= 8; lo++) { let k = 0; for (let x = lo; x < lo + 5; x++) if (rs.has(x)) k++; if (k >= 3) return true; }
+  return false;
+}
 function maxConnected(b) {
   let mask = 0; for (const c of b) mask |= 1 << (c >> 2);
   const r = ((mask << 1) | ((mask >> 12) & 1)) & 0x3fff; let con = 0;
@@ -425,9 +468,14 @@ export function preflopPolicy(ctx, P, cls) {
     // A multiplier, not a cap, so the rate lands at its target rather than far under it; folds only become calls.
     if (P.isoFoldMult && ctx.iLimped && ctx.raiseBB <= 6 + ctx.limpedCount) {
       const ci = classInfo(cls), M = P.isoFoldMult;
-      const m = M.all ? M.all[Math.min(ctx.limpedCount, 3) - 1] : ci.pair ? M.pair : ci.suited ? M.suited : null;
+      let m = M.all ? M.all[Math.min(ctx.limpedCount, 3) - 1] : ci.pair ? M.pair : ci.suited ? M.suited : null;
+      // POOL batch 19f (item 1, PRO + STRAT): `short` scales the fold under 40bb effective and `caller` once someone has
+      // called the iso (live: a short limper folds speculative hands, and a caller ahead makes the limper call more). Only
+      // the { all } form takes them, so a class-floor type's pairs and suited hands are never touched (PRO). Above 1 the
+      // excess fold comes out of calls.
+      if (M.all) { if (M.short != null && ctx.effBB < 40) m *= M.short; if (M.caller != null && ctx.callers > 0) m *= M.caller; }
       const fold = Math.max(0, 1 - raise - call);
-      if (m != null && m < 1 && fold > 0) call = 1 - raise - fold * m;
+      if (m != null && m !== 1 && fold > 0) call = Math.max(0, 1 - raise - Math.min(1 - raise, fold * m));
     }
   } else {
     // Facing a 3-bet or more.
@@ -726,6 +774,19 @@ function capAt(row, r) {
   }
   return row[3];
 }
+// POOL batch 19f (item 0): the bet sizes the river pair-fold ref was measured at (fractions of the pot before the bet)
+const RP_SIZES = [0.33, 0.5, 0.67, 1, 1.5];
+function interpSizes(row, bf) { // linear between the measured sizes, flat outside
+  if (bf <= RP_SIZES[0]) return row[0];
+  for (let i = 1; i < RP_SIZES.length; i++) if (bf <= RP_SIZES[i]) return row[i - 1] + ((row[i] - row[i - 1]) * (bf - RP_SIZES[i - 1])) / (RP_SIZES[i] - RP_SIZES[i - 1]);
+  return row[RP_SIZES.length - 1];
+}
+// PRO's ceiling at a bet fraction: the [2/3, pot, 1.5x] cells; at 1/3 pot the 2/3 cell minus 5 (top) or 10 (mid,
+// under), floor 2; linear between 1/3 and 2/3; flat below 1/3 and above 1.5x
+function riverPairLine(row, cl, bf) {
+  const t3 = Math.max(2, row[0] - (cl === 'top' ? 5 : 10)); // floor 2 (PRO, 20 Nov): no k forces a hard zero
+  return interpSizes([t3, t3 + ((row[0] - t3) * (0.5 - 0.33)) / (0.67 - 0.33), row[0], row[1], row[2]], bf);
+}
 export function postflopPolicy(ctx, P, f) {
   const st = ctx.street - 1; // 0 flop, 1 turn, 2 river
   const extra = Math.max(0, ctx.nOpp - 1);
@@ -812,6 +873,10 @@ export function postflopPolicy(ctx, P, f) {
     if (st > 0 || !ctx.initiative) bluff *= Math.pow(1 - P.mwBluffCut, extra);
     // M3: semi-bluffs fall off multiway too, and gutshots (under a quarter of equity) at half the rate.
     if (st < 2 && f.drawEquity >= 0.14) bluff = Math.max(bluff, P.semiBluff * (ctx.aggressorBehind ? 0.4 : 1) * Math.pow(1 - 0.5 * P.mwBluffCut, extra) * (f.drawEquity < 0.25 ? 0.5 : 1));
+    // POOL batch 19f (item 2, PRO): a type's bet with a real draw and no pair when nobody has bet, scaled by drawBetMult
+    // (whale 0.8: heads-up 30 -> about 24 against 25, multiway 15.6 -> about 12.5 against 12-13). semiBluff is untouched, so
+    // the draw raise is too.
+    if (P.drawBetMult != null && st < 2 && f.drawEquity >= 0.14 && f.tier <= TIER.HIGH_CARD) bluff *= P.drawBetMult;
     // Hands with showdown value mostly check.
     // POOL batch 9 (with PRO): checked to on the river, passive players bluff some of their missed draws (the one live passive bluff)
     if (P.missBluff && st === 2 && ct && f.missedDraw) bluff = Math.max(bluff, P.missBluff * Math.pow(1 - P.mwBluffCut, extra));
@@ -1111,6 +1176,51 @@ export function postflopPolicy(ctx, P, f) {
   if ((f.playsBoard === 3 && ctx.odds <= ODDS_FLOOR_AT) || (f.playsBoard === 2 && ctx.odds <= ODDS_FLOOR_DRAW_AT)) pCont = Math.max(pCont, ODDS_FLOOR);
   // on the safest group, up to a half-pot single bet the fold is held to the N3b line, tinyFold x pot odds (a 20% bet: about 40%)
   if (f.playsBoard === 3 && !facingRaise && P.tinyFold && ctx.toCall <= 0.5 * Math.max(1, ctx.pot - ctx.toCall)) pCont = Math.max(pCont, 1 - P.tinyFold * ctx.odds);
+  // POOL batch 19f (item 0; PRO's one-pair river ceilings; CEO-approved, PRO + STRAT 20 Nov): facing a single river bet
+  // (not a raise) with no full call ahead, a hand whose best five is exactly one pair, keyed by the pair's hole-card
+  // class (top / mid / ppUnder), has its fold scaled by k = min(1, 0.85 x line / ref): line is PRO's ceiling at this bet
+  // size (+ mw multiway, + 10 on a scary river, at most 95), ref the measured pool-mix fold of the same cell before the
+  // fix (src/data/riverpairref.js, calm and scary pooled). Every hand in the cell drops by the same factor, so the kicker
+  // and bettor-type ordering is kept (PRO). The removed fold becomes a call; raise and callThr are untouched, so
+  // riverAirCall (19e), rule 3 and the floors above still hold. A null row (station and whale top pair) is left alone.
+  if (P.riverPairFoldCap && st === 2 && !facingRaise && ctx.toCall > 0 && ctx.riverPairClass && f.cat === CATEGORY.PAIR && !((ctx.fullCallersIn ?? ctx.callersIn) > 0)) {
+    const C = P.riverPairFoldCap, cl = ctx.riverPairClass, way = ctx.nOpp >= 2 ? 'MW' : 'HU';
+    const ref = RIVER_PAIR_FOLD_REF[C.ref ?? P.id]?.[way]?.[cl]; // C.ref: whose measured base (the stand-in, if adopted, reads tag's)
+    if (C[cl] && ref) {
+      const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall);
+      const line = Math.min(95, riverPairLine(C[cl], cl, bf) + (way === 'MW' ? (C.mw?.[cl === 'top' ? 0 : 1] ?? 0) : 0) + (ctx.riverScary ? 10 : 0));
+      const r = interpSizes(ref, bf);
+      const k = r > 0 ? Math.min(1, (FOLD_CAP_AIM * line) / r) : 1;
+      if (k < 1) pCont = 1 - k * (1 - pCont);
+    }
+  }
+  // POOL batch 19g (CEO-approved 20 Nov; PRO's ceilings; PRO + STRAT): a second factor, measured on the 19f build
+  // (src/data/riverpairref2.js), for the cells 19f's cap leaves over: (1) a single-paired board, best five the hand's own
+  // pair + the board pair, on PRO's table + 10; (2) pocket overpairs on both boards, on the top-pair row; (3) after a fold
+  // with no caller ahead (19f's first-responder k already applied; this one takes the rest); (4) behind a full caller,
+  // the HU cell + the second-responder add (s2) in place of the multiway add. k2 = min(1, 0.85 x line / ref2); folds only
+  // become calls; one factor per cell, so the kicker and bettor-type ordering holds. Unpaired first-responder cells of
+  // 19f's classes take no second factor.
+  if (P.riverPairFoldCap && st === 2 && !facingRaise && ctx.toCall > 0 && ctx.riverPairClass2 && f.cat === (ctx.riverPairBoard === 'paired' ? CATEGORY.TWO_PAIR : CATEGORY.PAIR)) {
+    const C = P.riverPairFoldCap, cl = ctx.riverPairClass2, bd = ctx.riverPairBoard;
+    const sit = (ctx.fullCallersIn ?? ctx.callersIn) > 0 ? 'S' : (ctx.foldsIn ?? 0) > 0 ? 'F' : 'Q';
+    if (!(sit === 'Q' && bd === 'unpaired' && cl !== 'ppOver')) {
+      const way = sit === 'S' ? 'MW' : ctx.nOpp >= 2 ? 'MW' : 'HU';
+      const rowCl = cl === 'ppOver' ? 'top' : cl, row = C[rowCl] ?? (rowCl === 'top' ? C.topRow : null);
+      const ref = RIVER_PAIR_FOLD_REF2[sit]?.[bd]?.[C.ref ?? P.id]?.[way]?.[cl];
+      if (row && ref && ref.every((x) => x != null)) {
+        // the bet as a fraction of the pot before it, as the probe and PRO's table size it: behind a caller the pot also
+        // holds the callers' chips, so they come out too (else a 1.5x bet behind one caller reads as 0.6x)
+        const ahead = sit === 'S' ? (ctx.fullCallersIn ?? ctx.callersIn ?? 0) : 0;
+        const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall * (1 + ahead));
+        const add = sit === 'S' ? (C.s2?.[rowCl === 'top' ? 0 : 1] ?? 0) : way === 'MW' ? (C.mw?.[rowCl === 'top' ? 0 : 1] ?? 0) : 0;
+        const line = Math.min(95, riverPairLine(row, rowCl, bf) + (bd === 'paired' ? 10 : 0) + add + (ctx.riverScary ? 10 : 0));
+        const r = interpSizes(ref, bf);
+        const k2 = r > 0 ? Math.min(1, (FOLD_CAP_AIM * line) / r) : 1;
+        if (k2 < 1) pCont = 1 - k2 * (1 - pCont);
+      }
+    }
+  }
   out.call = (1 - raise) * pCont;
   out.fold = Math.max(0, 1 - out.raise - out.call);
   // POOL batch 19d (PRO's flush-river ceilings, CEO): the river completed a flush, the bot holds a set (or trips) or a

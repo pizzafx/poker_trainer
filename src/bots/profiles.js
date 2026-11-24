@@ -170,7 +170,9 @@ const BASE = {
   dryFlopSlowIP: null,
   riverDryShift: null,
   mwAirCap: null,
-  isoFoldMult: null, // POOL batch 19c (item 8, option B): { all: [1, 2, 3+ limpers] } or { pair, suited }: fold multipliers facing one iso raise
+  isoFoldMult: null, // POOL batch 19c (item 8, option B): { all: [1, 2, 3+ limpers] } or { pair, suited }: fold multipliers facing one iso raise; 19f: { all } may add short (under 40bb) and caller (after a caller)
+  drawBetMult: null, // POOL batch 19f (item 2): scales a real-draw, no-pair bet on the flop or turn when nobody has bet
+  riverPairFoldCap: null, // POOL batch 19f (item 0): PRO's one-pair river fold ceilings (set per type below DEFS)
   psLimp: null, // POOL batch 19c (item 8, option B): share of otherwise-folded pairs and suited hands that limp first in or behind
   smallCont: null,
   smallContFirstOnly: false,
@@ -395,7 +397,7 @@ const DEFS = {
     flushRiverStraightFold: [0.05, 0.03], // POOL batch 19d (PRO)
     secondCheckCap: 0.05, // POOL batch 19d (rule 1)
     wetFlopCheckCap: 0.22, // POOL batch 19d (PRO's wet-flop ceiling)
-    isoFoldMult: { all: [0.86, 0.73, 0.69] }, // POOL batch 19c (item 8, option B: PRO + MATH, CEO)
+    isoFoldMult: { all: [0.86, 0.73, 0.69], short: 1.11, caller: 0.83 }, // POOL batch 19c (item 8, option B: PRO + MATH, CEO); 19f short/caller (under 40bb 36 -> 40, after a caller 24 -> 20)
     v4LeadMax: 0.3, // POOL batch 19c (PRO's V4 lead target; the type was over its ceiling)
     v4CheckRaise: 0.1, // POOL batch 19c
     riverDryShift: 0.03, // POOL batch 19c
@@ -496,7 +498,7 @@ const DEFS = {
     flushRiverStraightFold: [0.06, 0.06], // POOL batch 19d (PRO)
     secondCheckCap: 0.05, // POOL batch 19d (rule 1)
     wetFlopCheckCap: 0.22, // POOL batch 19d (PRO's wet-flop ceiling)
-    isoFoldMult: { all: [0.86, 0.84, 0.77] }, // POOL batch 19c (item 8, option B: PRO + MATH, CEO)
+    isoFoldMult: { all: [0.86, 0.84, 0.77], short: 1.36, caller: 0.71 }, // POOL batch 19c (item 8, option B: PRO + MATH, CEO); 19f short/caller (under 40bb 22 -> 30, after a caller 14 -> 10)
     v4LeadMax: 0.47, // POOL batch 19c (PRO's V4 lead target; the type was over its ceiling)
     v4CheckRaise: 0.15, // POOL batch 19c
     dryFlopSlowIP: 0.12, // POOL batch 19c
@@ -550,6 +552,7 @@ const DEFS = {
     stab: [0.32, 0.26, 0.18],
     valueBet: [0.5, 0.55, 0.62],
     semiBluff: 0.3,
+    drawBetMult: 0.8, // POOL batch 19f (item 2, PRO): heads-up 30 -> about 24 (ceiling 25), multiway 15.6 -> about 12.5
     slowplay: 0.25,
     donk: 0.6,
     mwTighten: 0.01,
@@ -968,7 +971,7 @@ const DEFS = {
     probeCT: true, // POOL batch 15
     ctSlowMult: 0.5, // POOL batch 15
     donkWet: 0.8, // POOL batch 15
-    blurb: 'Still learning. Plays most hands, limps, bets small, calls with any piece of the board, and gets scared off by big bets.',
+    blurb: 'Still learning. Plays most hands, limps, bets small, calls with any piece of the board, and folds more to big bets than small ones.',
     share: 0, // never dealt into the casino pool; you seat them in a home game
     vpip: [0.55, 0.58, 0.62, 0.65, 0.7],
     pfr: [0.03, 0.03, 0.04, 0.03, 0.03],
@@ -1034,6 +1037,26 @@ const DEFS = {
 
 // The stand-in for the trainee when a simulation needs their later decisions:
 // a solid player who adjusts to who they are up against.
+// POOL batch 19f (item 0; PRO_RUBRIC.md "One-pair river fold ceilings, all types", 19 Nov 2026; CEO, PRO, STRAT): the most a
+// type folds one pair on the river facing a single bet, heads-up and calm, in % at [2/3 pot, pot, 1.5x pot] by the class
+// of the pair from the hole cards (top: a hole card pairs the top board rank; mid: a lower board rank; ppUnder: a pocket
+// pair below the top rank; null: inside the ceiling, left alone (PRO: station and whale top pair, ceilings 5/10/15)).
+// mw: the multiway add [top, mid/under]. POOL batch 19g (PRO 20 Nov): topRow, the station and whale top row that 19f leaves
+// alone on unpaired first responders but that 19g's paired-board, overpair, after-fold and behind-a-caller cells use;
+// s2, the second-responder add behind a caller [top and overpair, mid/under]. A scary river adds 10, the total is capped at 95 and
+// the policy aims at 0.85 of it. The 1M probe on 7152a18 had 253 cells over (notes/qa/riverpair_7152_1M.md).
+const RIVER_PAIR_FOLD_CAP = {
+  station: { top: null, topRow: [5, 10, 15], mid: [25, 30, 35], ppUnder: [40, 50, 55], mw: [5, 5], s2: [10, 15] },
+  whale: { top: null, topRow: [5, 10, 15], mid: [20, 25, 30], ppUnder: [35, 45, 50], mw: [5, 5], s2: [10, 15] },
+  beginner: { top: [10, 15, 20], mid: [35, 45, 50], ppUnder: [50, 60, 65], mw: [10, 10], s2: [20, 25] },
+  abc: { top: [20, 25, 30], mid: [45, 55, 60], ppUnder: [65, 75, 80], mw: [10, 10], s2: [20, 25] },
+  nit: { top: [25, 35, 50], mid: [60, 70, 80], ppUnder: [75, 85, 90], mw: [10, 15], s2: [20, 25] },
+  tag: { top: [15, 25, 35], mid: [50, 60, 70], ppUnder: [60, 70, 80], mw: [10, 15], s2: [20, 25] },
+  gto: { top: [15, 25, 35], mid: [50, 60, 70], ppUnder: [60, 70, 80], mw: [10, 15], s2: [20, 25] },
+  lag: { top: [10, 20, 30], mid: [40, 50, 60], ppUnder: [50, 60, 70], mw: [10, 15], s2: [20, 25] },
+  maniac: { top: [5, 10, 15], mid: [25, 30, 40], ppUnder: [35, 45, 50], mw: [10, 15], s2: [20, 25] },
+};
+for (const t of Object.keys(RIVER_PAIR_FOLD_CAP)) DEFS[t].riverPairFoldCap = RIVER_PAIR_FOLD_CAP[t];
 const HERO_DEF = {
   ...DEFS.tag,
   // POOL batch 19c (CEO): the new tag fields stay off on the stand-in until QA-VERDICT's flip check and STRAT and MATH rule
@@ -1047,6 +1070,10 @@ const HERO_DEF = {
   riverDownBluffMult: null,
   flushRiverStraightFold: null,
   wetFlopCheckCap: null,
+  drawBetMult: null, // POOL batch 19f: pinned off for the stand-in (QA-VERDICT flip check first)
+  riverPairFoldCap: null, // POOL batch 19f/19g: pinned off for the stand-in BY DESIGN, not pending adoption: the stand-in models the
+  // hero playing well against this pool, not the pool's payoff leak (STRAT and MATH, 20 Nov; QA-VERDICT's adopt cost 1.71%, every
+  // moved verdict worse for hero; re-measure if bot river bluff share rises materially)
   // the stand-in hero (and the judge's play-out profile) keeps the pre-bundle tag until STRAT and MATH rule
   // on it: the POOL batches 7-12 tag changes are for the opponents only (POOL, 16 Nov 2026)
   pfr: [0.13, 0.18, 0.3, 0.15, 0.1],

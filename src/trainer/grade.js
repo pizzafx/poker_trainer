@@ -4,6 +4,7 @@
 
 import { STREET, positionName, rakeFor } from '../engine/game.js';
 import { handFeatures, TIER, isRealDraw } from '../engine/features.js';
+import { coachFeatures } from './coachtier.js';
 import { classOf, classNames } from '../engine/hands.js';
 import { buildContext, POS } from '../bots/policy.js';
 import { HERO_PROFILE } from '../bots/profiles.js';
@@ -452,11 +453,17 @@ function moneyInArm(v, s, ctx) {
   refreshClose(v);
 }
 
+// foldsBetter's hand (STRAT): a real pair below top pair top kicker; a hand the board makes is not one, whatever its
+// coach tier (Qs7s on K-K-T-9-K)
+export const foldsBetterHand = (hf) => !!hf && hf.tier >= TIER.WEAK_PAIR && hf.tier < TIER.OVERPAIR_TPTK && !(hf.coach && hf.coach.boardMade);
+
 function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
   if (v.mine < 0) return;
   v.small = Math.max(3 * s.bbAmt, 0.1 * v.pot); // the yellow bar, for the notes' copy
   const pre = s.street === STREET.PRE;
-  const hf = pre ? null : handFeatures(s.hole[HERO], s.board);
+  // the coach tier (MATH, STRAT, 19 Nov): a hand the board makes (AK on 2-2-2) is routed by its showdown rank, as the
+  // real pair of the same strength would be; only hands the board makes can differ from handFeatures' tier
+  const hf = pre ? null : coachFeatures(s.hole[HERO], s.board);
   const weak = hf && hf.tier <= TIER.MIDDLE_PAIR;
   const bb = s.bbAmt;
   const small = Math.max(3 * bb, 0.1 * v.pot);
@@ -519,6 +526,27 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
   for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i]) live.push(i);
   // Is a live opponent read as someone who does not fold?
   const stickyRead = () => live.some((i) => readAs(i, ['station', 'whale', 'maniac', 'beginner']));
+  // rule 6's value test (STRAT, PRO, CEO, 20 Nov): the bet wins when called or raised clearly more often than it
+  // needs, treating every raise as from a better hand
+  const valueBet = (o) => {
+    if (o.W === null || o.W === undefined || o.need === null || o.need === undefined || !v.anchors || !v.anchors.n) return false;
+    const seen = (o.C || 0) + (o.R || 0);
+    if (seen <= 0) return false;
+    const wNet = (o.W * o.C) / seen;
+    const se = Math.sqrt(Math.max(wNet * (1 - wNet), 1e-9) / (v.anchors.n * seen));
+    return wNet - o.need > 2 * se;
+  };
+  // PRO's guards for a value check: a maniac or lag read still to act behind hero, or hero's pair was top pair on
+  // the turn and the river is an overcard to it
+  const valueGuard = () => {
+    const order = (i) => (i - s.button - 1 + s.n) % s.n;
+    if (live.some((i) => order(i) > order(HERO) && !s.allIn[i] && readAs(i, ['maniac', 'lag']))) return true;
+    if (s.board.length === 5) {
+      const topT = Math.max(...s.board.slice(0, 4).map((c) => c >> 2));
+      if (s.hole[HERO].some((c) => c >> 2 === topT) && s.board[4] >> 2 > topT) return true;
+    }
+    return false;
+  };
 
   // ---- multiway facts (after the flop) ----
   const tier = hf ? hf.tier : null;
@@ -537,7 +565,8 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
   // STRAT's interim river rule (K9 vs a nit, Nov 2026): one pair below top pair top kicker, checked to
   // on the river, against players read as nits or solid regulars. A bet there wins mostly by folding
   // better hands, which is not a value bet. (MATH's anchor A1 replaces this when it ships.)
-  const foldsBetter = river && ctx.toCall === 0 && onePair && tier < TIER.OVERPAIR_TPTK && opp >= 1 && live.every((i) => readAs(i, ['nit', 'tag']));
+  // ...a real pair only (STRAT, 20 Nov): a hand the board makes is not one pair, whatever its coach tier
+  const foldsBetter = river && ctx.toCall === 0 && opp >= 1 && foldsBetterHand(hf) && live.every((i) => readAs(i, ['nit', 'tag']));
   // R7: plays the coach does not teach, whatever the simulation says ("not a habit to build").
   const habitOf = (o) => {
     if (pre || !isRaise(o)) return null;
@@ -731,7 +760,8 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
 
   // ---------------- after the flop ----------------
   // STRAT's interim river rule: the check is fine (and a big bet carries the note, above).
-  if (foldsBetter && mine.type === 'check') return pass('foldsBetter');
+  // ...and never a check whose reference bet is a clear value bet (STRAT, 20 Nov: rule 6's value test)
+  if (foldsBetter && mine.type === 'check' && !(isRaise(best()) && valueBet(best()))) return pass('foldsBetter');
   // 1. Declining to bluff-raise is never a mistake: compare with the best non-raise.
   if (ctx.toCall > 0 && isRaise(best()) && !isRaise(mine) && weak && regrade((o) => !isRaise(o), 'bluffRaise', 'noRaise')) return;
   // R5. Declining to raise with one pair facing a bet is never flagged.
@@ -887,17 +917,27 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
     // pot (STRAT, QA-VERDICT N3; the model folds too often to tiny bets)
     if (betFrac(best()) < 0.25 && regrade((o) => !isRaise(o) || betFrac(o) >= 0.25, 'passedBluff', 'quarterPot')) return;
     if (!isRaise(best())) return;
-    const margin = (river ? 3 : 2) * small;
-    if (v.loss < margin || stickyRead()) return pass('passedBluff');
-    // On the river the flag stands only if the bet still beats the check by the bar when the players
-    // call a little wider (R12's "calls wider" scenario; POOL and STRAT G6). Otherwise it is the pass.
-    if (river && env) {
-      const vw = judgeDecision(s, HERO, env.belief, action, { ...reRunOpts(judgeOpts, Math.round(judgeOpts.samples / 2), v), shift: -0.05 });
-      const b2 = sameOption(vw, best());
-      const m2 = sameOption(vw, mine);
-      if (b2 >= 0 && m2 >= 0 && vw.options[b2].ev - vw.options[m2].ev < small) return pass('passedBluff');
+    // a river value bet is not a bluff (STRAT, PRO, CEO, 20 Nov): when the reference bet wins when called or raised
+    // clearly more often than it needs (W_net = ahead / (called + raised), every raise from a better hand, clears
+    // 1/(callers+1) by 2 SE), the check leaves rule 6 and is graded as usual as missed value. Yellow at most when a
+    // maniac or lag read is still to act behind, or when hero's pair was top pair on the turn and the river is an
+    // overcard to it (PRO's guards); the scenario test below still runs (calls tighter, ranges halved).
+    if (river && valueBet(best())) {
+      v.valueCheck = true;
+      if (valueGuard()) capYellow();
+    } else {
+      const margin = (river ? 3 : 2) * small;
+      if (v.loss < margin || stickyRead()) return pass('passedBluff');
+      // On the river the flag stands only if the bet still beats the check by the bar when the players
+      // call a little wider (R12's "calls wider" scenario; POOL and STRAT G6). Otherwise it is the pass.
+      if (river && env) {
+        const vw = judgeDecision(s, HERO, env.belief, action, { ...reRunOpts(judgeOpts, Math.round(judgeOpts.samples / 2), v), shift: -0.05 });
+        const b2 = sameOption(vw, best());
+        const m2 = sameOption(vw, mine);
+        if (b2 >= 0 && m2 >= 0 && vw.options[b2].ev - vw.options[m2].ev < small) return pass('passedBluff');
+      }
+      v.grade = 'mistake';
     }
-    v.grade = 'mistake';
   }
   // 7. A call against a fold is graded on what it can lose here: at most its price. Money
   //    lost later is graded at those later decisions (PRO review, item 3).

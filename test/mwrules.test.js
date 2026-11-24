@@ -463,10 +463,12 @@ test('costly multiway check: any bet size the scenarios name keeps the flag; non
 
 // QA-VERDICT's case (KcAs on 7h Js Ac, two stations and an abc, hero the preflop raiser in position): every scenario's
 // bet beats the check by far, but the scenario test names $20 while the judge's best (up to 75% of the pot) is $30.
-// Before the fix the check passed as mwCheck; now it is yellow, naming the scenario test's size.
+// Before the fix the check passed as mwCheck; now it is yellow, naming the scenario test's size. Seed 13: on 19i's
+// opponents seed 11 put $20 and $30 within 0.1 (the sizes agreed) and seed 12 only $0.8 apart; the premise is asserted
+// below, so a later opponent batch that closes the gap fails here by name instead of testing nothing (STRAT).
 test('costly multiway check: KcAs top pair top kicker against two stations is yellow, naming the scenario pick', () => {
   const { s, belief, env } = build({ id: 'KcAs', button: 2, hole: 'Kc As', board: '7h Js Ac', seats: { 5: 'station', 6: 'abc', 7: 'station' }, conf: { 5: 0.79, 6: 0.74, 7: 0.84 }, stacks: { 0: 200, 5: 155, 6: 258, 7: 53 }, line: '5c 6c 7c 0r9 5c 6c 7c | 5x 6x 7x' });
-  const opts = { samples: 3000, seed: 11 };
+  const opts = { samples: 3000, seed: 13 };
   const v0 = judgeDecision(s, 0, belief, null, opts);
   const v = gradeAll(s, v0, opts, env).find((x) => x.o.type === 'check').v;
   assert.equal(v.grade, 'mistake', `grade ${v.grade} ${v.note || ''}`);
@@ -474,4 +476,6 @@ test('costly multiway check: KcAs top pair top kicker against two stations is ye
   assert.equal(v.best, v.costly.pick, 'the flag names the scenario pick');
   assert.equal(v.options[v.best].type, 'raise');
   assert.notEqual(v.costly.pick, v.costly.ref, 'this case is the size-disagreement one');
+  const apart = Math.abs(v.options[v.costly.ref].ev - v.options[v.costly.pick].ev);
+  assert.ok(apart >= 1, `premise: the judge's best and the scenario pick must be $1 or more apart (${apart.toFixed(2)}); pick another seed`);
 });

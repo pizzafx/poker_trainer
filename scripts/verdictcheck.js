@@ -534,6 +534,12 @@ export function runConfig(cfg) {
       ? { custom: { sb: 1, bb: 2, minBuy: 100, maxBuy: 200 }, heroBuy: 200, lineup: cfg.lineup || ['station', 'station', 'whale', 'abc', 'abc', 'maniac', 'beginner'], samples, seed: cfg.seed }
       : { game: cfg.game || '1/2', table: cfg.table || 'typical', samples, seed: cfg.seed, seats: cfg.seats || 9 },
   );
+  // VC_NOBUDGET=1 (CEO, QA-OPP, 24 Nov: the opponent gate sets it on both builds): the base grades take no time budget
+  // (budgetMs 0), so a run's verdicts and its violation count don't move with machine load. Slower, deterministic.
+  if (process.env.VC_NOBUDGET === '1') {
+    const jo = sess.judgeOpts.bind(sess);
+    sess.judgeOpts = () => ({ ...jo(), budgetMs: 0 });
+  }
   const violations = [];
   const modelHits = [];
   const flips = [];

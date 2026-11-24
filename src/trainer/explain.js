@@ -18,7 +18,7 @@ export const CATEGORIES = {
   sizeSmall: 'Sizing: betting too small',
   sizeBig: 'Sizing: betting too big',
   preLoose: 'Preflop: playing a hand that loses money in this spot',
-  preVs3bet: 'Preflop: continuing against a re-raise that is mostly strong hands',
+  preVs3bet: 'Preflop: continuing against a re-raise when folding is better',
   preTight: 'Preflop: folding a hand that makes money in this spot',
   prePassive: 'Preflop: limping or calling when raising makes more',
   preRaise: 'Preflop: raising when calling or folding does better',
@@ -105,12 +105,16 @@ function vs3betLines(d, v) {
   const oop = !!(d.table && d.table.oop);
   const facts = (oop ? ', out of position' : '') + (f.behind > 4 * f.potAfter ? ', with a lot left to lose when behind' : '');
   if (mine.type === 'raise') {
-    if (f.P >= 0.85) out.push('The hands that continue are almost all ahead of yours.');
+    // a 4-bet: against an almost-all-strong range the hands that continue are ahead; otherwise a plain line (STRAT)
+    out.push(f.P >= 0.85 ? 'The hands that continue are almost all ahead of yours.' : 'Re-raising here scores worse than folding against this range.');
   } else if (f.eq < f.need - 0.03) {
     out.push(`You need about ${pctR(f.need)}% to call, and this hand wins only about ${pctR(f.eq)}% against that range, even seeing all five cards.`);
-  } else if (f.eq < f.need + 0.05 || f.short) {
-    // under 1.5x the pot behind the price is the all-in price and the Realisation line never prints (MATH, STRAT)
+  } else if (f.eq < f.need + 0.05) {
     out.push(`It's about break-even on paper, and you won't see all five cards for free${facts}.`);
+  } else if (f.short) {
+    // under 1.5x the pot behind the price is the all-in price and the Realisation line never prints (MATH); a hand well
+    // above that price is neither break-even nor a realisation story, so a plain line that cannot be false (STRAT)
+    out.push(`Against this range, the call scores worse than folding${facts}.`);
   } else {
     const back = fold ? Math.max(0, Math.round(f.call + (mine.ev - fold.ev))) : null;
     out.push(back === null ? `It wins about ${pctR(f.eq)}% if all the cards come, but it doesn't pay back what the call costs${facts}.` : `It wins about ${pctR(f.eq)}% if all the cards come, but playing it out returns only about $${back} of the $${f.call} it costs${facts}.`);
@@ -782,7 +786,11 @@ export function explain(d) {
   }
   if (category === 'preTight' && d.raises === 0 && !(d.ctx && d.ctx.limpers > 0)) theory = null;
   // the "solver calls" line only when the belief's re-raising range is almost all strong hands (CEO's condition)
-  if (category === 'preVs3bet' && !(d.vs3bet && d.vs3bet.P >= 0.85)) theory = null;
+  if (category === 'preVs3bet') {
+    if (!(d.vs3bet && d.vs3bet.P >= 0.85)) theory = null;
+    // "a solver calls here" is false of a re-raise: the 4-bet takes preRaise's line (STRAT)
+    else if (m === 'raise') theory = THEORY.preRaise;
+  }
   if (category === 'sizeSmall' && theory) {
     if (d.street === STREET.PRE) theory = 'Why theory disagrees: at a tough table a smaller raise does the job. These players call bigger raises with worse, so make it bigger.';
     else if (d.street !== STREET.FLOP) theory = 'Why theory disagrees: theory mixes small bets into a balanced strategy. Callers here pay the same hands at a bigger price, so the small size leaves money behind.';

@@ -5,7 +5,7 @@ import { STREET, legal, potSize } from '../src/engine/game.js';
 import { handFeatures, TIER } from '../src/engine/features.js';
 import { POS } from '../src/bots/policy.js';
 import { judgeDecision } from '../src/trainer/judge.js';
-import { limpOutsideTipFor, robustVerdict, anchorStatus, applyAnchors, needOf, temper } from '../src/trainer/grade.js';
+import { limpOutsideTipFor, robustVerdict, anchorStatus, applyAnchors, needOf, temper, costlyStands } from '../src/trainer/grade.js';
 import { build, gradeAll } from '../scripts/gradeall.js';
 import { SPOTS } from '../scripts/mwbench_spots.js';
 import { explain, anchorLine } from '../src/trainer/explain.js';
@@ -442,4 +442,36 @@ test('a two-pair fold is never measured against an overbet, after the anchors re
   temper(v, s, ctx, { type: 'fold' }, { samples: 40, seed: 1, heat: 0 }, env);
   const b = v.options[v.best];
   assert.ok(!(b.type === 'raise' && b.to - s.currentBet > 1.05 * pot), `best ${b.label} (${v.grade}, note ${v.note}, ref ${v.ref})`);
+});
+
+// Owner (24 Nov), STRAT's size-agreement fix: a costly multiway one-pair check keeps its flag when the scenario test
+// names a bet of any size, not only the judge's best size. No pick, a near pick or a non-bet passes; a costly draw
+// (mwDraw) still needs the same size.
+test('costly multiway check: any bet size the scenarios name keeps the flag; none, near, a non-bet or a draw at another size passes', () => {
+  const options = [{ type: 'check' }, { type: 'raise', to: 20 }, { type: 'raise', to: 35 }, { type: 'fold' }];
+  const chk = { ref: 1, note: 'mwCheck' };
+  assert.equal(costlyStands({ pick: 2, near: false }, options, chk), true); // another raise size than the judge's best
+  assert.equal(costlyStands({ pick: 1, near: false }, options, chk), true);
+  assert.equal(costlyStands({ pick: 2, near: true }, options, chk), false);
+  assert.equal(costlyStands({ pick: -1, near: false }, options, chk), false);
+  assert.equal(costlyStands({ pick: 3, near: false }, options, chk), false);
+  const draw = { ref: 1, note: 'mwDraw' };
+  assert.equal(costlyStands({ pick: 2, near: false }, options, draw), false);
+  assert.equal(costlyStands({ pick: 1, near: false }, options, draw), true);
+  assert.equal(costlyStands({ pick: 1, near: true }, options, draw), false);
+});
+
+// QA-VERDICT's case (KcAs on 7h Js Ac, two stations and an abc, hero the preflop raiser in position): every scenario's
+// bet beats the check by far, but the scenario test names $20 while the judge's best (up to 75% of the pot) is $30.
+// Before the fix the check passed as mwCheck; now it is yellow, naming the scenario test's size.
+test('costly multiway check: KcAs top pair top kicker against two stations is yellow, naming the scenario pick', () => {
+  const { s, belief, env } = build({ id: 'KcAs', button: 2, hole: 'Kc As', board: '7h Js Ac', seats: { 5: 'station', 6: 'abc', 7: 'station' }, conf: { 5: 0.79, 6: 0.74, 7: 0.84 }, stacks: { 0: 200, 5: 155, 6: 258, 7: 53 }, line: '5c 6c 7c 0r9 5c 6c 7c | 5x 6x 7x' });
+  const opts = { samples: 3000, seed: 11 };
+  const v0 = judgeDecision(s, 0, belief, null, opts);
+  const v = gradeAll(s, v0, opts, env).find((x) => x.o.type === 'check').v;
+  assert.equal(v.grade, 'mistake', `grade ${v.grade} ${v.note || ''}`);
+  assert.ok(v.costly && v.costly.note === 'mwCheck', JSON.stringify(v.costly));
+  assert.equal(v.best, v.costly.pick, 'the flag names the scenario pick');
+  assert.equal(v.options[v.best].type, 'raise');
+  assert.notEqual(v.costly.pick, v.costly.ref, 'this case is the size-disagreement one');
 });

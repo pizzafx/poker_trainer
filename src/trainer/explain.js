@@ -102,6 +102,9 @@ function vs3betLines(d, v) {
   if (f.set && f.P >= 0.67) {
     out.push(`${an} ${f.typeWord} who ${raiseWord} ${f.overYours ? 'over your raise' : 'here'} ${f.P >= 0.85 ? 'almost always' : 'mostly'} has ${f.set}, about ${f.S}%.`);
   }
+  // facing a shove the all-in line gives the price and there is no later street: no reason line, no set clause and no
+  // position words here (QA P5-1)
+  if (v.preShove) return out;
   const oop = !!(d.table && d.table.oop);
   const facts = (oop ? ', out of position' : '') + (f.behind > 4 * f.potAfter ? ', with a lot left to lose when behind' : '');
   if (mine.type === 'raise') {

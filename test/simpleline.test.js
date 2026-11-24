@@ -1,4 +1,4 @@
-// The simple-line floor (notes/MATH_STANDIN_SIMPLE_LINE.md, line (a) "fit or fold", CEO): before the river every
+// The simple-line floor (MATH, line (a) "fit or fold", CEO): before the river every
 // non-fold option keeps the better of the stand-in's play-out and fit-or-fold, past a one-SE guard.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

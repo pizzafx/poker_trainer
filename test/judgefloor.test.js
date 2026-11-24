@@ -1,4 +1,4 @@
-// The judge's budget extension (MATH_JUDGE_FLOOR, CEO): when the time budget is first found spent and the trainee's
+// The judge's budget extension (MATH, CEO): when the time budget is first found spent and the trainee's
 // option trails the best by the plain yellow bar or more, sampling goes on to 800 with no further clock check.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

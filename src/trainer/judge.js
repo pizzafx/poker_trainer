@@ -182,7 +182,7 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   for (let i = 0; i < s.n; i++) if (i !== hero && !s.folded[i]) opps.push(i);
   const samplers = opps.map((o) => belief.sampler(o));
   const res = cands.map(() => new Float64Array(N));
-  // The simple-line floor (notes/MATH_STANDIN_SIMPLE_LINE.md): before the river every option that is not a fold is also played
+  // The simple-line floor (MATH, PRO, CEO): before the river every option that is not a fold is also played
   // out with the trainee on the fit-or-fold line, on the same dealt hands and run-outs. The option keeps that play-out only
   // if it averages higher than the stand-in's by more than one standard error of the paired difference (the guard against
   // picking the better of two noisy averages). A competent player can always take the line, so it never over-credits.
@@ -250,7 +250,7 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     if (m < 0) m = cands.findIndex((c) => c.type === 'check' || c.type === 'call');
     return m;
   })();
-  // The budget extension (MATH_JUDGE_FLOOR, CEO): when the budget is first found spent and the trainee's option trails
+  // The budget extension (MATH, CEO): when the budget is first found spent and the trainee's option trails
   // the best by the plain yellow bar or more, sampling goes on to 800 (or N) with no further clock, so a flag is not
   // dropped for want of samples. `extended` says it ran.
   let extended = false;
@@ -452,7 +452,7 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     grade,
     sameKind,
     samples: n,
-    extended, // the budget extension ran (MATH_JUDGE_FLOOR)
+    extended, // the budget extension ran (MATH)
     pot,
     street: s.street,
   };

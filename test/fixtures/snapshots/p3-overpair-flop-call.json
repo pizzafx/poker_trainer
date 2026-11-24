@@ -434,7 +434,7 @@
    "blunder",
    "mistake"
   ],
-  "best": "Fold"
+  "best": "Call $40"
  },
- "why": "AA calling a station's one flop bet on K-K-7: yellow at most (P3-2)"
+ "why": "AA calling a station's one flop bet on K-K-7: yellow at most (P3-2); the simple-line floor makes the call best (MATH; STRAT: folding AA to one station bet on K-K-7 is far too tight)"
 }

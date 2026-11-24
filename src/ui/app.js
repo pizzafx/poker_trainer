@@ -730,7 +730,7 @@ function noteText(d) {
 }
 // MATH's anchors: "The coach's estimate" under flags, notes, vetoes and not-graded decisions
 const anchorHtml = (d) => (d.anchor ? `<p class="anchor-line"><span class="label">The coach's estimate</span> ${esc(d.anchor)}${d.anchorExtra ? `<span class="anchor-extra"> ${esc(d.anchorExtra)}</span>` : ''}</p>` : '');
-const notGraded = (v) => v.note === 'unclear' || v.note === 'closeCall';
+const notGraded = (v) => v.note === 'unclear' || v.note === 'closeCall' || v.note === 'fragileRead';
 const noteLine = (d, cls) => {
   const n = noteText(d);
   return n ? `<p class="${cls}">${esc(n)}</p>` : '';

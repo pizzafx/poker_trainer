@@ -299,6 +299,22 @@ export function t1Board(hole, board) {
 // A note on a fine (or not graded) verdict never hides a gap above the yellow bar behind "a little",
 // "about the same" or "scores higher": it states the dollar figure, rounded as the bars show it
 // (STRAT, QA Q1, Nov 2026). `v.small` is the yellow bar the guardrails used.
+// The read under which a fragile verdict's gap is smallest (the scenario test's scenGaps), in words (STRAT, CEO)
+const FLIP_WORDS = {
+  'calls-5': 'if this player calls a little less often',
+  'calls+5': 'if this player calls a little more often',
+  'thin hero': 'if you play the rest of the hand more cautiously',
+  'ranges x2': 'if their hands are stronger than we read',
+  'ranges x0.5': 'if their hands are weaker than we read',
+};
+function flipRead(v) {
+  const gs = (v.scenGaps || []).filter((x) => x.label !== 'base' && FLIP_WORDS[x.label]);
+  if (!gs.length) return '';
+  const m = gs.reduce((a, x) => (x.gap < a.gap ? x : a), gs[0]);
+  const g = Math.round(m.gap);
+  return `${FLIP_WORDS[m.label]}, ${g <= 0 ? 'yours does as well or better' : `the gap is only about $${g}`}`;
+}
+
 function goodHeadline(v, mine, best, d = {}) {
   const gap = (o) => Math.max(0, Math.round(o.ev) - Math.round(mine.ev));
   const bar = () => v.small || 0; // the yellow bar, the same for every option here (QA E4)
@@ -373,6 +389,7 @@ function goodHeadline(v, mine, best, d = {}) {
   }
   // STRAT YB-T1, the scenario test's form: the grading state kept, no figure for the check
   if (passiveTrap && v.note === 'unclear') return `${mine.label}: not graded. Betting a strong hand for value is the standard play against these players; checking to trap scores about the same here.`;
+  if (passiveTrap && v.note === 'fragileRead') return `${mine.label}: not graded. (Betting a strong hand for value is the standard play against these players; checking to trap scores about the same here.)`;
   if (passiveTrap && v.note === 'fragile') return `${mine.label}: fine. (Betting a strong hand for value is the standard play against these players; checking to trap scores about the same here.)`;
   if (v.note === 'closeCall') return `${mine.label}: not graded.`;
   if (v.note === 'preSize') return `${mine.label}: fine. (${bare(best)} ${more(best, 'scores about the same')}; using one size with all your hands is the better habit.)`;
@@ -438,7 +455,10 @@ function goodHeadline(v, mine, best, d = {}) {
     return `${mine.label}: fine. (Bigger bets score about ${lo === hi ? `$${lo}` : `$${lo}–${hi}`} more against these opponents, mostly because they call too often; ${size} is a sound value size${into}.)`;
   }
   if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A ${bluffWord(top) || 'bet'} ${more(top)} against these bots; not enough to rely on at a real table.)`;
-  if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read, so it is not graded.${habitTail(v, d)})`;
+  // STRAT, CEO (fragile label fix): the scenario test's own fragile (fragileRead) is not graded and names the read that
+  // flips it; the other two fragile passes stay 'fine' and no longer say "not graded" (they contradicted themselves)
+  if (v.note === 'fragileRead') return `${mine.label}: not graded. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read${flipRead(v) ? `: ${flipRead(v)}` : ''}.${habitTail(v, d)})`;
+  if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')} on our read of ${who}.${habitTail(v, d)})`;
   if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')}.)`;
   // ...never naming a play the coach does not teach here (R7 habits: the reference already leaves them out; STRAT, F10)
   if (gap(top) > bar(top) && v.ref !== 'habit') return `${mine.label}: fine. (${bare(top)} ${more(top)} on our read, but the coach does not hold you to it here.)`;

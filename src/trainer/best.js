@@ -70,6 +70,6 @@ export function bestHeadline(v, d) {
 // shows, "not graded" for close calls, otherwise "fine", "mistake" or "blunder".
 export function verdictWord(v, d) {
   if (v.grade !== 'good') return v.grade;
-  if (v.note === 'unclear' || v.note === 'closeCall') return 'not graded';
+  if (v.note === 'unclear' || v.note === 'closeCall' || v.note === 'fragileRead') return 'not graded';
   return isBestPlay(v, d) ? 'best play' : 'fine';
 }

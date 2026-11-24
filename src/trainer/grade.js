@@ -1038,7 +1038,9 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
     return;
   }
   if (r.unclear && r.flip >= 0) v.flip = r.flip;
-  return pass(r.unclear ? 'unclear' : 'fragile');
+  // STRAT, CEO (fragile label fix): no pick, not near, not dominated, yet some read puts your play within the bars: QA
+  // found every one of these past the yellow bar and significant, so it reads 'not graded' (fragileRead), not 'fine'
+  return pass(r.unclear ? 'unclear' : 'fragileRead');
 }
 
 // Whether a costly multiway check keeps its flag after the scenario test (owner, 24 Nov, STRAT). A one-pair check
@@ -1327,7 +1329,7 @@ export function applyAnchors(v, s, ctx, allow = () => true) {
     if (close && (mine.type === 'fold' || (mine.type === 'call' && v.grade === 'good'))) {
       v.line = '8b';
       // the line says "nothing here is graded": so does the verdict (QA-VERDICT V1)
-      if (v.grade === 'good' && (!v.note || v.note === 'fragile' || v.note === 'unclear')) v.note = 'closeCall';
+      if (v.grade === 'good' && (!v.note || v.note === 'fragile' || v.note === 'fragileRead' || v.note === 'unclear')) v.note = 'closeCall';
       return;
     }
     // a clearly right fold needs no R6 protection: plain grading, so it can be the best play

@@ -559,7 +559,7 @@ export function runConfig(cfg) {
       // LD1 (QA-VERDICT): a grade never depends on the time budget. Every flag and every play a veto check
       // passed is graded again with no budget; when the base run reached the same samples both times
       // (identical base values), the grade must match.
-      if (rec.verdict && (rec.verdict.grade !== 'good' || ['fragile', 'unclear', 'passedBluff'].includes(rec.verdict.note))) {
+      if (rec.verdict && (rec.verdict.grade !== 'good' || ['fragile', 'fragileRead', 'unclear', 'passedBluff'].includes(rec.verdict.note))) {
         const belief = HandBelief.fromPlain(job.belief);
         const v0 = gradeDecision(job.state, belief, job.action, { ...job.opts, budgetMs: 0 }, { belief, readOf: (i) => job.reads[i], name: (i) => job.names[i] });
         const same = v0.samples === rec.verdict.samples && v0.options.length === rec.verdict.options.length && v0.options.every((o, i) => o.ev === rec.verdict.options[i].ev);

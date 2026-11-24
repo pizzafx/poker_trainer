@@ -202,6 +202,7 @@ const BASE = {
   rangeTop: null, // how far above the value threshold the range-aware number may sit (null: RANGE_TOP in policy.js)
   rangeScaryMw: null, // regulars: the read's share kept multiway on a scary board (PRO's twin rule v1.2); null: no damping
   rangeScaryHu: null, // the same heads-up: [after a quiet line, after a called bet on the street before]
+  rangeScaryPrevChecked: null, // PRO's A': on a scary board the read applies only after a checked-through street (null: always)
   leadIntoRaiserFlop: null, // the flop's lead-into-the-preflop-raiser term (null: leadIntoRaiser)
   ledRaiseRespect: 0, // call-threshold increase when raised after leading this street
   leadBluffMult: 1, // multiplier on bluff-leads into the aggressor
@@ -332,6 +333,7 @@ const DEFS = {
     tpLabel: 0.8, // POOL batch 18 (PRO's TPWK floors)
     rangeRead: [0.5, 0.3], // MATH range-bots stage 2 (POOL's table)
     rangeUpOnly: true, // stage 2 tuning: two-sided, the read took abc under PRO's dry-board floors for a weak-kicker top pair
+    rangeScaryPrevChecked: true, // PRO's A' (CEO, 24 Nov): scary board, read only after a checked-through street
     rangeBar: [0.6, 0.6, 0.6], // STRAT: straightforward 60%
     rangeBetFrac: 0.55,
     smallCont: [0.92,  0.84,  0.64], // POOL batch 16
@@ -763,7 +765,7 @@ const DEFS = {
     tpLabel: 0.25, // POOL batch 18
     rangeRead: [0.8, 0.7], // MATH range-bots stage 2 (POOL's table)
     rangeScaryMw: 0.5, // PRO's twin rule v1.2
-    rangeScaryHu: [1, 0.5], // v1.2: heads-up keeps the read after a quiet line; halved after a called bet on the street before
+    rangeScaryHu: [1, 0], // PRO's B (CEO, 24 Nov): heads-up keeps the read after a quiet line; none after any action (was 0.5)
     rangeTop: 0.05, // tuning pass: keeps the heads-up top-pair c-bet under PRO's ceiling of 95
     rangeBar: [0.53, 0.53, 0.53], // STRAT: regulars 52 to 55%
     rangeBetFrac: 0.55,

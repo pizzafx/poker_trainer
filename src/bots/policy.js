@@ -832,6 +832,9 @@ export function postflopPolicy(ctx, P, f) {
       // has never bet or called since the flop; after any action, and on the flop, the full 10)
       else if ((mf < 1 || ms < 1) && P.rangeScaryHu) rr *= P.rangeScaryHu[ctx.quietLine ? 0 : 1];
     }
+    // PRO's A' (CEO, 24 Nov): a recreational reader (rangeScaryPrevChecked) keeps the read on a scary board only when
+    // the street before was checked through by everyone; after any bet there, and on the flop, no read (today's play).
+    if (rr > 0 && P.rangeScaryPrevChecked && ((f.mdFlush ?? 1) < 1 || (f.mdStraight ?? 1) < 1) && !ctx.prevChecked) rr = 0;
     // not when leading into the last street's aggressor: checking to the raiser is a live custom, not range logic (POOL)
     if (rr > 0 && ctx.rtState && ctx.canRaise && !ctx.aggressorBehind) {
       const rd = ctx.rtState.rt.betRead(ctx.rtState, ctx.seat, binOf(f), P.rangeBetFrac);

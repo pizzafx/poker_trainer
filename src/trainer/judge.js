@@ -134,7 +134,7 @@ function decisionRng(seedK, seat, street, count) {
 // The trainee's stand-in in the play-outs; a scenario can swap it (set for one judgement at a time).
 let heroP = HERO_PROFILE;
 
-function playOut(st, hero, prof, seedK, heat, shift) {
+function playOut(st, hero, prof, seedK, heat, shift, fitOrFold) {
   let tex = null;
   let texLen = -1;
   const acts = new Uint8Array(st.n * 4);
@@ -159,7 +159,14 @@ function playOut(st, hero, prof, seedK, heat, shift) {
         tex = boardTexture(st.board);
         texLen = st.board.length;
       }
-      pol = postflopPolicy(ctx, P, handFeatures(st.hole[seat], st.board, tex));
+      const hf = handFeatures(st.hole[seat], st.board, tex);
+      // The simple line (MATH, PRO, CEO 23 Nov 2026), "fit or fold": with two pair or better, or a draw of 8 or more outs
+      // with cards to come, the trainee plays on as the stand-in does; otherwise checks when it is free and folds to any bet.
+      if (fitOrFold && seat === hero && !(hf.tier >= TIER.TWO_PAIR || (st.board.length < 5 && (hf.outs || 0) >= 8))) {
+        applyAction(st, ctx.toCall > 0 ? { type: 'fold' } : { type: 'check' }, rng);
+        continue;
+      }
+      pol = postflopPolicy(ctx, P, hf);
     }
     applyAction(st, sampleAction(pol, rng), rng);
   }
@@ -175,6 +182,13 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   for (let i = 0; i < s.n; i++) if (i !== hero && !s.folded[i]) opps.push(i);
   const samplers = opps.map((o) => belief.sampler(o));
   const res = cands.map(() => new Float64Array(N));
+  // The simple-line floor (notes/MATH_STANDIN_SIMPLE_LINE.md): before the river every option that is not a fold is also played
+  // out with the trainee on the fit-or-fold line, on the same dealt hands and run-outs. The option keeps that play-out only
+  // if it averages higher than the stand-in's by more than one standard error of the paired difference (the guard against
+  // picking the better of two noisy averages). A competent player can always take the line, so it never over-credits.
+  // opts.simpleLine === false turns it off. Its own random stream, so the stand-in's play-outs are unchanged.
+  const alt = s.street < STREET.RIVER && opts.simpleLine !== false ? cands.map((c) => (c.type === 'fold' ? null : new Float64Array(N))) : null;
+  const rngF = makeRng(seed * 7919 + 14);
   const used = new Uint8Array(52);
   const baseStack = s.stacks[hero];
   const rngS = makeRng(seed * 7919 + 13);
@@ -284,6 +298,12 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
       applyAction(st, cands[c], rngS);
       playOut(st, hero, prof, seedK, opts.heat || 0, opts.shift || 0);
       res[c][n] = st.stacks[hero] - baseStack;
+      if (alt && alt[c]) {
+        const st2 = cloneState(base);
+        applyAction(st2, cands[c], rngF);
+        playOut(st2, hero, prof, seedK, opts.heat || 0, opts.shift || 0, true);
+        alt[c][n] = st2.stacks[hero] - baseStack;
+      }
       if (A && cands[c].type === 'raise') {
         // each opponent's first answer to the bet, on this street
         const hist = st.history;
@@ -339,6 +359,13 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     }
   }
 
+  const simple = cands.map(() => false); // which options took the simple line's play-out
+  if (alt) for (let c = 0; c < C; c++) if (alt[c] && n > 1) {
+    let sum = 0, sq = 0;
+    for (let k = 0; k < n; k++) { const d = alt[c][k] - res[c][k]; sum += d; sq += d * d; }
+    const mean = sum / n, se = Math.sqrt(Math.max(0, sq / n - mean * mean) / (n - 1));
+    if (mean > se && mean > 0) { res[c] = alt[c]; simple[c] = true; }
+  }
   const evs = res.map((r) => {
     let sum = 0;
     for (let k = 0; k < n; k++) sum += r[k];
@@ -398,7 +425,7 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   };
   const raiseIdx = cands.map((c, i) => (c.type === 'raise' ? i : -1)).filter((i) => i >= 0);
   const verdict = {
-    options: cands.map((c, i) => ({ ...c, ev: evs[i], close: close[i], ...anchorOf(c, i) })),
+    options: cands.map((c, i) => ({ ...c, ev: evs[i], close: close[i], ...(simple[i] ? { simple: true } : {}), ...anchorOf(c, i) })),
     best,
     mine,
     loss,

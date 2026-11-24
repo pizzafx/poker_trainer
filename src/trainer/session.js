@@ -15,6 +15,7 @@ export { limpTipFor, openTipFor, junk3betTipFor } from './grade.js';
 import { snapshotDecision, handTruth } from './dispute.js';
 import { groupOf, expandRange, LIMPER_OFFSUIT, TIGHTER_ROW } from './ranges.js';
 import { explain } from './explain.js';
+import { vs3betFacts } from './vs3bet.js';
 import { coachFeatures, coachHandText } from './coachtier.js';
 import { bestHeadline } from './best.js';
 
@@ -492,6 +493,8 @@ export class Session {
       ctx,
       // The table as the trainee saw it, for a "Disagree?" report.
       snapshot: snapshotDecision(this, s, judgeOpts),
+      // facing a re-raise preflop: what the re-raiser's belief range holds and the price, for 'preVs3bet' (STRAT, MATH)
+      vs3bet: vs3betFacts(s, belief, readOf),
     };
     if (record.pending) return record; // explained when its verdict comes (resolveDecision)
     Object.assign(record, explain(record));

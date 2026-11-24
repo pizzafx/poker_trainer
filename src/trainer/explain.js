@@ -18,6 +18,7 @@ export const CATEGORIES = {
   sizeSmall: 'Sizing: betting too small',
   sizeBig: 'Sizing: betting too big',
   preLoose: 'Preflop: playing a hand that loses money in this spot',
+  preVs3bet: 'Preflop: continuing against a re-raise that is mostly strong hands',
   preTight: 'Preflop: folding a hand that makes money in this spot',
   prePassive: 'Preflop: limping or calling when raising makes more',
   preRaise: 'Preflop: raising when calling or folding does better',
@@ -65,6 +66,8 @@ function categorise(d) {
   const weak = d.tier !== null && d.tier <= TIER.MIDDLE_PAIR;
   if (d.street === STREET.PRE) {
     if (m === b && m === 'raise') return mine.to < best.to ? 'sizeSmall' : 'sizeBig';
+    // facing a re-raise (a 3-bet or more), a call or a re-raise where folding is best (STRAT, CEO: hand 551)
+    if (b === 'fold' && facing && d.raises >= 2 && (m === 'call' || m === 'raise')) return 'preVs3bet';
     if (b === 'fold') return 'preLoose';
     if (m === 'fold') return 'preTight';
     if (b === 'raise') return 'prePassive';
@@ -82,6 +85,43 @@ function categorise(d) {
   if (m === 'check' && b === 'raise') return d.tier >= TIER.TOP_PAIR_WEAK || v.valueCheck ? 'missedValue' : 'missedBluff';
   if (m === 'raise' && b === 'check') return bluffy(d) ? 'badBluff' : 'overplay';
   return 'other';
+}
+
+// STRAT's 'preVs3bet' lines (spec v2, MATH's thresholds and short-stack amendment, CEO-approved 23 Nov), each true by
+// construction from the facts measured at the decision (vs3bet.js): the range line (P >= 0.67), the reason (Price, Thin or
+// Realisation), the set clause (pocket pairs, under 15x the call behind), and the 4-bet line (P >= 0.85).
+const pctR = (x) => Math.round(100 * x);
+function vs3betLines(d, v) {
+  const f = d.vs3bet;
+  if (!f) return [];
+  const out = [];
+  const mine = v.options[v.mine];
+  const fold = v.options.find((o) => o.type === 'fold');
+  const raiseWord = f.raises === 2 ? '3-bets' : `${f.raises + 1}-bets`;
+  const an = /^[aeiou]/i.test(f.typeWord) ? 'An' : 'A';
+  if (f.set && f.P >= 0.67) {
+    out.push(`${an} ${f.typeWord} who ${raiseWord} ${f.overYours ? 'over your raise' : 'here'} ${f.P >= 0.85 ? 'almost always' : 'mostly'} has ${f.set}, about ${f.S}%.`);
+  }
+  const oop = !!(d.table && d.table.oop);
+  const facts = (oop ? ', out of position' : '') + (f.behind > 4 * f.potAfter ? ', with a lot left to lose when behind' : '');
+  if (mine.type === 'raise') {
+    if (f.P >= 0.85) out.push('The hands that continue are almost all ahead of yours.');
+  } else if (f.eq < f.need - 0.03) {
+    out.push(`You need about ${pctR(f.need)}% to call, and this hand wins only about ${pctR(f.eq)}% against that range, even seeing all five cards.`);
+  } else if (f.eq < f.need + 0.05 || f.short) {
+    // under 1.5x the pot behind the price is the all-in price and the Realisation line never prints (MATH, STRAT)
+    out.push(`It's about break-even on paper, and you won't see all five cards for free${facts}.`);
+  } else {
+    const back = fold ? Math.max(0, Math.round(f.call + (mine.ev - fold.ev))) : null;
+    out.push(back === null ? `It wins about ${pctR(f.eq)}% if all the cards come, but it doesn't pay back what the call costs${facts}.` : `It wins about ${pctR(f.eq)}% if all the cards come, but playing it out returns only about $${back} of the $${f.call} it costs${facts}.`);
+  }
+  // the set clause: pocket pairs with too little behind to be paid for a set
+  const pair = d.hole && d.hole.length === 2 && d.hole[0] >> 2 === d.hole[1] >> 2;
+  if (pair && mine.type === 'call' && f.behind < 15 * f.call) {
+    const n = Math.round((10 * f.behind) / f.call) / 10;
+    out.push(`With only about ${n} times the call left behind, hitting a set doesn't pay enough${oop ? ", and you'd play the rest out of position" : ''}.`);
+  }
+  return out;
 }
 
 function readLine(d) {
@@ -203,6 +243,7 @@ const THEORY = {
     'Why theory disagrees: big sizes are for polarised ranges against opponents who must call some of the time. Here the big size folds out the worse hands you wanted to keep in.',
   preLoose:
     'Why theory disagrees: charts built for raked online six-max or tournament play defend and open wider than this. At a full table, raked, and headed for a multiway pot, this hand does not earn its way in.',
+  preVs3bet: "Why theory disagrees: a solver calls here, because its 3-bets include many weaker hands. This player's don't.",
   preTight:
     'Why theory disagrees: a tight chart folds this, but the callers at this table play so badly after the flop that the hand shows a profit here.',
   prePassive:
@@ -646,6 +687,9 @@ export function explain(d) {
   if (v.rule === 'R5b' && best.type === 'fold') reasons.push(`When a passive player leads into a crowd, one pair is often beaten. Folding scores about $${Math.max(0, Math.round(best.ev) - Math.round(mine.ev))} more.`);
   const r1 = readLine(d);
   if (r1) reasons.push(r1);
+  // preVs3bet: its lines come straight after the read line, so nothing generic sits between "plays like a calling
+  // station" and what that player's re-raise holds (STRAT, QA-VERDICT's 551 read)
+  if (category === 'preVs3bet') reasons.push(...vs3betLines(d, v));
   const r2 = rangeLine(d);
   if (r2) reasons.push(r2);
   const multiway = d.street !== STREET.PRE && d.opponents >= 2;
@@ -737,6 +781,8 @@ export function explain(d) {
     theory = parts.length ? `Why theory disagrees: charts built for raked online six-max or tournament play defend and open wider than this. ${cap(list)}, this hand does not earn its way in.` : null;
   }
   if (category === 'preTight' && d.raises === 0 && !(d.ctx && d.ctx.limpers > 0)) theory = null;
+  // the "solver calls" line only when the belief's re-raising range is almost all strong hands (CEO's condition)
+  if (category === 'preVs3bet' && !(d.vs3bet && d.vs3bet.P >= 0.85)) theory = null;
   if (category === 'sizeSmall' && theory) {
     if (d.street === STREET.PRE) theory = 'Why theory disagrees: at a tough table a smaller raise does the job. These players call bigger raises with worse, so make it bigger.';
     else if (d.street !== STREET.FLOP) theory = 'Why theory disagrees: theory mixes small bets into a balanced strategy. Callers here pay the same hands at a bigger price, so the small size leaves money behind.';

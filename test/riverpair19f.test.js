@@ -44,7 +44,8 @@ test('19f item 0: one factor per cell (kicker order kept), folds only become cal
       assert.ok(b.fold <= a.fold + 1e-9 && Math.abs(a.raise - b.raise) < 1e-9, `${t} ${hole} $${bet}`);
       r.push([a.fold, b.fold]);
     }
-    if (r[0][0] > 0.01 && r[1][0] > 0.01) assert.ok(Math.abs(r[0][1] / r[0][0] - r[1][1] / r[1][0]) < 1e-6, `${t} $${bet}: one factor for weak and good kicker`);
+    // 19i: topGood and topWeak are their own cells now (PRO's kicker split); the weak kicker still folds at least as much
+    assert.ok(r[0][1] >= r[1][1] - 1e-9, `${t} $${bet}: weak kicker folds at least as much as good`);
     if (t === 'station' || t === 'whale') for (const [x, y] of r) assert.ok(Math.abs(x - y) < 1e-12, `${t} top pair untouched`);
   }
   const { ctx, f } = spot('8h 7h', 30);

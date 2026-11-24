@@ -53,7 +53,10 @@ export function vs3betFacts(s, belief, readOf, hero = 0) {
       if (!(c.share > 0) || !(ev.live[k] > 0) || Number.isNaN(ev.cls[k])) return;
       const x = c.share * ev.live[k];
       w += x;
-      if (ev.cls[k] < 0.45) a += x;
+      // a class within 5 points of the line is re-probed at 2000 trials, so noise does not pick the line (STRAT)
+      let e = ev.cls[k];
+      if (Math.abs(e - 0.45) < 0.05) e = equityVsRange(s.hole[hero], g.cells.map((_, j) => (j === k ? 1 : 0)), 2000).cls[k];
+      if (e < 0.45) a += x;
     });
     aheadShare = w > 0 ? +(a / w).toFixed(3) : null;
   }

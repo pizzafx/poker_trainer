@@ -162,4 +162,8 @@ test('the 4-bet line (STRAT): AKo against QQ+ and AK is ahead or about even; 99 
   const nk = fourBet('9s 9h', ['AA', 'KK', 'QQ', 'AKs', 'AKo']);
   assert.ok(nk.f.aheadShare < 0.8, `99 vs QQ+/AK: aheadShare ${nk.f.aheadShare}`);
   assert.match(nk.text, /ahead of yours or about even with it\./);
+  // KJo against QQ+ and AK: under 45% against every class (STRAT)
+  const kj = fourBet('Kd Jc', ['AA', 'KK', 'QQ', 'AKs', 'AKo']);
+  assert.ok(kj.f.aheadShare >= 0.8, `KJo vs QQ+/AK: aheadShare ${kj.f.aheadShare}`);
+  assert.match(kj.text, /The hands that continue are almost all ahead of yours\./);
 });

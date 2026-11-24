@@ -113,3 +113,38 @@ test('keeps N%: the surviving mass, 100% before anyone acts', async () => {
   arrs[1].fill(0);
   assert.ok(Math.abs(survivingMass(arrs, [0.5, 0.5], dead) - 0.5) < 1e-12);
 });
+
+// STRAT (24 Nov): rung names on boards that are two pair or better on their own
+const rungOfHand = (board, hole, hand) => {
+  const c = comboIndex(...parseCards(hand));
+  const lad = ladderOf(flat(), parseCards(board), parseCards(hole));
+  return { b: lad.rung[c], lad };
+};
+test('QQ772: AJo and KJo good kicker, 55 and 66 weak kicker, Qx and 77 full house+, JJ beats the board', () => {
+  const B = 'Qs Qd 7c 7h 2s';
+  const H = 'Th 9h'; // hero holds neither an ace, a king nor a jack
+  const at = (hand) => rungOfHand(B, H, hand).b;
+  assert.equal(rungOfHand(B, H, 'Ac Jd').lad.kind, 'paired');
+  assert.equal(at('Ac Jd'), 2);
+  assert.equal(at('Kc Jd'), 2);
+  assert.equal(at('5c 5d'), 3);
+  assert.equal(at('6c 6d'), 3);
+  assert.equal(at('Qc 3d'), 0);
+  assert.equal(at('7s 7d'), 0);
+  assert.equal(at('Jc Jd'), 1);
+  assert.equal(at('3c 4d'), 3); // a 4 beats the board's fifth card, the 2
+  assert.equal(rungOfHand(B, H, 'Jc Jd').lad.names[1].short, 'Beats board');
+  // a flush on a paired board with three of a suit beats the board too (STRAT)
+  assert.equal(rungOfHand('Qs Qd 7s 7h 2s', H, 'As 4s').b, 1);
+});
+test('777K2: a pocket pair is full house+, and Beats the board is empty', () => {
+  const r = rungOfHand('7s 7d 7c Kh 2s', 'Ah 9h', '5c 5d');
+  assert.equal(r.b, 0);
+  assert.equal(r.lad.rungs[1].share, 0);
+});
+test('a straight on the board (56789): a T beats the board', () => {
+  const r = rungOfHand('5s 6d 7c 8h 9s', 'Ah 2h', 'Tc 3d');
+  assert.equal(r.lad.kind, 'made');
+  assert.equal(r.b, 0);
+  assert.equal(rungOfHand('5s 6d 7c 8h 9s', 'Ah 2h', 'Kc 3d').b, 1);
+});

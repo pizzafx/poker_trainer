@@ -11,17 +11,40 @@
 // the coach tier replaces the features tier. The grid's cells take their rung from here too, so the two always agree.
 import { COMBOS, comboClass, comboIndex, CLASS_COUNT } from '../engine/hands.js';
 import { handFeatures, boardTexture, TIER, isRealDraw } from '../engine/features.js';
-import { evaluate } from '../engine/evaluator.js';
+import { evaluate, categoryOf, CATEGORY } from '../engine/evaluator.js';
 import { makeRng } from '../engine/cards.js';
 import { coachTiersForRange } from './coachtier.js';
 
 export const RUNGS = [
-  { name: 'Two pair or better', short: 'Two pair+' },
-  { name: 'Top pair or overpair', short: 'Top pair+' },
-  { name: 'Weaker pair', short: 'Weaker pair' },
-  { name: 'Draw', short: 'Draw' },
-  { name: 'Nothing', short: 'Nothing' },
+  { name: 'Two pair or better', short: 'Two pair+', plural: 'two pair or better' },
+  { name: 'Top pair or overpair', short: 'Top pair+', plural: 'top pairs and overpairs' },
+  { name: 'Weaker pair', short: 'Weaker pair', plural: 'weaker pairs' },
+  { name: 'Draw', short: 'Draw', plural: 'draws' },
+  { name: 'Nothing', short: 'Nothing', plural: 'hands with nothing' },
 ];
+// Boards that are two pair or better on their own (STRAT, DESIGN, 24 Nov): the five rungs stop describing the hands,
+// so these replace them. A: the board alone is two pair or trips (no straight or flush on it). B: the board alone is
+// a straight or better (the river). Draws get no rung of their own here: they sit by what they hold now.
+export const RUNGS_PAIRED = [
+  { name: 'Full house or better', short: 'Full house+', plural: 'full houses or better' },
+  // a pocket pair above the board's lower pair, or a flush or straight made with the board (STRAT: true of all of them)
+  { name: 'Beats the board', short: 'Beats board', plural: 'other hands that beat the board' },
+  { name: 'Board + good kicker', short: 'Good kicker', plural: 'the board with a good kicker' },
+  { name: 'Board + weak kicker', short: 'Weak kicker', plural: 'the board with a weak kicker' },
+  { name: 'Plays the board', short: 'Plays board', plural: 'hands that play the board' },
+];
+export const RUNGS_MADE = [
+  { name: 'Beats the board', short: 'Beats board', plural: 'hands that beat the board' },
+  { name: 'Plays the board', short: 'Plays board', plural: 'hands that play the board' },
+];
+// which rung names a board takes: null (the five), 'paired' (A) or 'made' (B)
+export function boardKind(board) {
+  if (board.length < 3) return null;
+  const cat = categoryOf(evaluate(board));
+  if (board.length === 5 && cat >= CATEGORY.STRAIGHT) return 'made';
+  if (cat === CATEGORY.TWO_PAIR || cat === CATEGORY.TRIPS) return 'paired';
+  return null;
+}
 // display order on the ladder, strongest first (the bucket ids follow belief.grid: 0 strong, 1 good pair, 2 weak pair,
 // 3 draw, 4 nothing)
 export const LADDER_ORDER = [0, 1, 2, 3, 4];
@@ -56,12 +79,40 @@ export function ladderOf(w, board, hole) {
   raw[hi] = hf.tier;
   const ct = coachTiersForRange(board, scores, raw);
   const heroTier = ct ? ct[hi] : hf.tier;
+  // the rung rule on a board that is two pair or better on its own (STRAT)
+  const kind = boardKind(board);
+  const names = kind === 'paired' ? RUNGS_PAIRED : kind === 'made' ? RUNGS_MADE : RUNGS;
+  const nR = names.length;
+  const boardScore = kind ? evaluate(board) : 0;
+  const boardRanks = new Set(board.map((c) => c >> 2));
+  // the board's lower pair (paired boards) and the two highest ranks not on the board (a good kicker)
+  const counts = {};
+  for (const c of board) counts[c >> 2] = (counts[c >> 2] || 0) + 1;
+  const pairs = Object.keys(counts).map(Number).filter((r) => counts[r] >= 2).sort((a, b) => b - a);
+  const lowPair = pairs.length >= 2 ? pairs[1] : -1;
+  const topFree = [];
+  for (let r = 12; r >= 0 && topFree.length < 2; r--) if (!boardRanks.has(r)) topFree.push(r);
+  const rungPaired = (c, f) => {
+    const cat = categoryOf(f.score);
+    if (cat >= CATEGORY.FULL_HOUSE) return 0;
+    const [p, q] = COMBOS[c];
+    const rp = p >> 2;
+    const rq = q >> 2;
+    if (rp === rq && rp > lowPair && lowPair >= 0) return 1; // a pocket pair above the board's lower pair
+    if (cat > categoryOf(boardScore) && cat < CATEGORY.FULL_HOUSE) return 1; // a straight or flush made with the board
+    // on the river a hand plays only if it beats the board's own five; before it every hand has a card that plays
+    if (board.length === 5 && f.score <= boardScore) return 4;
+    const top = Math.max(rp, rq);
+    return topFree.includes(top) ? 2 : 3;
+  };
+  const rungMade = (c, f) => (f.score > boardScore ? 0 : 1);
   const rung = new Int8Array(1326).fill(-1);
-  const shares = [0, 0, 0, 0, 0];
-  const aheadW = [0, 0, 0, 0, 0];
+  const shares = new Array(nR).fill(0);
+  const aheadW = new Array(nR).fill(0);
   const clsW = new Float64Array(CLASS_COUNT);
-  const clsRung = Array.from({ length: CLASS_COUNT }, () => [0, 0, 0, 0, 0]);
+  const clsRung = Array.from({ length: CLASS_COUNT }, () => new Array(nR).fill(0));
   const clsAhead = new Float64Array(CLASS_COUNT);
+  const clsBeats = new Float64Array(CLASS_COUNT); // weight of each class that beats you now
   let all = 0;
   let beat = 0;
   let max = 0;
@@ -73,7 +124,7 @@ export function ladderOf(w, board, hole) {
     if (x > max) max = x;
     if (x <= 0) continue;
     const f = feats[c];
-    const b = rungOf(ct ? ct[c] : f.tier, f, n);
+    const b = kind === 'paired' ? rungPaired(c, f) : kind === 'made' ? rungMade(c, f) : rungOf(ct ? ct[c] : f.tier, f, n);
     rung[c] = b;
     const k = comboClass[c];
     const part = hf.score > f.score ? x : hf.score === f.score ? x / 2 : 0;
@@ -82,6 +133,7 @@ export function ladderOf(w, board, hole) {
     clsW[k] += x;
     clsRung[k][b] += x;
     clsAhead[k] += part;
+    if (f.score > hf.score) clsBeats[k] += x;
     all += x;
     beat += part;
   }
@@ -97,7 +149,7 @@ export function ladderOf(w, board, hole) {
     let top = -1;
     if (clsW[k] > 0) {
       top = 0;
-      for (let b = 1; b < 5; b++) if (clsRung[k][b] > clsRung[k][top]) top = b;
+      for (let b = 1; b < nR; b++) if (clsRung[k][b] > clsRung[k][top]) top = b;
     }
     classes.push({ rung: top, ahead: clsW[k] > 0 ? clsAhead[k] / clsW[k] : null });
   }
@@ -108,7 +160,7 @@ export function ladderOf(w, board, hole) {
   rungs.forEach((r, b) => {
     if (r.share >= HIDE_BELOW && r.ahead != null && r.ahead < 0.5) last = b;
   });
-  const above = [0, 1, 2, 3, 4].filter((b) => b <= last);
+  const above = names.map((_, b) => b).filter((b) => b <= last);
   return {
     board: board.slice(),
     hole: hole.slice(),
@@ -117,7 +169,10 @@ export function ladderOf(w, board, hole) {
     rungs,
     classes,
     heroTier,
+    kind,
+    names,
     above,
+    beaters: NAMES.map((name, k) => ({ name, w: clsBeats[k] })).filter((x) => x.w > 0).sort((a, b) => b.w - a.w).map((x) => x.name),
     ahead: all > 0 ? beat / all : null, // the share of their range you beat now (ties count half)
     // the "Beats you now" total, the filter line and the guess: the share that beats you now, from the headline's own
     // number (MATH, CEO: a total only from the headline's measure; not the sum of the rungs above the line)
@@ -176,8 +231,9 @@ export function ladderEquity(lad, { runouts = 0, seed = 7 } = {}) {
   }
   const heroScore = outs.map((o) => evaluate([...hole, ...board, ...o]));
   const seven = [0, 0, ...board, ...(need ? new Array(need).fill(0) : [])];
-  const rungE = [0, 0, 0, 0, 0];
-  const rungW = [0, 0, 0, 0, 0];
+  const nR = lad.names ? lad.names.length : 5;
+  const rungE = new Array(nR).fill(0);
+  const rungW = new Array(nR).fill(0);
   const clsE = new Float64Array(CLASS_COUNT);
   const clsW = new Float64Array(CLASS_COUNT);
   let tot = 0;

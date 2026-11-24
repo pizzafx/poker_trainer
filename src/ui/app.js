@@ -1126,11 +1126,22 @@ const GUESS_BANDS = [
   { n: 'Some', r: '25–60%', lo: 0.25, hi: 0.6 },
   { n: 'Most', r: 'over 60%', lo: 0.6, hi: 1 },
 ];
-const RUNG_PLURAL = ['two pair or better', 'top pairs and overpairs', 'weaker pairs', 'draws', 'hands with nothing'];
 const RV_STREET = ['preflop', 'flop', 'turn', 'river'];
 const often = (f) => (f >= 0.66 ? 'often' : f >= 0.3 ? 'sometimes' : f >= 0.04 ? 'rarely' : 'almost never');
 const fillLevel = (f) => (f < 0.04 ? 0 : f < 0.3 ? 0.25 : f < 0.66 ? 0.5 : 1);
 const shareText = pctText;
+// the headline's words for the big number (DESIGN): "about 6 in 10" for whole tens, "5 to 6 times in 10" when the
+// rounded figure ends in 5, so the two never read as a contradiction
+const inTen = (x) => {
+  if (x >= 1) return 'every time';
+  if (x <= 0) return 'never';
+  const r = round5(x);
+  if (r >= 100) return 'more than 9 times in 10';
+  if (r <= 0) return 'less than 1 time in 10';
+  return r % 10 === 5 ? `${(r - 5) / 10} to ${(r + 5) / 10} times in 10` : `about ${r / 10} in 10`;
+};
+// "about 40%", but "under 5%" / "over 95%" without the "about"
+const about = (txt) => (/^\d/.test(txt) ? `about ${txt}` : txt);
 // the share that beats you now, as printed: 100 minus the headline's rounded "ahead now" (MATH, CEO: one number)
 const beatsText = (lad) => beatsPctText(lad.ahead);
 // the headline's big number, by the same print rule ("under 5" / "over 95" unless exact; MATH)
@@ -1197,7 +1208,7 @@ function rungColours(lad, shown) {
   const col = {};
   shown.filter((b) => lad.above.includes(b)).forEach((b, i) => (col[b] = `var(--rw${i + 1})`));
   shown.filter((b) => !lad.above.includes(b)).forEach((b, i) => (col[b] = `var(--rc${i + 1})`));
-  for (let b = 0; b < 5; b++) if (!col[b]) col[b] = lad.above.includes(b) ? 'var(--rw1)' : 'var(--rc1)';
+  for (let b = 0; b < lad.names.length; b++) if (!col[b]) col[b] = lad.above.includes(b) ? 'var(--rw1)' : 'var(--rc1)';
   return col;
 }
 
@@ -1233,6 +1244,8 @@ function coachPlay(h, st) {
 function renderRanges() {
   const el = $('ranges');
   if (currentTab !== 'range' || !sess || !sess.hand) return;
+  // the control that had focus, so every repaint below puts it back (QA RG1)
+  const hadFocus = el.contains(document.activeElement) && document.activeElement.dataset ? { ...document.activeElement.dataset } : null;
   const h = sess.hand;
   const s = h.state;
   if (rangeHand !== h.no) {
@@ -1305,7 +1318,7 @@ function renderRanges() {
   }
   const read = sess.readOf(seat).ranked[0];
   const sure = read.p >= 0.75 ? 'is almost certainly' : read.p >= 0.6 ? 'is probably' : read.p >= 0.45 ? 'might be' : null;
-  const typeTag = sure ? `<small>${esc(read.id)}</small>` : '';
+  const typeTag = sure ? `<small>${esc(readGuess(read))}</small>` : ''; // the seats' words (QA RG3)
   const who = chipsFor.map((i) => `<button class="chip ${i === seat ? 'on' : ''}" data-seat="${i}">${esc(sess.seats[i].nick)}${i === seat ? typeTag : ''}${s.folded[i] && gone.includes(i) ? ' · folded' : ''}</button>`).join('');
   const guessOn = !!settings.guessFirst;
   const top = `<div class="rv-top"><div class="chips rv-who">${who}</div><button type="button" class="rv-gsw" role="switch" aria-checked="${guessOn}" data-guesssw>Guess first<i></i></button></div>`;
@@ -1317,6 +1330,7 @@ function renderRanges() {
   if (!steps.length) {
     el.innerHTML = `${showAllPhone}${top}<div class="unacted-note"><b>${nick} hasn't acted yet${s.history.some((e) => e.seat === seat) ? ' (only the forced blind so far)' : ''}.</b> Any two cards are still possible, so there is no range to show. It fills in as soon as they ${s.history.some((e) => e.seat === seat) ? 'make a choice' : 'act'}.</div>${foot}`;
     wireRanges(el, again);
+    restoreRangeFocus(el, hadFocus);
     return;
   }
   const latest = steps[steps.length - 1];
@@ -1339,7 +1353,7 @@ function renderRanges() {
     if (!eqCache.has(k)) eqCache.set(k, equityVsRange(hole, g.cells.map((c) => c.share), 64, 1000 + (typeof h.no === 'number' ? h.no : 0)));
     pre = eqCache.get(k);
   }
-  const shown = lad ? [0, 1, 2, 3, 4].filter((b) => lad.rungs[b].share >= HIDE_BELOW) : [];
+  const shown = lad ? lad.names.map((_, b) => b).filter((b) => lad.rungs[b].share >= HIDE_BELOW) : [];
   const col = lad ? rungColours(lad, shown) : {};
   const hi = lad ? shown.filter((b) => lad.above.includes(b)) : [];
   const lo = lad ? shown.filter((b) => !lad.above.includes(b)) : [];
@@ -1358,8 +1372,20 @@ function renderRanges() {
   const big = post ? (E && E.equity != null ? E.equity : null) : pre && !Number.isNaN(pre.equity) ? pre.equity : null;
   const river = board.length === 5;
   const calc = post && lad && !E; // the run-outs are still being worked out
-  const head = big == null && !calc ? '' : `<div class="rv-head"><div class="rv-big">${calc ? '…<small>%</small>' : bigHtml(big)}</div><b>${calc ? 'Working out how often you win if all the cards are dealt' : `You win about ${Math.round(big * 10)} in 10 if all the cards are dealt`}</b>
-    <div class="rv-sub">${post && !river && lad.ahead != null ? `Right now you're ahead of <em>${shareText(lad.ahead)}</em> of the hands ${nick} can have. ` : ''}<span class="fine">Assumes no more betting, so it isn't your chance of winning the pot.</span></div></div>`;
+  // "ahead now", with words for the ends (DESIGN, QA round); on the river the two numbers are one, so it is not shown
+  const aheadLine = () => {
+    const a = lad.ahead;
+    const t = shareText(a);
+    if (a >= 1) return `Right now you're ahead of every hand ${nick} can have. `;
+    if (a <= 0) return `Right now every hand ${nick} can have is ahead of you. `;
+    if (t === 'over 95%') return `Right now you're ahead of almost every hand ${nick} can have. `;
+    if (t === 'under 5%') return `Right now almost every hand ${nick} can have is ahead of you. `;
+    return `Right now you're ahead of <em>${t}</em> of the hands ${nick} can have. `;
+  };
+  const headWords = calc ? 'Working out how often you win if all the cards are dealt' : river ? `You win ${inTen(big)} at showdown` : `You win ${inTen(big)} if all the cards are dealt`;
+  const fine = river ? `Against the hands ${nick} can have. Assumes no more betting.` : "Assumes no more betting, so it isn't your chance of winning the pot.";
+  const head = big == null && !calc ? '' : `<div class="rv-head" tabindex="-1"><div class="rv-big">${calc ? '…<small>%</small>' : bigHtml(big)}</div><b>${headWords}</b>
+    <div class="rv-sub">${post && !river && lad.ahead != null ? aheadLine() : ''}<span class="fine">${fine}</span></div></div>`;
 
   // the narrowing strip
   const stepHtml = steps.map((x) => {
@@ -1379,23 +1405,25 @@ function renderRanges() {
       const r = lad.rungs[b];
       const on = rangeSel === b;
       const off = rangeSel >= 0 && !on;
-      const nm = phone ? RUNGS[b].short : RUNGS[b].name;
+      const nm = phone ? lad.names[b].short : lad.names[b].name;
       const ex = esc(r.examples.slice(0, on ? 8 : 4).join(', '));
       if (waiting) return `<div class="rv-rung ghost" style="--bk:${col[b]}"><span class="nm">${nm}<small>${ex}</small></span><span class="pct">?</span><span class="bar"><i></i></span><span class="eqx">&nbsp;</span></div>`;
       const eqB = E ? shareText(E.rung[b]) : '…';
       return `<button type="button" class="rv-rung ${on ? 'on' : ''} ${off ? 'off' : ''}" style="--bk:${col[b]}" data-rung="${b}" aria-pressed="${on}"><span class="nm">${nm}<small>${ex}</small></span><span class="pct">${shareText(r.share)}</span>
         <span class="bar"><i style="--w:${((r.share / max) * 100).toFixed(1)}%"></i></span>
-        <span class="eqx">${river ? `you win <b>${shareText(r.ahead)}</b>` : `ahead now <b>${shareText(r.ahead)}</b> · win by the river <b>${eqB}</b>`}</span></button>`;
+        <span class="eqx">${river ? (r.ahead >= 1 ? 'you beat all of these' : r.ahead <= 0 ? 'all of these beat you' : `you beat <b>${shareText(r.ahead)}</b> of these`) : `ahead now <b>${shareText(r.ahead)}</b> · win by the river <b>${eqB}</b>`}</span></button>`;
     };
-    const dec = [...(h.decisions || [])].reverse().find((r) => r.board && r.board.length === board.length && r.handText);
-    const handText = dec ? dec.handText : TIER_NAMES[handFeatures(hole, board).tier];
+    const handText = handName(hole, board).toLowerCase(); // as the dock names it (DESIGN)
     const cardsTxt = holeOrder(hole).map((c) => RANKS[c >> 2] + SUIT_SYM[c & 3]).join('');
     const youLine = `<div class="rv-you"><span>You · <span class="rv-cards">${cardsTxt}</span> ${esc(handText)}</span></div>`;
     // "You beat now" carries no total: the share below the line and the headline's "ahead of" are different measures (CEO)
     // no rung above the line, yet some hands beat you: the section keeps its header and total, and says where they are
     // (MATH, for DESIGN: the top of the first rung below the line)
     const noneAbove = !hi.length && lad.ahead != null && lad.ahead < 1 && lo.length;
-    const hiBody = hi.length ? hi.map(rung).join('') : noneAbove ? `<p class="rv-secnote">${waiting ? 'Some hands may beat you.' : `They are the strongest hands in ${RUNGS[lo[0]].short}: you beat most of that group, not all of it.`}</p>` : '';
+    const few = lad.beaters.slice(0, 3);
+    // up to three by weight: "88, 66 and 74s"; with more, "88, 66, 74s and a few more" (DESIGN)
+    const fewText = !few.length ? '' : lad.beaters.length > 3 ? `${few.join(', ')} and a few more` : few.length > 1 ? `${few.slice(0, -1).join(', ')} and ${few[few.length - 1]}` : few[0];
+    const hiBody = hi.length ? hi.map(rung).join('') : noneAbove ? `<p class="rv-secnote">${waiting ? 'Some hands may beat you.' : `Only a few hands beat you${fewText ? `: ${fewText}` : ''}. Too few to make a group of their own.`}</p>` : '';
     ladder = `<div class="rv-ladder">${hi.length || noneAbove ? `<div class="rv-sec hi"><span class="zone"><span>Beats you now</span><span>${waiting ? '' : beatsText(lad)}</span></span>${hiBody}</div>` : ''}
       ${youLine}${lo.length ? `<div class="rv-sec lo"><span class="zone"><span>You beat now</span></span>${lo.map(rung).join('')}</div>` : ''}</div>`;
   }
@@ -1407,18 +1435,19 @@ function renderRanges() {
     // the coach's play only from a decision on this street, at the latest step (an earlier street's play reads wrong here)
     const play = isLatest && view.st === curSt ? coachPlay(h, view.st) : null;
     const p = play ? `: ${play}.` : '.';
-    const lineOf = `${nick}'s ${lineNoun(view.act)} is mostly ${RUNG_PLURAL[biggest]}`;
+    const lineOf = `${nick}'s ${lineNoun(view.act)} is mostly ${lad.names[biggest].plural}`;
     const hf = handFeatures(hole, board);
     const drawing = !river && isRealDraw(hf) && E && E.equity != null && E.equity >= 0.35;
     const bt = lad.beatsYou;
     let text;
     if (bt < 0.25) {
-      const worse = lo.filter((b) => b !== 4 && lad.rungs[b].share >= 0.1).map((b) => RUNG_PLURAL[b]);
-      text = `<b>${lineOf}, and little of it beats you</b>${p}${worse.length ? ` ${cap(worse.join(' and '))} can pay you.` : ''}`;
+      const worse = lo.filter((b) => b !== lad.names.length - 1 && lad.rungs[b].share >= 0.1).map((b) => lad.names[b].plural);
+      const list = listOf(worse);
+      text = `<b>${lineOf}, and little of it beats you</b>${p}${worse.length ? ` ${cap(list)} can pay you.` : ''}`;
     } else if (drawing) {
-      text = `<b>${lineOf}, and about ${beatsText(lad)} of it beats you now</b>, but your draw has the outs${p} It can still win often.`;
+      text = `<b>${lineOf}, and ${about(beatsText(lad))} of it beats you now</b>, but your draw has the outs${p} It can still win often.`;
     } else {
-      text = `<b>${lineOf}, and ${bt > 0.6 ? 'most' : `about ${beatsText(lad)}`} of it beats you</b>${p}`;
+      text = `<b>${lineOf}, and ${bt > 0.6 ? 'most' : `${about(beatsText(lad))}`} of it beats you</b>${p}`;
     }
     take = `<div class="rv-take">${text}</div>`;
   }
@@ -1429,7 +1458,7 @@ function renderRanges() {
   const keptNow = g.kept != null ? g.kept : lad ? lad.kept : g.w ? keptOf(g.w, hole) : g.cells.reduce((a, c, k) => a + c.fill * CLASS_SIZE[k], 0) / 1326;
   let hands = '';
   if (!waiting) {
-    hands = `<button type="button" class="rv-expand" data-gridtoggle aria-expanded="${gridOpen}"><span>Show hands</span><small>about ${shareText(keptNow)} of all hands<span class="chev">▾</span></small></button>`;
+    hands = `<button type="button" class="rv-expand" data-gridtoggle aria-expanded="${gridOpen}"><span>Show hands</span><small>${about(shareText(keptNow))} of all hands<span class="chev">▾</span></small></button>`;
     if (gridOpen) hands += rangeGridBlock({ h, s, g, lad, E, pre, col, mine, phone, view, post });
   }
 
@@ -1445,10 +1474,12 @@ function renderRanges() {
     const ok = guessRight(ans.g, cut);
     const gb = GUESS_BANDS[ans.g];
     const chip = ok ? '<span class="rv-chip ok">right</span>' : `<span class="rv-chip">${ans.g < right ? 'more' : 'less'} than you said</span>`;
-    const above = lad.above.filter((b) => lad.rungs[b].share >= HIDE_BELOW).map((b) => RUNG_PLURAL[b]);
+    const above = lad.above.filter((b) => lad.rungs[b].share >= HIDE_BELOW).map((b) => lad.names[b].plural);
     const hf = handFeatures(hole, board);
-    const why = `${above.length ? `${cap(above.join(' and '))} beat you now: about ${beatsText(lad)} of their range does.` : 'Almost nothing in their range beats your hand now.'}${!river && isRealDraw(hf) && E && E.equity != null ? ` Your draw is why you still win about ${Math.round(E.equity * 10)} in 10.` : ''}`;
-    guessRes = `<div class="rv-gres${rangeReveal === 'guess' ? ' fade' : ''}"><div class="ln"><span><span class="label">You said</span><b>${gb.n}</b></span><span><span class="label">The coach's read</span><b>${GUESS_BANDS[right].n} · about ${beatsText(lad)}</b></span>${chip}</div>
+    const shownAbove = lad.above.filter((b) => lad.rungs[b].share >= HIDE_BELOW);
+    const everyPair = !lad.kind && shownAbove.length === 3 && shownAbove.every((b) => b <= 2);
+    const why = `${above.length ? `${everyPair ? 'Every pair beats you now' : `${cap(listOf(above))} beat you now`}: ${about(beatsText(lad))} of their range does.` : 'Almost nothing in their range beats your hand now.'}${!river && isRealDraw(hf) && E && E.equity != null ? ` Your draw is why you still win about ${Math.round(E.equity * 10)} in 10.` : ''}`;
+    guessRes = `<div class="rv-gres${rangeReveal === 'guess' ? ' fade' : ''}" tabindex="-1"><div class="ln"><span><span class="label">You said</span><b>${gb.n}</b></span><span><span class="label">The coach's read</span><b>${GUESS_BANDS[right].n} · ${about(beatsText(lad))}</b></span>${chip}</div>
       <div class="rv-gm" role="img" aria-label="About ${beatsText(lad)} of their range beats you; your guess was ${gb.n.toLowerCase()}, ${gb.r}" style="--v:${(cut * 100).toFixed(1)}%;--g0:${gb.lo * 100}%;--g1:${gb.hi * 100}%"><span class="fill"></span><span class="band"><span>your guess</span></span>
         <span class="axis" style="left:0;transform:none">0</span><span class="axis" style="left:25%">25</span><span class="axis" style="left:60%">60</span><span class="axis" style="left:100%;transform:translateX(-100%)">100%</span></div>
       <p class="rv-why">${why}</p></div>`;
@@ -1463,18 +1494,25 @@ function renderRanges() {
   const body = waiting
     ? `${guessQ}${strip}${ladder}<button type="button" class="rv-skip" data-guessskip>Skip, show me</button>`
     : `${guessRes}${head}${strip}${ladder}${take}${hands}${calib}${realBox}${foot}`;
-  const hadFocus = el.contains(document.activeElement) && document.activeElement.dataset ? { ...document.activeElement.dataset } : null;
   el.innerHTML = `${showAllPhone}<div class="rv${rangeReveal === 'guess' ? ' reveal' : ''}">${top}${body}</div>`;
   rangeReveal = '';
-  wireRanges(el, again, { lad, E, pre, g, col, mine, view, gKey, cut: lad ? lad.beatsYou : null, nickRaw, phone });
-  // keep keyboard focus where it was across a repaint (a tap on a rung, a cell, a step)
+  wireRanges(el, again, { lad, E, pre, g, col, mine, view, post, gKey, cut: lad ? lad.beatsYou : null, nickRaw, phone });
+  restoreRangeFocus(el, hadFocus);
+}
+// keep keyboard focus where it was across a repaint (a rung, a cell, a step, a chip, the switch, the drawer, a guess)
+function restoreRangeFocus(el, hadFocus) {
   if (hadFocus) {
-    const sel = hadFocus.cell != null ? `[data-cell="${hadFocus.cell}"]` : hadFocus.rung != null ? `[data-rung="${hadFocus.rung}"]` : hadFocus.step != null ? `[data-step="${hadFocus.step}"]` : hadFocus.filt != null ? `[data-filt="${hadFocus.filt}"]` : hadFocus.keyrung != null ? `[data-keyrung="${hadFocus.keyrung}"]` : null;
+    // (QA RG1) a guess answer or Skip removes its button: focus moves to the result, or to the headline
+    const sel = hadFocus.cell != null ? `[data-cell="${hadFocus.cell}"]` : hadFocus.rung != null ? `[data-rung="${hadFocus.rung}"]` : hadFocus.step != null ? `[data-step="${hadFocus.step}"]` : hadFocus.filt != null ? `[data-filt="${hadFocus.filt}"]` : hadFocus.keyrung != null ? `[data-keyrung="${hadFocus.keyrung}"]`
+      : hadFocus.seat != null ? `[data-seat="${hadFocus.seat}"]` : hadFocus.gridtoggle != null ? '[data-gridtoggle]' : hadFocus.guesssw != null ? '[data-guesssw]'
+      : hadFocus.guess != null || hadFocus.guessskip != null ? '.rv-gres, .rv-head, .rv-q' : null;
     const t = sel && el.querySelector(sel);
     if (t) t.focus();
   }
 }
 const cap = (x) => x.charAt(0).toUpperCase() + x.slice(1);
+// "a", "a and b", "a, b, and c" (DESIGN, QA round)
+const listOf = (xs) => (xs.length <= 1 ? xs[0] || '' : xs.length === 2 ? `${xs[0]} and ${xs[1]}` : `${xs.slice(0, -1).join(', ')}, and ${xs[xs.length - 1]}`);
 const CLASS_SIZE = Array.from({ length: 169 }, (_, k) => {
   const n = classNameOf(k);
   return n.length === 2 ? 6 : n.endsWith('s') ? 4 : 12;
@@ -1512,19 +1550,25 @@ function rangeGridBlock({ h, s, g, lad, E, pre, col, mine, phone, view, post }) 
       const lab = name.replace(/[so]$/, '');
       const bk = b >= 0 ? col[b] : 'var(--rv-pre)';
       const cl = [lv === 0 ? 'out' : '', me ? 'me' : '', dimmed(k) ? 'dim' : '', rangeCell === k ? 'pick' : ''].join(' ').trim();
-      const kind = me ? 'your hand' : b >= 0 ? RUNGS[b].short.toLowerCase() : 'in range';
-      cells += `<button type="button" role="gridcell" data-cell="${k}" data-n="${n}" tabindex="${n === rangeGridFocus ? 0 : -1}" class="${cl}" style="--f:${me ? 0 : lv};--bk:${bk}" aria-label="${name}, ${kind}, ${often(f)}"><span class="t">${lab}</span><span class="k" aria-hidden="true">${lab}</span></button>`;
+      const kind = me ? 'your hand' : b >= 0 ? lad.names[b].short.toLowerCase() : 'in range';
+      // the win figure in the label too, since the line above the grid is not announced (DESIGN, accessibility pass)
+      const eqK = me ? null : post ? (E && E.cls[k] != null ? E.cls[k] : null) : pre && !Number.isNaN(pre.cls[k]) ? pre.cls[k] : null;
+      const onRiver = post && lad && lad.board.length === 5;
+      const winLab = eqK == null ? '' : onRiver ? (eqK >= 1 ? ', you beat it' : eqK <= 0 ? ', it beats you' : `, you win ${about(shareText(eqK))} against it`) : `, you win ${about(shareText(eqK))} by the river`;
+      cells += `<button type="button" role="gridcell" data-cell="${k}" data-n="${n}" tabindex="${n === rangeGridFocus ? 0 : -1}" class="${cl}" style="--f:${me ? 0 : lv};--bk:${bk}" aria-label="${name}, ${kind}, ${often(f)}${winLab}"><span class="t">${lab}</span><span class="k" aria-hidden="true">${lab}</span></button>`;
     }
     rows.push(`<div role="row" class="rv-row">${cells}</div>`);
   }
   const line = rangeLineHtml({ s, g, lad, E, pre, col, mine, phone, view, post });
   const tint = rangeCell < 0 && rangeSel < 0 && rangeFilt === 'beats' ? 'hi' : rangeCell < 0 && rangeSel < 0 && rangeFilt === 'beat' ? 'lo' : '';
   const F = [['all', 'All'], ['beats', 'Beats you'], ['beat', 'You beat']];
-  const filt = lad ? `<div class="rv-filt" role="group" aria-label="Show">${F.map(([v, t]) => `<button type="button" data-filt="${v}" aria-pressed="${rangeSel < 0 && rangeCell < 0 && rangeFilt === v}">${t}</button>`).join('')}</div>` : '';
-  const shownR = lad ? [0, 1, 2, 3, 4].filter((b) => lad.rungs[b].share >= HIDE_BELOW) : [];
-  const kb = (b) => `<button type="button" style="--bk:${col[b]}" data-keyrung="${b}" aria-pressed="${rangeSel === b}"><i></i>${RUNGS[b].short}</button>`;
+  const shownSides = lad ? lad.names.map((_, b) => b).filter((b) => lad.rungs[b].share >= HIDE_BELOW) : [];
+  const emptySide = { beats: !shownSides.some((b) => aboveSet.has(b)), beat: !shownSides.some((b) => !aboveSet.has(b)), all: false };
+  const filt = lad ? `<div class="rv-filt" role="group" aria-label="Show">${F.map(([v, t]) => (emptySide[v] ? `<button type="button" data-filtoff="${v}" aria-disabled="true" aria-pressed="false" title="No hands here">${t}</button>` : `<button type="button" data-filt="${v}" aria-pressed="${rangeSel < 0 && rangeCell < 0 && rangeFilt === v}">${t}</button>`)).join('')}</div>` : '';
+  const shownR = lad ? lad.names.map((_, b) => b).filter((b) => lad.rungs[b].share >= HIDE_BELOW) : [];
+  const kb = (b) => `<button type="button" style="--bk:${col[b]}" data-keyrung="${b}" aria-pressed="${rangeSel === b}"><i></i>${lad.names[b].short}</button>`;
   const key = lad ? `<div class="rv-key">${shownR.filter((b) => aboveSet.has(b)).map(kb).join('')}<span class="sep" title="your hand"></span>${shownR.filter((b) => !aboveSet.has(b)).map(kb).join('')}</div>` : '';
-  return `<div class="rv-gridwrap">${filt ? `<div class="rv-gtop">${filt}</div>` : ''}<div class="rv-line ${tint}" aria-live="polite">${line}</div>
+  return `<div class="rv-gridwrap">${filt ? `<div class="rv-gtop">${filt}</div>` : ''}<div class="rv-line ${tint}">${line}</div>
     <div class="rv-grid" role="grid" aria-label="Every starting hand">${rows.join('')}</div>${key}</div>`;
 }
 const miniCell = (lab, bk, lv, me) => `<span class="rv-mc${me ? ' me' : ''}" style="--f:${me ? 0 : lv};--bk:${bk}" aria-hidden="true"><span class="t">${lab}</span><span class="k">${lab}</span></span>`;
@@ -1537,19 +1581,22 @@ function rangeHandLine(k, { g, lad, E, pre, col, mine, view, post }) {
   if (k === mine) return `${miniCell(lab, bk, 0, true)}<span><b>${name}</b> Your hand. They hold it ${often(f)}, because you have two of the cards.</span>`;
   if (fillLevel(f) === 0) return `${miniCell(lab, bk, 0, false)}<span><b>${name}</b> Folded out of their range: they almost never ${handVerb(view.act, view.st)} with it.</span>`;
   const eq = post ? (E && E.cls[k] != null ? E.cls[k] : null) : pre && !Number.isNaN(pre.cls[k]) ? pre.cls[k] : null;
-  return `${miniCell(lab, bk, fillLevel(f), false)}<span><b>${name}</b> ${b >= 0 ? RUNGS[b].short + ' · ' : ''}they ${handVerb(view.act, view.st)} with it ${often(f)}${eq != null ? ` · you win about ${shareText(eq)} by the river` : ''}</span>`;
+  const onRiver = post && lad && lad.board.length === 5;
+  const vs = eq == null ? '' : onRiver ? (eq >= 1 ? ' · you beat it' : eq <= 0 ? ' · it beats you' : ` · you win ${about(shareText(eq))} against it`) : ` · you win ${about(shareText(eq))} by the river`;
+  return `${miniCell(lab, bk, fillLevel(f), false)}<span><b>${name}</b> ${b >= 0 ? lad.names[b].short + ' · ' : ''}they ${handVerb(view.act, view.st)} with it ${often(f)}${vs}</span>`;
 }
 function rangeLineHtml(ctx) {
   const { lad, col, mine, phone } = ctx;
   if (rangeCell >= 0) return rangeHandLine(rangeCell, ctx);
-  if (rangeSel >= 0 && lad) return `<span><b class="ui">${RUNGS[rangeSel].short}</b> · ${shareText(lad.rungs[rangeSel].share)} of their range</span><span class="hint">Tap a hand</span>`;
-  if (rangeFilt === 'beats' && lad) return `<span><b class="ui">Beats you now</b> · about ${beatsText(lad)} of their range</span>`;
+  if (rangeSel >= 0 && lad) return `<span><b class="ui">${lad.names[rangeSel].short}</b> · ${shareText(lad.rungs[rangeSel].share)} of their range</span><span class="hint">Tap a hand</span>`;
+  if (rangeFilt === 'beats' && lad) return `<span><b class="ui">Beats you now</b> · ${about(beatsText(lad))} of their range</span>`;
   if (rangeFilt === 'beat' && lad) return `<span><b class="ui">You beat now</b> · the rest of their range</span>`;
   const c1 = lad ? col[4] || 'var(--rc1)' : 'var(--rv-pre)';
   const c2 = lad ? col[3] || 'var(--rc1)' : 'var(--rv-pre)';
   const c3 = lad ? col[1] || 'var(--rw1)' : 'var(--rv-pre)';
   const meLab = classNameOf(mine).replace(/[so]$/, '');
-  return `<span class="rv-leg"><span class="ttl">How often they have each hand · ${phone ? 'tap' : 'point at'} one to read it</span><span>${miniCell('KQ', c1, 0.25)}rarely</span><span>${miniCell('KJ', c2, 0.5)}sometimes</span><span>${miniCell('AT', c3, 1)}often</span><span>${miniCell(meLab, 'var(--rv-pre)', 0, true)}you</span></span>`;
+  const touch = !(typeof matchMedia === 'function' && matchMedia('(hover: hover) and (pointer: fine)').matches); // the input, not the width (DESIGN, QA)
+  return `<span class="rv-leg"><span class="ttl">How often they have each hand · ${touch ? 'tap' : 'point at'} one to read it</span><span>${miniCell('KQ', c1, 0.25)}rarely</span><span>${miniCell('KJ', c2, 0.5)}sometimes</span><span>${miniCell('AT', c3, 1)}often</span><span>${miniCell(meLab, 'var(--rv-pre)', 0, true)}you</span></span>`;
 }
 
 // Your reads (after a guess): the last 20, leaning weaker or stronger than the coach; a Drill link once 10 lean one way
@@ -1560,7 +1607,7 @@ function guessCalibration() {
   const stronger = log.filter((x) => x > 0).length;
   const pos = 50 + (50 * (stronger - weaker)) / log.length;
   const lean = weaker > stronger ? `you put them on weaker hands than the coach does (${weaker} of ${log.length})` : stronger > weaker ? `you put them on stronger hands than the coach does (${stronger} of ${log.length})` : `you match the coach as often as not`;
-  const link = Math.max(weaker, stronger) >= 10 ? ' <a href="#" data-guessdrill>Practise in the Drill ›</a>' : '';
+  const link = weaker >= 10 ? ' <a href="#" data-guessdrill="D1">Practise: don\'t pay off big late bets ›</a>' : stronger >= 10 ? ' <a href="#" data-guessdrill="D3">Practise: call big bets with real hands ›</a>' : '';
   return `<div class="rv-calib"><span>weaker than the coach</span><span class="cmbar"><i style="left:${pos.toFixed(0)}%"></i></span><span>stronger</span></div><p class="rv-calnote">Your last ${log.length} read${log.length === 1 ? '' : 's'}: ${lean}.${link}</p>`;
 }
 
@@ -1592,7 +1639,7 @@ function wireRanges(el, again, c = {}) {
     again();
   }));
   el.querySelectorAll('[data-guessskip]').forEach((b) => (b.onclick = () => { guessAns.set(c.gKey, { skipped: true }); again(); }));
-  el.querySelectorAll('[data-guessdrill]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); openDrill(); }));
+  el.querySelectorAll('[data-guessdrill]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); openDrill(a.dataset.guessdrill || null); }));
   const grid = el.querySelector('.rv-grid');
   if (!grid) return;
   const lineEl = el.querySelector('.rv-line');
@@ -4328,4 +4375,13 @@ else {
     startHints();
   }
   resumeOrNew();
+}
+
+// the phone sheet's sticky tab row sits right under the sticky header, however tall the header wraps (DESIGN: no
+// dead band above the tabs and nothing peeking under the header)
+{
+  const top = $('top');
+  const setTopH = () => document.documentElement.style.setProperty('--top-h', `${top ? top.offsetHeight : 75}px`);
+  setTopH();
+  if (top && typeof ResizeObserver === 'function') new ResizeObserver(setTopH).observe(top);
 }

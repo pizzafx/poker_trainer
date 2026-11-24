@@ -51,6 +51,10 @@ test('YB-T1 vs U1: a board that devalues a hand below a straight takes it out of
   assert.equal(b('As 2d', '9c Tc Jd Qh Ks'), true, 'the nut straight over a board straight');
   assert.equal(b('8s 2d', '9c Tc Jd Qh 3s'), true, 'a straight of its own, no four-flush');
   assert.equal(b('2c 3d', 'Ah Kh 8h 4h 9h'), false, 'a board flush the hero plays');
+  // STRAT (YB-T1 item 2, CEO): a low flush on four of a suit, two unseen higher cards of the suit
+  assert.equal(b('9s 6s', 'Js Ts 3s Qs'), false, 'a 9-high flush on four spades: K and A of spades are out');
+  assert.equal(b('Ks 6s', 'Js Ts 3s Qs'), true, 'a K-high flush: only the ace is above');
+  assert.equal(b('9s 6s', 'Js Ts 3s Qh'), true, 'three spades on board: no four-flush guard');
 });
 
 // STRAT (19 Nov, YB-T1 at the bar): the passive-trap forms only strictly under the bar; at the bar U1's figure wins.
@@ -58,16 +62,20 @@ test('YB-T1 vs U1: a board that devalues a hand below a straight takes it out of
 // against the bet's $4.6, the bar $6
 test('YB-T1 at the bar: a check ahead by exactly the bar is named with its figure, not "scores about the same"', () => {
   const opts = [{ type: 'check', label: 'Check', ev: 10.7 }, { type: 'raise', to: 11, label: 'Bet $11 (50% pot)', ev: 4.6 }];
-  const rec = (small, note) => ({
+  const rec = (small, note, hole = '9s 6s') => ({
     street: 3, toCall: 0, currentBet: 0, raises: 0, opponents: 1, position: 'BTN/SB', tier: 8,
-    hole: parseCards('9s 6s'), board: parseCards('Js Ts 3s Qs'), liveTypes: ['abc'],
+    hole: parseCards(hole), board: parseCards('Js Ts 3s Qs'), liveTypes: ['abc'],
     verdict: { grade: 'good', note, mine: 1, best: 0, small, options: opts },
   });
   for (const note of ['unclear', 'fragile']) {
     const at = explain(rec(6, note)).headline;
     assert.doesNotMatch(at, /scores about the same/, `${note} at the bar: ${at}`);
-    const under = explain(rec(7, note)).headline;
+    // under the bar the trap copy needs a strong hand: a K-high flush keeps it; 9s6s, a low flush on four spades with
+    // the K and A of spades out, no longer counts as one (STRAT's four-flush guard, CEO 24 Nov)
+    const under = explain(rec(7, note, 'Ks 6s')).headline;
     assert.match(under, /checking to trap scores about the same here/, `${note} under the bar: ${under}`);
+    const low = explain(rec(7, note)).headline;
+    assert.doesNotMatch(low, /checking to trap/, `${note} under the bar, low flush: ${low}`);
   }
   assert.match(explain(rec(6, 'unclear')).headline, /better by about \$6/);
 });

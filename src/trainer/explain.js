@@ -277,6 +277,21 @@ export function t1Board(hole, board) {
     if (evaluate([...hole, ...board]) === evaluate(board)) cat = Math.min(cat, CATEGORY.TRIPS); // the hero plays the board
   }
   const guardUpTo = t.maxSuit >= 4 ? CATEGORY.STRAIGHT : CATEGORY.TRIPS; // the highest category the guard covers
+  // STRAT (YB-T1 item 2, CEO 24 Nov): on four of a suit a low flush is guarded too, when two or more ranks of that suit
+  // that are neither on the board nor in the hand sit above the hero's highest card of the suit (copy only)
+  if (t.maxSuit >= 4 && cat === CATEGORY.FLUSH) {
+    const count = [0, 0, 0, 0];
+    for (const c of board) count[c & 3]++;
+    const suit = count.indexOf(Math.max(...count));
+    const mine = hole.filter((c) => (c & 3) === suit).map((c) => c >> 2);
+    if (mine.length) {
+      const top = Math.max(...mine);
+      const seen = new Set([...board, ...hole].filter((c) => (c & 3) === suit).map((c) => c >> 2));
+      let above = 0;
+      for (let r = top + 1; r <= 12; r++) if (!seen.has(r)) above++;
+      if (above >= 2) return false;
+    }
+  }
   if (cat > guardUpTo) return true;
   return !(t.connected >= 4 || t.maxSuit >= 4 || (t.maxSuit >= 3 && t.connected >= 3));
 }

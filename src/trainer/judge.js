@@ -189,6 +189,22 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   // opts.simpleLine === false turns it off. Its own random stream, so the stand-in's play-outs are unchanged.
   const alt = s.street < STREET.RIVER && opts.simpleLine !== false ? cands.map((c) => (c.type === 'fold' ? null : new Float64Array(N))) : null;
   const rngF = makeRng(seed * 7919 + 14);
+  // The floor's rule, over the first m samples: option c takes the simple line's play-out when it beats the stand-in's
+  // by more than one standard error of the paired difference. The end of the run and the budget extension's trigger both
+  // use it, so the trigger asks the question the verdict will ask (MATH).
+  const takesLine = (c, m) => {
+    if (!alt || !alt[c] || m <= 1) return false;
+    let sum = 0;
+    let sq = 0;
+    for (let k = 0; k < m; k++) {
+      const d = alt[c][k] - res[c][k];
+      sum += d;
+      sq += d * d;
+    }
+    const mean = sum / m;
+    const se = Math.sqrt(Math.max(0, sq / m - mean * mean) / (m - 1));
+    return mean > se && mean > 0;
+  };
   const used = new Uint8Array(52);
   const baseStack = s.stacks[hero];
   const rngS = makeRng(seed * 7919 + 13);
@@ -342,8 +358,9 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
       if (mineIdx >= 0 && n < to) {
         let bestMean = -Infinity;
         const mean = (c) => {
+          const src = takesLine(c, n) ? alt[c] : res[c]; // the floored values, as the verdict will use them
           let sum = 0;
-          for (let k = 0; k < n; k++) sum += res[c][k];
+          for (let k = 0; k < n; k++) sum += src[k];
           return sum / n;
         };
         for (let c = 0; c < cands.length; c++) bestMean = Math.max(bestMean, mean(c));
@@ -360,11 +377,13 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   }
 
   const simple = cands.map(() => false); // which options took the simple line's play-out
-  if (alt) for (let c = 0; c < C; c++) if (alt[c] && n > 1) {
-    let sum = 0, sq = 0;
-    for (let k = 0; k < n; k++) { const d = alt[c][k] - res[c][k]; sum += d; sq += d * d; }
-    const mean = sum / n, se = Math.sqrt(Math.max(0, sq / n - mean * mean) / (n - 1));
-    if (mean > se && mean > 0) { res[c] = alt[c]; simple[c] = true; }
+  if (alt) {
+    for (let c = 0; c < C; c++) {
+      if (takesLine(c, n)) {
+        res[c] = alt[c];
+        simple[c] = true;
+      }
+    }
   }
   const evs = res.map((r) => {
     let sum = 0;

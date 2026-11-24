@@ -266,16 +266,17 @@ export const INVARIANTS = {
     const mine = v.options[v.mine];
     if (!mine || mine.type !== 'raise' || !(d.tier >= TIER.TWO_PAIR) || !Array.isArray(d.liveTypes) || !d.liveTypes.length) return false;
     if (!d.liveTypes.every((t) => ['abc', 'station', 'nit', 'beginner', 'whale'].includes(t))) return false;
-    // STRAT (YB-T1 vs U1): a gap above the bar is always stated, and a devaluing board takes the hand out of T1
+    // STRAT (YB-T1 vs U1): a gap at or above the bar is always stated (the copy keeps T1 only below it: passiveTrap; STRAT
+    // 24 Nov, s24 h48 sat exactly at the bar), and a devaluing board takes the hand out of T1
     const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
-    if (Math.max(0, Math.round(top.ev) - Math.round(mine.ev)) > (v.small || 0) || !t1Board(d.hole, d.board)) return false;
+    if (Math.max(0, Math.round(top.ev) - Math.round(mine.ev)) >= (v.small || 0) || !t1Board(d.hole, d.board)) return false;
     return /Check scores about \$\d+ more|a check is better by/i.test(d.headline || '');
   },
   'YB-T1c the "strong hand for value" copy only with the check within the bar, on a board that does not devalue the hand': (d, v) => {
     if (!/Betting a strong hand for value is the standard play/.test(d.headline || '')) return false;
     const mine = v.options[v.mine];
     const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
-    return Math.max(0, Math.round(top.ev) - Math.round(mine.ev)) > (v.small || 0) || !t1Board(d.hole, d.board);
+    return Math.max(0, Math.round(top.ev) - Math.round(mine.ev)) >= (v.small || 0) || !t1Board(d.hole, d.board);
   },
   'YB-T2 an anchor-veto "X scores about $Y more" names the top option, with Y = top - mine': (d, v) => {
     if (v.note !== 'anchor') return false;

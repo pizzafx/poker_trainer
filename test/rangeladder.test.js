@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseCards } from '../src/engine/cards.js';
 import { comboIndex, COMBOS } from '../src/engine/hands.js';
-import { ladderOf, ladderEquity, round5, HIDE_BELOW, pctText, guessRight, keptOf } from '../src/trainer/rangeladder.js';
+import { ladderOf, ladderEquity, round5, HIDE_BELOW, pctText, guessRight, keptOf, riverLetGo } from '../src/trainer/rangeladder.js';
 
 const flat = () => new Float64Array(1326).fill(1);
 
@@ -150,24 +150,25 @@ test('a straight on the board (56789): a T beats the board', () => {
 });
 
 // STRAT (25 Nov): you hold a full house on a trips board; the top rung splits at your hand
-test('hand 696, TT on Q2272: Beats yours, Below yours, Ace or king, Weak kicker, Plays board', () => {
+test('hand 696, TT on Q2272: Beats yours, Below yours, (Beats board, empty), Ace or king, Weak kicker, Plays board', () => {
   const B = 'Qc 2s 2d 7s 2h';
   const H = 'Th Td';
   const at = (hand) => rungOfHand(B, H, hand);
   const lad = at('Qd Qh').lad;
   assert.equal(lad.fh, true);
-  assert.deepEqual(lad.names.map((x) => x.short), ['Beats yours', 'Below yours', 'Ace or king', 'Weak kicker', 'Plays board']);
-  assert.deepEqual(lad.names.map((x) => x.name), ['Beats your full house', 'Smaller full house', 'Board + ace or king', 'Board + weak kicker', 'Plays the board']);
+  assert.deepEqual(lad.names.map((x) => x.short), ['Beats yours', 'Below yours', 'Beats board', 'Ace or king', 'Weak kicker', 'Plays board']);
+  assert.deepEqual(lad.names.map((x) => x.name), ['Beats your full house', 'Smaller full house', 'Beats the board', 'Board + ace or king', 'Board + weak kicker', 'Plays the board']);
+  assert.equal(lad.rungs[2].share, 0); // no flush or straight can be made on Q2272: the rung is empty, so it is hidden
   assert.equal(at('Qd Qh').b, 0);
   assert.equal(at('Qd Jh').b, 0); // Qx: queens full
   assert.equal(at('2c 5h').b, 0); // quads
   assert.equal(at('9c 9d').b, 1);
   assert.equal(at('7c 4d').b, 1); // twos full of sevens
   assert.equal(at('Tc Ts').b, 1); // an exact tie doesn't beat you
-  assert.equal(at('Ac 5d').b, 2);
-  assert.equal(at('Kc 5d').b, 2);
-  assert.equal(at('Jc 5d').b, 3); // a J beats the board's 7
-  assert.equal(at('3c 4d').b, 4);
+  assert.equal(at('Ac 5d').b, 3);
+  assert.equal(at('Kc 5d').b, 3);
+  assert.equal(at('Jc 5d').b, 4); // a J beats the board's 7
+  assert.equal(at('3c 4d').b, 5);
   // the line sits under Beats yours
   assert.deepEqual(lad.above, [0]);
   assert.ok(lad.names.every((x) => x.name.length <= 21 && x.short.length <= 12));
@@ -200,4 +201,22 @@ test('list nouns never carry their own "and" or "or"', () => {
 test('per class, the share that beats you now (the section highlight works hand by hand)', () => {
   const lad = ladderOf(flat(), parseCards('Kc 8s 5d'), parseCards('Ah 2h'));
   assert.ok(lad.classes.every((c) => c.beats >= 0 && c.beats <= 1));
+});
+test('STRAT: on a trips board with three of a suit, a flush lands in Beats the board, not Below yours', () => {
+  const B = '2s 2d 2h Ks 7s';
+  const r = rungOfHand(B, 'Th Td', 'As 4s');
+  assert.equal(r.lad.fh, true);
+  assert.equal(r.lad.names[r.b].short, 'Beats board');
+  assert.equal(rungOfHand(B, 'Th Td', '9c 9d').lad.names[rungOfHand(B, 'Th Td', '9c 9d').b].short, 'Below yours');
+});
+test('STRAT: "let it go if [Name] bets" on the river after a coach check, not against a maniac or a lag', () => {
+  const base = { river: true, after: true, bestType: 'check', beatsYou: 0.75, ranked: [{ id: 'abc', p: 0.8 }, { id: 'station', p: 0.2 }] };
+  assert.equal(riverLetGo(base), true);
+  assert.equal(riverLetGo({ ...base, ranked: [{ id: 'maniac', p: 0.7 }, { id: 'abc', p: 0.3 }] }), false);
+  assert.equal(riverLetGo({ ...base, ranked: [{ id: 'lag', p: 0.35 }, { id: 'maniac', p: 0.3 }, { id: 'abc', p: 0.35 }] }), false);
+  assert.equal(riverLetGo({ ...base, ranked: [{ id: 'maniac', p: 0.5 }, { id: 'abc', p: 0.5 }] }), true);
+  assert.equal(riverLetGo({ ...base, beatsYou: 0.55 }), false);
+  assert.equal(riverLetGo({ ...base, bestType: 'raise' }), false);
+  assert.equal(riverLetGo({ ...base, after: false }), false);
+  assert.equal(riverLetGo({ ...base, river: false }), false);
 });

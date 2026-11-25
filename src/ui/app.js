@@ -17,7 +17,7 @@ import { presets, defaultRaise } from './presets.js';
 import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '../trainer/dispute.js';
 import { RANGE_GROUPS, presetRanges, presetRaised, shareOf, previousStandard, groupOf } from '../trainer/ranges.js';
 import { equityVsRange } from '../trainer/equity.js';
-import { ladderOf, ladderEquity, round5, RUNGS, HIDE_BELOW, keptOf, pctText, beatsPctText, guessBandOf, guessRight } from '../trainer/rangeladder.js';
+import { ladderOf, ladderEquity, round5, RUNGS, HIDE_BELOW, keptOf, pctText, beatsPctText, guessBandOf, guessRight, riverLetGo } from '../trainer/rangeladder.js';
 import { BUILD, HASHES } from '../trainer/version.js';
 import { keepHand, saveSession, loadSession, clearSession, listHands, clearHands } from './store.js';
 import { framesOf } from '../trainer/replay.js';
@@ -183,6 +183,18 @@ function coachBanner() {
   b.setAttribute('role', 'status');
   b.textContent = "The coach couldn't load. Reload to get verdicts.";
   document.body.appendChild(b);
+  placeCoachBanner();
+}
+// on a phone the notice sits inside the sheet, under its Coach / Ranges / Hand log row, never over it (DESIGN)
+function placeCoachBanner() {
+  const b = document.getElementById('coach-banner');
+  if (!b) return;
+  const tabs = document.querySelector('#side .tabs');
+  // matchMedia here, not PHONE: the worker can fail while the module is still loading, before PHONE exists
+  const inSide = matchMedia('(max-width: 600px)').matches && tabs;
+  if (inSide && b.previousElementSibling !== tabs) tabs.after(b);
+  else if (!inSide && b.parentElement !== document.body) document.body.appendChild(b);
+  b.classList.toggle('in-side', !!inSide);
 }
 applyTuning();
 
@@ -1076,6 +1088,7 @@ function renderToast() {
 function openSide(tab) {
   document.body.classList.remove('side-closed');
   if (tab) showTab(tab);
+  else if (currentTab === 'range') renderRanges(); // R-W1: the range work skipped while the panel was closed
   // In a narrow window the panel sits below the table rather than over it, so bring it into view.
   if (NARROW.matches) $('side').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1106,8 +1119,9 @@ for (let i = 0; i < 13; i++) {
 }
 // The combined range view (DESIGN, 24 Nov: RANGES_COMBINED_HANDOFF): one screen, top to bottom, the opponent and the
 // Guess first switch; the headline (win if all the cards are dealt, ahead now); the narrowing strip, one step per street
-// they acted on; the ladder, split at your hand into "Beats you now" and "You beat now"; the takeaway; and "Show hands",
-// the 13x13 grid in rising fill. MATH owns the buckets and the numbers (src/trainer/rangeladder.js).
+// they acted on; the 13x13 grid in rising fill, always shown (v2, owner and CEO 25 Nov: the grid first); the condensed
+// ladder under it, split at your hand into "Beats you now" and "You beat now", whose rows and section headers light their
+// hands in the grid; the takeaway. MATH owns the buckets and the numbers (src/trainer/rangeladder.js).
 const STREET_TABS = ['Preflop', 'Flop', 'Turn', 'River'];
 let rangeSeat = -1;
 let rangeFocus = ''; // the step the opponent was last chosen for (QA X5)
@@ -1115,7 +1129,7 @@ let rangeHand = -1;
 let rangeStep = -1; // the street of the chosen strip step, or -1 for the latest
 let rangeSel = -1; // the selected rung, or -1
 let rangeCell = -1; // the selected hand class, or -1
-let rangeFilt = 'all'; // 'all' | 'beats' | 'beat'
+let rangeFilt = 'all'; // the lit section: 'all' (none) | 'beats' | 'beat' (a section header's tap; the filter is gone in v2)
 let rangeGridFocus = -1; // the grid cell (0..168) that holds the grid's one Tab stop
 let rangeReveal = ''; // a one-shot animation key for the next paint ('guess' after an answer)
 const eqCache = new Map(); // preflop equity against a range, per hand / seat / point in the hand
@@ -1127,6 +1141,10 @@ const GUESS_BANDS = [
   { n: 'Most', r: 'over 60%', lo: 0.6, hi: 1 },
 ];
 const RV_STREET = ['preflop', 'flop', 'turn', 'river'];
+// every computed width, share and percentage in the panel goes through this: an empty range or a 0% rung never
+// reaches the page as NaN or Infinity (WebKit threw "The provided value is non-finite" once, QA-MOBILE)
+const fin = (x, d = 0) => (Number.isFinite(x) ? x : d);
+const pctW = (x) => `${fin(x * 100).toFixed(1)}%`;
 const often = (f) => (f >= 0.66 ? 'often' : f >= 0.3 ? 'sometimes' : f >= 0.04 ? 'rarely' : 'almost never');
 const fillLevel = (f) => (f < 0.04 ? 0 : f < 0.3 ? 0.25 : f < 0.66 ? 0.5 : 1);
 const shareText = pctText;
@@ -1229,9 +1247,25 @@ function lineText(e, st) {
 const lineNoun = (e) => (e.type === 'call' ? 'call' : e.type === 'bet' ? 'bet' : e.type === 'raise' ? 'raise' : e.type === 'check' ? 'check' : 'line');
 const handVerb = (e, st) => (!e || st === 0 ? 'play' : e.type === 'call' ? 'call' : e.type === 'bet' ? 'bet' : e.type === 'raise' ? 'raise' : e.type === 'check' ? 'check' : 'play');
 
+// the coach's verdict at your last decision on that street (STRAT: the takeaway's [play] comes from it only)
+function coachDecision(h, st) {
+  return [...(h.decisions || [])].reverse().find((r) => r.street === st && !r.pending && r.verdict && r.verdict.options) || null;
+}
+const coachVerdict = (h, st) => (coachDecision(h, st) || {}).verdict || null;
+// "betting the turn", "calling a raise on the turn", "raising preflop", "limping preflop" (DESIGN's takeaway timing: one
+// action, their last; the verbs betting, raising, calling, checking and limping)
+function afterWords(s, e) {
+  const st = e.street;
+  const at = s.history.indexOf(e);
+  const before = s.history.slice(0, at < 0 ? s.history.length : at).filter((x) => x.street === st);
+  const raised = before.some((x) => x.type === 'raise');
+  const verb = e.type === 'bet' ? 'betting' : e.type === 'raise' ? 'raising' : e.type === 'check' ? 'checking' : e.type === 'call' ? (st === 0 && !raised ? 'limping' : raised ? 'calling a raise' : 'calling') : 'playing';
+  if (st === 0) return `${verb} preflop`;
+  return verb === 'calling a raise' ? `${verb} on the ${RV_STREET[st]}` : `${verb} the ${RV_STREET[st]}`;
+}
 // the coach's play at your decision on that street, as the takeaway's [play] (STRAT: it comes from the verdict only)
 function coachPlay(h, st) {
-  const d = [...(h.decisions || [])].reverse().find((r) => r.street === st && !r.pending && r.verdict && r.verdict.options);
+  const d = coachDecision(h, st);
   if (!d) return null;
   const v = d.verdict;
   const b = v.options[v.best];
@@ -1244,6 +1278,8 @@ function coachPlay(h, st) {
 function renderRanges() {
   const el = $('ranges');
   if (currentTab !== 'range' || !sess || !sess.hand) return;
+  // R-W1 (QA-MOBILE): a closed panel starts no range job; openSide() paints it when it opens
+  if (document.body.classList.contains('side-closed') && !RP) return;
   // the control that had focus, so every repaint below puts it back (QA RG1)
   const hadFocus = el.contains(document.activeElement) && document.activeElement.dataset ? { ...document.activeElement.dataset } : null;
   const h = sess.hand;
@@ -1392,56 +1428,71 @@ function renderRanges() {
     const lx = post && x.g.w ? rangeLadder(viewKey(x), x.g.w, board, hole).lad : null;
     // the surviving mass at the snapshot (MATH); the width against the fullest combo only if a snapshot lacks it
     const kept = x.g.kept != null ? x.g.kept : lx ? lx.kept : x.g.w ? keptOf(x.g.w, hole) : x.g.cells.reduce((a, c, k) => a + c.fill * CLASS_SIZE[k], 0) / 1326;
-    const mini = lx ? `<span class="rv-mini${waiting ? ' hid' : ''}">${shown.map((b) => `<i style="--bk:${col[b]};width:${(lx.rungs[b].share * 100).toFixed(1)}%"></i>`).join('')}</span>` : '';
+    const mini = lx ? `<span class="rv-mini${waiting ? ' hid' : ''}">${shown.map((b) => `<i style="--bk:${col[b]};width:${pctW(lx.rungs[b].share)}"></i>`).join('')}</span>` : '';
     return `<button type="button" class="rv-step ${x === view ? 'on' : ''}" data-step="${x.st}" aria-pressed="${x === view}" ${waiting ? 'disabled' : ''}><span class="a">${STREET_TABS[x.st]} · ${esc(actWord(x.act))}</span><span class="k">keeps ${shareText(kept)} of hands</span>${mini}</button>`;
   }).join('');
   const strip = `<div class="rv-steps">${stepHtml}</div>`;
 
-  // the ladder
+  // the condensed ladder (v2): one row per rung, a swatch, the name, a mini bar of its share and the share; a tap opens
+  // its detail (the examples, then where you stand); the section headers light their hands in the grid (hand by hand)
   let ladder = '';
   if (lad) {
-    const max = Math.max(...shown.map((b) => lad.rungs[b].share), 0.0001);
+    const max = Math.max(...shown.map((b) => fin(lad.rungs[b].share)), 0.0001);
+    const compact = (x) => (shareText(x) === 'under 5%' ? '<5%' : shareText(x) === 'over 95%' ? '>95%' : shareText(x));
     const rung = (b) => {
       const r = lad.rungs[b];
       const on = rangeSel === b;
-      const off = rangeSel >= 0 && !on;
-      const nm = phone ? lad.names[b].short : lad.names[b].name;
-      const ex = esc(r.examples.slice(0, on ? 8 : 4).join(', '));
-      if (waiting) return `<div class="rv-rung ghost" style="--bk:${col[b]}"><span class="nm">${nm}<small>${ex}</small></span><span class="pct">?</span><span class="bar"><i></i></span><span class="eqx">&nbsp;</span></div>`;
+      const nm = esc(phone ? lad.names[b].short : lad.names[b].name);
+      if (waiting) return `<div class="rv-crow ghost" style="--bk:${col[b]}"><span class="sw"></span><span class="nm">${nm}</span><span class="mb"><i></i></span><span class="pct">?</span></div>`;
       const eqB = E ? shareText(E.rung[b]) : '…';
-      return `<button type="button" class="rv-rung ${on ? 'on' : ''} ${off ? 'off' : ''}" style="--bk:${col[b]}" data-rung="${b}" aria-pressed="${on}"><span class="nm">${nm}<small>${ex}</small></span><span class="pct">${shareText(r.share)}</span>
-        <span class="bar"><i style="--w:${((r.share / max) * 100).toFixed(1)}%"></i></span>
-        <span class="eqx">${river ? (r.ahead >= 1 ? 'you beat all of these' : r.ahead <= 0 ? 'all of these beat you' : `you beat <b>${shareText(r.ahead)}</b> of these`) : `ahead now <b>${shareText(r.ahead)}</b> · win by the river <b>${eqB}</b>`}</span></button>`;
+      const eq = river ? (r.ahead >= 1 ? 'you beat <b>all</b> of these' : r.ahead <= 0 ? '<b>all</b> of these beat you' : `you beat <b>${shareText(r.ahead)}</b> of these`) : `ahead now <b>${shareText(r.ahead)}</b> · win by the river <b>${eqB}</b>`;
+      const det = on ? `<span class="det"><span class="ex">${esc(r.examples.slice(0, 8).join(', '))}</span><span class="eq">${eq}</span></span>` : '';
+      return `<button type="button" class="rv-crow${on ? ' on' : ''}" style="--bk:${col[b]}" data-rung="${b}" aria-expanded="${on}"><span class="sw"></span><span class="nm">${nm}</span><span class="mb"><i style="--w:${pctW(fin(r.share) / max)}"></i></span><span class="pct">${compact(r.share)}</span>${det}</button>`;
     };
     const handText = handName(hole, board).toLowerCase(); // as the dock names it (DESIGN)
     const cardsTxt = holeOrder(hole).map((c) => RANKS[c >> 2] + SUIT_SYM[c & 3]).join('');
     const youLine = `<div class="rv-you"><span>You · <span class="rv-cards">${cardsTxt}</span> ${esc(handText)}</span></div>`;
-    // "You beat now" carries no total: the share below the line and the headline's "ahead of" are different measures (CEO)
-    // no rung above the line, yet some hands beat you: the section keeps its header and total, and says where they are
-    // (MATH, for DESIGN: the top of the first rung below the line)
+    // no rung above the line, yet some hands beat you: the section keeps its header and total and says where they are.
+    // Under 5% it names up to three by weight; otherwise no group beats you outright, but hands inside them do (QA nit)
     const noneAbove = !hi.length && lad.ahead != null && lad.ahead < 1 && lo.length;
+    const fewOnly = ['0%', 'under 5%'].includes(beatsText(lad));
     const few = lad.beaters.slice(0, 3);
-    // up to three by weight: "88, 66 and 74s"; with more, "88, 66, 74s and a few more" (DESIGN)
-    const fewText = !few.length ? '' : lad.beaters.length > 3 ? `${few.join(', ')} and a few more` : few.length > 1 ? `${few.slice(0, -1).join(', ')} and ${few[few.length - 1]}` : few[0];
-    const hiBody = hi.length ? hi.map(rung).join('') : noneAbove ? `<p class="rv-secnote">${waiting ? 'Some hands may beat you.' : `Only a few hands beat you${fewText ? `: ${fewText}` : ''}. Too few to make a group of their own.`}</p>` : '';
-    ladder = `<div class="rv-ladder">${hi.length || noneAbove ? `<div class="rv-sec hi"><span class="zone"><span>Beats you now</span><span>${waiting ? '' : beatsText(lad)}</span></span>${hiBody}</div>` : ''}
-      ${youLine}${lo.length ? `<div class="rv-sec lo"><span class="zone"><span>You beat now</span></span>${lo.map(rung).join('')}</div>` : ''}</div>`;
+    const fewText = !few.length ? '' : lad.beaters.length > 3 ? `${few.join(', ')} and ${fewOnly ? 'a few more' : 'more'}` : few.length > 1 ? `${few.slice(0, -1).join(', ')} and ${few[few.length - 1]}` : few[0];
+    const noneNote = waiting ? 'Some hands may beat you.' : fewOnly ? `Only a few hands beat you${fewText ? `: ${fewText}` : ''}. Too few to make a group of their own.` : `No group beats you outright, but some hands in them do${fewText ? `: ${fewText}` : ''}.`;
+    const hiBody = hi.length ? hi.map(rung).join('') : noneAbove ? `<p class="rv-secnote">${noneNote}</p>` : '';
+    const zone = (g, label, total) => (waiting ? `<span class="zone"><span>${label}</span><span></span></span>` : `<button type="button" class="zone" data-sec="${g}" aria-pressed="${rangeFilt === g}"><span>${label}</span><span>${total}</span></button>`);
+    ladder = `<div class="rv-ladder">${hi.length || noneAbove ? `<div class="rv-sec hi${rangeFilt === 'beats' ? ' hov' : ''}">${zone('beats', 'Beats you now', beatsText(lad))}${hiBody}</div>` : ''}
+      ${youLine}${lo.length ? `<div class="rv-sec lo${rangeFilt === 'beat' ? ' hov' : ''}">${zone('beat', 'You beat now', '')}${lo.map(rung).join('')}</div>` : ''}</div>`;
   }
 
   // the takeaway (STRAT's three branches, RANGE_TAKEAWAY_COPY.md); the play comes from the coach's verdict only
   let take = '';
   if (lad && !waiting) {
     const biggest = shown.slice().sort((a, b) => lad.rungs[b].share - lad.rungs[a].share)[0];
-    // the coach's play only from a decision on this street, at the latest step (an earlier street's play reads wrong here)
-    const play = isLatest && view.st === curSt ? coachPlay(h, view.st) : null;
+    const bt = lad.beatsYou;
+    // Takeaway timing (DESIGN, STRAT 25 Nov): at the latest step, when they haven't acted yet on this street, the range
+    // is named by their last action and its street ("After betting the turn, Jeans's range is mostly…")
+    const after = isLatest && latest.st < curSt;
+    const subj = after ? `${nick}'s range` : `${nick}'s ${lineNoun(view.act)}`;
+    const opening = after ? `After ${afterWords(s, view.act)}, ` : '';
+    // the coach's play only from a decision on this street, at the latest step (an earlier street's play reads wrong here);
+    // on the river, when you act first and the coach checks with most of their range ahead: "check, and let it go if
+    // [Name] bets", unless they are read as a maniac or a lag (STRAT, DESIGN; riverLetGo)
+    const v0 = isLatest ? coachVerdict(h, curSt) : null;
+    const riverFold = riverLetGo({ river, after, bestType: v0 && v0.options[v0.best] ? v0.options[v0.best].type : null, beatsYou: bt, ranked: sess.readOf(seat).ranked });
+    const play = riverFold ? `check, and let it go if ${nick} bets` : isLatest && view.st === curSt ? coachPlay(h, view.st) : null;
     const p = play ? `: ${play}.` : '.';
-    const lineOf = `${nick}'s ${lineNoun(view.act)} is mostly ${lad.names[biggest].plural}`;
+    const lineOf = `${opening}${subj} is mostly ${lad.names[biggest].plural}`;
     const hf = handFeatures(hole, board);
     const drawing = !river && isRealDraw(hf) && E && E.equity != null && E.equity >= 0.35;
-    const bt = lad.beatsYou;
     let text;
-    if (bt < 0.25) {
-      const worse = lo.filter((b) => b !== lad.names.length - 1 && lad.rungs[b].share >= 0.1).map((b) => lad.names[b].plural);
+    if (lad.fh && biggest === 0 && bt >= 0.25) {
+      // you hold a full house and the top rung is the biggest: say it plainly (STRAT's example)
+      const qty = bt > 0.6 ? 'most' : about(beatsText(lad));
+      text = `<b>${opening}${opening ? qty : cap(qty)} of ${subj} beats your full house</b>${p}`;
+    } else if (bt < 0.25) {
+      // one list builder, the rungs' list nouns (DESIGN, QA nit a)
+      const worse = lo.filter((b) => b !== lad.names.length - 1 && lad.rungs[b].share >= 0.1).map((b) => lad.names[b].list);
       const list = listOf(worse);
       text = `<b>${lineOf}, and little of it beats you</b>${p}${worse.length ? ` ${cap(list)} can pay you.` : ''}`;
     } else if (drawing) {
@@ -1452,15 +1503,8 @@ function renderRanges() {
     take = `<div class="rv-take">${text}</div>`;
   }
 
-  // Show hands: the grid in rising fill, remembered open or closed per opponent
-  const openMap = settings.rangeGrid || {};
-  const gridOpen = !!openMap[nickRaw];
-  const keptNow = g.kept != null ? g.kept : lad ? lad.kept : g.w ? keptOf(g.w, hole) : g.cells.reduce((a, c, k) => a + c.fill * CLASS_SIZE[k], 0) / 1326;
-  let hands = '';
-  if (!waiting) {
-    hands = `<button type="button" class="rv-expand" data-gridtoggle aria-expanded="${gridOpen}"><span>Show hands</span><small>${about(shareText(keptNow))} of all hands<span class="chev">▾</span></small></button>`;
-    if (gridOpen) hands += rangeGridBlock({ h, s, g, lad, E, pre, col, mine, phone, view, post });
-  }
+  // the grid, always shown, above the ladder (v2: no drawer, no filter); before a guess its fills are neutral grey
+  const hands = rangeGridBlock({ h, s, g, lad, E, pre, col, mine, phone, view, post, waiting });
 
   // the guess question, and its result after an answer
   let guessQ = '';
@@ -1474,13 +1518,13 @@ function renderRanges() {
     const ok = guessRight(ans.g, cut);
     const gb = GUESS_BANDS[ans.g];
     const chip = ok ? '<span class="rv-chip ok">right</span>' : `<span class="rv-chip">${ans.g < right ? 'more' : 'less'} than you said</span>`;
-    const above = lad.above.filter((b) => lad.rungs[b].share >= HIDE_BELOW).map((b) => lad.names[b].plural);
+    const above = lad.above.filter((b) => lad.rungs[b].share >= HIDE_BELOW).map((b) => lad.names[b].list);
     const hf = handFeatures(hole, board);
     const shownAbove = lad.above.filter((b) => lad.rungs[b].share >= HIDE_BELOW);
     const everyPair = !lad.kind && shownAbove.length === 3 && shownAbove.every((b) => b <= 2);
     const why = `${above.length ? `${everyPair ? 'Every pair beats you now' : `${cap(listOf(above))} beat you now`}: ${about(beatsText(lad))} of their range does.` : 'Almost nothing in their range beats your hand now.'}${!river && isRealDraw(hf) && E && E.equity != null ? ` Your draw is why you still win about ${Math.round(E.equity * 10)} in 10.` : ''}`;
     guessRes = `<div class="rv-gres${rangeReveal === 'guess' ? ' fade' : ''}" tabindex="-1"><div class="ln"><span><span class="label">You said</span><b>${gb.n}</b></span><span><span class="label">The coach's read</span><b>${GUESS_BANDS[right].n} · ${about(beatsText(lad))}</b></span>${chip}</div>
-      <div class="rv-gm" role="img" aria-label="About ${beatsText(lad)} of their range beats you; your guess was ${gb.n.toLowerCase()}, ${gb.r}" style="--v:${(cut * 100).toFixed(1)}%;--g0:${gb.lo * 100}%;--g1:${gb.hi * 100}%"><span class="fill"></span><span class="band"><span>your guess</span></span>
+      <div class="rv-gm" role="img" aria-label="About ${beatsText(lad)} of their range beats you; your guess was ${gb.n.toLowerCase()}, ${gb.r}" style="--v:${pctW(cut)};--g0:${pctW(gb.lo)};--g1:${pctW(gb.hi)}"><span class="fill"></span><span class="band"><span>your guess</span></span>
         <span class="axis" style="left:0;transform:none">0</span><span class="axis" style="left:25%">25</span><span class="axis" style="left:60%">60</span><span class="axis" style="left:100%;transform:translateX(-100%)">100%</span></div>
       <p class="rv-why">${why}</p></div>`;
   }
@@ -1491,20 +1535,21 @@ function renderRanges() {
     return `<div class="what-had"><b>What ${nick} had: ${cardsInline(holeOrder(s.hole[seat]))}</b><p>That was ${where}. One hand proves little. Judge the decision by the range, not the card.</p></div>`;
   })() : '';
 
+  // v2 order: the headline and strip, the grid, the condensed ladder, the takeaway, the read note
   const body = waiting
-    ? `${guessQ}${strip}${ladder}<button type="button" class="rv-skip" data-guessskip>Skip, show me</button>`
-    : `${guessRes}${head}${strip}${ladder}${take}${hands}${calib}${realBox}${foot}`;
+    ? `${guessQ}${strip}${hands}${ladder}<button type="button" class="rv-skip" data-guessskip>Skip, show me</button>`
+    : `${guessRes}${head}${strip}${hands}${ladder}${take}${calib}${realBox}${foot}`;
   el.innerHTML = `${showAllPhone}<div class="rv${rangeReveal === 'guess' ? ' reveal' : ''}">${top}${body}</div>`;
   rangeReveal = '';
-  wireRanges(el, again, { lad, E, pre, g, col, mine, view, post, gKey, cut: lad ? lad.beatsYou : null, nickRaw, phone });
+  wireRanges(el, again, { lad, E, pre, g, col, mine, view, post, gKey, cut: lad ? lad.beatsYou : null, nickRaw, phone, waiting });
   restoreRangeFocus(el, hadFocus);
 }
 // keep keyboard focus where it was across a repaint (a rung, a cell, a step, a chip, the switch, the drawer, a guess)
 function restoreRangeFocus(el, hadFocus) {
   if (hadFocus) {
     // (QA RG1) a guess answer or Skip removes its button: focus moves to the result, or to the headline
-    const sel = hadFocus.cell != null ? `[data-cell="${hadFocus.cell}"]` : hadFocus.rung != null ? `[data-rung="${hadFocus.rung}"]` : hadFocus.step != null ? `[data-step="${hadFocus.step}"]` : hadFocus.filt != null ? `[data-filt="${hadFocus.filt}"]` : hadFocus.keyrung != null ? `[data-keyrung="${hadFocus.keyrung}"]`
-      : hadFocus.seat != null ? `[data-seat="${hadFocus.seat}"]` : hadFocus.gridtoggle != null ? '[data-gridtoggle]' : hadFocus.guesssw != null ? '[data-guesssw]'
+    const sel = hadFocus.cell != null ? `[data-cell="${hadFocus.cell}"]` : hadFocus.rung != null ? `[data-rung="${hadFocus.rung}"]` : hadFocus.step != null ? `[data-step="${hadFocus.step}"]` : hadFocus.sec != null ? `[data-sec="${hadFocus.sec}"]`
+      : hadFocus.seat != null ? `[data-seat="${hadFocus.seat}"]` : hadFocus.guesssw != null ? '[data-guesssw]'
       : hadFocus.guess != null || hadFocus.guessskip != null ? '.rv-gres, .rv-head, .rv-q' : null;
     const t = sel && el.querySelector(sel);
     if (t) t.focus();
@@ -1525,15 +1570,21 @@ function buildCtxToCall(s) {
   return Math.max(0, (s.currentBet || 0) - (s.bet[HERO] || 0));
 }
 
-// The grid block: the filter, the line (the legend, the hover and tap target), the 13x13 grid and the rung key.
-function rangeGridBlock({ h, s, g, lad, E, pre, col, mine, phone, view, post }) {
+// A hand class in a section (v2, hand by hand as the filter was): "Beats you now" when more than half of its weight is
+// ahead of you now, so the lit cells always match the section's total and the few-hands note (DESIGN, QA nit c)
+const inSec = (lad, k, sec) => {
+  const c = lad && lad.classes[k];
+  if (!c || c.rung < 0) return false;
+  return sec === 'beats' ? c.beats > 0.5 : !(c.beats > 0.5);
+};
+// The grid block (v2): the line (the legend, the hover and tap target) and the 13x13 grid. A selected rung or a lit
+// section dims every other cell to 16%; before a guess the fills are neutral grey, labels only (no rung, no numbers).
+function rangeGridBlock({ h, s, g, lad, E, pre, col, mine, phone, view, post, waiting }) {
   const rungOfK = (k) => (lad ? lad.classes[k].rung : -1);
-  const aboveSet = new Set(lad ? lad.above : []);
   const dimmed = (k) => {
-    const b = rungOfK(k);
-    if (rangeSel >= 0) return b !== rangeSel;
-    if (rangeFilt === 'beats') return !aboveSet.has(b);
-    if (rangeFilt === 'beat') return aboveSet.has(b);
+    if (waiting) return false;
+    if (rangeSel >= 0) return rungOfK(k) !== rangeSel;
+    if (rangeFilt === 'beats' || rangeFilt === 'beat') return !inSec(lad, k, rangeFilt);
     return false;
   };
   if (rangeGridFocus < 0) rangeGridFocus = GRID.flat().findIndex((c) => c.k === mine);
@@ -1543,57 +1594,53 @@ function rangeGridBlock({ h, s, g, lad, E, pre, col, mine, phone, view, post }) 
     let cells = '';
     for (let j = 0; j < 13; j++, n++) {
       const { name, k } = GRID[i][j];
-      const f = g.cells[k].fill;
+      const f = fin(g.cells[k].fill);
       const lv = fillLevel(f);
       const b = rungOfK(k);
       const me = k === mine;
       const lab = name.replace(/[so]$/, '');
-      const bk = b >= 0 ? col[b] : 'var(--rv-pre)';
-      const cl = [lv === 0 ? 'out' : '', me ? 'me' : '', dimmed(k) ? 'dim' : '', rangeCell === k ? 'pick' : ''].join(' ').trim();
-      const kind = me ? 'your hand' : b >= 0 ? lad.names[b].short.toLowerCase() : 'in range';
+      const bk = !waiting && b >= 0 ? col[b] : 'var(--rv-pre)';
+      const cl = [lv === 0 ? 'out' : '', me ? 'me' : '', dimmed(k) ? 'dim' : '', !waiting && rangeCell === k ? 'pick' : ''].join(' ').trim();
+      const kind = me ? 'your hand' : !waiting && b >= 0 ? lad.names[b].short.toLowerCase() : 'in range';
       // the win figure in the label too, since the line above the grid is not announced (DESIGN, accessibility pass)
-      const eqK = me ? null : post ? (E && E.cls[k] != null ? E.cls[k] : null) : pre && !Number.isNaN(pre.cls[k]) ? pre.cls[k] : null;
+      const eqK = me || waiting ? null : post ? (E && E.cls[k] != null ? E.cls[k] : null) : pre && Number.isFinite(pre.cls[k]) ? pre.cls[k] : null;
       const onRiver = post && lad && lad.board.length === 5;
       const winLab = eqK == null ? '' : onRiver ? (eqK >= 1 ? ', you beat it' : eqK <= 0 ? ', it beats you' : `, you win ${about(shareText(eqK))} against it`) : `, you win ${about(shareText(eqK))} by the river`;
       cells += `<button type="button" role="gridcell" data-cell="${k}" data-n="${n}" tabindex="${n === rangeGridFocus ? 0 : -1}" class="${cl}" style="--f:${me ? 0 : lv};--bk:${bk}" aria-label="${name}, ${kind}, ${often(f)}${winLab}"><span class="t">${lab}</span><span class="k" aria-hidden="true">${lab}</span></button>`;
     }
     rows.push(`<div role="row" class="rv-row">${cells}</div>`);
   }
-  const line = rangeLineHtml({ s, g, lad, E, pre, col, mine, phone, view, post });
-  const tint = rangeCell < 0 && rangeSel < 0 && rangeFilt === 'beats' ? 'hi' : rangeCell < 0 && rangeSel < 0 && rangeFilt === 'beat' ? 'lo' : '';
-  const F = [['all', 'All'], ['beats', 'Beats you'], ['beat', 'You beat']];
-  const shownSides = lad ? lad.names.map((_, b) => b).filter((b) => lad.rungs[b].share >= HIDE_BELOW) : [];
-  const emptySide = { beats: !shownSides.some((b) => aboveSet.has(b)), beat: !shownSides.some((b) => !aboveSet.has(b)), all: false };
-  const filt = lad ? `<div class="rv-filt" role="group" aria-label="Show">${F.map(([v, t]) => (emptySide[v] ? `<button type="button" data-filtoff="${v}" aria-disabled="true" aria-pressed="false" title="No hands here">${t}</button>` : `<button type="button" data-filt="${v}" aria-pressed="${rangeSel < 0 && rangeCell < 0 && rangeFilt === v}">${t}</button>`)).join('')}</div>` : '';
-  const shownR = lad ? lad.names.map((_, b) => b).filter((b) => lad.rungs[b].share >= HIDE_BELOW) : [];
-  const kb = (b) => `<button type="button" style="--bk:${col[b]}" data-keyrung="${b}" aria-pressed="${rangeSel === b}"><i></i>${lad.names[b].short}</button>`;
-  const key = lad ? `<div class="rv-key">${shownR.filter((b) => aboveSet.has(b)).map(kb).join('')}<span class="sep" title="your hand"></span>${shownR.filter((b) => !aboveSet.has(b)).map(kb).join('')}</div>` : '';
-  return `<div class="rv-gridwrap">${filt ? `<div class="rv-gtop">${filt}</div>` : ''}<div class="rv-line ${tint}">${line}</div>
-    <div class="rv-grid" role="grid" aria-label="Every starting hand">${rows.join('')}</div>${key}</div>`;
+  const line = rangeLineHtml({ s, g, lad, E, pre, col, mine, phone, view, post, waiting });
+  const tint = !waiting && rangeCell < 0 && rangeSel < 0 && rangeFilt === 'beats' ? 'hi' : !waiting && rangeCell < 0 && rangeSel < 0 && rangeFilt === 'beat' ? 'lo' : '';
+  return `<div class="rv-gridwrap"><div class="rv-line ${tint}">${line}</div>
+    <div class="rv-grid" role="grid" aria-label="Every starting hand">${rows.join('')}</div></div>`;
 }
-const miniCell = (lab, bk, lv, me) => `<span class="rv-mc${me ? ' me' : ''}" style="--f:${me ? 0 : lv};--bk:${bk}" aria-hidden="true"><span class="t">${lab}</span><span class="k">${lab}</span></span>`;
-function rangeHandLine(k, { g, lad, E, pre, col, mine, view, post }) {
+const miniCell = (lab, bk, lv, me) => `<span class="rv-mc${me ? ' me' : ''}" style="--f:${me ? 0 : fin(lv)};--bk:${bk}" aria-hidden="true"><span class="t">${lab}</span><span class="k">${lab}</span></span>`;
+function rangeHandLine(k, { g, lad, E, pre, col, mine, view, post, waiting }) {
   const name = classNameOf(k);
   const lab = name.replace(/[so]$/, '');
-  const f = g.cells[k].fill;
-  const b = lad ? lad.classes[k].rung : -1;
+  const f = fin(g.cells[k].fill);
+  const b = !waiting && lad ? lad.classes[k].rung : -1;
   const bk = b >= 0 ? col[b] : 'var(--rv-pre)';
   if (k === mine) return `${miniCell(lab, bk, 0, true)}<span><b>${name}</b> Your hand. They hold it ${often(f)}, because you have two of the cards.</span>`;
   if (fillLevel(f) === 0) return `${miniCell(lab, bk, 0, false)}<span><b>${name}</b> Folded out of their range: they almost never ${handVerb(view.act, view.st)} with it.</span>`;
-  const eq = post ? (E && E.cls[k] != null ? E.cls[k] : null) : pre && !Number.isNaN(pre.cls[k]) ? pre.cls[k] : null;
+  // before a guess: how often only, never the rung or the numbers
+  const eq = waiting ? null : post ? (E && E.cls[k] != null ? E.cls[k] : null) : pre && Number.isFinite(pre.cls[k]) ? pre.cls[k] : null;
   const onRiver = post && lad && lad.board.length === 5;
   const vs = eq == null ? '' : onRiver ? (eq >= 1 ? ' · you beat it' : eq <= 0 ? ' · it beats you' : ` · you win ${about(shareText(eq))} against it`) : ` · you win ${about(shareText(eq))} by the river`;
   return `${miniCell(lab, bk, fillLevel(f), false)}<span><b>${name}</b> ${b >= 0 ? lad.names[b].short + ' · ' : ''}they ${handVerb(view.act, view.st)} with it ${often(f)}${vs}</span>`;
 }
+// the line for a rung ("Bigger full house · 75% of their range") and a section ("Beats you now · about 75% of their range")
+const rungLineHtml = (lad, b, phone) => `<span><b class="ui">${esc(phone ? lad.names[b].short : lad.names[b].name)}</b> · ${shareText(lad.rungs[b].share)} of their range</span>`;
+const secLineHtml = (lad, sec) => (sec === 'beats' ? `<span><b class="ui">Beats you now</b> · ${about(beatsText(lad))} of their range</span>` : `<span><b class="ui">You beat now</b> · ${about(shareText(lad.ahead))} of their range</span>`);
 function rangeLineHtml(ctx) {
-  const { lad, col, mine, phone } = ctx;
-  if (rangeCell >= 0) return rangeHandLine(rangeCell, ctx);
-  if (rangeSel >= 0 && lad) return `<span><b class="ui">${lad.names[rangeSel].short}</b> · ${shareText(lad.rungs[rangeSel].share)} of their range</span><span class="hint">Tap a hand</span>`;
-  if (rangeFilt === 'beats' && lad) return `<span><b class="ui">Beats you now</b> · ${about(beatsText(lad))} of their range</span>`;
-  if (rangeFilt === 'beat' && lad) return `<span><b class="ui">You beat now</b> · the rest of their range</span>`;
-  const c1 = lad ? col[4] || 'var(--rc1)' : 'var(--rv-pre)';
-  const c2 = lad ? col[3] || 'var(--rc1)' : 'var(--rv-pre)';
-  const c3 = lad ? col[1] || 'var(--rw1)' : 'var(--rv-pre)';
+  const { lad, col, mine, phone, waiting } = ctx;
+  if (!waiting && rangeCell >= 0) return rangeHandLine(rangeCell, ctx);
+  if (!waiting && rangeSel >= 0 && lad) return `${rungLineHtml(lad, rangeSel, phone)}<span class="hint">Tap a hand</span>`;
+  if (!waiting && (rangeFilt === 'beats' || rangeFilt === 'beat') && lad) return secLineHtml(lad, rangeFilt);
+  const c1 = lad && !waiting ? col[4] || 'var(--rc1)' : 'var(--rv-pre)';
+  const c2 = lad && !waiting ? col[3] || 'var(--rc1)' : 'var(--rv-pre)';
+  const c3 = lad && !waiting ? col[1] || 'var(--rw1)' : 'var(--rv-pre)';
   const meLab = classNameOf(mine).replace(/[so]$/, '');
   const touch = !(typeof matchMedia === 'function' && matchMedia('(hover: hover) and (pointer: fine)').matches); // the input, not the width (DESIGN, QA)
   return `<span class="rv-leg"><span class="ttl">How often they have each hand · ${touch ? 'tap' : 'point at'} one to read it</span><span>${miniCell('KQ', c1, 0.25)}rarely</span><span>${miniCell('KJ', c2, 0.5)}sometimes</span><span>${miniCell('AT', c3, 1)}often</span><span>${miniCell(meLab, 'var(--rv-pre)', 0, true)}you</span></span>`;
@@ -1614,19 +1661,15 @@ function guessCalibration() {
 function wireRanges(el, again, c = {}) {
   el.querySelectorAll('[data-showall]').forEach((b) => (b.onchange = () => { if (RP) { RP.showAll = b.checked; renderReplay(); } }));
   el.querySelectorAll('[data-seat]').forEach((b) => (b.onclick = () => { rangeSeat = +b.dataset.seat; rangeStep = -1; rangeSel = -1; rangeCell = -1; rangeFilt = 'all'; again(); }));
+  // a section header keeps its section lit (the filter's old job); tapping it again clears it
+  el.querySelectorAll('[data-sec]').forEach((b) => (b.onclick = () => { rangeFilt = rangeFilt === b.dataset.sec ? 'all' : b.dataset.sec; rangeSel = -1; rangeCell = -1; again(); }));
   el.querySelectorAll('[data-guesssw]').forEach((b) => (b.onclick = () => { settings.guessFirst = !settings.guessFirst; saveSettings(); again(); }));
   el.querySelectorAll('[data-step]').forEach((b) => (b.onclick = () => { rangeStep = +b.dataset.step; rangeSel = -1; rangeCell = -1; rangeFilt = 'all'; again(); }));
-  el.querySelectorAll('[data-rung],[data-keyrung]').forEach((b) => (b.onclick = () => {
-    const r = +(b.dataset.rung ?? b.dataset.keyrung);
+  el.querySelectorAll('[data-rung]').forEach((b) => (b.onclick = () => {
+    const r = +b.dataset.rung;
     rangeCell = -1;
     rangeFilt = 'all';
     rangeSel = rangeSel === r ? -1 : r;
-    again();
-  }));
-  el.querySelectorAll('[data-filt]').forEach((b) => (b.onclick = () => { rangeFilt = b.dataset.filt; rangeSel = -1; rangeCell = -1; again(); }));
-  el.querySelectorAll('[data-gridtoggle]').forEach((b) => (b.onclick = () => {
-    settings.rangeGrid = { ...(settings.rangeGrid || {}), [c.nickRaw]: !(settings.rangeGrid || {})[c.nickRaw] };
-    saveSettings();
     again();
   }));
   el.querySelectorAll('[data-guess]').forEach((b) => (b.onclick = () => {
@@ -1645,8 +1688,43 @@ function wireRanges(el, again, c = {}) {
   const lineEl = el.querySelector('.rv-line');
   const idle = lineEl ? lineEl.innerHTML : '';
   const idleCls = lineEl ? lineEl.className : '';
-  grid.querySelectorAll('[data-cell]').forEach((b) => {
+  const cellEls = [...grid.querySelectorAll('[data-cell]')];
+  const idleDim = cellEls.map((x) => x.classList.contains('dim'));
+  // hover (mouse only, no click): a row or a section header lights its hands and writes the line; moving off restores
+  // whatever is selected
+  const preview = (lit, html) => {
+    cellEls.forEach((x) => x.classList.toggle('dim', !lit(+x.dataset.cell)));
+    if (lineEl) {
+      lineEl.className = 'rv-line';
+      lineEl.innerHTML = html;
+    }
+  };
+  const restore = () => {
+    cellEls.forEach((x, i) => x.classList.toggle('dim', idleDim[i]));
+    if (lineEl) {
+      lineEl.className = idleCls;
+      lineEl.innerHTML = idle;
+    }
+  };
+  const ladEl = el.querySelector('.rv-ladder');
+  if (ladEl && c.lad && !c.waiting) {
+    ladEl.addEventListener('pointerover', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      const row = e.target.closest('[data-rung]');
+      const sec = e.target.closest('[data-sec]');
+      if (row) {
+        const b = +row.dataset.rung;
+        preview((k) => c.lad.classes[k].rung === b, rungLineHtml(c.lad, b, c.phone));
+      } else if (sec) preview((k) => inSec(c.lad, k, sec.dataset.sec), secLineHtml(c.lad, sec.dataset.sec));
+      else restore();
+    });
+    ladEl.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'mouse') restore();
+    });
+  }
+  cellEls.forEach((b) => {
     b.onclick = () => {
+      if (c.waiting) return; // before a guess a cell names no rung
       const k = +b.dataset.cell;
       rangeFilt = 'all';
       rangeGridFocus = +b.dataset.n;
@@ -1675,9 +1753,7 @@ function wireRanges(el, again, c = {}) {
     lineEl.innerHTML = rangeHandLine(+b.dataset.cell, c);
   });
   grid.addEventListener('pointerleave', (e) => {
-    if (e.pointerType !== 'mouse' || !lineEl) return;
-    lineEl.className = idleCls;
-    lineEl.innerHTML = idle;
+    if (e.pointerType === 'mouse') restore();
   });
   // the ARIA grid keys: arrows stop at the edges (no wrap), Home and End go to the row's ends; Enter and Space tap
   grid.addEventListener('keydown', (e) => {
@@ -3260,7 +3336,10 @@ $('placard-wrap').addEventListener('click', (e) => {
   }, true);
 }
 $('btn-side').onclick = () => (document.body.classList.contains('side-closed') ? openSide() : document.body.classList.add('side-closed'));
-PHONE.addEventListener('change', () => sess && render());
+PHONE.addEventListener('change', () => {
+  placeCoachBanner();
+  if (sess) render();
+});
 // The header menu: on a phone a sheet behind "Menu" that closes after any choice or a tap
 // elsewhere; from 601px always open, so the buttons sit in the header row as before.
 const menuEl = $('menu');

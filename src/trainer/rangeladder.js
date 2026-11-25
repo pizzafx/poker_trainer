@@ -57,7 +57,9 @@ export function rungsFullHouse(trips, topFree) {
   }
   const [a, b] = topFree.map((r) => RANK_WORD[r]);
   const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+  // STRAT: straights and flushes made with a trips board get their own rung (it shows only when it holds hands)
   return [...top,
+    { name: 'Beats the board', short: 'Beats board', plural: 'other hands that beat the board', list: 'hands that beat the board', fh: true },
     { name: `Board + ${a} or ${b}`, short: `${cap(a)} or ${b}`, plural: `the board with ${art(a)} ${a} or ${b}`, list: 'top kickers', fh: true },
     { name: 'Board + weak kicker', short: 'Weak kicker', plural: 'the board with a weak kicker', list: 'weak kickers', fh: true },
     end];
@@ -128,13 +130,13 @@ export function ladderOf(w, board, hole) {
     const [p, q] = COMBOS[c];
     const rp = p >> 2;
     const rq = q >> 2;
-    // a straight or flush with the board is below your full house; on a trips board it has no rung of its own, so it
-    // sits with the hands just under yours
-    if (cat > categoryOf(boardScore)) return tripsBoard ? 1 : 2;
+    // a straight or flush made with the board is below your full house and above every kicker: Beats the board (STRAT)
+    if (cat > categoryOf(boardScore)) return 2;
     if (!tripsBoard && rp === rq && rp > lowPair) return 2;
-    if (board.length === 5 && f.score <= boardScore) return 4;
+    const plays = tripsBoard ? 5 : 4;
+    if (board.length === 5 && f.score <= boardScore) return plays;
     if (!tripsBoard) return 3;
-    return topFree.includes(Math.max(rp, rq)) ? 2 : 3;
+    return topFree.includes(Math.max(rp, rq)) ? 3 : 4;
   };
   const rungPaired = (c, f) => {
     const cat = categoryOf(f.score);
@@ -380,4 +382,14 @@ export function guessBandOf(x) {
 export function guessRight(g, x) {
   if (g === guessBandOf(x)) return true;
   return GUESS_EDGES.some((e, i) => Math.abs(x - e) <= 0.025 && (g === i || g === i + 1));
+}
+
+// The river takeaway's "check, and let it go if [Name] bets" (STRAT, DESIGN): on the river, when you act first, the
+// coach checks and most of their range (over 60%) beats you. Not against a seat read at 60% or more as a maniac or a
+// lag (those types together): they bet most of their range, so you still win often enough when called (STRAT).
+// ranked: the seat's read, [{ id, p }].
+export function riverLetGo({ river, after, bestType, beatsYou, ranked }) {
+  if (!river || !after || bestType !== 'check' || !(beatsYou > 0.6)) return false;
+  const wild = (ranked || []).filter((r) => r.id === 'maniac' || r.id === 'lag').reduce((a, r) => a + r.p, 0);
+  return wild < 0.6;
 }

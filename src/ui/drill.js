@@ -29,6 +29,10 @@ const lookFor = (nick) => {
   return LOOKS[h % LOOKS.length];
 };
 
+// The Drill is live once a bank ships with the site: flip this when src/drill/bank.json goes out. Until then the page
+// never fetches the bank and the Drill button stays hidden; ?drillbank=dev still loads the local development bank.
+export const DRILL_SHIPPED = false;
+
 export function createDrill(env) {
   // env: { el, cardHtml, esc, toast, onExit, onDispute, storage }
   const { el, cardHtml, esc } = env;
@@ -68,6 +72,8 @@ export function createDrill(env) {
     if (bank) return bank;
     // ?drillbank=dev loads a local development bank (never shipped)
     const dev = new URLSearchParams(location.search).get('drillbank') === 'dev';
+    // until the Drill ships there is no bank on the site: no request, so no 404 in every visitor's console (CEO)
+    if (!DRILL_SHIPPED && !dev) throw new Error('no bank');
     const res = await fetch(new URL(dev ? '../drill/bank.dev.json' : '../drill/bank.json', import.meta.url));
     if (!res.ok) throw new Error('no bank');
     bank = await res.json();

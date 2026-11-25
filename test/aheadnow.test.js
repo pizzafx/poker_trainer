@@ -120,3 +120,12 @@ test('never "Call." under a fine fold or "Fold." under a fine call: close (STRAT
   const v = { options, best: 2, mine: 0, grade: 'good', anchors: { price: 0.2 }, runout: { seat: 3, E: 0.3, hu: true } };
   assert.equal(runoutLine({ verdict: v, opponents: 1, table: { oop: true }, villain: { nick: 'Jo', seat: 3 } }, v, v.anchors), "You'd win about 30% if it went to showdown and need 20%: close.");
 });
+
+// STRAT: the bet and raise lines in plain words, "right now" before the river
+test('bet and raise lines: "of the hands that call, you beat …" (AN1 reads them as bet lines)', () => {
+  const an = INVARIANTS[Object.keys(INVARIANTS).find((k) => k.startsWith('AN1'))];
+  assert.equal(an({ street: 2, anchor: 'Of the hands that call, you beat about 60% right now and need about 35%. These players call with worse: bet for value.' }), false);
+  assert.equal(an({ street: 2, anchor: 'Of the hands that call, you beat about 60% and need about 35%. These players call with worse: bet for value.' }), true);
+  assert.equal(an({ street: 1, anchor: 'Called, you beat almost none of the callers right now; almost no one folds, and it needs 40%.' }), false);
+  assert.equal(an({ street: 1, anchor: 'At $60 you still beat about 70% of the callers, and these players still call: the bigger bet earns more.' }), true);
+});

@@ -148,3 +148,56 @@ test('a straight on the board (56789): a T beats the board', () => {
   assert.equal(r.b, 0);
   assert.equal(rungOfHand('5s 6d 7c 8h 9s', 'Ah 2h', 'Kc 3d').b, 1);
 });
+
+// STRAT (25 Nov): you hold a full house on a trips board; the top rung splits at your hand
+test('hand 696, TT on Q2272: Beats yours, Below yours, Ace or king, Weak kicker, Plays board', () => {
+  const B = 'Qc 2s 2d 7s 2h';
+  const H = 'Th Td';
+  const at = (hand) => rungOfHand(B, H, hand);
+  const lad = at('Qd Qh').lad;
+  assert.equal(lad.fh, true);
+  assert.deepEqual(lad.names.map((x) => x.short), ['Beats yours', 'Below yours', 'Ace or king', 'Weak kicker', 'Plays board']);
+  assert.deepEqual(lad.names.map((x) => x.name), ['Beats your full house', 'Smaller full house', 'Board + ace or king', 'Board + weak kicker', 'Plays the board']);
+  assert.equal(at('Qd Qh').b, 0);
+  assert.equal(at('Qd Jh').b, 0); // Qx: queens full
+  assert.equal(at('2c 5h').b, 0); // quads
+  assert.equal(at('9c 9d').b, 1);
+  assert.equal(at('7c 4d').b, 1); // twos full of sevens
+  assert.equal(at('Tc Ts').b, 1); // an exact tie doesn't beat you
+  assert.equal(at('Ac 5d').b, 2);
+  assert.equal(at('Kc 5d').b, 2);
+  assert.equal(at('Jc 5d').b, 3); // a J beats the board's 7
+  assert.equal(at('3c 4d').b, 4);
+  // the line sits under Beats yours
+  assert.deepEqual(lad.above, [0]);
+  assert.ok(lad.names.every((x) => x.name.length <= 21 && x.short.length <= 12));
+});
+test('AK on Q2272 holds no full house: no split, the top rung is Full house+', () => {
+  const lad = rungOfHand('Qc 2s 2d 7s 2h', 'Ah Kd', 'Qd Qh').lad;
+  assert.equal(lad.fh, false);
+  assert.equal(lad.names[0].short, 'Full house+');
+});
+test('Q7 on QQ772 (two-pair board, you hold a full house): Beats yours, Below yours, Beats board, Board+kicker, Plays board', () => {
+  const B = 'Qs Qd 7c 7h 2s';
+  const H = 'Qh 7d';
+  const at = (hand) => rungOfHand(B, H, hand);
+  const lad = at('Ac Jd').lad;
+  assert.deepEqual(lad.names.map((x) => x.short), ['Beats yours', 'Below yours', 'Beats board', 'Board+kicker', 'Plays board']);
+  assert.equal(at('Qc Ad').b, 1); // queens full of sevens with an ace: the same full house, a tie
+  assert.equal(at('2c 2d').b, 1); // twos full: below yours
+  assert.equal(at('7s 2d').b, 1); // sevens full of queens
+  assert.equal(at('Jc Jd').b, 2); // a pocket pair above the board's lower pair
+  assert.equal(at('Ac Jd').b, 3);
+  assert.equal(at('5c 5d').b, 3); // good and weak kickers are one rung
+  assert.equal(at('3c 4d').b, 3); // a 4 beats the board's 2
+});
+test('list nouns never carry their own "and" or "or"', () => {
+  for (const board of ['Kc 8s 5d', 'Qs Qd 7c 7h 2s', '5s 6d 7c 8h 9s']) {
+    const lad = ladderOf(flat(), parseCards(board), parseCards('Ah 2h'));
+    for (const x of lad.names) assert.doesNotMatch(x.list, /\b(and|or)\b/, `${board}: ${x.list}`);
+  }
+});
+test('per class, the share that beats you now (the section highlight works hand by hand)', () => {
+  const lad = ladderOf(flat(), parseCards('Kc 8s 5d'), parseCards('Ah 2h'));
+  assert.ok(lad.classes.every((c) => c.beats >= 0 && c.beats <= 1));
+});

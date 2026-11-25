@@ -15,28 +15,53 @@ import { evaluate, categoryOf, CATEGORY } from '../engine/evaluator.js';
 import { makeRng } from '../engine/cards.js';
 import { coachTiersForRange } from './coachtier.js';
 
+// plural: the rung in a sentence ("mostly top pairs and overpairs"); list: its noun in a list, which never carries its
+// own "and" or "or" (DESIGN's one list builder: "Two pair, top pairs and draws can pay you")
 export const RUNGS = [
-  { name: 'Two pair or better', short: 'Two pair+', plural: 'two pair or better' },
-  { name: 'Top pair or overpair', short: 'Top pair+', plural: 'top pairs and overpairs' },
-  { name: 'Weaker pair', short: 'Weaker pair', plural: 'weaker pairs' },
-  { name: 'Draw', short: 'Draw', plural: 'draws' },
-  { name: 'Nothing', short: 'Nothing', plural: 'hands with nothing' },
+  { name: 'Two pair or better', short: 'Two pair+', plural: 'two pair or better', list: 'two pair' },
+  { name: 'Top pair or overpair', short: 'Top pair+', plural: 'top pairs and overpairs', list: 'top pairs' },
+  { name: 'Weaker pair', short: 'Weaker pair', plural: 'weaker pairs', list: 'weaker pairs' },
+  { name: 'Draw', short: 'Draw', plural: 'draws', list: 'draws' },
+  { name: 'Nothing', short: 'Nothing', plural: 'hands with nothing', list: 'air' },
 ];
 // Boards that are two pair or better on their own (STRAT, DESIGN, 24 Nov): the five rungs stop describing the hands,
 // so these replace them. A: the board alone is two pair or trips (no straight or flush on it). B: the board alone is
 // a straight or better (the river). Draws get no rung of their own here: they sit by what they hold now.
 export const RUNGS_PAIRED = [
-  { name: 'Full house or better', short: 'Full house+', plural: 'full houses or better' },
+  { name: 'Full house or better', short: 'Full house+', plural: 'full houses or better', list: 'full houses' },
   // a pocket pair above the board's lower pair, or a flush or straight made with the board (STRAT: true of all of them)
-  { name: 'Beats the board', short: 'Beats board', plural: 'other hands that beat the board' },
-  { name: 'Board + good kicker', short: 'Good kicker', plural: 'the board with a good kicker' },
-  { name: 'Board + weak kicker', short: 'Weak kicker', plural: 'the board with a weak kicker' },
-  { name: 'Plays the board', short: 'Plays board', plural: 'hands that play the board' },
+  { name: 'Beats the board', short: 'Beats board', plural: 'other hands that beat the board', list: 'hands that beat the board' },
+  { name: 'Board + good kicker', short: 'Good kicker', plural: 'the board with a good kicker', list: 'good kickers' },
+  { name: 'Board + weak kicker', short: 'Weak kicker', plural: 'the board with a weak kicker', list: 'weak kickers' },
+  { name: 'Plays the board', short: 'Plays board', plural: 'hands that play the board', list: 'hands that play the board' },
 ];
 export const RUNGS_MADE = [
-  { name: 'Beats the board', short: 'Beats board', plural: 'hands that beat the board' },
-  { name: 'Plays the board', short: 'Plays board', plural: 'hands that play the board' },
+  { name: 'Beats the board', short: 'Beats board', plural: 'hands that beat the board', list: 'hands that beat the board' },
+  { name: 'Plays the board', short: 'Plays board', plural: 'hands that play the board', list: 'hands that play the board' },
 ];
+// When you hold a full house on a board that is trips or two pair on its own (STRAT, 25 Nov): the top rung splits at your
+// hand. fh: true on these rungs. On a trips board the third rung is named by the two highest ranks not on the board.
+const RANK_WORD = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace'];
+const art = (w) => (/^[ae]/.test(w) ? 'an' : 'a');
+export function rungsFullHouse(trips, topFree) {
+  const top = [
+    { name: 'Beats your full house', short: 'Beats yours', plural: 'hands that beat your full house', list: 'hands that beat your full house', fh: true },
+    { name: 'Smaller full house', short: 'Below yours', plural: 'smaller full houses', list: 'smaller full houses', fh: true },
+  ];
+  const end = { name: 'Plays the board', short: 'Plays board', plural: 'hands that play the board', list: 'hands that play the board', fh: true };
+  if (!trips) {
+    return [...top,
+      { name: 'Beats the board', short: 'Beats board', plural: 'other hands that beat the board', list: 'hands that beat the board', fh: true },
+      { name: 'Board + kicker', short: 'Board+kicker', plural: 'the board with a kicker', list: 'kickers', fh: true },
+      end];
+  }
+  const [a, b] = topFree.map((r) => RANK_WORD[r]);
+  const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+  return [...top,
+    { name: `Board + ${a} or ${b}`, short: `${cap(a)} or ${b}`, plural: `the board with ${art(a)} ${a} or ${b}`, list: 'top kickers', fh: true },
+    { name: 'Board + weak kicker', short: 'Weak kicker', plural: 'the board with a weak kicker', list: 'weak kickers', fh: true },
+    end];
+}
 // which rung names a board takes: null (the five), 'paired' (A) or 'made' (B)
 export function boardKind(board) {
   if (board.length < 3) return null;
@@ -81,8 +106,6 @@ export function ladderOf(w, board, hole) {
   const heroTier = ct ? ct[hi] : hf.tier;
   // the rung rule on a board that is two pair or better on its own (STRAT)
   const kind = boardKind(board);
-  const names = kind === 'paired' ? RUNGS_PAIRED : kind === 'made' ? RUNGS_MADE : RUNGS;
-  const nR = names.length;
   const boardScore = kind ? evaluate(board) : 0;
   const boardRanks = new Set(board.map((c) => c >> 2));
   // the board's lower pair (paired boards) and the two highest ranks not on the board (a good kicker)
@@ -92,6 +115,27 @@ export function ladderOf(w, board, hole) {
   const lowPair = pairs.length >= 2 ? pairs[1] : -1;
   const topFree = [];
   for (let r = 12; r >= 0 && topFree.length < 2; r--) if (!boardRanks.has(r)) topFree.push(r);
+  // you hold a full house or better on a trips or two-pair board: the top rung splits at your hand (STRAT)
+  const fh = kind === 'paired' && categoryOf(hf.score) >= CATEGORY.FULL_HOUSE;
+  const tripsBoard = pairs.length === 1;
+  const names = fh ? rungsFullHouse(tripsBoard, topFree) : kind === 'paired' ? RUNGS_PAIRED : kind === 'made' ? RUNGS_MADE : RUNGS;
+  const nR = names.length;
+  // the split rungs: above yours, then below yours (exact ties too: they don't beat you); on a two-pair board the
+  // pocket pairs above the lower pair and the made straights and flushes beat the board, and every kicker is one rung
+  const rungFH = (c, f) => {
+    const cat = categoryOf(f.score);
+    if (cat >= CATEGORY.FULL_HOUSE) return f.score > hf.score ? 0 : 1;
+    const [p, q] = COMBOS[c];
+    const rp = p >> 2;
+    const rq = q >> 2;
+    // a straight or flush with the board is below your full house; on a trips board it has no rung of its own, so it
+    // sits with the hands just under yours
+    if (cat > categoryOf(boardScore)) return tripsBoard ? 1 : 2;
+    if (!tripsBoard && rp === rq && rp > lowPair) return 2;
+    if (board.length === 5 && f.score <= boardScore) return 4;
+    if (!tripsBoard) return 3;
+    return topFree.includes(Math.max(rp, rq)) ? 2 : 3;
+  };
   const rungPaired = (c, f) => {
     const cat = categoryOf(f.score);
     if (cat >= CATEGORY.FULL_HOUSE) return 0;
@@ -124,7 +168,7 @@ export function ladderOf(w, board, hole) {
     if (x > max) max = x;
     if (x <= 0) continue;
     const f = feats[c];
-    const b = kind === 'paired' ? rungPaired(c, f) : kind === 'made' ? rungMade(c, f) : rungOf(ct ? ct[c] : f.tier, f, n);
+    const b = fh ? rungFH(c, f) : kind === 'paired' ? rungPaired(c, f) : kind === 'made' ? rungMade(c, f) : rungOf(ct ? ct[c] : f.tier, f, n);
     rung[c] = b;
     const k = comboClass[c];
     const part = hf.score > f.score ? x : hf.score === f.score ? x / 2 : 0;
@@ -151,7 +195,7 @@ export function ladderOf(w, board, hole) {
       top = 0;
       for (let b = 1; b < nR; b++) if (clsRung[k][b] > clsRung[k][top]) top = b;
     }
-    classes.push({ rung: top, ahead: clsW[k] > 0 ? clsAhead[k] / clsW[k] : null });
+    classes.push({ rung: top, ahead: clsW[k] > 0 ? clsAhead[k] / clsW[k] : null, beats: clsW[k] > 0 ? clsBeats[k] / clsW[k] : 0 });
   }
   // above the line: the ladder down to the lowest shown rung (at least HIDE_BELOW) that you beat under half of now,
   // unrounded (MATH confirmed, 24 Nov: comparing by category put the underpairs to a pocket pair under the line). Rungs
@@ -170,6 +214,7 @@ export function ladderOf(w, board, hole) {
     classes,
     heroTier,
     kind,
+    fh,
     names,
     above,
     beaters: NAMES.map((name, k) => ({ name, w: clsBeats[k] })).filter((x) => x.w > 0).sort((a, b) => b.w - a.w).map((x) => x.name),

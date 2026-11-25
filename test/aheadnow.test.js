@@ -11,6 +11,8 @@ import { build } from '../scripts/gradeall.js';
 import { rejudge } from '../scripts/replay_snapshot.js';
 import { anchorLine } from '../src/trainer/explain.js';
 import { INVARIANTS } from '../scripts/verdictcheck.js';
+import { TYPE_IDS } from '../src/bots/profiles.js';
+import { TIER } from '../src/engine/features.js';
 
 const opts = (callEv, foldEv, o = {}) => [{ type: 'fold', ev: foldEv, close: !!o.foldClose }, { type: 'call', ev: callEv, close: !!o.callClose }];
 const line = ({ E, P, callEv = 0, foldEv = 0, oop = true, hu = true, note, opp = 1, callClose, foldClose, noE } = {}) => {
@@ -82,4 +84,27 @@ test('verdictcheck AN1: an ahead-now figure beside the price before the river is
   assert.equal(an({ street: 1, anchor: 'You are ahead now 30% of the time and your draw comes in 20% of the time; the price needs 25%: close.' }), false);
   assert.equal(an({ street: 'turn', anchor: 'You are ahead about 30% of the time and need 20% at this price. Fold.' }), true);
   assert.equal(an({ street: 3, anchor: 'You are ahead about 30% of the time and need 20% at this price. Fold.' }), false);
+});
+
+// STRAT (17d5ea6 review): the ends, the range sentences and the raise tail
+const lineD = (o, d = {}) => {
+  const options = [{ type: 'fold', ev: o.foldEv ?? 0 }, { type: 'call', ev: o.callEv ?? 0 }];
+  const v = { options, best: (o.callEv ?? 0) >= (o.foldEv ?? 0) ? 1 : 0, mine: 1, grade: 'good', anchors: { price: o.P }, runout: { seat: 3, E: o.E, hu: o.hu ?? true } };
+  return runoutLine({ verdict: v, opponents: o.hu === false ? 2 : 1, table: { oop: true }, villain: { nick: 'Jo', seat: 3, picture: d.picture }, tier: d.tier }, v, v.anchors);
+};
+const read = (id, buckets) => ({ post: Float64Array.from(TYPE_IDS.map((t) => (t === id ? 0.9 : 0.1 / (TYPE_IDS.length - 1)))), buckets });
+test('the ends read "almost never win" / "almost always win", then ", and need"', () => {
+  assert.equal(lineD({ E: 0.02, P: 0.25, callEv: -20 }), "You'd almost never win if it went to showdown, and need 25%; not enough. Fold.");
+  assert.equal(lineD({ E: 0.97, P: 0.25, callEv: 20 }), "You'd almost always win if it went to showdown, and need 25%. Call.");
+  assert.equal(lineD({ E: 0.02, P: 0.25, callEv: -20, hu: false }), "Against Jo's range alone you'd almost never win if it went to showdown; the others still in make it worse. Fold.");
+});
+test('a fold the numbers agree with keeps the bettor\'s range sentence', () => {
+  assert.equal(lineD({ E: 0.1, P: 0.25, callEv: -20 }, { picture: read('station', { air: 0.05, draw: 0.05 }) }), "You'd win about 10% if it went to showdown and need 25%; not enough. Good players bluff just enough to make this close. This player's bets are nearly always real. Fold.");
+  assert.equal(lineD({ E: 0.1, P: 0.25, callEv: -20 }, { picture: read('maniac', { air: 0.3, draw: 0.1 }) }), "Even against a player who bluffs this often, you'd win only 10% if it went to showdown and need 25%. Fold.");
+  // E >= P with a fold: the position reason, no range sentence
+  assert.match(lineD({ E: 0.3, P: 0.2, callEv: -6 }, { picture: read('station', { air: 0.05, draw: 0.05 }) }), /out of position against a calling station you won't get there often enough\. Fold\.$/);
+});
+test('a call keeps the raise tail for a pair up to an overpair or top pair, top kicker', () => {
+  assert.equal(lineD({ E: 0.45, P: 0.25, callEv: 10 }, { tier: TIER.TOP_PAIR_WEAK }), "You'd win about 45% if it went to showdown and need 25%. Call. Raising gets called mostly by better hands.");
+  assert.equal(lineD({ E: 0.45, P: 0.25, callEv: 10 }, { tier: TIER.TWO_PAIR }), "You'd win about 45% if it went to showdown and need 25%. Call.");
 });

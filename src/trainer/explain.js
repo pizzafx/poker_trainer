@@ -189,9 +189,9 @@ function rangeLine(d) {
     if (!ro) {
       // no figure without E (an old record): never the share ahead now beside the price
     } else if (d.opponents >= 2) {
-      s += ` Against ${vil.nick}'s range alone you'd win ${share(ro.E)} if it went to showdown; the ${others === 1 ? 'other player' : `${NUM_WORDS[others] || others} others`} still in make${others === 1 ? 's' : ''} it worse.`;
+      s += ` Against ${vil.nick}'s range alone you'd ${winWords(ro.E).verb}; the ${others === 1 ? 'other player' : `${NUM_WORDS[others] || others} others`} still in make${others === 1 ? 's' : ''} it worse.`;
     } else {
-      s += ` You'd win ${share(ro.E)} if it went to showdown and the price needs ${share(price, false)}.`;
+      s += ` You'd ${winWords(ro.E).verb}${winWords(ro.E).and}the price needs ${share(price, false)}.`;
       // a money-in flag before the river: the later bets are what make the call lose (QA YB-2)
       if (d.verdict.rule === 'moneyIn' && ro.E >= price) s += ' The bets still to come cost more than that edge is worth.';
     }
@@ -532,19 +532,48 @@ export function runoutLine(d, v, A) {
   // close: not graded, or the other of call and fold is too close to the best to tell apart
   const other = callBest ? fold : call;
   const close = isNotGradedNote(v) || !!(other && other.close);
-  const end = close ? ': close.' : callBest ? '. Call.' : '. Fold.';
+  // a call keeps the raise tail for a pair up to an overpair or top pair, top kicker (STRAT)
+  const raiseTail = (d.tier ?? -1) >= TIER.WEAK_PAIR && (d.tier ?? -1) <= TIER.OVERPAIR_TPTK ? ' Raising gets called mostly by better hands.' : '';
+  const end = close ? ': close.' : callBest ? `. Call.${raiseTail}` : '. Fold.';
   const nick = d.villain ? d.villain.nick : 'the bettor';
   if (!ro) return `The price needs ${need}${end}`;
-  const win = share(ro.E);
-  if (!ro.hu) return `Against ${nick}'s range alone you'd win ${win} if it went to showdown; the others still in make it worse${end}`;
-  if (share(ro.E, false) === need) return `You'd win ${win} if it went to showdown, about what the price needs${end}`;
-  const base = `You'd win ${win} if it went to showdown and need ${need}`;
+  const W = winWords(ro.E);
+  if (!ro.hu) return `Against ${nick}'s range alone you'd ${W.verb}; the others still in make it worse${end}`;
+  if (share(ro.E, false) === need) return `You'd ${W.verb}, about what the price needs${end}`;
+  const base = `You'd ${W.verb}${W.and}need ${need}`;
   if (close) return `${base}: close.`;
   const { who } = whoOf(d);
   if (!callBest && ro.E >= A.price) return d.table && d.table.oop ? `${base}, but out of position against ${who} you won't get there often enough. Fold.` : `${base}, but the bets still to come from ${who} cost more than that edge. Fold.`;
-  if (!callBest) return `${base}; not enough. Fold.`;
-  if (ro.E < A.price) return `${base}, but when you hit, ${who} pays you enough to make up the rest. Call.`;
-  return `${base}. Call.`;
+  if (!callBest) {
+    // the numbers agree with the fold: the bettor's range sentences stay (STRAT F1, POOL batch 12)
+    const rk = rangeKind(d);
+    if (rk === 'real') return `${base}; not enough. Good players bluff just enough to make this close. This player's bets are nearly always real. Fold.`;
+    if (rk === 'loose') return `Even against a player who bluffs this often, you'd ${ro.E < 0.05 ? W.verb : `win only ${share(ro.E, false)} if it went to showdown`}${W.and}need ${need}. Fold.`;
+    return `${base}; not enough. Fold.`;
+  }
+  if (ro.E < A.price) return `${base}, but when you hit, ${who} pays you enough to make up the rest. Call.${raiseTail}`;
+  return `${base}. Call.${raiseTail}`;
+}
+// "win about 30% if it went to showdown"; at the ends "almost never win" / "almost always win", then ", and need" (STRAT)
+function winWords(E) {
+  if (E < 0.05) return { verb: 'almost never win if it went to showdown', and: ', and ' };
+  if (E > 0.95) return { verb: 'almost always win if it went to showdown', and: ', and ' };
+  return { verb: `win ${share(E)} if it went to showdown`, and: ' and ' };
+}
+// The bettor's range, for the fold sentences: 'real' for a bettor read as passive whose range shows under 15% nothing
+// plus draws (STRAT F1); 'loose' for a maniac, lag or gambler whose range shows 25% or more (STRAT, POOL batch 12)
+function rangeKind(d) {
+  const pic = d.villain && d.villain.picture;
+  const post = pic && pic.post;
+  let top = -1;
+  if (post) for (let k = 0; k < post.length; k++) if (top < 0 || post[k] > post[top]) top = k;
+  const type = top >= 0 ? TYPE_IDS[top] : null;
+  const b = pic && pic.buckets;
+  // on a board that alone makes two pair or better, "nothing better than the board" is the air (STRAT, 20 Nov)
+  const loose = pic && pic.boardAir !== undefined ? Math.round(100 * (pic.boardAir + (b ? b.draw : 0))) : b ? Math.round(100 * (b.air + b.draw)) : 100;
+  if (['nit', 'abc', 'station', 'beginner'].includes(type) && loose < 15) return 'real';
+  if (['maniac', 'lag', 'whale'].includes(type) && loose >= 25) return 'loose';
+  return null;
 }
 
 export function anchorLine(d) {

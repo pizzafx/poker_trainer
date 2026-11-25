@@ -143,8 +143,9 @@ test('R5b: a passive-lead call left not graded by the scenario test (fragileRead
     verdict: { grade: 'good', rule: 'R5b', note, mine: 1, best: 0, small: 6, options: opts },
   });
   const h = explain(rec('fragileRead')).headline;
-  assert.match(h, /^Call \$12: not graded\./, h);
-  assert.doesNotMatch(h, /passive player leads into a crowd/);
+  // STRAT, CEO: the not-graded line first, then R5b's reason after the scenario; never R5b's "fine" line
+  assert.match(h, /^Call \$12: not graded\. \(Fold scores about \$14 more on our read of .*, but not under every reasonable read.*\. When a passive player leads into a crowd, one pair is often beaten\.\)$/, h);
+  assert.doesNotMatch(h, /: fine\./);
   // with no note R5b keeps its line
   assert.equal(explain(rec(undefined)).headline, 'Call $12: fine. (When a passive player leads into a crowd, one pair is often beaten.)');
 });
@@ -166,4 +167,13 @@ test('headline word = strip word = card word for each not-graded note, R5b inclu
       assert.match(h, /^Call \$12: not graded\./, `${rule} ${note}: ${h}`);
     }
   }
+});
+
+// QA-VERDICT's row q2_sens_12 h11d23 (CEO check 5): STRAT's full line, the scenario and then R5b's reason
+test('R5b + fragileRead on the real row h11d23: the not-graded line with its scenario, then the R5b reason', () => {
+  const d = JSON.parse(readFileSync(new URL('./fixtures/records/r5b-fragile-h11d23.json', import.meta.url), 'utf8'));
+  assert.equal(d.verdict.rule, 'R5b');
+  assert.equal(d.verdict.note, 'fragileRead');
+  assert.equal(explain(d).headline, 'Call $60: not graded. (Fold scores about $25 more on our read of these players, but not under every reasonable read: if their hands are weaker than we read, the gap is only about $12. When a passive player leads into a crowd, one pair is often beaten.)');
+  assert.equal(verdictWord(d.verdict, d), 'not graded');
 });

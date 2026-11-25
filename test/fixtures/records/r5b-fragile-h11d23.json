@@ -1,0 +1,774 @@
+{
+ "judgeSeed": 1464,
+ "histLen": 23,
+ "hand": 11,
+ "id": 23,
+ "street": "turn",
+ "position": "UTG+1",
+ "hole": "Qd 8d",
+ "board": "4s Jh Qs 7c",
+ "handText": "top pair, weak kicker",
+ "tier": 4,
+ "drawEquity": 0.066,
+ "ownDrawEquity": 0,
+ "pot": 205,
+ "toCall": 60,
+ "raises": 1,
+ "opponents": 2,
+ "action": {
+  "type": "call"
+ },
+ "reasons": [],
+ "theory": null,
+ "tip": null,
+ "tipKind": null,
+ "anchor": null,
+ "anchorExtra": null,
+ "table": {
+  "n": 9,
+  "raked": true,
+  "voluntary": 2,
+  "oop": true
+ },
+ "category": null,
+ "verdict": {
+  "grade": "good",
+  "mine": 1,
+  "best": 0,
+  "note": "fragileRead",
+  "rule": "R5b",
+  "loss": 25.062666666666665,
+  "se": 2.5484632501728335,
+  "small": 20.5,
+  "pot": 205,
+  "samples": 1500,
+  "wantSamples": 780,
+  "scenGaps": [
+   {
+    "label": "base",
+    "gap": 25.06
+   },
+   {
+    "label": "calls-5",
+    "gap": 25.27
+   },
+   {
+    "label": "calls+5",
+    "gap": 25.27
+   },
+   {
+    "label": "thin hero",
+    "gap": 25.27
+   },
+   {
+    "label": "ranges x2",
+    "gap": 32.53
+   },
+   {
+    "label": "ranges x0.5",
+    "gap": 12.46
+   }
+  ],
+  "scenarios": 6,
+  "putIn": 60,
+  "bb": 2,
+  "sameKind": false,
+  "anchors": {
+   "n": 1500,
+   "topSizeBest": false,
+   "Q": 0.06466666666666666,
+   "price": 0.22641509433962265
+  },
+  "options": [
+   {
+    "label": "Fold",
+    "type": "fold",
+    "ev": 0,
+    "close": true,
+    "st": "works"
+   },
+   {
+    "label": "Call $60",
+    "type": "call",
+    "ev": -25.06,
+    "close": false,
+    "st": "fails"
+   },
+   {
+    "label": "All-in $171 (2.9x)",
+    "type": "raise",
+    "to": 171,
+    "ev": -91.59,
+    "close": false,
+    "W": 0.01774447949526814,
+    "F": 0.15466666666666667,
+    "need": 0.5,
+    "alpha": 0.45478723404255317,
+    "st": "fails",
+    "called": 1268,
+    "R": 0,
+    "C": 0.8453333333333334
+   }
+  ]
+ },
+ "villain": {
+  "seat": 2,
+  "nick": "Golf Shirt",
+  "post": {
+   "0": 0.0773123496848985,
+   "1": 0.7114276152551917,
+   "2": 0.09995941143772964,
+   "3": 0.02006492321215594,
+   "4": 0.018247140082004815,
+   "5": 0.018247140082004815,
+   "6": 0.018247140082004815,
+   "7": 0.018247140082004815,
+   "8": 0.018247140082004815
+  },
+  "buckets": {
+   "monster": 0,
+   "strong": 0.029729963033236634,
+   "twoPair": 0.004032801275476803,
+   "topPair": 0.8820180910545833,
+   "weakPair": 0.06195189440008722,
+   "draw": 0.011538112824545423,
+   "air": 0.010729137412085796
+  },
+  "equity": 0.08495415540245879
+ },
+ "snapshot": {
+  "game": "casino",
+  "blinds": [
+   1,
+   2
+  ],
+  "straddle": 0,
+  "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+  "handNo": 11,
+  "seats": [
+   {
+    "seat": 0,
+    "name": "You",
+    "pos": "UTG+1",
+    "startStack": 200,
+    "stack": 171,
+    "inPot": 29,
+    "folded": false
+   },
+   {
+    "seat": 1,
+    "name": "Button-Down",
+    "pos": "UTG+2",
+    "startStack": 98,
+    "stack": 98,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.711
+     },
+     {
+      "type": "station",
+      "p": 0.101
+     },
+     {
+      "type": "nit",
+      "p": 0.081
+     }
+    ],
+    "logP": [
+     -2.1773,
+     0,
+     -1.9485,
+     -5.55,
+     -10.746,
+     -18.1194,
+     -11.2596,
+     -8.5536,
+     -10.6108
+    ],
+    "handStart": [
+     -2.1052,
+     0.2563,
+     -1.4031,
+     -4.9641,
+     -10.506,
+     -18.0355,
+     -11.1894,
+     -8.4576,
+     -10.1073
+    ],
+    "observed": {
+     "hands": 10,
+     "vpip": 3,
+     "pfr": 0,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 2,
+    "name": "Golf Shirt",
+    "pos": "LJ",
+    "startStack": 258,
+    "stack": 169,
+    "inPot": 89,
+    "folded": false,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.711
+     },
+     {
+      "type": "station",
+      "p": 0.1
+     },
+     {
+      "type": "nit",
+      "p": 0.077
+     }
+    ],
+    "logP": [
+     -2.2194,
+     0,
+     -1.9625,
+     -3.5683,
+     -7.2845,
+     -11.4996,
+     -5.4699,
+     -10.5017,
+     -9.0747
+    ],
+    "handStart": [
+     1.2251,
+     3.0083,
+     1.4051,
+     -0.81,
+     -4.1297,
+     -8.6485,
+     -2.5284,
+     -7.4708,
+     -6.1122
+    ],
+    "observed": {
+     "hands": 10,
+     "vpip": 3,
+     "pfr": 0,
+     "showdowns": 2
+    }
+   },
+   {
+    "seat": 3,
+    "name": "Jeans",
+    "pos": "HJ",
+    "startStack": 197,
+    "stack": 197,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.386
+     },
+     {
+      "type": "nit",
+      "p": 0.235
+     },
+     {
+      "type": "abc",
+      "p": 0.2
+     }
+    ],
+    "logP": [
+     -0.4979,
+     -0.6598,
+     -3.9031,
+     -7.1631,
+     -5.3901,
+     -2.2825,
+     0,
+     -1.7846,
+     -11.8835
+    ],
+    "handStart": [
+     -0.4534,
+     -0.5441,
+     -3.6896,
+     -6.7283,
+     -5.0476,
+     -2.203,
+     0.0602,
+     -1.7161,
+     -11.5558
+    ],
+    "observed": {
+     "hands": 10,
+     "vpip": 0,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 4,
+    "name": "New Guy",
+    "pos": "CO",
+    "startStack": 59,
+    "stack": 59,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "abc",
+      "p": 0.588
+     },
+     {
+      "type": "station",
+      "p": 0.287
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "logP": [
+     -4.5613,
+     0,
+     -0.7189,
+     -3.983,
+     -11.2824,
+     -22.6745,
+     -18.7413,
+     -19.4935,
+     -9.8098
+    ],
+    "handStart": [
+     -4.5181,
+     0.1319,
+     -0.4597,
+     -3.4476,
+     -10.8624,
+     -22.577,
+     -18.6675,
+     -19.4082,
+     -9.4054
+    ],
+    "observed": {
+     "hands": 10,
+     "vpip": 6,
+     "pfr": 0,
+     "showdowns": 0
+    }
+   },
+   {
+    "seat": 5,
+    "name": "Party Crew",
+    "pos": "BTN",
+    "startStack": 56,
+    "stack": 0,
+    "inPot": 56,
+    "folded": false,
+    "read": [
+     {
+      "type": "station",
+      "p": 0.752
+     },
+     {
+      "type": "whale",
+      "p": 0.126
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "logP": [
+     -34.7916,
+     -10.4435,
+     0,
+     -1.7899,
+     -13.5051,
+     -31.6372,
+     -32.7177,
+     -32.3185,
+     -10.6591
+    ],
+    "handStart": [
+     -32.914,
+     -9.3187,
+     0.7448,
+     -1.2895,
+     -12.7441,
+     -30.0403,
+     -30.9511,
+     -30.5892,
+     -10.1503
+    ],
+    "observed": {
+     "hands": 10,
+     "vpip": 9,
+     "pfr": 1,
+     "showdowns": 6
+    },
+    "steaming": true
+   },
+   {
+    "seat": 6,
+    "name": "Jersey",
+    "pos": "SB",
+    "startStack": 163,
+    "stack": 134,
+    "inPot": 29,
+    "folded": true,
+    "read": [
+     {
+      "type": "whale",
+      "p": 0.471
+     },
+     {
+      "type": "station",
+      "p": 0.406
+     },
+     {
+      "type": "nit",
+      "p": 0.018
+     }
+    ],
+    "logP": [
+     -32.8298,
+     -15.0506,
+     -0.1472,
+     0,
+     -15.8141,
+     -41.9924,
+     -33.8062,
+     -34.7457,
+     -8.3301
+    ],
+    "handStart": [
+     -31.142,
+     -13.7723,
+     0.9898,
+     0.9297,
+     -14.6953,
+     -40.4313,
+     -32.2087,
+     -33.1855,
+     -7.4891
+    ],
+    "observed": {
+     "hands": 10,
+     "vpip": 7,
+     "pfr": 1,
+     "showdowns": 5
+    },
+    "steaming": true
+   },
+   {
+    "seat": 7,
+    "name": "Hoodie",
+    "pos": "BB",
+    "startStack": 208,
+    "stack": 206,
+    "inPot": 2,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.569
+     },
+     {
+      "type": "gto",
+      "p": 0.184
+     },
+     {
+      "type": "lag",
+      "p": 0.116
+     }
+    ],
+    "logP": [
+     -3.207,
+     -2.8357,
+     -6.3703,
+     -9.757,
+     -5.6383,
+     -1.1268,
+     0,
+     -1.5928,
+     -12.2212
+    ],
+    "handStart": [
+     -3.1472,
+     -2.6575,
+     -5.9958,
+     -8.9659,
+     -5.0562,
+     -1.0117,
+     0.093,
+     -1.4864,
+     -11.6603
+    ],
+    "observed": {
+     "hands": 10,
+     "vpip": 0,
+     "pfr": 0,
+     "showdowns": 1
+    }
+   },
+   {
+    "seat": 8,
+    "name": "Shades",
+    "pos": "UTG",
+    "startStack": 536,
+    "stack": 536,
+    "inPot": 0,
+    "folded": true,
+    "read": [
+     {
+      "type": "tag",
+      "p": 0.667
+     },
+     {
+      "type": "lag",
+      "p": 0.189
+     },
+     {
+      "type": "gto",
+      "p": 0.034
+     }
+    ],
+    "logP": [
+     -5.487,
+     -3.9135,
+     -10.3327,
+     -14.6251,
+     -5.1472,
+     -2.9794,
+     0,
+     -1.2589,
+     -18.2826
+    ],
+    "handStart": [
+     -5.4213,
+     -3.6931,
+     -9.8401,
+     -14.0828,
+     -4.9529,
+     -2.897,
+     0.0615,
+     -1.1659,
+     -17.8095
+    ],
+    "observed": {
+     "hands": 10,
+     "vpip": 4,
+     "pfr": 3,
+     "showdowns": 2
+    }
+   }
+  ],
+  "actions": [
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Jersey",
+    "type": "sb",
+    "to": 1,
+    "amount": 1
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Hoodie",
+    "type": "bb",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 8,
+    "who": "Shades",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 2,
+    "amount": 2
+   },
+   {
+    "street": "preflop",
+    "seat": 1,
+    "who": "Button-Down",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 2,
+    "who": "Golf Shirt",
+    "type": "raise",
+    "to": 12,
+    "amount": 12
+   },
+   {
+    "street": "preflop",
+    "seat": 3,
+    "who": "Jeans",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 4,
+    "who": "New Guy",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 5,
+    "who": "Party Crew",
+    "type": "call",
+    "to": 12,
+    "amount": 12
+   },
+   {
+    "street": "preflop",
+    "seat": 6,
+    "who": "Jersey",
+    "type": "call",
+    "to": 12,
+    "amount": 11
+   },
+   {
+    "street": "preflop",
+    "seat": 7,
+    "who": "Hoodie",
+    "type": "fold",
+    "to": 2,
+    "amount": 0
+   },
+   {
+    "street": "preflop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 12,
+    "amount": 10
+   },
+   {
+    "street": "flop",
+    "seat": 6,
+    "who": "Jersey",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 0,
+    "who": "You",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "flop",
+    "seat": 2,
+    "who": "Golf Shirt",
+    "type": "bet",
+    "to": 17,
+    "amount": 17
+   },
+   {
+    "street": "flop",
+    "seat": 5,
+    "who": "Party Crew",
+    "type": "call",
+    "to": 17,
+    "amount": 17
+   },
+   {
+    "street": "flop",
+    "seat": 6,
+    "who": "Jersey",
+    "type": "call",
+    "to": 17,
+    "amount": 17
+   },
+   {
+    "street": "flop",
+    "seat": 0,
+    "who": "You",
+    "type": "call",
+    "to": 17,
+    "amount": 17
+   },
+   {
+    "street": "turn",
+    "seat": 6,
+    "who": "Jersey",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "turn",
+    "seat": 0,
+    "who": "You",
+    "type": "check",
+    "to": 0,
+    "amount": 0
+   },
+   {
+    "street": "turn",
+    "seat": 2,
+    "who": "Golf Shirt",
+    "type": "bet",
+    "to": 60,
+    "amount": 60
+   },
+   {
+    "street": "turn",
+    "seat": 5,
+    "who": "Party Crew",
+    "type": "call",
+    "to": 27,
+    "amount": 27
+   },
+   {
+    "street": "turn",
+    "seat": 6,
+    "who": "Jersey",
+    "type": "fold",
+    "to": 0,
+    "amount": 0
+   }
+  ],
+  "pot": 205,
+  "heat": 0.078,
+  "heatAt": {},
+  "judge": {
+   "seed": 1464,
+   "samples": 1500
+  }
+ },
+ "types": [
+  null,
+  "abc",
+  "abc",
+  "tag",
+  "abc",
+  "station",
+  "whale",
+  "tag",
+  "lag"
+ ]
+}

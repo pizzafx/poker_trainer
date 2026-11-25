@@ -469,7 +469,9 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A ${bluffWord(top) || 'bet'} ${more(top)} against these bots; not enough to rely on at a real table.)`;
   // STRAT, CEO (fragile label fix): the scenario test's own fragile (fragileRead) is not graded and names the read that
   // flips it; the other two fragile passes stay 'fine' and no longer say "not graded" (they contradicted themselves)
-  if (v.note === 'fragileRead') return `${mine.label}: not graded. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read${flipRead(v) ? `: ${flipRead(v)}` : ''}.${habitTail(v, d)})`;
+  // STRAT, CEO: an R5b call the scenario test leaves not graded keeps R5b's reason after the scenario
+  const r5bWhy = v.rule === 'R5b' && v.habitOut !== 'passiveLead' ? ' When a passive player leads into a crowd, one pair is often beaten.' : '';
+  if (v.note === 'fragileRead') return `${mine.label}: not graded. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read${flipRead(v) ? `: ${flipRead(v)}` : ''}.${habitTail(v, d)}${r5bWhy})`;
   if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')} on our read of ${who}.${habitTail(v, d)})`;
   if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')}.)`;
   // ...never naming a play the coach does not teach here (R7 habits: the reference already leaves them out; STRAT, F10)

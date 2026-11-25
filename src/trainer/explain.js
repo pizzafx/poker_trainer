@@ -523,13 +523,14 @@ function overcardWords(d) {
 // E < P) is chosen on the unrounded E; figures print rounded as everywhere else. Heads-up only (one opponent with money
 // in on this street); multiway, E is against the bettor's range alone and never set against the price. Without E (an
 // old record) the line keeps the price and the ending, with no figure for the hand.
-// A bet or raise line's share of the callers you beat (STRAT): "about 60%", "almost none", "almost all", with " of the
-// callers" when asked and "right now" before the river
-function beatOf(W, of, river) {
+// A bet or raise line's W (MATH): the share of called play-outs in which you beat every caller at once, so the words
+// are right for any number of callers (STRAT, CEO): "beat every caller about 60% of the time", "almost never beat every
+// caller", "almost always beat every caller", and "right now" before the river
+export function beatEvery(W, river) {
   const rn = river ? '' : ' right now';
-  if (W < 0.05) return `almost none${of ? ` of${of}` : ''}${rn}`;
-  if (W > 0.95) return `almost all${of ? ` of${of}` : ''}${rn}`;
-  return `${share(W)}${of ? ` of${of}` : ''}${rn}`;
+  if (W < 0.05) return `almost never beat every caller${rn}`;
+  if (W > 0.95) return `almost always beat every caller${rn}`;
+  return `beat every caller ${share(W)} of the time${rn}`;
 }
 
 export function runoutLine(d, v, A) {
@@ -630,9 +631,9 @@ export function anchorLine(d) {
       const chk = v.options.find((x) => x.type === 'check');
       const top = v.options.reduce((a, x) => (x.ev > a.ev ? x : a), v.options[0]);
       const checkFine = chk && Math.round(top.ev) - Math.round(chk.ev) <= (v.small || 0);
-      if (thin) return `Of the hands that call, you beat ${beatOf(o.W, '', river)} and need ${share(o.need)}. That is thin: ${checkFine ? 'a small bet or a check are both fine' : 'a smaller bet is fine too'}.`;
-      if (s === 'works') return `Of the hands that call, you beat ${beatOf(o.W, '', river)} and need ${share(o.need)}. These players call with worse: bet for value.`;
-      return `Of the hands that call, you beat ${beatOf(o.W, '', river)} and need ${share(o.need)}. They mostly call with better hands.`;
+      if (thin) return `When called, you ${beatEvery(o.W, river)} and need ${share(o.need)}. That is thin: ${checkFine ? 'a small bet or a check are both fine' : 'a smaller bet is fine too'}.`;
+      if (s === 'works') return `When called, you ${beatEvery(o.W, river)} and need ${share(o.need)}. These players call with worse: bet for value.`;
+      return `When called, you ${beatEvery(o.W, river)} and need ${share(o.need)}. They mostly call with better hands.`;
     }
     // a real draw below top pair, up to 1.05x the pot: the combined test's two inputs and its verdict (MATH 19b,
     // STRAT); past that the draw does not count and the bluff wording below applies
@@ -662,7 +663,7 @@ export function anchorLine(d) {
     const nowS = river ? '' : ' now';
     // a draw quotes its outs, never "ahead now" (STRAT, QA-VERDICT C8a-W1)
     const drawing = !river && isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR;
-    const called = drawing ? `Called, your draw comes in ${share(hf.ownDrawEquity)}` : `Called, you beat ${beatOf(W === null || W === undefined ? 0 : W, ' the callers', river)}`;
+    const called = drawing ? `Called, your draw comes in ${share(hf.ownDrawEquity)}` : `Called, you ${beatEvery(W === null || W === undefined ? 0 : W, river)}`;
     const folds = mine.F < 0.05 ? 'almost no one folds' : mine.F > 0.95 ? 'nearly everyone folds' : `everyone folds ${share(mine.F)}`;
     // the middle sentence alone when the headline above already says "not a habit to build"
     const mid = `${called}; ${folds}, and it needs ${share(mine.alpha, false)}.`;
@@ -682,7 +683,7 @@ export function anchorLine(d) {
     const $ = (o) => `$${o.to - (d.currentBet || 0)}`;
     if (ref.to > mine.to) {
       line = madeFor(ref) && ref.W !== null
-        ? `At ${$(ref)} you still beat ${beatOf(ref.W, ' the callers', river)}, and these players still call: the bigger ${kw} earns more.`
+        ? `At ${$(ref)} you still ${beatEvery(ref.W, river)}, and these players still call: the bigger ${kw} earns more.`
         : `At ${$(ref)} ${foldsP(ref.F)}, against ${share(mine.F, false)} at ${$(mine)}: the bigger ${kw} works better here.`;
     } else {
       line = `At ${$(mine)} ${foldsP(mine.F)}, against ${share(ref.F, false)} at ${$(ref)}: the bigger ${kw} folds out the worse hands you want to keep in.`;

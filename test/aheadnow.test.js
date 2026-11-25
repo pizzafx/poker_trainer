@@ -121,11 +121,22 @@ test('never "Call." under a fine fold or "Fold." under a fine call: close (STRAT
   assert.equal(runoutLine({ verdict: v, opponents: 1, table: { oop: true }, villain: { nick: 'Jo', seat: 3 } }, v, v.anchors), "You'd win about 30% if it went to showdown and need 20%: close.");
 });
 
-// STRAT: the bet and raise lines in plain words, "right now" before the river
-test('bet and raise lines: "of the hands that call, you beat …" (AN1 reads them as bet lines)', () => {
+// STRAT, MATH, CEO: the bet and raise lines say "beat every caller", right for any number of callers; "right now" before
+// the river
+import { beatEvery } from '../src/trainer/explain.js';
+test('bet and raise lines: "you beat every caller about X% of the time right now"', () => {
+  assert.equal(beatEvery(0.6, false), 'beat every caller about 60% of the time right now');
+  assert.equal(beatEvery(0.6, true), 'beat every caller about 60% of the time');
+  assert.equal(beatEvery(0.02, false), 'almost never beat every caller right now');
+  assert.equal(beatEvery(0.98, true), 'almost always beat every caller');
   const an = INVARIANTS[Object.keys(INVARIANTS).find((k) => k.startsWith('AN1'))];
-  assert.equal(an({ street: 2, anchor: 'Of the hands that call, you beat about 60% right now and need about 35%. These players call with worse: bet for value.' }), false);
-  assert.equal(an({ street: 2, anchor: 'Of the hands that call, you beat about 60% and need about 35%. These players call with worse: bet for value.' }), true);
-  assert.equal(an({ street: 1, anchor: 'Called, you beat almost none of the callers right now; almost no one folds, and it needs 40%.' }), false);
-  assert.equal(an({ street: 1, anchor: 'At $60 you still beat about 70% of the callers, and these players still call: the bigger bet earns more.' }), true);
+  assert.equal(an({ street: 2, anchor: 'When called, you beat every caller about 60% of the time right now and need about 35%. These players call with worse: bet for value.' }), false);
+  assert.equal(an({ street: 2, anchor: 'When called, you beat every caller about 60% of the time and need about 35%. That is thin: a smaller bet is fine too.' }), true);
+  assert.equal(an({ street: 1, anchor: 'At $60 you still beat every caller about 70% of the time, and these players still call: the bigger bet earns more.' }), true);
+});
+// multiway: W already means every caller at once, so the same words hold with three players in (MATH)
+test('a multiway value bet: the same "every caller" words, the figure is the all-callers share', () => {
+  const s = `When called, you ${beatEvery(0.35, false)} and need about 25%.`;
+  assert.equal(s, 'When called, you beat every caller about 35% of the time right now and need about 25%.');
+  assert.doesNotMatch(s, /hands that call/);
 });

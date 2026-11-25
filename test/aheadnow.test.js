@@ -80,5 +80,6 @@ test('verdictcheck AN1: an ahead-now figure beside the price before the river is
   assert.equal(an({ street: 2, anchor: 'When called you are ahead about 60% of the time and need 50%. That is thin.' }), true);
   assert.equal(an({ street: 2, anchor: 'When called you are ahead now about 60% of the time and need 50%. That is thin.' }), false);
   assert.equal(an({ street: 1, anchor: 'You are ahead now 30% of the time and your draw comes in 20% of the time; the price needs 25%: close.' }), false);
+  assert.equal(an({ street: 'turn', anchor: 'You are ahead about 30% of the time and need 20% at this price. Fold.' }), true);
   assert.equal(an({ street: 3, anchor: 'You are ahead about 30% of the time and need 20% at this price. Fold.' }), false);
 });

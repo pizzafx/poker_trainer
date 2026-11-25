@@ -125,7 +125,8 @@ export const INVARIANTS = {
   // against the price (the figure is what you'd win if it went to showdown), and every bet or raise line that prints
   // ahead-now says "now". The draw lines and "almost never ahead" mean now and keep it.
   'AN1 before the river, no ahead-now beside the price on a call or fold line; bet and raise lines say "now"': (d) => {
-    if (d.street !== 1 && d.street !== 2) return false;
+    const st = typeof d.street === 'number' ? d.street : ['preflop', 'flop', 'turn', 'river'].indexOf(d.street);
+    if (st !== 1 && st !== 2) return false;
     const sents = [d.anchor, d.anchorExtra, ...(d.reasons || [])].filter(Boolean).flatMap((x) => String(x).split(/(?<=[.;])\s+/));
     for (const x of sents) {
       if (!/\b(ahead|beats?)\b/.test(x) || /draw comes in|almost never ahead|almost always ahead/.test(x)) continue;

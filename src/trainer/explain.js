@@ -554,7 +554,8 @@ export function runoutLine(d, v, A) {
     if (rk === 'loose') return `Even against a player who bluffs this often, you'd ${ro.E < 0.05 ? W.verb : `win only ${share(ro.E, false)} if it went to showdown`}${W.and}need ${need}. Fold.`;
     return `${base}; not enough. Fold.`;
   }
-  if (ro.E < A.price) return `${base}, but when you hit, ${who} pays you enough to make up the rest. Call.${raiseTail}`;
+  // E short of the price with a call best: a real draw pays when it hits; a made hand wins more on later streets (STRAT)
+  if (ro.E < A.price) return d.realDraw ? `${base}, but when you hit, ${who} pays you enough to make up the rest. Call.${raiseTail}` : `${base}, but what you win on later streets makes up the rest. Call.${raiseTail}`;
   return `${base}. Call.${raiseTail}`;
 }
 // "win about 30% if it went to showdown"; at the ends "almost never win" / "almost always win", then ", and need" (STRAT)

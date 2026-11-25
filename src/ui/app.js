@@ -1257,7 +1257,7 @@ function duoHtml(d) {
   let x = null;
   if (d.street === STREET.RIVER) x = d.villain && d.villain.picture ? d.villain.picture.aheadNow ?? d.villain.picture.equity ?? null : null;
   else if (d.verdict && d.verdict.runout && d.verdict.runout.hu) {
-    label = 'You win if checked down';
+    label = 'You win at showdown';
     x = d.verdict.runout.E;
   }
   if (x === null || x === undefined) return '';

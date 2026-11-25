@@ -15,11 +15,11 @@ import { TYPE_IDS } from '../src/bots/profiles.js';
 import { TIER } from '../src/engine/features.js';
 
 const opts = (callEv, foldEv, o = {}) => [{ type: 'fold', ev: foldEv, close: !!o.foldClose }, { type: 'call', ev: callEv, close: !!o.callClose }];
-const line = ({ E, P, callEv = 0, foldEv = 0, oop = true, hu = true, note, opp = 1, callClose, foldClose, noE } = {}) => {
+const line = ({ E, P, callEv = 0, foldEv = 0, oop = true, hu = true, note, opp = 1, callClose, foldClose, noE, realDraw } = {}) => {
   const options = opts(callEv, foldEv, { callClose, foldClose });
   const best = callEv >= foldEv ? 1 : 0;
   const v = { options, best, mine: best, grade: 'good', note, anchors: { price: P }, ...(noE ? {} : { runout: { seat: 3, E, hu } }) };
-  const d = { verdict: v, opponents: opp, table: { oop }, villain: { nick: 'Jo', seat: 3 } };
+  const d = { verdict: v, opponents: opp, table: { oop }, villain: { nick: 'Jo', seat: 3 }, realDraw: !!realDraw };
   return runoutLine(d, v, v.anchors);
 };
 
@@ -32,7 +32,9 @@ test('E covers the price but folding is best: the reason, out of position and in
   assert.equal(line({ E: 0.29, P: 0.21, callEv: -6, oop: false }), "You'd win about 30% if it went to showdown and need 20%, but the bets still to come from this player cost more than that edge. Fold.");
 });
 test('E short of the price but calling is best: implied odds', () => {
-  assert.equal(line({ E: 0.15, P: 0.3, callEv: 4 }), "You'd win about 15% if it went to showdown and need 30%, but when you hit, this player pays you enough to make up the rest. Call.");
+  assert.equal(line({ E: 0.15, P: 0.3, callEv: 4, realDraw: true }), "You'd win about 15% if it went to showdown and need 30%, but when you hit, this player pays you enough to make up the rest. Call.");
+  // a made hand with no real draw (STRAT)
+  assert.equal(line({ E: 0.15, P: 0.3, callEv: 4 }), "You'd win about 15% if it went to showdown and need 30%, but what you win on later streets makes up the rest. Call.");
 });
 test('close or not graded: "…: close."', () => {
   assert.equal(line({ E: 0.1, P: 0.25, callEv: -3, callClose: true }), "You'd win about 10% if it went to showdown and need 25%: close.");

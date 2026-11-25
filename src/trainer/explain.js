@@ -652,7 +652,7 @@ export function anchorLine(d) {
     const nowS = river ? '' : ' now';
     // a draw quotes its outs, never "ahead now" (STRAT, QA-VERDICT C8a-W1)
     const drawing = !river && isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR;
-    const called = drawing ? `Called, your draw comes in ${share(hf.ownDrawEquity)}` : W === null || W === undefined || W < 0.05 ? 'Called, you are almost never ahead' : W > 0.95 ? `Called, you are almost always ahead${nowS}` : `Called, you are ahead${nowS} ${share(W)}`;
+    const called = drawing ? `Called, your draw comes in ${share(hf.ownDrawEquity)}` : W === null || W === undefined || W < 0.05 ? `Called, you are almost never ahead${nowS}` : W > 0.95 ? `Called, you are almost always ahead${nowS}` : `Called, you are ahead${nowS} ${share(W)}`;
     const folds = mine.F < 0.05 ? 'almost no one folds' : mine.F > 0.95 ? 'nearly everyone folds' : `everyone folds ${share(mine.F)}`;
     // the middle sentence alone when the headline above already says "not a habit to build"
     const mid = `${called}; ${folds}, and it needs ${share(mine.alpha, false)}.`;

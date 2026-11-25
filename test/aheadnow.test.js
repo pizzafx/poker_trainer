@@ -84,6 +84,9 @@ test('verdictcheck AN1: an ahead-now figure beside the price before the river is
   assert.equal(an({ street: 1, anchor: 'You are ahead now 30% of the time and your draw comes in 20% of the time; the price needs 25%: close.' }), false);
   assert.equal(an({ street: 'turn', anchor: 'You are ahead about 30% of the time and need 20% at this price. Fold.' }), true);
   assert.equal(an({ street: 2, anchor: 'A bet of $14: when this bet is called you are ahead right now about 75% of the time and need about 35%. These players call with worse: bet for value.' }), false);
+  assert.equal(an({ street: 1, anchor: 'Called, you are almost never ahead; almost no one folds, and it needs 40%.' }), true);
+  assert.equal(an({ street: 1, anchor: 'Called, you are almost never ahead now; almost no one folds, and it needs 40%.' }), false);
+  assert.equal(an({ street: 2, anchor: 'You are almost never ahead here and need 10% at this price; not enough. Fold.' }), true);
   assert.equal(an({ street: 3, anchor: 'You are ahead about 30% of the time and need 20% at this price. Fold.' }), false);
 });
 

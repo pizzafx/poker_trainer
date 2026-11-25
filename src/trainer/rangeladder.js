@@ -19,7 +19,7 @@ import { coachTiersForRange } from './coachtier.js';
 // own "and" or "or" (DESIGN's one list builder: "Two pair, top pairs and draws can pay you")
 export const RUNGS = [
   { name: 'Two pair or better', short: 'Two pair+', plural: 'two pair or better', list: 'two pair' },
-  { name: 'Top pair or overpair', short: 'Top pair+', plural: 'top pairs and overpairs', list: 'top pairs' },
+  { name: 'Top pair or overpair', short: 'Top or overpair', plural: 'top pairs and overpairs', list: 'top pairs' },
   { name: 'Weaker pair', short: 'Weaker pair', plural: 'weaker pairs', list: 'weaker pairs' },
   { name: 'Draw', short: 'Draw', plural: 'draws', list: 'draws' },
   { name: 'Nothing', short: 'Nothing', plural: 'hands with nothing', list: 'air' },
@@ -388,8 +388,77 @@ export function guessRight(g, x) {
 // coach checks and most of their range (over 60%) beats you. Not against a seat read at 60% or more as a maniac or a
 // lag (those types together): they bet most of their range, so you still win often enough when called (STRAT).
 // ranked: the seat's read, [{ id, p }].
+// How the takeaway names the range (STRAT, DESIGN, CEO 25 Nov), on the shares as printed (to 5%), taken in order:
+// the biggest rung at 50% or more is "mostly X"; else the two biggest together at 60% or more are "mostly X and Y";
+// unless the second is tied with the third; else "a mix, led by X and Y" ("led by X" when the second is tied). Bigger first, ties in rung order. rungs: the shown rung indexes; share(b): its share.
+export function rangeMix(rungs, share) {
+  const top = rungs.slice().sort((a, b) => round5(share(b)) - round5(share(a)) || a - b);
+  if (top.length < 2 || round5(share(top[0])) >= 50) return { kind: 'mostly', top: top.slice(0, 1) };
+  // the second group must be unique: tied with the third, there is no one Y to name (CEO), so "a mix, led by X"
+  const tiedSecond = top.length > 2 && round5(share(top[1])) === round5(share(top[2]));
+  if (!tiedSecond && round5(share(top[0])) + round5(share(top[1])) >= 60) return { kind: 'two', top: top.slice(0, 2) };
+  return { kind: 'mix', top: top.slice(0, tiedSecond ? 1 : 2) };
+}
+
+// The groups a range phrase names, as one list: a name that has its own "and" gives its parts to the list (STRAT,
+// DESIGN): "top pairs, overpairs and draws", never "top pairs and overpairs and draws"
+export function joinGroups(plurals) {
+  const parts = plurals.flatMap((x) => x.split(' and '));
+  return parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+// "mostly X", "mostly X and Y" or "a mix, led by X and Y" (rangeMix)
+export function rangePhrase(mix, names) {
+  return `${mix.kind === 'mix' ? 'a mix, led by' : 'mostly'} ${joinGroups(mix.top.map((b) => names[b].plural))}`;
+}
+// the read's maniac and lag weight together (STRAT: a wild seat bets too much air for a let-go line)
+export const wildShare = (ranked) => (ranked || []).filter((r) => r.id === 'maniac' || r.id === 'lag').reduce((a, r) => a + r.p, 0);
+// RV2-A (QA, STRAT, DESIGN, CEO): when you face a bet you have not answered yet, the takeaway never carries a play from
+// an earlier decision. On the river, after a check the coach liked, it says "this is the bet to let go" only when 50% or
+// more of the bet range beats you, the share you beat is at most the call price less 5 points, the seat is not read
+// 60% or more as a maniac or a lag, and the coach's best for this decision, if already known, is a fold. Otherwise the
+// plain range sentence, with no play. 'normal' when you don't face an unanswered bet.
+export function facingMode({ facingNow, river, planCheck, wild, beatsYou, ahead, price, pendingBest = null }) {
+  if (!facingNow) return 'normal';
+  const letGo = river && planCheck && wild < 0.6 && beatsYou >= 0.5 && ahead != null && ahead <= price - 0.05 && (pendingBest == null || pendingBest === 'fold');
+  return letGo ? 'letgo' : 'plain';
+}
+const aboutT = (txt) => (/^\d/.test(txt) ? `about ${txt}` : txt);
+const capT = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+// The takeaway sentence (STRAT's branches; RV2-A's modes). opening: "After betting the turn, " or ''; subj: "Jo's bet";
+// phrase: rangePhrase; fhTop: you hold a full house and the top rung is the biggest; bt: the share that beats you;
+// beatsTxt: that share as printed; play: the coach's play for this decision or null; bestType: its best option's type;
+// facedBet: that decision faced a bet; payList: "Top pairs and draws" or ''; drawing: a real draw with the equity.
+// The play the takeaway names (STRAT, DESIGN, CEO 25 Nov): your own play when it was graded good ("calling works"),
+// the coach's best when it was a mistake ("the coach prefers folding"). v: the decision's verdict; toCall: what it faced.
+export function playWords(v, toCall) {
+  if (!v || !v.options) return null;
+  const good = v.mine === v.best || v.grade === 'good';
+  const o = good && v.mine >= 0 && v.options[v.mine] ? v.options[v.mine] : v.options[v.best];
+  if (!o) return null;
+  const g = o.type === 'raise' ? (toCall > 0 ? 'raising' : 'betting') : o.type === 'call' ? 'calling' : o.type === 'check' ? 'checking' : o.type === 'fold' ? 'folding' : null;
+  return g ? { type: o.type, text: good ? `${g} works` : `the coach prefers ${g}` } : null;
+}
+export function takeawayText({ opening = '', subj, phrase, fhTop = false, bt, beatsTxt, mode = 'normal', play = null, bestType = null, facedBet = false, payList = '', drawing = false }) {
+  const lineOf = `${opening}${subj} is ${phrase}`;
+  const qty = bt > 0.6 ? 'most' : aboutT(beatsTxt);
+  const fhLine = () => `${opening}${opening ? qty : capT(qty)} of ${subj} beats your full house`;
+  if (mode === 'letgo') return fhTop ? `<b>Most of ${subj} beats your full house</b>: this is the bet to let go.` : `<b>${lineOf}, and most of it beats you</b>: this is the bet to let go.`;
+  if (mode === 'plain') return fhTop ? `<b>${fhLine()}</b>.` : `<b>${lineOf}, and ${bt < 0.25 ? 'little' : qty} of it beats you</b>.`;
+  const p = play ? `: ${play}.` : '.';
+  if (fhTop) return `<b>${fhLine()}</b>${p}`;
+  // the clause and the play pull apart after you answer a bet: "but … at this price" (STRAT)
+  // bestType: the type of the play named (playWords). A raise or bet into a range that mostly beats you works only as a
+  // bluff, which a few words can't say: no play line; the verdict card carries the reason (STRAT)
+  if (play && bt >= 0.6 && bestType === 'raise') return `<b>${lineOf}, and ${qty} of it beats you</b>.`;
+  // "at this price" only with calling or folding (STRAT, DESIGN)
+  if (play && facedBet && bt > 0.6 && bestType === 'call') return `<b>${lineOf}, and most of it beats you</b>, but ${play} at this price.`;
+  if (play && facedBet && bt < 0.25 && bestType === 'fold') return `<b>${lineOf}, and little of it beats you</b>, but ${play} at this price.`;
+  if (bt < 0.25) return `<b>${lineOf}, and little of it beats you</b>${p}${payList ? ` ${payList} can pay you.` : ''}`;
+  if (drawing) return `<b>${lineOf}, and ${aboutT(beatsTxt)} of it beats you now</b>, but your draw has the outs${p} It can still win often.`;
+  return `<b>${lineOf}, and ${qty} of it beats you</b>${p}`;
+}
+
 export function riverLetGo({ river, after, bestType, beatsYou, ranked }) {
   if (!river || !after || bestType !== 'check' || !(beatsYou > 0.6)) return false;
-  const wild = (ranked || []).filter((r) => r.id === 'maniac' || r.id === 'lag').reduce((a, r) => a + r.p, 0);
-  return wild < 0.6;
+  return wildShare(ranked) < 0.6;
 }

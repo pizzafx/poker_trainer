@@ -153,3 +153,9 @@ export function createJudge({ makeWorker, hashes = {}, refresh = () => Promise.r
   judge.start();
   return judge;
 }
+
+// RV2-B (QA, DESIGN, CEO): on a phone the "coach couldn't load" notice sits in the coach strip above the action dock,
+// which shows whether the sheet is open or closed; it wins over everything else the strip would say until a reload.
+// The desktop keeps its fixed banner.
+export const showCoachDown = ({ failed, phone }) => !!(failed && phone);
+export const COACH_DOWN_HTML = '<div class="cs down" role="status"><span class="main">The coach couldn\'t load.</span><button type="button" class="reload" data-reload>Reload</button></div>';

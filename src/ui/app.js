@@ -10,14 +10,14 @@ import { CATEGORIES, shownCost } from '../trainer/explain.js';
 import { DRILLS } from '../trainer/drills.js';
 import { createDrill } from './drill.js';
 import { createVerdictQueue } from './verdictqueue.js';
-import { createJudge } from './judgeclient.js';
+import { createJudge, showCoachDown, COACH_DOWN_HTML } from './judgeclient.js';
 import { createCountdown, countdownDue, armWindow as armMs } from './countdown.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
 import { disputeReport, disputeText, disputeFileName, disputeIssueUrl } from '../trainer/dispute.js';
 import { RANGE_GROUPS, presetRanges, presetRaised, shareOf, previousStandard, groupOf } from '../trainer/ranges.js';
 import { equityVsRange } from '../trainer/equity.js';
-import { ladderOf, ladderEquity, round5, RUNGS, HIDE_BELOW, keptOf, pctText, beatsPctText, guessBandOf, guessRight, riverLetGo } from '../trainer/rangeladder.js';
+import { ladderOf, ladderEquity, round5, RUNGS, HIDE_BELOW, keptOf, pctText, beatsPctText, guessBandOf, guessRight, riverLetGo, rangeMix, rangePhrase, wildShare, facingMode, takeawayText, playWords } from '../trainer/rangeladder.js';
 import { BUILD, HASHES } from '../trainer/version.js';
 import { keepHand, saveSession, loadSession, clearSession, listHands, clearHands } from './store.js';
 import { framesOf } from '../trainer/replay.js';
@@ -183,18 +183,10 @@ function coachBanner() {
   b.setAttribute('role', 'status');
   b.textContent = "The coach couldn't load. Reload to get verdicts.";
   document.body.appendChild(b);
-  placeCoachBanner();
-}
-// on a phone the notice sits inside the sheet, under its Coach / Ranges / Hand log row, never over it (DESIGN)
-function placeCoachBanner() {
-  const b = document.getElementById('coach-banner');
-  if (!b) return;
-  const tabs = document.querySelector('#side .tabs');
-  // matchMedia here, not PHONE: the worker can fail while the module is still loading, before PHONE exists
-  const inSide = matchMedia('(max-width: 600px)').matches && tabs;
-  if (inSide && b.previousElementSibling !== tabs) tabs.after(b);
-  else if (!inSide && b.parentElement !== document.body) document.body.appendChild(b);
-  b.classList.toggle('in-side', !!inSide);
+  // on a phone the strip carries it (RV2-B); the strip may not exist yet while the module loads
+  try {
+    if (sess && sess.hand) renderToast();
+  } catch {}
 }
 applyTuning();
 
@@ -1000,6 +992,14 @@ function stripHtml(show, { worst, prev }) {
 function renderToast() {
   const h = sess.hand;
   const el = $('toast');
+  // RV2-B: on a phone, a coach that couldn't load says so here, over anything else, and once (role="status")
+  if (showCoachDown({ failed: judge.failed, phone: matchMedia('(max-width: 600px)').matches })) {
+    if (!el.querySelector('.cs.down')) {
+      el.innerHTML = COACH_DOWN_HTML;
+      el.querySelector('[data-reload]').onclick = () => location.reload();
+    }
+    return;
+  }
   const d = h.decisions[h.decisions.length - 1];
   // what was on screen when this decision began (DESIGN: only those verdicts are dimmed with .prev; QA AG5)
   const turnKey = `${h.no}:${h.state.history.length}`;
@@ -1264,16 +1264,12 @@ function afterWords(s, e) {
   return verb === 'calling a raise' ? `${verb} on the ${RV_STREET[st]}` : `${verb} the ${RV_STREET[st]}`;
 }
 // the coach's play at your decision on that street, as the takeaway's [play] (STRAT: it comes from the verdict only)
-function coachPlay(h, st) {
+// the takeaway's play for this street's decision: your own play when it was graded good, else the coach's best (playWords)
+function coachPlayOf(h, st) {
   const d = coachDecision(h, st);
-  if (!d) return null;
-  const v = d.verdict;
-  const b = v.options[v.best];
-  if (!b) return null;
-  const g = b.type === 'raise' ? (d.toCall > 0 ? 'raising' : 'betting') : b.type === 'call' ? 'calling' : b.type === 'check' ? 'checking' : b.type === 'fold' ? 'folding' : null;
-  if (!g) return null;
-  return v.mine === v.best || v.grade === 'good' ? `${g} works` : `the coach prefers ${g}`;
+  return d ? playWords(d.verdict, d.toCall) : null;
 }
+const coachPlay = (h, st) => (coachPlayOf(h, st) || {}).text || null;
 
 function renderRanges() {
   const el = $('ranges');
@@ -1339,6 +1335,8 @@ function renderRanges() {
   const nickRaw = sess.seats[seat].nick;
   const nick = esc(nickRaw);
   const phone = PHONE.matches;
+  // the short rung names on a phone or in a narrow panel (QA: the 330px panel of a 1024 window cuts "Beats your full ho…")
+  const shortNames = phone || ($('side') ? $('side').clientWidth : 999) < 360;
   const again = () => (RP && document.body.classList.contains('replaying') ? renderReplay() : renderRanges());
 
   // the strip's steps: one per street on which they made a choice of their own (blinds and straddles are forced)
@@ -1442,7 +1440,7 @@ function renderRanges() {
     const rung = (b) => {
       const r = lad.rungs[b];
       const on = rangeSel === b;
-      const nm = esc(phone ? lad.names[b].short : lad.names[b].name);
+      const nm = esc(shortNames ? lad.names[b].short : lad.names[b].name);
       if (waiting) return `<div class="rv-crow ghost" style="--bk:${col[b]}"><span class="sw"></span><span class="nm">${nm}</span><span class="mb"><i></i></span><span class="pct">?</span></div>`;
       const eqB = E ? shareText(E.rung[b]) : '…';
       const eq = river ? (r.ahead >= 1 ? 'you beat <b>all</b> of these' : r.ahead <= 0 ? '<b>all</b> of these beat you' : `you beat <b>${shareText(r.ahead)}</b> of these`) : `ahead now <b>${shareText(r.ahead)}</b> · win by the river <b>${eqB}</b>`;
@@ -1468,7 +1466,8 @@ function renderRanges() {
   // the takeaway (STRAT's three branches, RANGE_TAKEAWAY_COPY.md); the play comes from the coach's verdict only
   let take = '';
   if (lad && !waiting) {
-    const biggest = shown.slice().sort((a, b) => lad.rungs[b].share - lad.rungs[a].share)[0];
+    const mix = rangeMix(shown, (b) => lad.rungs[b].share);
+    const biggest = mix.top[0];
     const bt = lad.beatsYou;
     // Takeaway timing (DESIGN, STRAT 25 Nov): at the latest step, when they haven't acted yet on this street, the range
     // is named by their last action and its street ("After betting the turn, Jeans's range is mostly…")
@@ -1479,27 +1478,23 @@ function renderRanges() {
     // on the river, when you act first and the coach checks with most of their range ahead: "check, and let it go if
     // [Name] bets", unless they are read as a maniac or a lag (STRAT, DESIGN; riverLetGo)
     const v0 = isLatest ? coachVerdict(h, curSt) : null;
-    const riverFold = riverLetGo({ river, after, bestType: v0 && v0.options[v0.best] ? v0.options[v0.best].type : null, beatsYou: bt, ranked: sess.readOf(seat).ranked });
-    const play = riverFold ? `check, and let it go if ${nick} bets` : isLatest && view.st === curSt ? coachPlay(h, view.st) : null;
-    const p = play ? `: ${play}.` : '.';
-    const lineOf = `${opening}${subj} is mostly ${lad.names[biggest].plural}`;
+    const v0best = v0 && v0.options[v0.best] ? v0.options[v0.best].type : null;
+    const ranked = sess.readOf(seat).ranked;
+    // RV2-A (QA, STRAT, DESIGN, CEO): you face a bet you haven't answered yet; no earlier decision's play is carried in
+    const toCall = Math.max(0, Math.max(...s.bet) - (s.bet[0] || 0));
+    const facingNow = isLatest && !h.over && s.toAct === 0 && toCall > 0;
+    const mode = facingMode({ facingNow, river, planCheck: v0best === 'check', wild: wildShare(ranked), beatsYou: bt, ahead: lad.ahead, price: toCall / (potSize(s) + toCall) });
+    const riverFold = !facingNow && riverLetGo({ river, after, bestType: v0best, beatsYou: bt, ranked });
+    const play = mode !== 'normal' ? null : riverFold ? `check, and let it go if ${nick} bets` : isLatest && view.st === curSt ? coachPlay(h, view.st) : null;
+    const dNow = isLatest && view.st === curSt ? coachDecision(h, curSt) : null;
     const hf = handFeatures(hole, board);
     const drawing = !river && isRealDraw(hf) && E && E.equity != null && E.equity >= 0.35;
-    let text;
-    if (lad.fh && biggest === 0 && bt >= 0.25) {
-      // you hold a full house and the top rung is the biggest: say it plainly (STRAT's example)
-      const qty = bt > 0.6 ? 'most' : about(beatsText(lad));
-      text = `<b>${opening}${opening ? qty : cap(qty)} of ${subj} beats your full house</b>${p}`;
-    } else if (bt < 0.25) {
-      // one list builder, the rungs' list nouns (DESIGN, QA nit a)
-      const worse = lo.filter((b) => b !== lad.names.length - 1 && lad.rungs[b].share >= 0.1).map((b) => lad.names[b].list);
-      const list = listOf(worse);
-      text = `<b>${lineOf}, and little of it beats you</b>${p}${worse.length ? ` ${cap(list)} can pay you.` : ''}`;
-    } else if (drawing) {
-      text = `<b>${lineOf}, and ${about(beatsText(lad))} of it beats you now</b>, but your draw has the outs${p} It can still win often.`;
-    } else {
-      text = `<b>${lineOf}, and ${bt > 0.6 ? 'most' : `${about(beatsText(lad))}`} of it beats you</b>${p}`;
-    }
+    // one list builder, the rungs' list nouns (DESIGN, QA nit a)
+    const worse = lo.filter((b) => b !== lad.names.length - 1 && lad.rungs[b].share >= 0.1).map((b) => lad.names[b].list);
+    const text = takeawayText({
+      opening, subj, phrase: rangePhrase(mix, lad.names), fhTop: lad.fh && biggest === 0 && bt >= 0.25, bt, beatsTxt: beatsText(lad), mode, play,
+      bestType: riverFold ? 'check' : (isLatest && view.st === curSt ? (coachPlayOf(h, curSt) || {}).type : null), facedBet: !!(dNow && dNow.toCall > 0), payList: worse.length ? cap(listOf(worse)) : '', drawing,
+    });
     take = `<div class="rv-take">${text}</div>`;
   }
 
@@ -3337,7 +3332,6 @@ $('placard-wrap').addEventListener('click', (e) => {
 }
 $('btn-side').onclick = () => (document.body.classList.contains('side-closed') ? openSide() : document.body.classList.add('side-closed'));
 PHONE.addEventListener('change', () => {
-  placeCoachBanner();
   if (sess) render();
 });
 // The header menu: on a phone a sheet behind "Menu" that closes after any choice or a tap

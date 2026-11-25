@@ -3089,7 +3089,12 @@ body.in-drill { overflow: hidden; }
 /* the coach couldn't load (CEO): one quiet banner, never over the actions */
 .coach-banner { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); z-index: 40; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel-3); color: var(--slate); font-size: 13px; }
 /* with the phone sheet open the notice moves into the panel, under its tabs (DESIGN) */
-.coach-banner.in-side { position: static; transform: none; margin: 8px 12px 0; display: block; text-align: center; }
+@media (max-width: 600px) { .coach-banner { display: none; } }
+/* RV2-B: on a phone the strip says the coach couldn't load, with a Reload of at least 44px (DESIGN) */
+#toast .cs.down { grid-template-columns: minmax(0, 1fr) auto; box-shadow: inset 3px 0 0 var(--warn); color: var(--text); cursor: default; }
+#toast .cs.down .main { display: block; overflow: hidden; text-overflow: ellipsis; }
+#toast .cs.down .reload { min-height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel-3); color: var(--chalk); font: inherit; font-weight: 600; cursor: pointer; }
+#toast .cs.down .reload:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 
 
 /* ================= the combined range view (DESIGN, 24 Nov: RANGES_COMBINED_HANDOFF) ================= */

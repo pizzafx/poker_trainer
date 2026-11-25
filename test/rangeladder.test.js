@@ -2,9 +2,10 @@
 // win-by-the-river run-outs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { parseCards } from '../src/engine/cards.js';
 import { comboIndex, COMBOS } from '../src/engine/hands.js';
-import { ladderOf, ladderEquity, round5, HIDE_BELOW, pctText, guessRight, keptOf, riverLetGo } from '../src/trainer/rangeladder.js';
+import { ladderOf, ladderEquity, round5, HIDE_BELOW, pctText, guessRight, keptOf, riverLetGo, RUNGS, rangeMix, joinGroups, rangePhrase, facingMode, takeawayText, playWords } from '../src/trainer/rangeladder.js';
 
 const flat = () => new Float64Array(1326).fill(1);
 
@@ -219,4 +220,102 @@ test('STRAT: "let it go if [Name] bets" on the river after a coach check, not ag
   assert.equal(riverLetGo({ ...base, bestType: 'raise' }), false);
   assert.equal(riverLetGo({ ...base, after: false }), false);
   assert.equal(riverLetGo({ ...base, river: false }), false);
+});
+
+// STRAT, DESIGN, CEO (25 Nov): "mostly" only when it is true; shares as printed (to 5%)
+test('rangeMix: 50% is mostly one; a unique top two at 60% or more are mostly both; else a mix', () => {
+  const at = (xs) => rangeMix(xs.map((_, i) => i), (b) => xs[b]);
+  assert.deepEqual(at([0.1, 0.5, 0.2, 0.1, 0.1]), { kind: 'mostly', top: [1] }); // exactly 50%
+  assert.deepEqual(at([0.1, 0.1, 0.1, 0.35, 0.35]), { kind: 'two', top: [3, 4] }); // 35/35, a tie in rung order
+  assert.deepEqual(at([0.4, 0.15, 0.15, 0.15, 0.15]), { kind: 'mix', top: [0] }); // the second is tied: led by X
+  assert.deepEqual(at([0.4, 0.2, 0.15, 0.15, 0.1]), { kind: 'two', top: [0, 1] }); // 60%, a unique second
+  assert.deepEqual(at([0.4, 0.2, 0.2, 0.2]), { kind: 'mix', top: [0] }); // 60%, but the second is tied
+  assert.deepEqual(at([0.35, 0.16, 0.12, 0.12, 0.1, 0.1]), { kind: 'mix', top: [0, 1] }); // 35 + 15 = 50%, under 60
+  assert.deepEqual(at([0.3, 0.25, 0.2, 0.15, 0.1]), { kind: 'mix', top: [0, 1] }); // led by X and Y
+  assert.equal(at([0.48, 0.02, 0.5]).kind, 'mostly'); // 0.48 prints as 50%
+  assert.deepEqual(at([1]), { kind: 'mostly', top: [0] });
+});
+test('a range phrase lists a group with its own "and" by its parts', () => {
+  assert.equal(joinGroups(['top pairs and overpairs', 'draws']), 'top pairs, overpairs and draws');
+  assert.equal(joinGroups(['draws', 'hands with nothing']), 'draws and hands with nothing');
+  assert.equal(joinGroups(['top pairs and overpairs']), 'top pairs and overpairs');
+  const names = RUNGS;
+  assert.equal(rangePhrase({ kind: 'two', top: [1, 4] }, names), 'mostly top pairs, overpairs and hands with nothing');
+  assert.equal(rangePhrase({ kind: 'mix', top: [1, 3] }, names), 'a mix, led by top pairs, overpairs and draws');
+  assert.equal(rangePhrase({ kind: 'mostly', top: [3] }, names), 'mostly draws');
+});
+
+// RV2-A (QA, STRAT, DESIGN, CEO): facing a bet you haven't answered, no earlier play is carried in
+const half = 0.5 / 1.5; // a half-pot bet's price: 33%
+const facing = (o) => facingMode({ facingNow: true, river: true, planCheck: true, wild: 0.1, beatsYou: 0.75, ahead: 0.25, price: half, ...o });
+const T = (o) => takeawayText({ subj: "Party Crew's bet", phrase: 'mostly two pair or better', bt: 0.75, beatsTxt: '75%', ...o });
+test("1. QA's RV2-A spot: the let-go line while you face the bet, then the decision's own play once you answer", () => {
+  assert.equal(facing({}), 'letgo');
+  assert.equal(T({ mode: 'letgo' }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>: this is the bet to let go.");
+  assert.equal(T({ mode: 'letgo', fhTop: true }), "<b>Most of Party Crew's bet beats your full house</b>: this is the bet to let go.");
+  // after you fold: that decision's verdict, through coachPlay
+  assert.equal(T({ play: 'folding works', bestType: 'fold', facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>: folding works.");
+  // before the bet (state 1) the plan line is unchanged
+  assert.equal(facingMode({ facingNow: false }), 'normal');
+});
+test('2. a maniac or lag seat facing the bet: the plain sentence, no play', () => {
+  assert.equal(facing({ wild: 0.65 }), 'plain');
+  assert.equal(facing({ wild: 0.59 }), 'letgo');
+  assert.equal(T({ mode: 'plain' }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>.");
+});
+test('3. a turn check, then a bet: the plain sentence, never "checking works"', () => {
+  assert.equal(facing({ river: false }), 'plain');
+  const s = T({ mode: 'plain', bt: 0.45, beatsTxt: '45%', play: 'checking works' });
+  assert.equal(s, "<b>Party Crew's bet is mostly two pair or better, and about 45% of it beats you</b>.");
+  assert.doesNotMatch(s, /checking/);
+});
+test('4. you call where most of the range beats you: "but … at this price"', () => {
+  assert.equal(T({ play: 'calling works', bestType: 'call', facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>, but calling works at this price.");
+  assert.equal(T({ bt: 0.2, beatsTxt: '20%', play: 'folding works', bestType: 'fold', facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and little of it beats you</b>, but folding works at this price.");
+});
+test('4b. which play is named: your own when graded good, the best when a mistake (STRAT, DESIGN, CEO)', () => {
+  const opts = [{ type: 'fold' }, { type: 'call' }, { type: 'raise' }];
+  // Jeans: a good call where raising was best
+  const jeans = playWords({ options: opts, best: 2, mine: 1, grade: 'good' }, 5);
+  assert.deepEqual(jeans, { type: 'call', text: 'calling works' });
+  assert.equal(T({ play: jeans.text, bestType: jeans.type, facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>, but calling works at this price.");
+  // a good raise into 60%+ beaten: no play line
+  const raise = playWords({ options: opts, best: 2, mine: 2, grade: 'good' }, 5);
+  assert.equal(raise.text, 'raising works');
+  // the boundary: 60% beaten or more (CEO)
+  assert.equal(T({ bt: 0.6, beatsTxt: '60%', play: raise.text, bestType: 'raise', facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and about 60% of it beats you</b>.");
+  assert.equal(T({ bt: 0.59, beatsTxt: '60%', play: raise.text, bestType: 'raise', facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and about 60% of it beats you</b>: raising works.");
+  assert.equal(T({ play: raise.text, bestType: raise.type, facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>.");
+  // a mistake call where folding was best
+  const miss = playWords({ options: opts, best: 0, mine: 1, grade: 'mistake' }, 5);
+  assert.deepEqual(miss, { type: 'fold', text: 'the coach prefers folding' });
+  assert.equal(T({ play: miss.text, bestType: miss.type, facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>: the coach prefers folding.");
+  assert.equal(playWords({ options: opts, best: 2, mine: 2, grade: 'good' }, 0).text, 'betting works');
+});
+test('5. under 50% of the bet range beats you after a let-go plan: plain', () => {
+  assert.equal(facing({ beatsYou: 0.45, ahead: 0.25 }), 'plain');
+});
+test('6. a quarter-pot bet with about 65% beaten: no let-go line (the price guard)', () => {
+  assert.equal(facing({ beatsYou: 0.65, ahead: 0.35, price: 0.25 / 1.25 }), 'plain');
+  assert.equal(facing({ beatsYou: 0.8, ahead: 0.2, price: 0.5 / 1.5 }), 'letgo'); // half pot: 80% beaten
+  assert.equal(facing({ beatsYou: 0.72, ahead: 0.28, price: 1 / 3 }), 'letgo'); // 28.0 <= 28.3
+  assert.equal(facing({ beatsYou: 0.7, ahead: 0.3, price: 1 / 3 }), 'plain');
+  assert.equal(facing({ pendingBest: 'call' }), 'plain'); // the coach's best, when already known, must be a fold
+});
+test('7. Guess first hides the takeaway (it is built only once the guess is in)', () => {
+  const src = readFileSync(new URL('../src/ui/app.js', import.meta.url), 'utf8');
+  assert.match(src, /let take = '';\n\s+if \(lad && !waiting\) \{/);
+});
+test('8. a range phrase "a mix, led by …" in the let-go line', () => {
+  assert.equal(T({ mode: 'letgo', phrase: 'a mix, led by top pairs, overpairs and draws' }), "<b>Party Crew's bet is a mix, led by top pairs, overpairs and draws, and most of it beats you</b>: this is the bet to let go.");
+});
+test('the plain sentence at the edges drops "about" (DESIGN)', () => {
+  assert.equal(T({ mode: 'plain', bt: 0.03, beatsTxt: 'under 5%' }), "<b>Party Crew's bet is mostly two pair or better, and little of it beats you</b>.");
+  assert.equal(T({ bt: 0.97, beatsTxt: 'over 95%' }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>.");
+  assert.doesNotMatch(T({ bt: 0.3, beatsTxt: '30%' }), /about about/);
+});
+test('the river plan line before their bet keeps the maniac and lag edge (0.59 shows, 0.60 does not)', () => {
+  const go = (wild) => riverLetGo({ river: true, after: true, bestType: 'check', beatsYou: 0.7, ranked: [{ id: 'lag', p: wild }] });
+  assert.equal(go(0.59), true);
+  assert.equal(go(0.6), false);
 });

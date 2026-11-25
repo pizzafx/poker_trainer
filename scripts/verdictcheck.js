@@ -17,7 +17,7 @@ import { cardStr } from '../src/engine/cards.js';
 import { classOf, classNames } from '../src/engine/hands.js';
 import { handFeatures, TIER, isRealDraw } from '../src/engine/features.js';
 import { HERO_PROFILE } from '../src/bots/profiles.js';
-import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
+import { verdictWord, isBestPlay, bestHeadline, isNotGradedNote } from '../src/trainer/best.js';
 import { shownCost, dryBoard, blockerHand, t1Board, stationLimpers } from '../src/trainer/explain.js';
 import { pairedGap, redBar } from '../src/trainer/judge.js';
 import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest, ISO_LIMP, ISO_LIMP_FEW, ISO_LIMP_PAIRS, NIT_SCOPE_HANDS, isoFoldHand, ISO_FOLD_VETO, outsideBehindLimpers, raiseClears, suitedLimpHand } from '../src/trainer/grade.js';
@@ -121,6 +121,8 @@ export const INVARIANTS = {
     if (verdictWord(v, d) !== 'best play' || /: fine\./.test(bestHeadline(v, d) || d.headline || '')) return true;
     return /Verdict: fine/.test(disputeText(disputeReport(d), true));
   },
+  // STRAT, CEO (check 5): the headline's word is the strip and card word on every not-graded verdict
+  'C3b a not-graded verdict\'s headline says "not graded", never "fine."': (d, v) => v.grade === 'good' && isNotGradedNote(v) && (!/: not graded\./.test(d.headline || '') || /: fine\./.test(d.headline || '')),
   'C4 a stated dollar gap equals the bars as rounded': (d, v, m) => {
     const h = d.headline || '';
     const cost = h.match(/costs about \$(\d+)/);

@@ -148,3 +148,22 @@ test('R5b: a passive-lead call left not graded by the scenario test (fragileRead
   // with no note R5b keeps its line
   assert.equal(explain(rec(undefined)).headline, 'Call $12: fine. (When a passive player leads into a crowd, one pair is often beaten.)');
 });
+
+// STRAT, CEO (check 5): every not-graded note, under every rule that has an early "fine" line, reads "not graded" in
+// the headline, as verdictWord (the strip and the card) does
+import { NOT_GRADED_NOTES, verdictWord } from '../src/trainer/best.js';
+test('headline word = strip word = card word for each not-graded note, R5b included', () => {
+  const opts = [{ type: 'fold', ev: 0, label: 'Fold' }, { type: 'call', ev: -14, label: 'Call $12' }];
+  for (const rule of [undefined, 'R5b']) {
+    for (const note of NOT_GRADED_NOTES) {
+      const d = {
+        street: 3, toCall: 12, currentBet: 12, raises: 0, opponents: 3, position: 'CO', tier: 4,
+        hole: parseCards('Kh Qd'), board: parseCards('Kc 8s 5d 2h 9c'), liveTypes: ['station', 'abc', 'abc'],
+        verdict: { grade: 'good', rule, note, mine: 1, best: 0, small: 6, options: opts },
+      };
+      const h = explain(d).headline;
+      assert.equal(verdictWord(d.verdict, d), 'not graded');
+      assert.match(h, /^Call \$12: not graded\./, `${rule} ${note}: ${h}`);
+    }
+  }
+});

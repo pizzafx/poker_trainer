@@ -65,11 +65,16 @@ export function bestHeadline(v, d) {
   return `${mine.label}: best play.${twin >= 0 ? ` (${bare(v.options[twin])} works about as well.)` : ''}`;
 }
 
+// The notes that leave a passing verdict not graded. One set for the strip and card word, the headline and the checks,
+// so a new not-graded note cannot read "not graded" in one place and "fine" in another (STRAT, CEO).
+export const NOT_GRADED_NOTES = new Set(['unclear', 'closeCall', 'fragileRead']);
+export const isNotGradedNote = (v) => !!v && NOT_GRADED_NOTES.has(v.note);
+
 // The grade word every place uses for a verdict (strip, review and replayer rows, Hand log), so a
 // past verdict is never restated differently from how it landed: "best play" exactly when the ring
 // shows, "not graded" for close calls, otherwise "fine", "mistake" or "blunder".
 export function verdictWord(v, d) {
   if (v.grade !== 'good') return v.grade;
-  if (v.note === 'unclear' || v.note === 'closeCall' || v.note === 'fragileRead') return 'not graded';
+  if (isNotGradedNote(v)) return 'not graded';
   return isBestPlay(v, d) ? 'best play' : 'fine';
 }

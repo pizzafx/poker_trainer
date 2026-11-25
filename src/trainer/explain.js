@@ -7,6 +7,7 @@ import { CATEGORY, evaluate } from '../engine/evaluator.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
 import { anchorStatus, needOf, drawTest, isoQuote, ISO_LIMP_PAIRS } from './grade.js';
 import { classOf, classNames } from '../engine/hands.js';
+import { isNotGradedNote } from './best.js';
 
 export const CATEGORIES = {
   paidOff: 'Paying off: calling when their bet or raise is almost always the goods',
@@ -342,8 +343,9 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'iso3bet') return `${mine.label}: fine. Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.`;
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
   // ...unless the scenario test left it not graded (R5b goes through it since P3-1): then the not-graded line
-  // fragileRead is not graded too (QA-VERDICT: its headline said "fine" under a "not graded" word and card)
-  if (v.rule === 'R5b' && v.note !== 'unclear' && v.note !== 'closeCall' && v.note !== 'fragileRead') return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`; // STRAT M5c
+  // any not-graded note (the shared set) takes its not-graded line (QA-VERDICT: fragileRead read "fine" under a
+  // "not graded" word and card)
+  if (v.rule === 'R5b' && !isNotGradedNote(v)) return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`; // STRAT M5c
   if (v.note === 'premium') return `${mine.label}: fine. (Raising with this hand is never a mistake.)`;
   if (v.note === 'anchorHabit' || v.note === 'anchorEven' || v.note === 'sizePeak') return `${mine.label}: fine.`;
   if (v.note === 'anchorFails') {

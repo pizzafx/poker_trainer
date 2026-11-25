@@ -342,7 +342,8 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'iso3bet') return `${mine.label}: fine. Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.`;
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
   // ...unless the scenario test left it not graded (R5b goes through it since P3-1): then the not-graded line
-  if (v.rule === 'R5b' && v.note !== 'unclear' && v.note !== 'closeCall') return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`; // STRAT M5c
+  // fragileRead is not graded too (QA-VERDICT: its headline said "fine" under a "not graded" word and card)
+  if (v.rule === 'R5b' && v.note !== 'unclear' && v.note !== 'closeCall' && v.note !== 'fragileRead') return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`; // STRAT M5c
   if (v.note === 'premium') return `${mine.label}: fine. (Raising with this hand is never a mistake.)`;
   if (v.note === 'anchorHabit' || v.note === 'anchorEven' || v.note === 'sizePeak') return `${mine.label}: fine.`;
   if (v.note === 'anchorFails') {

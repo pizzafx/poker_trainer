@@ -132,3 +132,19 @@ test('thin-value copy: a river bluff (W under need) and a turn passed bet keep t
   assert.equal(passed({ W: 0, C: 0.8, R: 0 }), 'Check: fine. (A bluff scores about $27 more against these bots; not enough to rely on at a real table.)');
   assert.match(passed({ W: 0.84, C: 0.8, R: 0 }, STREET.TURN), /against these bots; not enough to rely on at a real table/);
 });
+
+// QA-VERDICT (q2_sens_12 h11d23 and two more): an R5b call the scenario test leaves not graded (fragileRead) reads
+// "not graded" in the headline, as the word and the card do, not R5b's "fine" line
+test('R5b: a passive-lead call left not graded by the scenario test (fragileRead) has a "not graded" headline', () => {
+  const opts = [{ type: 'fold', ev: 0, label: 'Fold' }, { type: 'call', ev: -14, label: 'Call $12' }];
+  const rec = (note) => ({
+    street: 3, toCall: 12, currentBet: 12, raises: 0, opponents: 3, position: 'CO', tier: 4,
+    hole: parseCards('Kh Qd'), board: parseCards('Kc 8s 5d 2h 9c'), liveTypes: ['station', 'abc', 'abc'],
+    verdict: { grade: 'good', rule: 'R5b', note, mine: 1, best: 0, small: 6, options: opts },
+  });
+  const h = explain(rec('fragileRead')).headline;
+  assert.match(h, /^Call \$12: not graded\./, h);
+  assert.doesNotMatch(h, /passive player leads into a crowd/);
+  // with no note R5b keeps its line
+  assert.equal(explain(rec(undefined)).headline, 'Call $12: fine. (When a passive player leads into a crowd, one pair is often beaten.)');
+});

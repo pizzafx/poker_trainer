@@ -72,11 +72,11 @@ test('range buckets: on a board-made board, combos the board makes read by rank 
 import { anchorLine } from '../src/trainer/explain.js';
 test('board-made bet lines: value lines when W >= need; the "do not bluff" line never within the bar of checking or better', () => {
   const r = (W, evBet, bm = true) => anchorLine({ ...rec(W, 0.5, evBet), boardMade: bm, verdict: { ...rec(W, 0.5, evBet).verdict, grade: 'mistake', line: '1', options: [{ type: 'check', label: 'Check', ev: 10, st: 'even' }, { type: 'raise', to: 20, label: 'Bet $20', ev: evBet, F: 0.2, C: 0.8, R: 0, W, need: 0.5, alpha: 0.4, st: 'fails' }] } });
-  assert.match(r(0.7, 30), /when this bet is called you are ahead about 70%/, 'W over need: the value line');
-  assert.doesNotMatch(r(0.1, 30), /Do not bluff|when this bet is called/, 'a bluff better than checking by more than the bar: the folds line, no "do not bluff"');
+  assert.match(r(0.7, 30), /when called, you beat every caller about 70% of the time/, 'W over need: the value line');
+  assert.doesNotMatch(r(0.1, 30), /Do not bluff|when called/, 'a bluff better than checking by more than the bar: the folds line, no "do not bluff"');
   assert.match(r(0.1, 13), /about the same as checking.*Fine, not needed/, 'within the bar: fine, not needed');
   assert.match(r(0.1, 3), /Do not bluff this field/, 'worse than checking by more than the bar: do not bluff');
-  assert.match(r(0.1, 30, false), /when this bet is called you are ahead about 10%/, 'a real weak pair keeps the made-hand line');
+  assert.match(r(0.1, 30, false), /when called, you beat every caller about 10% of the time/, 'a real weak pair keeps the made-hand line');
 });
 
 import { rangePicture } from '../src/trainer/judge.js';

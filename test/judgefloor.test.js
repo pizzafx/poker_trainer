@@ -1,5 +1,5 @@
 // The judge's budget extension (MATH, CEO): when the time budget is first found spent and the trainee's
-// option trails the best by the plain yellow bar or more, sampling goes on to 800 with no further clock check.
+// option trails the best by the plain yellow bar or more, sampling goes on to 800, for at most one more budget.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { judgeDecision } from '../src/trainer/judge.js';
@@ -26,6 +26,7 @@ test('a trainee option a yellow bar or more behind the best keeps sampling to 80
   assert.ok(gap >= Math.max(3 * s.bbAmt, 0.1 * v.pot), `gap ${gap.toFixed(1)}`);
   assert.equal(v.samples, 800);
   assert.equal(v.extended, true);
+  assert.equal(v.cutAt, 224); // a clock that stands still never trips the cap
 });
 
 test('a trainee option within the bar stops where the budget ran out (224), not extended', () => {
@@ -43,4 +44,34 @@ test('with no budget nothing changes: full samples, not extended', () => {
   const v = judgeDecision(s, 0, belief, { type: 'check' }, { samples: 300, seed: 5 });
   assert.equal(v.samples, 300);
   assert.equal(v.extended, false);
+});
+
+// MATH, CEO: the cap. A clock that reads 0 at the start, 3000 ms when the budget (2000) is found spent at 224 samples,
+// then 500 ms more at each 32-sample check: the extension stops at the first check past one more budget (2500 > 2000),
+// at 384 samples, with the samples in hand
+test('the extension stops after one more budget on a clock that keeps running, keeping its samples', () => {
+  const { s, belief } = build(spot);
+  const real = performance.now.bind(performance);
+  let calls = 0;
+  performance.now = () => {
+    const k = calls++;
+    return k === 0 ? 0 : 3000 + 500 * (k - 1);
+  };
+  let v;
+  try {
+    v = judgeDecision(s, 0, belief, { type: 'check' }, { samples: 1000, seed: 5, budgetMs: 2000 });
+  } finally {
+    performance.now = real;
+  }
+  assert.equal(v.extended, true);
+  assert.equal(v.cutAt, 224);
+  assert.equal(v.samples, 384);
+  assert.equal(v.samples % 32, 0);
+});
+test('with no budget the cap never applies: the same verdict as before, no cutAt', () => {
+  const { s, belief } = build(spot);
+  const a = judgeDecision(s, 0, belief, { type: 'check' }, { samples: 400, seed: 5 });
+  assert.equal(a.samples, 400);
+  assert.equal(a.extended, false);
+  assert.equal('cutAt' in a, false);
 });

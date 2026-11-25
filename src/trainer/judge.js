@@ -221,10 +221,15 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     return m;
   })();
   // The budget extension (MATH, CEO): when the budget is first found spent and the trainee's option trails
-  // the best by the plain yellow bar or more, sampling goes on to 800 (or N) with no further clock, so a flag is not
-  // dropped for want of samples. `extended` says it ran.
+  // the best by the plain yellow bar or more, sampling goes on to 800 (or N), so a flag is not dropped for want of
+  // samples. `extended` says it ran. Its cap (MATH, CEO): it runs for at most one more budget, checked every 32
+  // samples against the clock read that triggered it, so a slow phone at most doubles the base run (about 4 s on a 2 s
+  // budget) and keeps the samples in hand. With no budget it never runs; on a clock that stands still it runs to 800.
+  // `cutAt`: the sample count at the trigger (QA-MOBILE measures with it).
   let extended = false;
   let stopAt = 0;
+  let tExt = 0;
+  let cutAt = 0;
   let n = 0;
   let guard = 0;
   heroP = opts.heroProfile || HERO_PROFILE;
@@ -315,9 +320,11 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     n++;
     if (stopAt) {
       if (n >= stopAt) break;
+      if ((n & 31) === 0 && performance.now() - tExt > opts.budgetMs) break; // the cap: one more budget at most
       continue;
     }
-    if (opts.budgetMs && n >= 200 && (n & 31) === 0 && performance.now() - t0 > opts.budgetMs) {
+    const tNow = opts.budgetMs && n >= 200 && (n & 31) === 0 ? performance.now() : 0;
+    if (tNow && tNow - t0 > opts.budgetMs) {
       const to = Math.min(N, 800);
       if (mineIdx >= 0 && n < to) {
         let bestMean = -Infinity;
@@ -332,6 +339,8 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
         if (gap >= bar) {
           extended = true;
           stopAt = to;
+          tExt = tNow;
+          cutAt = n;
           continue;
         }
       }
@@ -407,6 +416,7 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     sameKind,
     samples: n,
     extended, // the budget extension ran (MATH)
+    ...(extended ? { cutAt } : {}), // where the budget ran out (debug, QA-MOBILE)
     pot,
     street: s.street,
   };

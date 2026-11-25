@@ -18,7 +18,7 @@ const opts = (callEv, foldEv, o = {}) => [{ type: 'fold', ev: foldEv, close: !!o
 const line = ({ E, P, callEv = 0, foldEv = 0, oop = true, hu = true, note, opp = 1, callClose, foldClose, noE } = {}) => {
   const options = opts(callEv, foldEv, { callClose, foldClose });
   const best = callEv >= foldEv ? 1 : 0;
-  const v = { options, best, mine: 1, grade: 'good', note, anchors: { price: P }, ...(noE ? {} : { runout: { seat: 3, E, hu } }) };
+  const v = { options, best, mine: best, grade: 'good', note, anchors: { price: P }, ...(noE ? {} : { runout: { seat: 3, E, hu } }) };
   const d = { verdict: v, opponents: opp, table: { oop }, villain: { nick: 'Jo', seat: 3 } };
   return runoutLine(d, v, v.anchors);
 };
@@ -83,13 +83,15 @@ test('verdictcheck AN1: an ahead-now figure beside the price before the river is
   assert.equal(an({ street: 2, anchor: 'When called you are ahead now about 60% of the time and need 50%. That is thin.' }), false);
   assert.equal(an({ street: 1, anchor: 'You are ahead now 30% of the time and your draw comes in 20% of the time; the price needs 25%: close.' }), false);
   assert.equal(an({ street: 'turn', anchor: 'You are ahead about 30% of the time and need 20% at this price. Fold.' }), true);
+  assert.equal(an({ street: 2, anchor: 'A bet of $14: when this bet is called you are ahead right now about 75% of the time and need about 35%. These players call with worse: bet for value.' }), false);
   assert.equal(an({ street: 3, anchor: 'You are ahead about 30% of the time and need 20% at this price. Fold.' }), false);
 });
 
 // STRAT (17d5ea6 review): the ends, the range sentences and the raise tail
 const lineD = (o, d = {}) => {
   const options = [{ type: 'fold', ev: o.foldEv ?? 0 }, { type: 'call', ev: o.callEv ?? 0 }];
-  const v = { options, best: (o.callEv ?? 0) >= (o.foldEv ?? 0) ? 1 : 0, mine: 1, grade: 'good', anchors: { price: o.P }, runout: { seat: 3, E: o.E, hu: o.hu ?? true } };
+  const best = (o.callEv ?? 0) >= (o.foldEv ?? 0) ? 1 : 0;
+  const v = { options, best, mine: best, grade: 'good', anchors: { price: o.P }, runout: { seat: 3, E: o.E, hu: o.hu ?? true } };
   return runoutLine({ verdict: v, opponents: o.hu === false ? 2 : 1, table: { oop: true }, villain: { nick: 'Jo', seat: 3, picture: d.picture }, tier: d.tier }, v, v.anchors);
 };
 const read = (id, buckets) => ({ post: Float64Array.from(TYPE_IDS.map((t) => (t === id ? 0.9 : 0.1 / (TYPE_IDS.length - 1)))), buckets });
@@ -107,4 +109,9 @@ test('a fold the numbers agree with keeps the bettor\'s range sentence', () => {
 test('a call keeps the raise tail for a pair up to an overpair or top pair, top kicker', () => {
   assert.equal(lineD({ E: 0.45, P: 0.25, callEv: 10 }, { tier: TIER.TOP_PAIR_WEAK }), "You'd win about 45% if it went to showdown and need 25%. Call. Raising gets called mostly by better hands.");
   assert.equal(lineD({ E: 0.45, P: 0.25, callEv: 10 }, { tier: TIER.TWO_PAIR }), "You'd win about 45% if it went to showdown and need 25%. Call.");
+});
+test('never "Call." under a fine fold or "Fold." under a fine call: close (STRAT M1)', () => {
+  const options = [{ type: 'fold', ev: 0 }, { type: 'call', ev: 5 }, { type: 'raise', ev: 30, to: 60 }];
+  const v = { options, best: 2, mine: 0, grade: 'good', anchors: { price: 0.2 }, runout: { seat: 3, E: 0.3, hu: true } };
+  assert.equal(runoutLine({ verdict: v, opponents: 1, table: { oop: true }, villain: { nick: 'Jo', seat: 3 } }, v, v.anchors), "You'd win about 30% if it went to showdown and need 20%: close.");
 });

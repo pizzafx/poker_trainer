@@ -130,7 +130,7 @@ export const INVARIANTS = {
     const sents = [d.anchor, d.anchorExtra, ...(d.reasons || [])].filter(Boolean).flatMap((x) => String(x).split(/(?<=[.;])\s+/));
     for (const x of sents) {
       if (!/\b(ahead|beats?)\b/.test(x) || /draw comes in|almost never ahead|almost always ahead/.test(x)) continue;
-      const betLine = /^(When (this \w+ is )?called|Called|At \$\d+ you are still)/.test(x);
+      const betLine = /\bcalled\b/i.test(x); // a bet or raise line: "when this bet is called", "Called, you are…"
       if (betLine) {
         if (!/\bnow\b/.test(x)) return true;
       } else if (/\b(need|needs|price)\b/.test(x)) return true;

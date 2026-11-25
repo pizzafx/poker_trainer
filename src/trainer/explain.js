@@ -531,7 +531,10 @@ export function runoutLine(d, v, A) {
   const callBest = call && (!fold || call.ev >= fold.ev);
   // close: not graded, or the other of call and fold is too close to the best to tell apart
   const other = callBest ? fold : call;
-  const close = isNotGradedNote(v) || !!(other && other.close);
+  // never "Fold." under a fine call or "Call." under a fine fold: the estimate says it is close (STRAT M1)
+  const mineT = v.mine >= 0 && v.options[v.mine] ? v.options[v.mine].type : null;
+  const against = v.grade === 'good' && ((mineT === 'call' && !callBest) || (mineT === 'fold' && callBest));
+  const close = isNotGradedNote(v) || against || !!(other && other.close);
   // a call keeps the raise tail for a pair up to an overpair or top pair, top kicker (STRAT)
   const raiseTail = (d.tier ?? -1) >= TIER.WEAK_PAIR && (d.tier ?? -1) <= TIER.OVERPAIR_TPTK ? ' Raising gets called mostly by better hands.' : '';
   const end = close ? ': close.' : callBest ? `. Call.${raiseTail}` : '. Fold.';

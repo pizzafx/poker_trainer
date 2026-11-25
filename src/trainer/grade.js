@@ -10,6 +10,7 @@ import { buildContext, POS } from '../bots/policy.js';
 import { HERO_PROFILE } from '../bots/profiles.js';
 import { judgeDecision, pairedGap, refreshClose, tiltedEvs, redBar, isoTo } from './judge.js';
 import { groupOf, presetRanges, presetRaised, expandRange, LIMPER_OFFSUIT } from './ranges.js';
+import { ladderOf, ladderEquity } from './rangeladder.js';
 
 const HERO = 0;
 
@@ -332,8 +333,26 @@ export const PREMIUM_RERAISE = new Set(['AA', 'KK', 'QQ', 'AKs', 'AKo']);
 // (the owner's Option 1, STRAT_YELLOW_BAND B; the mirror of P7-4). AKs and AKo are in the set above.
 export const ISO_RERAISE = new Set(['JJ', 'TT', '99', '88', 'AQs', 'AJs', 'ATs', 'AQo', 'KQs']);
 
+// E (MATH, STRAT, CEO): on the flop and turn, facing a bet, the trainee's win share (ties half) against the bettor's
+// range over every remaining card, exact, by the same pass the Ranges tab uses (ladderEquity), so the coach line and
+// the Ranges headline never differ. Computed with the verdict (in the judge worker on the page), never on the render
+// path; no sampling, so the same on every device. hu: one opponent has money in on this street.
+export function runoutOf(s, belief) {
+  if (s.street !== STREET.FLOP && s.street !== STREET.TURN) return null;
+  const ctx = buildContext(s);
+  const seat = ctx.aggressor;
+  if (!(ctx.toCall > 0) || seat < 0 || seat === HERO || s.folded[seat]) return null;
+  const E = ladderEquity(ladderOf(belief.range(seat), s.board, s.hole[HERO])).equity;
+  if (E == null || Number.isNaN(E)) return null;
+  let inMoney = 0;
+  for (let i = 0; i < s.n; i++) if (i !== HERO && !s.folded[i] && (s.bet[i] || 0) > 0) inMoney++;
+  return { seat, E, hu: inMoney === 1 };
+}
+
 export function gradeDecision(s, belief, action, judgeOpts, env) {
   const v = judgeDecision(s, HERO, belief, action, judgeOpts);
+  const ro = runoutOf(s, belief);
+  if (ro) v.runout = ro;
   // debug (QA-VERDICT, MATH; LD1 option F): the samples the base run wanted, beside v.samples (what it reached)
   v.samplesWanted = judgeOpts.samples;
   return gradeVerdict(v, s, action, judgeOpts, env);

@@ -4,7 +4,7 @@
 // the answer), and a play the coach passes by design scores fine, never wrong.
 
 import { judgeDecision, pairedGap, tiltedEvs } from '../../src/trainer/judge.js';
-import { gradeVerdict } from '../../src/trainer/grade.js';
+import { gradeVerdict, runoutOf } from '../../src/trainer/grade.js';
 import { HERO_PROFILE } from '../../src/bots/profiles.js';
 import { verdictFor, envFor } from '../gradeall.js';
 import { live } from './skills.js';
@@ -136,7 +136,12 @@ export function gateSpot(s, belief, pinnedReads, skill, o = {}) {
   const fb = famVals(vb.options, vb.options.map((x) => x.ev));
   const env = envFor(belief, pinnedReads);
   const gOpts = { heat: 0, samples: n, seed: opts.seeds[0] };
-  const gradeOf = (i) => gradeVerdict(verdictFor(vb, i, s), s, actionOf(vb.options[i]), gOpts, env);
+  const runout = runoutOf(s, belief);
+  const gradeOf = (i) => {
+    const gv = gradeVerdict(verdictFor(vb, i, s), s, actionOf(vb.options[i]), gOpts, env);
+    if (runout) gv.runout = runout;
+    return gv;
+  };
   const graded = {};
   const bestG = gradeOf(fb[want].i);
   graded[want] = bestG;

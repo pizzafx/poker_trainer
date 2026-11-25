@@ -1248,6 +1248,21 @@ const lineNoun = (e) => (e.type === 'call' ? 'call' : e.type === 'bet' ? 'bet' :
 const handVerb = (e, st) => (!e || st === 0 ? 'play' : e.type === 'call' ? 'call' : e.type === 'bet' ? 'bet' : e.type === 'raise' ? 'raise' : e.type === 'check' ? 'check' : 'play');
 
 // the coach's verdict at your last decision on that street (STRAT: the takeaway's [play] comes from it only)
+// The review card's two figures facing a bet (STRAT, MATH, CEO): on the river, the share you beat against the price;
+// before it, what you'd win if it went to showdown (E, heads-up only: multiway it is one range's, never set against
+// the price), and nothing when the record has no E
+function duoHtml(d) {
+  if (!(d.toCall > 0)) return '';
+  let label = 'You beat';
+  let x = null;
+  if (d.street === STREET.RIVER) x = d.villain && d.villain.picture ? d.villain.picture.aheadNow ?? d.villain.picture.equity ?? null : null;
+  else if (d.verdict && d.verdict.runout && d.verdict.runout.hu) {
+    label = 'You win if checked down';
+    x = d.verdict.runout.E;
+  }
+  if (x === null || x === undefined) return '';
+  return `<div class="duo"><div class="stat"><span class="label">${label}</span><b>${Math.round(x * 100)}%</b></div><div class="stat"><span class="label">You needed</span><b>${Math.round(d.odds * 100)}%</b></div></div>`;
+}
 function coachDecision(h, st) {
   return [...(h.decisions || [])].reverse().find((r) => r.street === st && !r.pending && r.verdict && r.verdict.options) || null;
 }
@@ -1905,8 +1920,7 @@ function openReview(stored = false) {
     const hi = Math.max(...evs, 0);
     const width = (ev) => Math.max(4, Math.round(((ev - lo) / Math.max(1e-9, hi - lo)) * 100));
     const bars = v.options.map((o, i) => `<div class="bar ${i === v.best ? 'best' : ''} ${i === v.mine ? 'yours' : ''}"><span>${esc(o.label)}${refTag(v, i)}</span><span class="track"><i style="--w:${width(o.ev)}%"></i></span><span class="mono">${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</span></div>`).join('');
-    const eq = d.villain && d.villain.picture && d.villain.picture.equity !== null && d.villain.picture.equity !== undefined ? d.villain.picture.equity : null;
-    const duo = eq !== null && d.toCall > 0 ? `<div class="duo"><div class="stat"><span class="label">You beat</span><b>${Math.round(eq * 100)}%</b></div><div class="stat"><span class="label">You needed</span><b>${Math.round(d.odds * 100)}%</b></div></div>` : '';
+    const duo = duoHtml(d);
     return `<details class="rv-flag ${v.grade}" ${d === firstFlag ? 'open' : ''}><summary class="rv-step">${head}${link}</summary>
       <div class="rv-body">
         <h2>${esc(d.headline)}</h2>
@@ -3836,8 +3850,7 @@ function flagBlock(d) {
   const hi = Math.max(...evs, 0);
   const width = (ev) => Math.max(4, Math.round(((ev - lo) / Math.max(1e-9, hi - lo)) * 100));
   const bars = v.options.map((o, i) => `<div class="bar ${i === v.best ? 'best' : ''} ${i === v.mine ? 'yours' : ''}"><span>${esc(o.label)}</span><span class="track"><i style="--w:${width(o.ev)}%"></i></span><span class="mono">${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</span></div>`).join('');
-  const eq = d.villain && d.villain.picture && d.villain.picture.equity !== null && d.villain.picture.equity !== undefined ? d.villain.picture.equity : null;
-  const duo = eq !== null && d.toCall > 0 ? `<div class="duo"><div class="stat"><span class="label">You beat</span><b>${Math.round(eq * 100)}%</b></div><div class="stat"><span class="label">You needed</span><b>${Math.round(d.odds * 100)}%</b></div></div>` : '';
+  const duo = duoHtml(d);
   return `<h2>${esc(d.headline)}</h2>
     ${anchorHtml(d)}
     ${d.reasons.map((r) => `<p class="why">${esc(r)}</p>`).join('')}

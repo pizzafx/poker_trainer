@@ -121,6 +121,21 @@ export const INVARIANTS = {
     if (verdictWord(v, d) !== 'best play' || /: fine\./.test(bestHeadline(v, d) || d.headline || '')) return true;
     return /Verdict: fine/.test(disputeText(disputeReport(d), true));
   },
+  // MATH, STRAT, CEO (the ahead-now copy fix): before the river no call or fold line sets the share ahead right now
+  // against the price (the figure is what you'd win if it went to showdown), and every bet or raise line that prints
+  // ahead-now says "now". The draw lines and "almost never ahead" mean now and keep it.
+  'AN1 before the river, no ahead-now beside the price on a call or fold line; bet and raise lines say "now"': (d) => {
+    if (d.street !== 1 && d.street !== 2) return false;
+    const sents = [d.anchor, d.anchorExtra, ...(d.reasons || [])].filter(Boolean).flatMap((x) => String(x).split(/(?<=[.;])\s+/));
+    for (const x of sents) {
+      if (!/\b(ahead|beats?)\b/.test(x) || /draw comes in|almost never ahead|almost always ahead/.test(x)) continue;
+      const betLine = /^(When (this \w+ is )?called|Called|At \$\d+ you are still)/.test(x);
+      if (betLine) {
+        if (!/\bnow\b/.test(x)) return true;
+      } else if (/\b(need|needs|price)\b/.test(x)) return true;
+    }
+    return false;
+  },
   // STRAT, CEO (check 5): the headline's word is the strip and card word on every not-graded verdict
   'C3b a not-graded verdict\'s headline says "not graded", never "fine."': (d, v) => v.grade === 'good' && isNotGradedNote(v) && (!/: not graded\./.test(d.headline || '') || /: fine\./.test(d.headline || '')),
   'C4 a stated dollar gap equals the bars as rounded': (d, v, m) => {

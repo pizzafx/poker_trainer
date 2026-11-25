@@ -16,7 +16,7 @@
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/space-grotesk-var.woff2?v=86547af457" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="src/ui/fonts.css?v=1b671c242f">
-<link rel="stylesheet" href="src/ui/table.css?v=dbc5f52358">
+<link rel="stylesheet" href="src/ui/table.css?v=e27b6397ec">
 </head>
 <body>
 <!-- Drawn avatars, one symbol per look (assets/avatars/sprite.svg, inlined so <use href="#av-id"> works). -->
@@ -104,44 +104,51 @@
 <script type="importmap">
 {
  "imports": {
-  "./src/bots/policy.js": "./src/bots/policy.js?v=aff6e0f54e",
-  "./src/bots/profiles.js": "./src/bots/profiles.js?v=192f0e4d76",
+  "./src/bots/policy.js": "./src/bots/policy.js?v=dd1f1490af",
+  "./src/bots/profiles.js": "./src/bots/profiles.js?v=ee781e2b33",
   "./src/data/preflop.js": "./src/data/preflop.js?v=9a6872fc8f",
+  "./src/data/riverairk.js": "./src/data/riverairk.js?v=fda4d61926",
   "./src/data/riverpairref.js": "./src/data/riverpairref.js?v=43d1c726c6",
   "./src/data/riverpairref2.js": "./src/data/riverpairref2.js?v=f2f389e6bb",
+  "./src/data/riverpairref3.js": "./src/data/riverpairref3.js?v=678b1d247c",
+  "./src/data/turnpairref.js": "./src/data/turnpairref.js?v=fb18385ac1",
+  "./src/data/turnpairref3.js": "./src/data/turnpairref3.js?v=ad96987c4e",
   "./src/drill/card.js": "./src/drill/card.js?v=b2d42060ce",
   "./src/drill/game.js": "./src/drill/game.js?v=fa549950f5",
   "./src/drill/learn.js": "./src/drill/learn.js?v=a9d00bfb35",
   "./src/engine/cards.js": "./src/engine/cards.js?v=c682fd982e",
   "./src/engine/evaluator.js": "./src/engine/evaluator.js?v=86610f512a",
-  "./src/engine/features.js": "./src/engine/features.js?v=a6db130f42",
+  "./src/engine/features.js": "./src/engine/features.js?v=6dd6cea9ef",
   "./src/engine/game.js": "./src/engine/game.js?v=8980847767",
   "./src/engine/hands.js": "./src/engine/hands.js?v=dc6326610a",
   "./src/trainer/belief.js": "./src/trainer/belief.js?v=11c99159e3",
-  "./src/trainer/best.js": "./src/trainer/best.js?v=8cb20c7fa5",
+  "./src/trainer/best.js": "./src/trainer/best.js?v=dd98ca5c4f",
   "./src/trainer/coachtier.js": "./src/trainer/coachtier.js?v=5929ef035b",
   "./src/trainer/dispute.js": "./src/trainer/dispute.js?v=f038279f63",
   "./src/trainer/drills.js": "./src/trainer/drills.js?v=7b08b0b52c",
-  "./src/trainer/equity.js": "./src/trainer/equity.js?v=84121ab0b7",
-  "./src/trainer/explain.js": "./src/trainer/explain.js?v=67ee840777",
-  "./src/trainer/grade.js": "./src/trainer/grade.js?v=70bdaa97c2",
-  "./src/trainer/judge.js": "./src/trainer/judge.js?v=500072cde0",
+  "./src/trainer/equity.js": "./src/trainer/equity.js?v=3bbb4de805",
+  "./src/trainer/explain.js": "./src/trainer/explain.js?v=4801697161",
+  "./src/trainer/grade.js": "./src/trainer/grade.js?v=e4fd15f4d1",
+  "./src/trainer/judge.js": "./src/trainer/judge.js?v=b080ea9957",
   "./src/trainer/judge.worker.js": "./src/trainer/judge.worker.js?v=c1f8a3fcae",
   "./src/trainer/players.js": "./src/trainer/players.js?v=06a6995a77",
+  "./src/trainer/range.worker.js": "./src/trainer/range.worker.js?v=14d94d803a",
+  "./src/trainer/rangeladder.js": "./src/trainer/rangeladder.js?v=5fa6bb16ec",
   "./src/trainer/ranges.js": "./src/trainer/ranges.js?v=570aa5cae3",
-  "./src/trainer/replay.js": "./src/trainer/replay.js?v=09b1feab9d",
-  "./src/trainer/session.js": "./src/trainer/session.js?v=ec0802bc0c",
+  "./src/trainer/replay.js": "./src/trainer/replay.js?v=0d2445159e",
+  "./src/trainer/session.js": "./src/trainer/session.js?v=b580daa6b2",
   "./src/trainer/tuning.js": "./src/trainer/tuning.js?v=ac5d58551d",
-  "./src/trainer/version.js": "./src/trainer/version.js?v=ef255d7657",
+  "./src/trainer/version.js": "./src/trainer/version.js?v=bc3da0f92a",
+  "./src/trainer/vs3bet.js": "./src/trainer/vs3bet.js?v=1a174692b2",
   "./src/ui/countdown.js": "./src/ui/countdown.js?v=1afa8ac2d2",
-  "./src/ui/drill.js": "./src/ui/drill.js?v=08cdfd3f60",
-  "./src/ui/judgeclient.js": "./src/ui/judgeclient.js?v=634e5f0619",
+  "./src/ui/drill.js": "./src/ui/drill.js?v=4b348ceb49",
+  "./src/ui/judgeclient.js": "./src/ui/judgeclient.js?v=82454cccbd",
   "./src/ui/presets.js": "./src/ui/presets.js?v=6a951228d7",
   "./src/ui/store.js": "./src/ui/store.js?v=78c7440b74",
   "./src/ui/verdictqueue.js": "./src/ui/verdictqueue.js?v=1375bc1f5d"
  }
 }
 </script>
-<script type="module" src="src/ui/app.js?v=b4b36f408c"></script>
+<script type="module" src="src/ui/app.js?v=a4f4bc1790"></script>
 </body>
 </html>

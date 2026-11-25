@@ -9,12 +9,14 @@ import { buildContext, preflopPolicy, postflopPolicy, sampleAction, POS } from '
 import { PROFILES, TYPE_IDS, tilted, HERO_PROFILE } from '../bots/profiles.js';
 import { makePlayer, tiltChance, rebuyChance, buyIn, TABLES } from './players.js';
 import { HandBelief, newRead, posterior } from './belief.js';
+import { survivingMass } from './rangeladder.js';
 import { judgeDecision, rangePicture } from './judge.js';
 import { gradeDecision, temper } from './grade.js';
 export { limpTipFor, openTipFor, junk3betTipFor } from './grade.js';
 import { snapshotDecision, handTruth } from './dispute.js';
 import { groupOf, expandRange, LIMPER_OFFSUIT, TIGHTER_ROW } from './ranges.js';
 import { explain } from './explain.js';
+import { vs3betFacts } from './vs3bet.js';
 import { coachFeatures, coachHandText } from './coachtier.js';
 import { bestHeadline } from './best.js';
 
@@ -492,6 +494,8 @@ export class Session {
       ctx,
       // The table as the trainee saw it, for a "Disagree?" report.
       snapshot: snapshotDecision(this, s, judgeOpts),
+      // facing a re-raise preflop: what the re-raiser's belief range holds and the price, for 'preVs3bet' (STRAT, MATH)
+      vs3bet: vs3betFacts(s, belief, readOf),
     };
     if (record.pending) return record; // explained when its verdict comes (resolveDecision)
     Object.assign(record, explain(record));
@@ -703,6 +707,8 @@ export class Session {
     for (let i = 0; i < s.n; i++) {
       if (i === HERO) continue;
       out[i] = h.belief.grid(i, h.belief.board.length >= 3 ? handFeatures(s.hole[HERO], h.belief.board).score : heroScore);
+      out[i].w = Float32Array.from(h.belief.range(i)); // combo weights, for the Ranges tab's ladder
+      if (h.belief.w[i]) out[i].kept = survivingMass(h.belief.w[i], posterior(h.belief.reads[i]), h.belief.dead);
     }
     return out;
   }
@@ -717,7 +723,10 @@ export class Session {
       return keys.length ? h.rangeSnaps[keys[0]][seat] : null;
     }
     const bd = h.belief.board;
-    return h.belief.grid(seat, bd.length >= 3 ? handFeatures(h.state.hole[HERO], bd).score : null);
+    const g = h.belief.grid(seat, bd.length >= 3 ? handFeatures(h.state.hole[HERO], bd).score : null);
+    g.w = Float32Array.from(h.belief.range(seat)); // combo weights, for the Ranges tab's ladder
+    if (h.belief.w[seat]) g.kept = survivingMass(h.belief.w[seat], posterior(h.belief.reads[seat]), h.belief.dead);
+    return g;
   }
 
   // ---- skipping junk hands ------------------------------------------------------

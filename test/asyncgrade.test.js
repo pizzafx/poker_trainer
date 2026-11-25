@@ -141,7 +141,7 @@ test('a grade job is a copy taken at the decision, untouched by later play (QA A
 
 // QA AG6 (CEO): a job held for the worker's hello, a job resent after a timeout, and one that times out twice. The first
 // two grade exactly as an immediate grade of the same decision; the table having moved on changes nothing.
-import { createJudge } from '../src/ui/judgeclient.js';
+import { createJudge, showCoachDown, COACH_DOWN_HTML } from '../src/ui/judgeclient.js';
 // a stand-in for the judge worker: postMessage copies like the real one; it grades with the worker's own code, after
 // `helloMs`, and drops every grade while `drop` says so
 function fakeWorkers({ helloDelay = 0, dropFirst = 0 } = {}) {
@@ -194,4 +194,14 @@ test('a grade job is snapshotted frozen: nothing can change it after the click',
   await new Promise((r) => setTimeout(r, 10));
   assert.equal(await p, 'not graded', 'never answered: not graded, never graded on the page');
   assert.ok(Object.isFrozen(seen) && Object.isFrozen(seen.state) && Object.isFrozen(seen.state.history));
+});
+
+// RV2-B (QA, DESIGN, CEO): on a phone the coach-down notice lives in the strip, which shows with the sheet open or closed
+test('the phone strip says the coach could not load, with a Reload, whenever the coach failed', () => {
+  assert.equal(showCoachDown({ failed: true, phone: true }), true);
+  assert.equal(showCoachDown({ failed: false, phone: true }), false);
+  assert.equal(showCoachDown({ failed: true, phone: false }), false); // the desktop keeps its fixed banner
+  assert.match(COACH_DOWN_HTML, /role="status"/);
+  assert.match(COACH_DOWN_HTML, /The coach couldn't load\./);
+  assert.match(COACH_DOWN_HTML, /data-reload>Reload</);
 });

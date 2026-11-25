@@ -67,7 +67,8 @@ test('19g: a tag folds middle pair on a paired board, and behind a caller, far l
   assert.ok(c.fold > d.fold + 0.1, `station mid pair behind a caller: ${c.fold.toFixed(3)} -> ${d.fold.toFixed(3)}`);
   const r = [];
   for (const hole of ['Kh 5h', 'Kh Jh']) { const q = ctxOf(spot(hole, PAIRED)); r.push([postflopPolicy(q.ctx, off('nit'), q.f).fold, postflopPolicy(q.ctx, PROFILES.nit, q.f).fold]); }
-  if (r[0][0] > 0.01 && r[1][0] > 0.01) assert.ok(Math.abs(r[0][1] / r[0][0] - r[1][1] / r[1][0]) < 1e-6, 'one factor for weak and good kicker');
+  // 19i: topGood and topWeak are their own cells now (PRO's kicker split); the weak kicker still folds at least as much
+  assert.ok(r[0][1] >= r[1][1] - 1e-9, 'weak kicker folds at least as much as good');
 });
 
 test('19g: real two pair, trips and the stand-in are untouched', () => {

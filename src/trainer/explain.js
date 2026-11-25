@@ -7,6 +7,7 @@ import { CATEGORY, evaluate } from '../engine/evaluator.js';
 import { PROFILES, TYPE_IDS } from '../bots/profiles.js';
 import { anchorStatus, needOf, drawTest, isoQuote, ISO_LIMP_PAIRS } from './grade.js';
 import { classOf, classNames } from '../engine/hands.js';
+import { isNotGradedNote } from './best.js';
 
 export const CATEGORIES = {
   paidOff: 'Paying off: calling when their bet or raise is almost always the goods',
@@ -18,6 +19,7 @@ export const CATEGORIES = {
   sizeSmall: 'Sizing: betting too small',
   sizeBig: 'Sizing: betting too big',
   preLoose: 'Preflop: playing a hand that loses money in this spot',
+  preVs3bet: 'Preflop: continuing against a re-raise when folding is better',
   preTight: 'Preflop: folding a hand that makes money in this spot',
   prePassive: 'Preflop: limping or calling when raising makes more',
   preRaise: 'Preflop: raising when calling or folding does better',
@@ -65,6 +67,8 @@ function categorise(d) {
   const weak = d.tier !== null && d.tier <= TIER.MIDDLE_PAIR;
   if (d.street === STREET.PRE) {
     if (m === b && m === 'raise') return mine.to < best.to ? 'sizeSmall' : 'sizeBig';
+    // facing a re-raise (a 3-bet or more), a call or a re-raise where folding is best (STRAT, CEO: hand 551)
+    if (b === 'fold' && facing && d.raises >= 2 && (m === 'call' || m === 'raise')) return 'preVs3bet';
     if (b === 'fold') return 'preLoose';
     if (m === 'fold') return 'preTight';
     if (b === 'raise') return 'prePassive';
@@ -82,6 +86,54 @@ function categorise(d) {
   if (m === 'check' && b === 'raise') return d.tier >= TIER.TOP_PAIR_WEAK || v.valueCheck ? 'missedValue' : 'missedBluff';
   if (m === 'raise' && b === 'check') return bluffy(d) ? 'badBluff' : 'overplay';
   return 'other';
+}
+
+// STRAT's 'preVs3bet' lines (spec v2, MATH's thresholds and short-stack amendment, CEO-approved 23 Nov), each true by
+// construction from the facts measured at the decision (vs3bet.js): the range line (P >= 0.67), the reason (Price, Thin or
+// Realisation), the set clause (pocket pairs, under 15x the call behind), and the 4-bet line (P >= 0.85).
+const pctR = (x) => Math.round(100 * x);
+function vs3betLines(d, v) {
+  const f = d.vs3bet;
+  if (!f) return [];
+  const out = [];
+  const mine = v.options[v.mine];
+  const fold = v.options.find((o) => o.type === 'fold');
+  const raiseWord = f.raises === 2 ? '3-bets' : `${f.raises + 1}-bets`;
+  const an = /^[aeiou]/i.test(f.typeWord) ? 'An' : 'A';
+  if (f.set && f.P >= 0.67) {
+    out.push(`${an} ${f.typeWord} who ${raiseWord} ${f.overYours ? 'over your raise' : 'here'} ${f.P >= 0.85 ? 'almost always' : 'mostly'} has ${f.set}, about ${f.S}%.`);
+  }
+  // facing a shove the all-in line gives the price and there is no later street: no reason line, no set clause and no
+  // position words here (QA P5-1)
+  if (v.preShove) return out;
+  const oop = !!(d.table && d.table.oop);
+  const facts = (oop ? ', out of position' : '') + (f.behind > 4 * f.potAfter ? ', with a lot left to lose when behind' : '');
+  if (mine.type === 'raise') {
+    // a 4-bet: against an almost-all-strong range the hands that continue are ahead; otherwise a plain line (STRAT)
+    // "almost all ahead" only when at least 80% of the range's combos leave hero under 45%; else "ahead or about even"
+    // (STRAT, QA-VERDICT: AK or QQ against QQ+ and AK)
+    const almost = f.aheadShare == null || f.aheadShare >= 0.8;
+    out.push(f.P >= 0.85 ? (almost ? 'The hands that continue are almost all ahead of yours.' : 'The hands that continue are ahead of yours or about even with it.') : 'Re-raising here scores worse than folding against this range.');
+  } else if (f.eq < f.need - 0.03) {
+    out.push(`You need about ${pctR(f.need)}% to call, and this hand wins only about ${pctR(f.eq)}% against that range, even seeing all five cards.`);
+  } else if (f.eq < f.need + 0.05) {
+    out.push(`It's about break-even on paper, and you won't see all five cards for free${facts}.`);
+  } else if (f.short) {
+    // under 1.5x the pot behind the price is the all-in price and the Realisation line never prints (MATH); a hand well
+    // above that price is neither break-even nor a realisation story, so a plain line that cannot be false (STRAT)
+    out.push(`Against this range, the call scores worse than folding${facts}.`);
+  } else {
+    const back = fold ? Math.max(0, Math.round(f.call + (mine.ev - fold.ev))) : null;
+    out.push(back === null ? `It wins about ${pctR(f.eq)}% if all the cards come, but it doesn't pay back what the call costs${facts}.` : `It wins about ${pctR(f.eq)}% if all the cards come, but playing it out returns only about $${back} of the $${f.call} it costs${facts}.`);
+  }
+  // the set clause: pocket pairs with too little behind to be paid for a set
+  const pair = d.hole && d.hole.length === 2 && d.hole[0] >> 2 === d.hole[1] >> 2;
+  // only with at least 2x the call behind: no 'about 0 times' or '1 times' (STRAT)
+  if (pair && mine.type === 'call' && f.behind >= 2 * f.call && f.behind < 15 * f.call) {
+    const n = Math.round((10 * f.behind) / f.call) / 10;
+    out.push(`With only about ${n} times the call left behind, hitting a set doesn't pay enough${oop ? ", and you'd play the rest out of position" : ''}.`);
+  }
+  return out;
 }
 
 function readLine(d) {
@@ -203,6 +255,7 @@ const THEORY = {
     'Why theory disagrees: big sizes are for polarised ranges against opponents who must call some of the time. Here the big size folds out the worse hands you wanted to keep in.',
   preLoose:
     'Why theory disagrees: charts built for raked online six-max or tournament play defend and open wider than this. At a full table, raked, and headed for a multiway pot, this hand does not earn its way in.',
+  preVs3bet: "Why theory disagrees: a solver calls here, because its 3-bets include many weaker hands. This player's don't.",
   preTight:
     'Why theory disagrees: a tight chart folds this, but the callers at this table play so badly after the flop that the hand shows a profit here.',
   prePassive:
@@ -225,6 +278,21 @@ export function t1Board(hole, board) {
     if (evaluate([...hole, ...board]) === evaluate(board)) cat = Math.min(cat, CATEGORY.TRIPS); // the hero plays the board
   }
   const guardUpTo = t.maxSuit >= 4 ? CATEGORY.STRAIGHT : CATEGORY.TRIPS; // the highest category the guard covers
+  // STRAT (YB-T1 item 2, CEO 24 Nov): on four of a suit a low flush is guarded too, when two or more ranks of that suit
+  // that are neither on the board nor in the hand sit above the hero's highest card of the suit (copy only)
+  if (t.maxSuit >= 4 && cat === CATEGORY.FLUSH) {
+    const count = [0, 0, 0, 0];
+    for (const c of board) count[c & 3]++;
+    const suit = count.indexOf(Math.max(...count));
+    const mine = hole.filter((c) => (c & 3) === suit).map((c) => c >> 2);
+    if (mine.length) {
+      const top = Math.max(...mine);
+      const seen = new Set([...board, ...hole].filter((c) => (c & 3) === suit).map((c) => c >> 2));
+      let above = 0;
+      for (let r = top + 1; r <= 12; r++) if (!seen.has(r)) above++;
+      if (above >= 2) return false;
+    }
+  }
   if (cat > guardUpTo) return true;
   return !(t.connected >= 4 || t.maxSuit >= 4 || (t.maxSuit >= 3 && t.connected >= 3));
 }
@@ -232,6 +300,22 @@ export function t1Board(hole, board) {
 // A note on a fine (or not graded) verdict never hides a gap above the yellow bar behind "a little",
 // "about the same" or "scores higher": it states the dollar figure, rounded as the bars show it
 // (STRAT, QA Q1, Nov 2026). `v.small` is the yellow bar the guardrails used.
+// The read under which a fragile verdict's gap is smallest (the scenario test's scenGaps), in words (STRAT, CEO)
+const FLIP_WORDS = {
+  'calls-5': 'if this player calls a little less often',
+  'calls+5': 'if this player calls a little more often',
+  'thin hero': 'if you play the rest of the hand more cautiously',
+  'ranges x2': 'if their hands are stronger than we read',
+  'ranges x0.5': 'if their hands are weaker than we read',
+};
+function flipRead(v) {
+  const gs = (v.scenGaps || []).filter((x) => x.label !== 'base' && FLIP_WORDS[x.label]);
+  if (!gs.length) return '';
+  const m = gs.reduce((a, x) => (x.gap < a.gap ? x : a), gs[0]);
+  const g = Math.round(m.gap);
+  return `${FLIP_WORDS[m.label]}, ${g <= 0 ? 'yours does as well or better' : `the gap is only about $${g}`}`;
+}
+
 function goodHeadline(v, mine, best, d = {}) {
   const gap = (o) => Math.max(0, Math.round(o.ev) - Math.round(mine.ev));
   const bar = () => v.small || 0; // the yellow bar, the same for every option here (QA E4)
@@ -259,7 +343,9 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'iso3bet') return `${mine.label}: fine. Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.`;
   if (v.tip) return `${mine.label}: fine.`; // the tip line underneath says what a raise would do
   // ...unless the scenario test left it not graded (R5b goes through it since P3-1): then the not-graded line
-  if (v.rule === 'R5b' && v.note !== 'unclear' && v.note !== 'closeCall') return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`; // STRAT M5c
+  // any not-graded note (the shared set) takes its not-graded line (QA-VERDICT: fragileRead read "fine" under a
+  // "not graded" word and card)
+  if (v.rule === 'R5b' && !isNotGradedNote(v)) return `${mine.label}: fine. (When a passive player leads into a crowd, one pair is often beaten.)`; // STRAT M5c
   if (v.note === 'premium') return `${mine.label}: fine. (Raising with this hand is never a mistake.)`;
   if (v.note === 'anchorHabit' || v.note === 'anchorEven' || v.note === 'sizePeak') return `${mine.label}: fine.`;
   if (v.note === 'anchorFails') {
@@ -306,6 +392,7 @@ function goodHeadline(v, mine, best, d = {}) {
   }
   // STRAT YB-T1, the scenario test's form: the grading state kept, no figure for the check
   if (passiveTrap && v.note === 'unclear') return `${mine.label}: not graded. Betting a strong hand for value is the standard play against these players; checking to trap scores about the same here.`;
+  if (passiveTrap && v.note === 'fragileRead') return `${mine.label}: not graded. (Betting a strong hand for value is the standard play against these players; checking to trap scores about the same here.)`;
   if (passiveTrap && v.note === 'fragile') return `${mine.label}: fine. (Betting a strong hand for value is the standard play against these players; checking to trap scores about the same here.)`;
   if (v.note === 'closeCall') return `${mine.label}: not graded.`;
   if (v.note === 'preSize') return `${mine.label}: fine. (${bare(best)} ${more(best, 'scores about the same')}; using one size with all your hands is the better habit.)`;
@@ -370,8 +457,22 @@ function goodHeadline(v, mine, best, d = {}) {
     if (!bigger.length) return `${mine.label}: fine. (This is a sound value size${into}.)`;
     return `${mine.label}: fine. (Bigger bets score about ${lo === hi ? `$${lo}` : `$${lo}–${hi}`} more against these opponents, mostly because they call too often; ${size} is a sound value size${into}.)`;
   }
+  // STRAT, CEO (thin-value copy): a passed river bet the headline names reads as value when its win rate once raises
+  // are counted (wNet, as valueBet) reaches its need: thin under need + 0.10, clear value above. Under need it keeps
+  // the line below, where bluffWord still reads W (a bet that wins when called but loses to raises is "a bet")
+  const seenTop = (top.C || 0) + (top.R || 0);
+  const wNet = top.W == null || top.need == null ? null : seenTop > 0 ? (top.W * (top.C || 0)) / seenTop : top.W;
+  if (v.note === 'passedBluff' && d.street === STREET.RIVER && wNet !== null && wNet >= top.need) {
+    if (wNet < top.need + 0.1) return `${mine.label}: fine. (A thin value bet ${more(top)}; once raises are counted it barely wins often enough, so checking is fine.)`;
+    return `${mine.label}: fine. (A value bet ${more(top)}; it wins clearly more often than it needs when called, so betting is the better habit.)`;
+  }
   if (v.note === 'riverBluff' || v.note === 'passedBluff') return `${mine.label}: fine. (A ${bluffWord(top) || 'bet'} ${more(top)} against these bots; not enough to rely on at a real table.)`;
-  if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read, so it is not graded.${habitTail(v, d)})`;
+  // STRAT, CEO (fragile label fix): the scenario test's own fragile (fragileRead) is not graded and names the read that
+  // flips it; the other two fragile passes stay 'fine' and no longer say "not graded" (they contradicted themselves)
+  // STRAT, CEO: an R5b call the scenario test leaves not graded keeps R5b's reason after the scenario
+  const r5bWhy = v.rule === 'R5b' && v.habitOut !== 'passiveLead' ? ' When a passive player leads into a crowd, one pair is often beaten.' : '';
+  if (v.note === 'fragileRead') return `${mine.label}: not graded. (${bare(best)} ${more(best)} on our read of ${who}, but not under every reasonable read${flipRead(v) ? `: ${flipRead(v)}` : ''}.${habitTail(v, d)}${r5bWhy})`;
+  if (v.note === 'fragile') return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')} on our read of ${who}.${habitTail(v, d)})`;
   if (v.mine !== v.best) return `${mine.label}: fine. (${bare(best)} ${more(best, 'rates about the same')}.)`;
   // ...never naming a play the coach does not teach here (R7 habits: the reference already leaves them out; STRAT, F10)
   if (gap(top) > bar(top) && v.ref !== 'habit') return `${mine.label}: fine. (${bare(top)} ${more(top)} on our read, but the coach does not hold you to it here.)`;
@@ -646,6 +747,9 @@ export function explain(d) {
   if (v.rule === 'R5b' && best.type === 'fold') reasons.push(`When a passive player leads into a crowd, one pair is often beaten. Folding scores about $${Math.max(0, Math.round(best.ev) - Math.round(mine.ev))} more.`);
   const r1 = readLine(d);
   if (r1) reasons.push(r1);
+  // preVs3bet: its lines come straight after the read line, so nothing generic sits between "plays like a calling
+  // station" and what that player's re-raise holds (STRAT, QA-VERDICT's 551 read)
+  if (category === 'preVs3bet') reasons.push(...vs3betLines(d, v));
   const r2 = rangeLine(d);
   if (r2) reasons.push(r2);
   const multiway = d.street !== STREET.PRE && d.opponents >= 2;
@@ -737,6 +841,12 @@ export function explain(d) {
     theory = parts.length ? `Why theory disagrees: charts built for raked online six-max or tournament play defend and open wider than this. ${cap(list)}, this hand does not earn its way in.` : null;
   }
   if (category === 'preTight' && d.raises === 0 && !(d.ctx && d.ctx.limpers > 0)) theory = null;
+  // the "solver calls" line only when the belief's re-raising range is almost all strong hands (CEO's condition)
+  if (category === 'preVs3bet') {
+    if (!(d.vs3bet && d.vs3bet.P >= 0.85)) theory = null;
+    // "a solver calls here" is false of a re-raise: the 4-bet takes preRaise's line (STRAT)
+    else if (m === 'raise') theory = THEORY.preRaise;
+  }
   if (category === 'sizeSmall' && theory) {
     if (d.street === STREET.PRE) theory = 'Why theory disagrees: at a tough table a smaller raise does the job. These players call bigger raises with worse, so make it bigger.';
     else if (d.street !== STREET.FLOP) theory = 'Why theory disagrees: theory mixes small bets into a balanced strategy. Callers here pay the same hands at a bigger price, so the small size leaves money behind.';

@@ -17,7 +17,7 @@ import { cardStr } from '../src/engine/cards.js';
 import { classOf, classNames } from '../src/engine/hands.js';
 import { handFeatures, TIER, isRealDraw } from '../src/engine/features.js';
 import { HERO_PROFILE } from '../src/bots/profiles.js';
-import { verdictWord, isBestPlay, bestHeadline } from '../src/trainer/best.js';
+import { verdictWord, isBestPlay, bestHeadline, isNotGradedNote } from '../src/trainer/best.js';
 import { shownCost, dryBoard, blockerHand, t1Board, stationLimpers } from '../src/trainer/explain.js';
 import { pairedGap, redBar } from '../src/trainer/judge.js';
 import { PREMIUM_RERAISE, ISO_RERAISE, giveUpOption, anchorStatus, drawTest, ISO_LIMP, ISO_LIMP_FEW, ISO_LIMP_PAIRS, NIT_SCOPE_HANDS, isoFoldHand, ISO_FOLD_VETO, outsideBehindLimpers, raiseClears, suitedLimpHand } from '../src/trainer/grade.js';
@@ -121,6 +121,8 @@ export const INVARIANTS = {
     if (verdictWord(v, d) !== 'best play' || /: fine\./.test(bestHeadline(v, d) || d.headline || '')) return true;
     return /Verdict: fine/.test(disputeText(disputeReport(d), true));
   },
+  // STRAT, CEO (check 5): the headline's word is the strip and card word on every not-graded verdict
+  'C3b a not-graded verdict\'s headline says "not graded", never "fine."': (d, v) => v.grade === 'good' && isNotGradedNote(v) && (!/: not graded\./.test(d.headline || '') || /: fine\./.test(d.headline || '')),
   'C4 a stated dollar gap equals the bars as rounded': (d, v, m) => {
     const h = d.headline || '';
     const cost = h.match(/costs about \$(\d+)/);
@@ -266,16 +268,17 @@ export const INVARIANTS = {
     const mine = v.options[v.mine];
     if (!mine || mine.type !== 'raise' || !(d.tier >= TIER.TWO_PAIR) || !Array.isArray(d.liveTypes) || !d.liveTypes.length) return false;
     if (!d.liveTypes.every((t) => ['abc', 'station', 'nit', 'beginner', 'whale'].includes(t))) return false;
-    // STRAT (YB-T1 vs U1): a gap above the bar is always stated, and a devaluing board takes the hand out of T1
+    // STRAT (YB-T1 vs U1): a gap at or above the bar is always stated (the copy keeps T1 only below it: passiveTrap; STRAT
+    // 24 Nov, s24 h48 sat exactly at the bar), and a devaluing board takes the hand out of T1
     const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
-    if (Math.max(0, Math.round(top.ev) - Math.round(mine.ev)) > (v.small || 0) || !t1Board(d.hole, d.board)) return false;
+    if (Math.max(0, Math.round(top.ev) - Math.round(mine.ev)) >= (v.small || 0) || !t1Board(d.hole, d.board)) return false;
     return /Check scores about \$\d+ more|a check is better by/i.test(d.headline || '');
   },
   'YB-T1c the "strong hand for value" copy only with the check within the bar, on a board that does not devalue the hand': (d, v) => {
     if (!/Betting a strong hand for value is the standard play/.test(d.headline || '')) return false;
     const mine = v.options[v.mine];
     const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
-    return Math.max(0, Math.round(top.ev) - Math.round(mine.ev)) > (v.small || 0) || !t1Board(d.hole, d.board);
+    return Math.max(0, Math.round(top.ev) - Math.round(mine.ev)) >= (v.small || 0) || !t1Board(d.hole, d.board);
   },
   'YB-T2 an anchor-veto "X scores about $Y more" names the top option, with Y = top - mine': (d, v) => {
     if (v.note !== 'anchor') return false;
@@ -533,6 +536,12 @@ export function runConfig(cfg) {
       ? { custom: { sb: 1, bb: 2, minBuy: 100, maxBuy: 200 }, heroBuy: 200, lineup: cfg.lineup || ['station', 'station', 'whale', 'abc', 'abc', 'maniac', 'beginner'], samples, seed: cfg.seed }
       : { game: cfg.game || '1/2', table: cfg.table || 'typical', samples, seed: cfg.seed, seats: cfg.seats || 9 },
   );
+  // VC_NOBUDGET=1 (CEO, QA-OPP, 24 Nov: the opponent gate sets it on both builds): the base grades take no time budget
+  // (budgetMs 0), so a run's verdicts and its violation count don't move with machine load. Slower, deterministic.
+  if (process.env.VC_NOBUDGET === '1') {
+    const jo = sess.judgeOpts.bind(sess);
+    sess.judgeOpts = () => ({ ...jo(), budgetMs: 0 });
+  }
   const violations = [];
   const modelHits = [];
   const flips = [];
@@ -552,7 +561,7 @@ export function runConfig(cfg) {
       // LD1 (QA-VERDICT): a grade never depends on the time budget. Every flag and every play a veto check
       // passed is graded again with no budget; when the base run reached the same samples both times
       // (identical base values), the grade must match.
-      if (rec.verdict && (rec.verdict.grade !== 'good' || ['fragile', 'unclear', 'passedBluff'].includes(rec.verdict.note))) {
+      if (rec.verdict && (rec.verdict.grade !== 'good' || ['fragile', 'fragileRead', 'unclear', 'passedBluff'].includes(rec.verdict.note))) {
         const belief = HandBelief.fromPlain(job.belief);
         const v0 = gradeDecision(job.state, belief, job.action, { ...job.opts, budgetMs: 0 }, { belief, readOf: (i) => job.reads[i], name: (i) => job.names[i] });
         const same = v0.samples === rec.verdict.samples && v0.options.length === rec.verdict.options.length && v0.options.every((o, i) => o.ev === rec.verdict.options[i].ev);

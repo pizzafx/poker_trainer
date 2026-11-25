@@ -8,6 +8,7 @@ import { handFeatures } from '../engine/features.js';
 import { buildContext } from '../bots/policy.js';
 import { TYPE_IDS } from '../bots/profiles.js';
 import { HandBelief, posterior } from './belief.js';
+import { survivingMass } from './rangeladder.js';
 
 const HERO = 0;
 const POSTED = new Set(['sb', 'bb', 'straddle']);
@@ -39,6 +40,8 @@ export function replayHand(rec) {
   const grids = {};
   const snap = (seat) => {
     grids[seat] = belief.grid(seat, heroScore());
+    grids[seat].w = Float32Array.from(belief.range(seat)); // combo weights, for the Ranges tab's ladder
+    grids[seat].kept = survivingMass(belief.w[seat], posterior(belief.reads[seat]), belief.dead);
   };
   const snapAll = () => {
     for (let i = 0; i < s.n; i++) if (i !== HERO && reads[i]) snap(i);

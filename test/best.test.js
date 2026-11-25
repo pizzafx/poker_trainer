@@ -60,7 +60,7 @@ test('best play: a bigger size than the reference never earns the ring', () => {
 test('best play: the wrong kind, a flag, a note, a guardrail, a rule or a tip means no ring', () => {
   assert.equal(isBestPlay(base({ mine: 0 }), {}), false);
   assert.equal(isBestPlay(base({ grade: 'mistake' }), {}), false);
-  for (const note of ['mwHabit', 'preBluff', 'fragile', 'unclear', 'anchor', 'mwCheck', 'mwDraw', 'tinyPot', 'anchorEven', 'passedBluff']) assert.equal(isBestPlay(base({ note }), {}), false, note);
+  for (const note of ['mwHabit', 'preBluff', 'fragile', 'fragileRead', 'unclear', 'anchor', 'mwCheck', 'mwDraw', 'tinyPot', 'anchorEven', 'passedBluff']) assert.equal(isBestPlay(base({ note }), {}), false, note);
   assert.equal(isBestPlay(base({ ref: 'noRaise' }), {}), false);
   assert.equal(isBestPlay(base({ costly: { note: 'mwCheck' } }), {}), false);
   assert.equal(isBestPlay(base({ rule: 'R5' }), {}), false);

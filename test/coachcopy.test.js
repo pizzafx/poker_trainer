@@ -51,6 +51,10 @@ test('YB-T1 vs U1: a board that devalues a hand below a straight takes it out of
   assert.equal(b('As 2d', '9c Tc Jd Qh Ks'), true, 'the nut straight over a board straight');
   assert.equal(b('8s 2d', '9c Tc Jd Qh 3s'), true, 'a straight of its own, no four-flush');
   assert.equal(b('2c 3d', 'Ah Kh 8h 4h 9h'), false, 'a board flush the hero plays');
+  // STRAT (YB-T1 item 2, CEO): a low flush on four of a suit, two unseen higher cards of the suit
+  assert.equal(b('9s 6s', 'Js Ts 3s Qs'), false, 'a 9-high flush on four spades: K and A of spades are out');
+  assert.equal(b('Ks 6s', 'Js Ts 3s Qs'), true, 'a K-high flush: only the ace is above');
+  assert.equal(b('9s 6s', 'Js Ts 3s Qh'), true, 'three spades on board: no four-flush guard');
 });
 
 // STRAT (19 Nov, YB-T1 at the bar): the passive-trap forms only strictly under the bar; at the bar U1's figure wins.
@@ -58,16 +62,20 @@ test('YB-T1 vs U1: a board that devalues a hand below a straight takes it out of
 // against the bet's $4.6, the bar $6
 test('YB-T1 at the bar: a check ahead by exactly the bar is named with its figure, not "scores about the same"', () => {
   const opts = [{ type: 'check', label: 'Check', ev: 10.7 }, { type: 'raise', to: 11, label: 'Bet $11 (50% pot)', ev: 4.6 }];
-  const rec = (small, note) => ({
+  const rec = (small, note, hole = '9s 6s') => ({
     street: 3, toCall: 0, currentBet: 0, raises: 0, opponents: 1, position: 'BTN/SB', tier: 8,
-    hole: parseCards('9s 6s'), board: parseCards('Js Ts 3s Qs'), liveTypes: ['abc'],
+    hole: parseCards(hole), board: parseCards('Js Ts 3s Qs'), liveTypes: ['abc'],
     verdict: { grade: 'good', note, mine: 1, best: 0, small, options: opts },
   });
   for (const note of ['unclear', 'fragile']) {
     const at = explain(rec(6, note)).headline;
     assert.doesNotMatch(at, /scores about the same/, `${note} at the bar: ${at}`);
-    const under = explain(rec(7, note)).headline;
+    // under the bar the trap copy needs a strong hand: a K-high flush keeps it; 9s6s, a low flush on four spades with
+    // the K and A of spades out, no longer counts as one (STRAT's four-flush guard, CEO 24 Nov)
+    const under = explain(rec(7, note, 'Ks 6s')).headline;
     assert.match(under, /checking to trap scores about the same here/, `${note} under the bar: ${under}`);
+    const low = explain(rec(7, note)).headline;
+    assert.doesNotMatch(low, /checking to trap/, `${note} under the bar, low flush: ${low}`);
   }
   assert.match(explain(rec(6, 'unclear')).headline, /better by about \$6/);
 });
@@ -99,4 +107,73 @@ test('YB-D2c: the draw-overbet habit line says "With a draw, bet smaller or chec
   assert.match(h, /An overbet with a draw into several players\. With a draw, bet smaller or check\.\)$/);
   assert.doesNotMatch(h, /your draw comes in/);
   assert.match(explain(rec(10)).headline, /With a draw, calling is cheaper\.\)$/);
+});
+
+// STRAT, CEO (thin-value copy): a passed river bet that wins often enough when called reads as value, in two bands
+const passed = (top, street = STREET.RIVER) => {
+  const d = JSON.parse(readFileSync(new URL('./fixtures/records/ybv4b-a2.json', import.meta.url), 'utf8'));
+  d.street = street;
+  d.toCall = 0;
+  d.board = street === STREET.RIVER ? [...d.board, 20] : d.board;
+  d.verdict = { ...d.verdict, best: 1, mine: 0, grade: 'good', note: 'passedBluff', anchorWhy: null, small: 25, options: [{ type: 'check', label: 'Check', ev: 0 }, { type: 'raise', to: 35, label: 'Bet $35', ev: 27, F: 0.2, ...top, need: 0.5 }] };
+  return explain(d).headline;
+};
+test('thin-value copy: a river value bet barely past its need once raises count (h73d214-like, wNet 0.529) is a thin value bet', () => {
+  assert.equal(passed({ W: 0.59, C: 0.7, R: 0.0805 }), 'Check: fine. (A thin value bet scores about $27 more; once raises are counted it barely wins often enough, so checking is fine.)');
+});
+test('thin-value copy: a river bet whose wNet is need + 0.15 is a value bet', () => {
+  assert.equal(passed({ W: 0.65, C: 0.8, R: 0 }), 'Check: fine. (A value bet scores about $27 more; it wins clearly more often than it needs when called, so betting is the better habit.)');
+});
+test('thin-value copy: raises that pull wNet under need keep the real-table line, as "a bet" (h14d37-like, wNet 0.29)', () => {
+  assert.equal(passed({ W: 0.84, C: 0.29, R: 0.55 }), 'Check: fine. (A bet scores about $27 more against these bots; not enough to rely on at a real table.)');
+  assert.match(passed({ W: 0.84, C: 0.4, R: 0.2 }), /A thin value bet/);
+});
+test('thin-value copy: a river bluff (W under need) and a turn passed bet keep the real-table line', () => {
+  assert.equal(passed({ W: 0, C: 0.8, R: 0 }), 'Check: fine. (A bluff scores about $27 more against these bots; not enough to rely on at a real table.)');
+  assert.match(passed({ W: 0.84, C: 0.8, R: 0 }, STREET.TURN), /against these bots; not enough to rely on at a real table/);
+});
+
+// QA-VERDICT (q2_sens_12 h11d23 and two more): an R5b call the scenario test leaves not graded (fragileRead) reads
+// "not graded" in the headline, as the word and the card do, not R5b's "fine" line
+test('R5b: a passive-lead call left not graded by the scenario test (fragileRead) has a "not graded" headline', () => {
+  const opts = [{ type: 'fold', ev: 0, label: 'Fold' }, { type: 'call', ev: -14, label: 'Call $12' }];
+  const rec = (note) => ({
+    street: 3, toCall: 12, currentBet: 12, raises: 0, opponents: 3, position: 'CO', tier: 4,
+    hole: parseCards('Kh Qd'), board: parseCards('Kc 8s 5d 2h 9c'), liveTypes: ['station', 'abc', 'abc'],
+    verdict: { grade: 'good', rule: 'R5b', note, mine: 1, best: 0, small: 6, options: opts },
+  });
+  const h = explain(rec('fragileRead')).headline;
+  // STRAT, CEO: the not-graded line first, then R5b's reason after the scenario; never R5b's "fine" line
+  assert.match(h, /^Call \$12: not graded\. \(Fold scores about \$14 more on our read of .*, but not under every reasonable read.*\. When a passive player leads into a crowd, one pair is often beaten\.\)$/, h);
+  assert.doesNotMatch(h, /: fine\./);
+  // with no note R5b keeps its line
+  assert.equal(explain(rec(undefined)).headline, 'Call $12: fine. (When a passive player leads into a crowd, one pair is often beaten.)');
+});
+
+// STRAT, CEO (check 5): every not-graded note, under every rule that has an early "fine" line, reads "not graded" in
+// the headline, as verdictWord (the strip and the card) does
+import { NOT_GRADED_NOTES, verdictWord } from '../src/trainer/best.js';
+test('headline word = strip word = card word for each not-graded note, R5b included', () => {
+  const opts = [{ type: 'fold', ev: 0, label: 'Fold' }, { type: 'call', ev: -14, label: 'Call $12' }];
+  for (const rule of [undefined, 'R5b']) {
+    for (const note of NOT_GRADED_NOTES) {
+      const d = {
+        street: 3, toCall: 12, currentBet: 12, raises: 0, opponents: 3, position: 'CO', tier: 4,
+        hole: parseCards('Kh Qd'), board: parseCards('Kc 8s 5d 2h 9c'), liveTypes: ['station', 'abc', 'abc'],
+        verdict: { grade: 'good', rule, note, mine: 1, best: 0, small: 6, options: opts },
+      };
+      const h = explain(d).headline;
+      assert.equal(verdictWord(d.verdict, d), 'not graded');
+      assert.match(h, /^Call \$12: not graded\./, `${rule} ${note}: ${h}`);
+    }
+  }
+});
+
+// QA-VERDICT's row q2_sens_12 h11d23 (CEO check 5): STRAT's full line, the scenario and then R5b's reason
+test('R5b + fragileRead on the real row h11d23: the not-graded line with its scenario, then the R5b reason', () => {
+  const d = JSON.parse(readFileSync(new URL('./fixtures/records/r5b-fragile-h11d23.json', import.meta.url), 'utf8'));
+  assert.equal(d.verdict.rule, 'R5b');
+  assert.equal(d.verdict.note, 'fragileRead');
+  assert.equal(explain(d).headline, 'Call $60: not graded. (Fold scores about $25 more on our read of these players, but not under every reasonable read: if their hands are weaker than we read, the gap is only about $12. When a passive player leads into a crowd, one pair is often beaten.)');
+  assert.equal(verdictWord(d.verdict, d), 'not graded');
 });

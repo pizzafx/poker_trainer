@@ -32,16 +32,19 @@ test('"you have": the board hand, the kicker, the coach phrase; the no-play and 
 });
 
 // a river check-or-bet spot on a board-made hand, the passedBluff headline and the bet line
-const rec = (W, need, evBet) => ({
+const rec = (W, need, evBet, C = 0.8, R = 0) => ({
   street: 3, toCall: 0, currentBet: 0, raises: 0, opponents: 1, position: 'BTN', tier: TIER.WEAK_PAIR, boardMade: true,
   hole: parseCards('Ad Ks'), board: parseCards('7s Tc 3h Ts 3c'), liveTypes: ['station'],
-  verdict: { grade: 'good', note: 'passedBluff', mine: 0, best: 1, small: 6, anchors: {}, options: [{ type: 'check', label: 'Check', ev: 10 }, { type: 'raise', to: 20, label: 'Bet $20', ev: evBet, F: 0.2, C: 0.8, R: 0, W, need, alpha: 0.4 }] },
+  verdict: { grade: 'good', note: 'passedBluff', mine: 0, best: 1, small: 6, anchors: {}, options: [{ type: 'check', label: 'Check', ev: 10 }, { type: 'raise', to: 20, label: 'Bet $20', ev: evBet, F: 0.2, C, R, W, need, alpha: 0.4 }] },
 });
 test('board-made headline: "A bet scores" when the bet wins when called as often as it needs, "A bluff" otherwise', () => {
-  assert.match(explain(rec(0.7, 0.5, 20)).headline, /\(A bet scores about \$10 more/);
+  // STRAT, CEO (thin-value copy): a W 0.7 bet raised often enough that it loses once raises count stays "A bet";
+  // with no raises (wNet 0.7, need + 0.20) it is "A value bet"
+  assert.match(explain(rec(0.7, 0.5, 20, 0.3, 0.5)).headline, /\(A bet scores about \$10 more/);
+  assert.match(explain(rec(0.7, 0.5, 20)).headline, /\(A value bet scores about \$10 more/);
   assert.match(explain(rec(0.1, 0.5, 20)).headline, /\(A bluff scores about \$10 more/);
   // the same for every hand (STRAT, 20 Nov): "A bet scores" on a value bet, "A bluff" otherwise
-  assert.match(explain({ ...rec(0.7, 0.5, 20), boardMade: false }).headline, /\(A bet scores/);
+  assert.match(explain({ ...rec(0.7, 0.5, 20, 0.3, 0.5), boardMade: false }).headline, /\(A bet scores/);
   assert.match(explain({ ...rec(0.1, 0.5, 20), boardMade: false }).headline, /\(A bluff scores/);
 });
 

@@ -1004,8 +1004,12 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
   // (the one it names, else the judge's best), so an un-graded flag shows which read failed
   const scenRef = r.pick >= 0 ? r.pick : v.best;
   v.scenGaps = scen.map((e, k) => ({ label: scenLabels[k], gap: +(e[scenRef] - e[v.mine]).toFixed(2) }));
-  // a costly multiway check stands only if the scenarios name that same bet (amended R1/R4)
-  if (v.costly && (r.pick !== v.costly.ref || r.near)) return pass(v.costly.note);
+  // a costly multiway check stands when the scenarios name a bet, of any size, that beats the check by its bar in
+  // every scenario, and not only nearly; the flag then names that size (owner, 24 Nov: STRAT's size-agreement fix,
+  // amending R1; before, the named size had to equal the judge's best). A costly draw (R4) still needs that same
+  // size. Yellow at most, as before.
+  if (v.costly && !costlyStands(r, v.options, v.costly)) return pass(v.costly.note);
+  if (v.costly) v.costly.pick = r.pick;
   if (r.pick >= 0) {
     const pick = r.pick;
     const pickGap = gaps[pick];
@@ -1034,7 +1038,18 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
     return;
   }
   if (r.unclear && r.flip >= 0) v.flip = r.flip;
-  return pass(r.unclear ? 'unclear' : 'fragile');
+  // STRAT, CEO (fragile label fix): no pick, not near, not dominated, yet some read puts your play within the bars: QA
+  // found every one of these past the yellow bar and significant, so it reads 'not graded' (fragileRead), not 'fine'
+  return pass(r.unclear ? 'unclear' : 'fragileRead');
+}
+
+// Whether a costly multiway check keeps its flag after the scenario test (owner, 24 Nov, STRAT). A one-pair check
+// (mwCheck): the test names a bet or raise of any size, not by near-dominance; no pick, a pick that is not a bet, or a
+// near pick keeps the pass. A draw (mwDraw): the test must name the same bet (its costly test is anchored on that size).
+export function costlyStands(r, options, costly) {
+  if (r.near) return false;
+  if (costly.note === 'mwCheck') return r.pick >= 0 && !!options[r.pick] && options[r.pick].type === 'raise';
+  return r.pick === costly.ref;
 }
 
 // The scenario test's decision, on a table of option values per scenario (`scen[k][i]`): pure, so it
@@ -1314,7 +1329,7 @@ export function applyAnchors(v, s, ctx, allow = () => true) {
     if (close && (mine.type === 'fold' || (mine.type === 'call' && v.grade === 'good'))) {
       v.line = '8b';
       // the line says "nothing here is graded": so does the verdict (QA-VERDICT V1)
-      if (v.grade === 'good' && (!v.note || v.note === 'fragile' || v.note === 'unclear')) v.note = 'closeCall';
+      if (v.grade === 'good' && (!v.note || v.note === 'fragile' || v.note === 'fragileRead' || v.note === 'unclear')) v.note = 'closeCall';
       return;
     }
     // a clearly right fold needs no R6 protection: plain grading, so it can be the best play

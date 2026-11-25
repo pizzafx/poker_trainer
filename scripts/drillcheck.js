@@ -3,8 +3,12 @@
 // --write the bank is rewritten without the failures and stamped with the current version. Run it after any
 // change to the opponent model or grading (the bank version says when one happened).
 //
-//   node scripts/drillcheck.js [--write] [--shard k/n] [--seeds 4,5,6] [--file path]
+//   node scripts/drillcheck.js [--write] [--shard k/n [--out shard.json]] [--seeds 4,5,6] [--file path]
+//   node scripts/drillcheck.js [--write] [--file path] --merge shard0.json shard1.json ...
 //   --seeds: re-gate on seeds the pipeline did not use (MATH's sign-off check); reports only, never writes
+//   --out: a shard's kept and dropped entries, with their bank positions, for --merge (one process per shard; CEO)
+//   --merge: joins every shard of one re-gate in bank order, then reports, checks the runs and writes as a single
+//            run would (the shards must cover the whole bank at the current version)
 
 import fs from 'node:fs';
 import { SKILLS } from './drill/skills.js';
@@ -21,13 +25,27 @@ const shardArg = args.includes('--shard') ? args[args.indexOf('--shard') + 1] : 
 const [k, n] = shardArg.split('/').map(Number);
 const seeds = args.includes('--seeds') ? args[args.indexOf('--seeds') + 1].split(',').map(Number) : null;
 const FILE = args.includes('--file') ? args[args.indexOf('--file') + 1] : 'src/drill/bank.json';
+const OUT = args.includes('--out') ? args[args.indexOf('--out') + 1] : null;
+const MERGE = args.includes('--merge') ? args.slice(args.indexOf('--merge') + 1).filter((x) => !x.startsWith('--')) : null;
 const bank = JSON.parse(fs.readFileSync(FILE, 'utf8'));
 const version = bankVersion();
 console.log(`bank ${bank.version}, ${bank.spots.length} spots; current version ${version}${bank.version === version ? ' (unchanged)' : ''}`);
 
 const keep = [];
 const dropped = [];
-bank.spots.forEach((e, i) => {
+const at = []; // each kept entry's position in the bank (for --out)
+if (MERGE) {
+  if (n !== 1 || seeds) throw new Error('--merge takes no --shard or --seeds');
+  const sh = MERGE.map((f) => JSON.parse(fs.readFileSync(f, 'utf8')));
+  if (sh.some((x) => x.version !== version)) throw new Error(`a shard is not at the current version ${version}`);
+  if (sh.some((x) => x.n !== sh[0].n) || new Set(sh.map((x) => x.k)).size !== sh[0].n || sh.length !== sh[0].n) throw new Error(`--merge needs each of the ${sh[0].n} shards once`);
+  const kept = sh.flatMap((x) => x.keep).sort((a, b) => a.i - b.i);
+  const drops = sh.flatMap((x) => x.dropped).sort((a, b) => a.i - b.i);
+  if (kept.length + drops.length !== bank.spots.length || [...kept, ...drops].some((x) => bank.spots[x.i].id !== (x.e ? x.e.id : x.id))) throw new Error('the shards do not match this bank');
+  for (const x of kept) keep.push(x.e);
+  for (const { i, ...d } of drops) dropped.push(d);
+}
+if (!MERGE) bank.spots.forEach((e, i) => {
   if (i % n !== k) return;
   const skill = SKILLS[e.skill];
   const { s, belief } = replaySpot(e.spot);
@@ -39,8 +57,15 @@ bank.spots.forEach((e, i) => {
   // coach's estimate lines (CURR, spec 2.3); the answers (families) never change on a kept spot
   const d = derive(e.skill, s, belief, reads, e.spot.types, g.result, e.spot.nicks);
   if (d.reject) return dropped.push({ id: e.id, skill: e.skill, difficulty: e.difficulty, why: d.reject });
+  at.push(i);
   keep.push({ ...e, bankVersion: version, difficulty: d.difficulty, estimate: d.estimate, options: g.result.options, marginBars: g.result.marginBars, marginBb: g.result.marginBb, costBb: g.result.costBb, costBucket: g.result.costBucket, gate: { ...e.gate, samples: g.result.samples, tricky: d.tricky }, was: { difficulty: e.difficulty, version: e.bankVersion } });
 });
+if (OUT) {
+  if (n === 1 || seeds) throw new Error('--out is for a --shard run');
+  const pos = new Map(bank.spots.map((e, i) => [e.id, i]));
+  fs.writeFileSync(OUT, JSON.stringify({ version, k, n, keep: keep.map((e, j) => ({ i: at[j], e })), dropped: dropped.map((d) => ({ i: pos.get(d.id), ...d })) }));
+  console.log(`wrote shard ${k}/${n} to ${OUT}`);
+}
 for (const d of dropped) console.log(`DROP ${d.id}: ${d.why}`);
 console.log(`${keep.length} pass, ${dropped.length} drop`);
 // before / after per lesson (CURR): spots, the easy and tricky shares, and how many labels moved

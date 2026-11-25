@@ -1,0 +1,321 @@
+// The Ranges tab's ladder (DESIGN's combined range view; MATH owns the numbers): rungs, the "You" line, and the
+// win-by-the-river run-outs.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { parseCards } from '../src/engine/cards.js';
+import { comboIndex, COMBOS } from '../src/engine/hands.js';
+import { ladderOf, ladderEquity, round5, HIDE_BELOW, pctText, guessRight, keptOf, riverLetGo, RUNGS, rangeMix, joinGroups, rangePhrase, facingMode, takeawayText, playWords } from '../src/trainer/rangeladder.js';
+
+const flat = () => new Float64Array(1326).fill(1);
+
+test('hand 559 shape: ace high with the nut flush draw has every pair above the line and draws and air below', () => {
+  const lad = ladderOf(flat(), parseCards('8s 3s 9c'), parseCards('As Qs'));
+  assert.deepEqual(lad.above, [0, 1, 2]);
+  const sum = lad.rungs.reduce((a, r) => a + r.share, 0);
+  assert.ok(Math.abs(sum - 1) < 1e-9, `shares sum to ${sum}`);
+  // the section total is the headline's own measure, not the sum of the rungs above the line (MATH, CEO)
+  assert.ok(Math.abs(lad.beatsYou - (1 - lad.ahead)) < 1e-9);
+  for (const b of [0, 1, 2]) assert.equal(lad.rungs[b].ahead, 0, `rung ${b}: every pair beats ace high`);
+  assert.ok(lad.rungs[3].ahead > 0.5 && lad.rungs[4].ahead > 0.5);
+  const e = ladderEquity(lad);
+  assert.ok(e.equity > 0.5 && e.equity < 0.85, `equity ${e.equity}`); // a big draw plus overcards against a wide range
+  assert.ok(e.rung[0] < e.rung[4], 'it wins more often against air than against two pair or better');
+});
+
+test('the line follows ahead-now, not the category: underpairs to the board sit above a small pocket pair', () => {
+  // 44 on J73: TT-88 are "weaker pairs" by category but beat 44, so that rung is above the line
+  const lad = ladderOf(flat(), parseCards('Js 7s 3h'), parseCards('4c 4d'));
+  assert.ok(lad.above.includes(2), `above ${lad.above}`);
+  assert.ok(lad.rungs[2].ahead < 0.5);
+});
+
+test('a strong hand has nothing above the line; a hand the range cannot hold is never counted', () => {
+  const hole = parseCards('Jc Jd');
+  const board = parseCards('Js 7s 3h');
+  const lad = ladderOf(flat(), board, hole);
+  assert.deepEqual(lad.above, []);
+  assert.equal(lad.beatsYou, 0);
+  for (const c of [comboIndex(hole[0], hole[1]), comboIndex(board[0], board[1])]) assert.equal(lad.rung[c], -1);
+});
+
+test('on the river, win by the river is ahead now', () => {
+  const lad = ladderOf(flat(), parseCards('8s 3s 9c 2d Kh'), parseCards('As Qs'));
+  const e = ladderEquity(lad);
+  assert.equal(round5(e.equity), round5(lad.ahead));
+});
+
+test('weights: a range of only sets puts everything above the line; kept measures width against the fullest combo', () => {
+  const board = parseCards('8s 3s 9c');
+  const w = new Float64Array(1326);
+  for (let c = 0; c < 1326; c++) {
+    const [p, q] = COMBOS[c];
+    if (p >> 2 === q >> 2 && [6, 1, 7].includes(p >> 2)) w[c] = 1; // 88, 33, 99
+  }
+  const lad = ladderOf(w, board, parseCards('As Qs'));
+  assert.ok(lad.rungs[0].share > 0.99);
+  assert.ok(lad.kept < 0.01, `kept ${lad.kept}`);
+  assert.ok(HIDE_BELOW === 0.03);
+});
+
+test('MATH: a weak pair with only a backdoor flush draw is a weaker pair, not a draw', () => {
+  // 7d6d on K72 rainbow but one diamond: bottom pair plus a backdoor flush draw
+  const w = new Float64Array(1326);
+  const c = comboIndex(...parseCards('7d 6d'));
+  w[c] = 1;
+  const lad = ladderOf(w, parseCards('Ks 7c 2d'), parseCards('As Qh'));
+  assert.equal(lad.rung[c], 2);
+});
+
+test('flop run-outs are exact (all 1,081), and the numbers print per MATH', () => {
+  const lad = ladderOf(new Float64Array(1326).fill(1), parseCards('8s 3s 9c'), parseCards('As Qs'));
+  const a = ladderEquity(lad);
+  const b = ladderEquity(lad, { seed: 99 }); // the seed only matters when sampling
+  assert.equal(a.equity, b.equity);
+  assert.equal(pctText(0), '0%');
+  assert.equal(pctText(1), '100%');
+  assert.equal(pctText(0.01), 'under 5%');
+  assert.equal(pctText(0.99), 'over 95%');
+  assert.equal(pctText(0.42), '40%');
+});
+
+test('Guess first: the band is right, and a neighbour within 2.5 points of an edge is too', () => {
+  assert.equal(guessRight(0, 0.1), true);
+  assert.equal(guessRight(1, 0.1), false);
+  assert.equal(guessRight(1, 0.24), true); // within 2.5 of 25
+  assert.equal(guessRight(0, 0.26), true);
+  assert.equal(guessRight(2, 0.59), true); // within 2.5 of 60
+  assert.equal(guessRight(2, 0.55), false);
+  assert.equal(guessRight(0, 0.7), false);
+});
+
+test('kept before the flop: 100% for an untouched range', () => {
+  assert.equal(keptOf(new Float64Array(1326).fill(1), parseCards('As Qs')), 1);
+});
+
+test('beats you now sums with the rounded ahead now, under 5 and over 95 at the ends (MATH)', async () => {
+  const { beatsPctText } = await import('../src/trainer/rangeladder.js');
+  assert.equal(beatsPctText(0.6), '40%');
+  assert.equal(beatsPctText(0.99), 'under 5%');
+  assert.equal(beatsPctText(0.01), 'over 95%');
+  assert.equal(beatsPctText(1), '0%');
+});
+
+test('keeps N%: the surviving mass, 100% before anyone acts', async () => {
+  const { survivingMass } = await import('../src/trainer/rangeladder.js');
+  const dead = new Uint8Array(52);
+  for (const c of parseCards('As Qs')) dead[c] = 1;
+  const arrs = [0, 1].map(() => {
+    const a = new Float64Array(1326);
+    for (let c = 0; c < 1326; c++) if (!dead[COMBOS[c][0]] && !dead[COMBOS[c][1]]) a[c] = 1;
+    return a;
+  });
+  assert.ok(Math.abs(survivingMass(arrs, [0.5, 0.5], dead) - 1) < 1e-12);
+  arrs[1].fill(0);
+  assert.ok(Math.abs(survivingMass(arrs, [0.5, 0.5], dead) - 0.5) < 1e-12);
+});
+
+// STRAT (24 Nov): rung names on boards that are two pair or better on their own
+const rungOfHand = (board, hole, hand) => {
+  const c = comboIndex(...parseCards(hand));
+  const lad = ladderOf(flat(), parseCards(board), parseCards(hole));
+  return { b: lad.rung[c], lad };
+};
+test('QQ772: AJo and KJo good kicker, 55 and 66 weak kicker, Qx and 77 full house+, JJ beats the board', () => {
+  const B = 'Qs Qd 7c 7h 2s';
+  const H = 'Th 9h'; // hero holds neither an ace, a king nor a jack
+  const at = (hand) => rungOfHand(B, H, hand).b;
+  assert.equal(rungOfHand(B, H, 'Ac Jd').lad.kind, 'paired');
+  assert.equal(at('Ac Jd'), 2);
+  assert.equal(at('Kc Jd'), 2);
+  assert.equal(at('5c 5d'), 3);
+  assert.equal(at('6c 6d'), 3);
+  assert.equal(at('Qc 3d'), 0);
+  assert.equal(at('7s 7d'), 0);
+  assert.equal(at('Jc Jd'), 1);
+  assert.equal(at('3c 4d'), 3); // a 4 beats the board's fifth card, the 2
+  assert.equal(rungOfHand(B, H, 'Jc Jd').lad.names[1].short, 'Beats board');
+  // a flush on a paired board with three of a suit beats the board too (STRAT)
+  assert.equal(rungOfHand('Qs Qd 7s 7h 2s', H, 'As 4s').b, 1);
+});
+test('777K2: a pocket pair is full house+, and Beats the board is empty', () => {
+  const r = rungOfHand('7s 7d 7c Kh 2s', 'Ah 9h', '5c 5d');
+  assert.equal(r.b, 0);
+  assert.equal(r.lad.rungs[1].share, 0);
+});
+test('a straight on the board (56789): a T beats the board', () => {
+  const r = rungOfHand('5s 6d 7c 8h 9s', 'Ah 2h', 'Tc 3d');
+  assert.equal(r.lad.kind, 'made');
+  assert.equal(r.b, 0);
+  assert.equal(rungOfHand('5s 6d 7c 8h 9s', 'Ah 2h', 'Kc 3d').b, 1);
+});
+
+// STRAT (25 Nov): you hold a full house on a trips board; the top rung splits at your hand
+test('hand 696, TT on Q2272: Beats yours, Below yours, (Beats board, empty), Ace or king, Weak kicker, Plays board', () => {
+  const B = 'Qc 2s 2d 7s 2h';
+  const H = 'Th Td';
+  const at = (hand) => rungOfHand(B, H, hand);
+  const lad = at('Qd Qh').lad;
+  assert.equal(lad.fh, true);
+  assert.deepEqual(lad.names.map((x) => x.short), ['Beats yours', 'Below yours', 'Beats board', 'Ace or king', 'Weak kicker', 'Plays board']);
+  assert.deepEqual(lad.names.map((x) => x.name), ['Beats your full house', 'Smaller full house', 'Beats the board', 'Board + ace or king', 'Board + weak kicker', 'Plays the board']);
+  assert.equal(lad.rungs[2].share, 0); // no flush or straight can be made on Q2272: the rung is empty, so it is hidden
+  assert.equal(at('Qd Qh').b, 0);
+  assert.equal(at('Qd Jh').b, 0); // Qx: queens full
+  assert.equal(at('2c 5h').b, 0); // quads
+  assert.equal(at('9c 9d').b, 1);
+  assert.equal(at('7c 4d').b, 1); // twos full of sevens
+  assert.equal(at('Tc Ts').b, 1); // an exact tie doesn't beat you
+  assert.equal(at('Ac 5d').b, 3);
+  assert.equal(at('Kc 5d').b, 3);
+  assert.equal(at('Jc 5d').b, 4); // a J beats the board's 7
+  assert.equal(at('3c 4d').b, 5);
+  // the line sits under Beats yours
+  assert.deepEqual(lad.above, [0]);
+  assert.ok(lad.names.every((x) => x.name.length <= 21 && x.short.length <= 12));
+});
+test('AK on Q2272 holds no full house: no split, the top rung is Full house+', () => {
+  const lad = rungOfHand('Qc 2s 2d 7s 2h', 'Ah Kd', 'Qd Qh').lad;
+  assert.equal(lad.fh, false);
+  assert.equal(lad.names[0].short, 'Full house+');
+});
+test('Q7 on QQ772 (two-pair board, you hold a full house): Beats yours, Below yours, Beats board, Board+kicker, Plays board', () => {
+  const B = 'Qs Qd 7c 7h 2s';
+  const H = 'Qh 7d';
+  const at = (hand) => rungOfHand(B, H, hand);
+  const lad = at('Ac Jd').lad;
+  assert.deepEqual(lad.names.map((x) => x.short), ['Beats yours', 'Below yours', 'Beats board', 'Board+kicker', 'Plays board']);
+  assert.equal(at('Qc Ad').b, 1); // queens full of sevens with an ace: the same full house, a tie
+  assert.equal(at('2c 2d').b, 1); // twos full: below yours
+  assert.equal(at('7s 2d').b, 1); // sevens full of queens
+  assert.equal(at('Jc Jd').b, 2); // a pocket pair above the board's lower pair
+  assert.equal(at('Ac Jd').b, 3);
+  assert.equal(at('5c 5d').b, 3); // good and weak kickers are one rung
+  assert.equal(at('3c 4d').b, 3); // a 4 beats the board's 2
+});
+test('list nouns never carry their own "and" or "or"', () => {
+  for (const board of ['Kc 8s 5d', 'Qs Qd 7c 7h 2s', '5s 6d 7c 8h 9s']) {
+    const lad = ladderOf(flat(), parseCards(board), parseCards('Ah 2h'));
+    for (const x of lad.names) assert.doesNotMatch(x.list, /\b(and|or)\b/, `${board}: ${x.list}`);
+  }
+});
+test('per class, the share that beats you now (the section highlight works hand by hand)', () => {
+  const lad = ladderOf(flat(), parseCards('Kc 8s 5d'), parseCards('Ah 2h'));
+  assert.ok(lad.classes.every((c) => c.beats >= 0 && c.beats <= 1));
+});
+test('STRAT: on a trips board with three of a suit, a flush lands in Beats the board, not Below yours', () => {
+  const B = '2s 2d 2h Ks 7s';
+  const r = rungOfHand(B, 'Th Td', 'As 4s');
+  assert.equal(r.lad.fh, true);
+  assert.equal(r.lad.names[r.b].short, 'Beats board');
+  assert.equal(rungOfHand(B, 'Th Td', '9c 9d').lad.names[rungOfHand(B, 'Th Td', '9c 9d').b].short, 'Below yours');
+});
+test('STRAT: "let it go if [Name] bets" on the river after a coach check, not against a maniac or a lag', () => {
+  const base = { river: true, after: true, bestType: 'check', beatsYou: 0.75, ranked: [{ id: 'abc', p: 0.8 }, { id: 'station', p: 0.2 }] };
+  assert.equal(riverLetGo(base), true);
+  assert.equal(riverLetGo({ ...base, ranked: [{ id: 'maniac', p: 0.7 }, { id: 'abc', p: 0.3 }] }), false);
+  assert.equal(riverLetGo({ ...base, ranked: [{ id: 'lag', p: 0.35 }, { id: 'maniac', p: 0.3 }, { id: 'abc', p: 0.35 }] }), false);
+  assert.equal(riverLetGo({ ...base, ranked: [{ id: 'maniac', p: 0.5 }, { id: 'abc', p: 0.5 }] }), true);
+  assert.equal(riverLetGo({ ...base, beatsYou: 0.55 }), false);
+  assert.equal(riverLetGo({ ...base, bestType: 'raise' }), false);
+  assert.equal(riverLetGo({ ...base, after: false }), false);
+  assert.equal(riverLetGo({ ...base, river: false }), false);
+});
+
+// STRAT, DESIGN, CEO (25 Nov): "mostly" only when it is true; shares as printed (to 5%)
+test('rangeMix: 50% is mostly one; a unique top two at 60% or more are mostly both; else a mix', () => {
+  const at = (xs) => rangeMix(xs.map((_, i) => i), (b) => xs[b]);
+  assert.deepEqual(at([0.1, 0.5, 0.2, 0.1, 0.1]), { kind: 'mostly', top: [1] }); // exactly 50%
+  assert.deepEqual(at([0.1, 0.1, 0.1, 0.35, 0.35]), { kind: 'two', top: [3, 4] }); // 35/35, a tie in rung order
+  assert.deepEqual(at([0.4, 0.15, 0.15, 0.15, 0.15]), { kind: 'mix', top: [0] }); // the second is tied: led by X
+  assert.deepEqual(at([0.4, 0.2, 0.15, 0.15, 0.1]), { kind: 'two', top: [0, 1] }); // 60%, a unique second
+  assert.deepEqual(at([0.4, 0.2, 0.2, 0.2]), { kind: 'mix', top: [0] }); // 60%, but the second is tied
+  assert.deepEqual(at([0.35, 0.16, 0.12, 0.12, 0.1, 0.1]), { kind: 'mix', top: [0, 1] }); // 35 + 15 = 50%, under 60
+  assert.deepEqual(at([0.3, 0.25, 0.2, 0.15, 0.1]), { kind: 'mix', top: [0, 1] }); // led by X and Y
+  assert.equal(at([0.48, 0.02, 0.5]).kind, 'mostly'); // 0.48 prints as 50%
+  assert.deepEqual(at([1]), { kind: 'mostly', top: [0] });
+});
+test('a range phrase lists a group with its own "and" by its parts', () => {
+  assert.equal(joinGroups(['top pairs and overpairs', 'draws']), 'top pairs, overpairs and draws');
+  assert.equal(joinGroups(['draws', 'hands with nothing']), 'draws and hands with nothing');
+  assert.equal(joinGroups(['top pairs and overpairs']), 'top pairs and overpairs');
+  const names = RUNGS;
+  assert.equal(rangePhrase({ kind: 'two', top: [1, 4] }, names), 'mostly top pairs, overpairs and hands with nothing');
+  assert.equal(rangePhrase({ kind: 'mix', top: [1, 3] }, names), 'a mix, led by top pairs, overpairs and draws');
+  assert.equal(rangePhrase({ kind: 'mostly', top: [3] }, names), 'mostly draws');
+});
+
+// RV2-A (QA, STRAT, DESIGN, CEO): facing a bet you haven't answered, no earlier play is carried in
+const half = 0.5 / 1.5; // a half-pot bet's price: 33%
+const facing = (o) => facingMode({ facingNow: true, river: true, planCheck: true, wild: 0.1, beatsYou: 0.75, ahead: 0.25, price: half, ...o });
+const T = (o) => takeawayText({ subj: "Party Crew's bet", phrase: 'mostly two pair or better', bt: 0.75, beatsTxt: '75%', ...o });
+test("1. QA's RV2-A spot: the let-go line while you face the bet, then the decision's own play once you answer", () => {
+  assert.equal(facing({}), 'letgo');
+  assert.equal(T({ mode: 'letgo' }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>: this is the bet to let go.");
+  assert.equal(T({ mode: 'letgo', fhTop: true }), "<b>Most of Party Crew's bet beats your full house</b>: this is the bet to let go.");
+  // after you fold: that decision's verdict, through coachPlay
+  assert.equal(T({ play: 'folding works', bestType: 'fold', facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>: folding works.");
+  // before the bet (state 1) the plan line is unchanged
+  assert.equal(facingMode({ facingNow: false }), 'normal');
+});
+test('2. a maniac or lag seat facing the bet: the plain sentence, no play', () => {
+  assert.equal(facing({ wild: 0.65 }), 'plain');
+  assert.equal(facing({ wild: 0.59 }), 'letgo');
+  assert.equal(T({ mode: 'plain' }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>.");
+});
+test('3. a turn check, then a bet: the plain sentence, never "checking works"', () => {
+  assert.equal(facing({ river: false }), 'plain');
+  const s = T({ mode: 'plain', bt: 0.45, beatsTxt: '45%', play: 'checking works' });
+  assert.equal(s, "<b>Party Crew's bet is mostly two pair or better, and about 45% of it beats you</b>.");
+  assert.doesNotMatch(s, /checking/);
+});
+test('4. you call where most of the range beats you: "but … at this price"', () => {
+  assert.equal(T({ play: 'calling works', bestType: 'call', facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>, but calling works at this price.");
+  assert.equal(T({ bt: 0.2, beatsTxt: '20%', play: 'folding works', bestType: 'fold', facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and little of it beats you</b>, but folding works at this price.");
+});
+test('4b. which play is named: your own when graded good, the best when a mistake (STRAT, DESIGN, CEO)', () => {
+  const opts = [{ type: 'fold' }, { type: 'call' }, { type: 'raise' }];
+  // Jeans: a good call where raising was best
+  const jeans = playWords({ options: opts, best: 2, mine: 1, grade: 'good' }, 5);
+  assert.deepEqual(jeans, { type: 'call', text: 'calling works' });
+  assert.equal(T({ play: jeans.text, bestType: jeans.type, facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>, but calling works at this price.");
+  // a good raise into 60%+ beaten: no play line
+  const raise = playWords({ options: opts, best: 2, mine: 2, grade: 'good' }, 5);
+  assert.equal(raise.text, 'raising works');
+  // the boundary: 60% beaten or more (CEO)
+  assert.equal(T({ bt: 0.6, beatsTxt: '60%', play: raise.text, bestType: 'raise', facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and about 60% of it beats you</b>.");
+  assert.equal(T({ bt: 0.59, beatsTxt: '60%', play: raise.text, bestType: 'raise', facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and about 60% of it beats you</b>: raising works.");
+  assert.equal(T({ play: raise.text, bestType: raise.type, facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>.");
+  // a mistake call where folding was best
+  const miss = playWords({ options: opts, best: 0, mine: 1, grade: 'mistake' }, 5);
+  assert.deepEqual(miss, { type: 'fold', text: 'the coach prefers folding' });
+  assert.equal(T({ play: miss.text, bestType: miss.type, facedBet: true }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>: the coach prefers folding.");
+  assert.equal(playWords({ options: opts, best: 2, mine: 2, grade: 'good' }, 0).text, 'betting works');
+});
+test('5. under 50% of the bet range beats you after a let-go plan: plain', () => {
+  assert.equal(facing({ beatsYou: 0.45, ahead: 0.25 }), 'plain');
+});
+test('6. a quarter-pot bet with about 65% beaten: no let-go line (the price guard)', () => {
+  assert.equal(facing({ beatsYou: 0.65, ahead: 0.35, price: 0.25 / 1.25 }), 'plain');
+  assert.equal(facing({ beatsYou: 0.8, ahead: 0.2, price: 0.5 / 1.5 }), 'letgo'); // half pot: 80% beaten
+  assert.equal(facing({ beatsYou: 0.72, ahead: 0.28, price: 1 / 3 }), 'letgo'); // 28.0 <= 28.3
+  assert.equal(facing({ beatsYou: 0.7, ahead: 0.3, price: 1 / 3 }), 'plain');
+  assert.equal(facing({ pendingBest: 'call' }), 'plain'); // the coach's best, when already known, must be a fold
+});
+test('7. Guess first hides the takeaway (it is built only once the guess is in)', () => {
+  const src = readFileSync(new URL('../src/ui/app.js', import.meta.url), 'utf8');
+  assert.match(src, /let take = '';\n\s+if \(lad && !waiting\) \{/);
+});
+test('8. a range phrase "a mix, led by …" in the let-go line', () => {
+  assert.equal(T({ mode: 'letgo', phrase: 'a mix, led by top pairs, overpairs and draws' }), "<b>Party Crew's bet is a mix, led by top pairs, overpairs and draws, and most of it beats you</b>: this is the bet to let go.");
+});
+test('the plain sentence at the edges drops "about" (DESIGN)', () => {
+  assert.equal(T({ mode: 'plain', bt: 0.03, beatsTxt: 'under 5%' }), "<b>Party Crew's bet is mostly two pair or better, and little of it beats you</b>.");
+  assert.equal(T({ bt: 0.97, beatsTxt: 'over 95%' }), "<b>Party Crew's bet is mostly two pair or better, and most of it beats you</b>.");
+  assert.doesNotMatch(T({ bt: 0.3, beatsTxt: '30%' }), /about about/);
+});
+test('the river plan line before their bet keeps the maniac and lag edge (0.59 shows, 0.60 does not)', () => {
+  const go = (wild) => riverLetGo({ river: true, after: true, bestType: 'check', beatsYou: 0.7, ranked: [{ id: 'lag', p: wild }] });
+  assert.equal(go(0.59), true);
+  assert.equal(go(0.6), false);
+});

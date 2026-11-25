@@ -83,16 +83,30 @@ function topPairFolds(id, b) {
   return { first, closer, n, alone: fa / Math.max(1, n), over: fo / Math.max(1, n) };
 }
 
-test('solver fixture: one pair folds more facing a bet and a call, and at least 75%', (t) => {
+// STRAT ruling (batch 19h, after the coach-read class fix): the hard rule is that top pair folds more facing a bet and a
+// call than facing the bet alone; "at least 75%" is report-only (a todo), as R01's flatness, since the field is held to
+// the pool, not to equilibrium
+let topPair = null;
+function topPairRows() {
+  if (topPair) return topPair;
+  topPair = [];
+  for (const id of Object.keys(FIX)) for (const b of sizesOf(id)) topPair.push({ id, b, r: topPairFolds(id, b), eq: FIX[id][`b${b}`].fold });
+  return topPair;
+}
+test('solver fixture: one pair folds more facing a bet and a call than facing the bet alone', (t) => {
   const misses = [];
-  for (const id of Object.keys(FIX)) {
-    for (const b of sizesOf(id)) {
-      const r = topPairFolds(id, b);
-      const eq = FIX[id][`b${b}`].fold;
-      const ok = r.over > r.alone && r.over >= 0.75;
-      t.diagnostic(`${id} bet $${b}: top pair, closing seat ${r.closer} (${r.n} hands): folds ${pc(r.alone)} alone, ${pc(r.over)} facing bet and call | equilibrium ${pc(eq.closer['top pr'][0])}-${pc(eq.closer['top pr'][1])} alone, ${pc(eq.overcall['top pr'][0])}-${pc(eq.overcall['top pr'][1])} overcall${ok ? '' : '  <- rule fails'}`);
-      if (!ok && r.n >= 20) misses.push(`${id} $${b}`);
-    }
+  for (const { id, b, r, eq } of topPairRows()) {
+    const ok = r.over > r.alone;
+    t.diagnostic(`${id} bet $${b}: top pair, closing seat ${r.closer} (${r.n} hands): folds ${pc(r.alone)} alone, ${pc(r.over)} facing bet and call | equilibrium ${pc(eq.closer['top pr'][0])}-${pc(eq.closer['top pr'][1])} alone, ${pc(eq.overcall['top pr'][0])}-${pc(eq.overcall['top pr'][1])} overcall${ok ? '' : '  <- rule fails'}`);
+    if (!ok && r.n >= 20) misses.push(`${id} $${b}`);
+  }
+  assert.deepEqual(misses, []);
+});
+test('solver fixture: one pair folds at least 75% facing a bet and a call (report only, STRAT 19h)', { todo: 'report only' }, (t) => {
+  const misses = [];
+  for (const { id, b, r } of topPairRows()) {
+    if (r.over < 0.75) t.diagnostic(`${id} bet $${b}: folds ${pc(r.over)} facing bet and call  <- under 75%`);
+    if (r.over < 0.75 && r.n >= 20) misses.push(`${id} $${b}`);
   }
   assert.deepEqual(misses, []);
 });

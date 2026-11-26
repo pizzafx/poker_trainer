@@ -1556,8 +1556,9 @@ function renderRanges() {
   const body = waiting
     ? `${guessQ}${strip}${hands}${ladder}<button type="button" class="rv-skip" data-guessskip>Skip, show me</button>`
     : `${guessRes}${head}${strip}${hands}${ladder}${take}${calib}${realBox}${foot}`;
-  // the one-line explainer under the header row (DESIGN, STRAT, CEO): what the panel is, by the street shown; always on
-  const explainer = `<p class="rv-explain">${rangeExplainer(nick, view.st)}</p>`;
+  // the one-line explainer under the header row (DESIGN, STRAT, CEO): what the panel is, by the board shown (the ladder
+  // splits at your hand once there is a board, whichever step is viewed); always on
+  const explainer = `<p class="rv-explain">${rangeExplainer(nick, board.length === 0 ? 0 : board.length === 5 ? 3 : 1)}</p>`;
   el.innerHTML = `${showAllPhone}<div class="rv${rangeReveal === 'guess' ? ' reveal' : ''}">${top}${explainer}${body}</div>`;
   rangeReveal = '';
   wireRanges(el, again, { lad, E, pre, g, col, mine, view, post, gKey, cut: lad ? lad.beatsYou : null, nickRaw, phone, waiting });

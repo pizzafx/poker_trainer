@@ -2072,9 +2072,12 @@ function handOver() {
 let bagOpen = false;
 let bagHeld = false;
 let bagReturn = null;
+let bagFrom = '';
+let bagInert = [];
 function openBag(from) {
   if (bagOpen) return;
   bagOpen = true;
+  bagFrom = from;
   bagReturn = document.activeElement;
   // whatever the table was about to do (a bot's turn, a deal) waits, and runs again on Close
   clearTimeout(timer);
@@ -2084,6 +2087,13 @@ function openBag(from) {
   layer.innerHTML = `<iframe title="The Bag" src="bag.html?embed=1${from === 'ranges' ? '&from=ranges' : ''}"></iframe>`;
   document.body.appendChild(layer);
   document.body.classList.add('bag-open');
+  // modal for real (QA): everything behind the layer is inert, so no Tab, key or click reaches the table
+  bagInert = [];
+  for (const c of document.body.children) {
+    if (c === layer || c.inert) continue;
+    c.inert = true;
+    bagInert.push(c);
+  }
   layer.querySelector('iframe').focus();
 }
 function closeBag() {
@@ -2092,12 +2102,23 @@ function closeBag() {
   const layer = document.getElementById('bag-layer');
   if (layer) layer.remove();
   document.body.classList.remove('bag-open');
-  if (bagReturn && bagReturn.isConnected) bagReturn.focus({ preventScroll: true });
-  bagReturn = null;
+  for (const c of bagInert) c.inert = false;
+  bagInert = [];
   if (bagHeld && sess) {
     bagHeld = false;
     advance();
   }
+  // focus goes back where you were, after the table has redrawn: the same control, or (the Ranges panel redraws) its new
+  // link, else the menu button
+  const was = bagReturn;
+  const from = bagFrom;
+  bagReturn = null;
+  setTimeout(() => {
+    const saved = was && was !== document.body && was.isConnected && was.offsetParent !== null ? was : null;
+    const back = saved || (from === 'ranges' ? document.querySelector('#ranges a[data-bag]') : null);
+    const target = back && back.offsetParent !== null ? back : $('btn-more') && $('btn-more').offsetParent !== null ? $('btn-more') : document.querySelector('details > summary');
+    if (target) target.focus({ preventScroll: true });
+  }, 0);
 }
 addEventListener('message', (e) => {
   if (e.origin === location.origin && e.data && e.data.type === 'bag-close') closeBag();

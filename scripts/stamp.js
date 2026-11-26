@@ -83,7 +83,7 @@ modules.sort();
 
 // 3. The pages: stylesheet and preload links, the module script and the import map.
 const version = (p) => (check && changed.includes(p) ? null : hash(p));
-for (const page of ['index.html', 'faq.html', 'play.html']) {
+for (const page of ['index.html', 'faq.html', 'play.html', 'bag.html']) {
   let html = read(page);
   html = html.replace(/(<link rel="stylesheet" href=")(src\/ui\/[a-z]+\.css)(\?v=[0-9a-f]+)?(">)/g, (m, a, p, _v, b) => `${a}${p}?v=${p === 'src/ui/fonts.css' ? createHash('sha256').update(fontsCss).digest('hex').slice(0, 10) : hash(p)}${b}`);
   html = html.replace(/(<link rel="preload" href=")(assets\/fonts\/[^"?]+)(\?v=[0-9a-f]+)?(")/g, (m, a, p, _v, b) => `${a}${p}?v=${hash(p)}${b}`);
@@ -93,6 +93,11 @@ for (const page of ['index.html', 'faq.html', 'play.html']) {
     if (/<script type="importmap">[\s\S]*?<\/script>/.test(html)) html = html.replace(/<script type="importmap">[\s\S]*?<\/script>/, tag);
     else html = html.replace('<script type="module" src="src/ui/app.js', `${tag}\n<script type="module" src="src/ui/app.js`);
     html = html.replace(/<script type="module" src="src\/ui\/app\.js(\?v=[0-9a-f]+)?"><\/script>/, `<script type="module" src="src/ui/app.js?v=${hash('src/ui/app.js')}"></script>`);
+  }
+  if (page === 'bag.html') {
+    // The Bag: its script and its data file, each by its own hash
+    html = html.replace(/<script type="module" src="src\/ui\/bag\.js(\?v=[0-9a-f]+)?"><\/script>/, `<script type="module" src="src/ui/bag.js?v=${hash('src/ui/bag.js')}"></script>`);
+    html = html.replace(/data-build="[0-9a-f]*"/, `data-build="${hash('src/bag/bags.json')}"`);
   }
   put(page, html);
 }

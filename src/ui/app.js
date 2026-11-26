@@ -11,6 +11,7 @@ import { DRILLS } from '../trainer/drills.js';
 import { createDrill } from './drill.js';
 import { createVerdictQueue } from './verdictqueue.js';
 import { createJudge, showCoachDown, COACH_DOWN_HTML } from './judgeclient.js';
+import { makeInert, clearInert, focusTarget, keyWhileOpen } from './baglayer.js';
 import { createCountdown, countdownDue, armWindow as armMs } from './countdown.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
@@ -1248,6 +1249,28 @@ const lineNoun = (e) => (e.type === 'call' ? 'call' : e.type === 'bet' ? 'bet' :
 const handVerb = (e, st) => (!e || st === 0 ? 'play' : e.type === 'call' ? 'call' : e.type === 'bet' ? 'bet' : e.type === 'raise' ? 'raise' : e.type === 'check' ? 'check' : 'play');
 
 // the coach's verdict at your last decision on that street (STRAT: the takeaway's [play] comes from it only)
+// The review card's two figures facing a bet (STRAT, MATH, CEO): on the river, the share you beat against the price;
+// before it, what you'd win if it went to showdown (E, heads-up only: multiway it is one range's, never set against
+// the price), and nothing when the record has no E
+function duoHtml(d) {
+  if (!(d.toCall > 0)) return '';
+  let label = 'You beat';
+  let x = null;
+  if (d.street === STREET.RIVER) x = d.villain && d.villain.picture ? d.villain.picture.aheadNow ?? d.villain.picture.equity ?? null : null;
+  else if (d.verdict && d.verdict.runout && d.verdict.runout.hu) {
+    label = 'You win at showdown';
+    x = d.verdict.runout.E;
+  }
+  if (x === null || x === undefined) return '';
+  return `<div class="duo"><div class="stat"><span class="label">${label}</span><b>${Math.round(x * 100)}%</b></div><div class="stat"><span class="label">You needed</span><b>${Math.round(d.odds * 100)}%</b></div></div>`;
+}
+// The Ranges explainer by street (STRAT's strings): preflop there is no "beats yours" split yet; before the river "right
+// now", since a draw that is behind can still win
+function rangeExplainer(nick, st) {
+  if (st === 0) return `Every hand ${nick} might hold, from how they've played.`;
+  if (st === 3) return `Every hand ${nick} might hold, and which ones beat yours.`;
+  return `Every hand ${nick} might hold, and which ones beat yours right now.`;
+}
 function coachDecision(h, st) {
   return [...(h.decisions || [])].reverse().find((r) => r.street === st && !r.pending && r.verdict && r.verdict.options) || null;
 }
@@ -1534,7 +1557,11 @@ function renderRanges() {
   const body = waiting
     ? `${guessQ}${strip}${hands}${ladder}<button type="button" class="rv-skip" data-guessskip>Skip, show me</button>`
     : `${guessRes}${head}${strip}${hands}${ladder}${take}${calib}${realBox}${foot}`;
-  el.innerHTML = `${showAllPhone}<div class="rv${rangeReveal === 'guess' ? ' reveal' : ''}">${top}${body}</div>`;
+  // the one-line explainer under the header row (DESIGN, STRAT, CEO): what the panel is, by the board shown (the ladder
+  // splits at your hand once there is a board, whichever step is viewed); always on
+  // with the Learn lesson one tap away (The Bag, CEO), over the table so the hand in play is kept (QA, CEO)
+  const explainer = `<p class="rv-explain">${rangeExplainer(nick, board.length === 0 ? 0 : board.length === 5 ? 3 : 1)} <a class="rv-what" href="bag.html?from=ranges" data-bag="ranges">What is this? ›</a></p>`;
+  el.innerHTML = `${showAllPhone}<div class="rv${rangeReveal === 'guess' ? ' reveal' : ''}">${top}${explainer}${body}</div>`;
   rangeReveal = '';
   wireRanges(el, again, { lad, E, pre, g, col, mine, view, post, gKey, cut: lad ? lad.beatsYou : null, nickRaw, phone, waiting });
   restoreRangeFocus(el, hadFocus);
@@ -1905,8 +1932,7 @@ function openReview(stored = false) {
     const hi = Math.max(...evs, 0);
     const width = (ev) => Math.max(4, Math.round(((ev - lo) / Math.max(1e-9, hi - lo)) * 100));
     const bars = v.options.map((o, i) => `<div class="bar ${i === v.best ? 'best' : ''} ${i === v.mine ? 'yours' : ''}"><span>${esc(o.label)}${refTag(v, i)}</span><span class="track"><i style="--w:${width(o.ev)}%"></i></span><span class="mono">${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</span></div>`).join('');
-    const eq = d.villain && d.villain.picture && d.villain.picture.equity !== null && d.villain.picture.equity !== undefined ? d.villain.picture.equity : null;
-    const duo = eq !== null && d.toCall > 0 ? `<div class="duo"><div class="stat"><span class="label">You beat</span><b>${Math.round(eq * 100)}%</b></div><div class="stat"><span class="label">You needed</span><b>${Math.round(d.odds * 100)}%</b></div></div>` : '';
+    const duo = duoHtml(d);
     return `<details class="rv-flag ${v.grade}" ${d === firstFlag ? 'open' : ''}><summary class="rv-step">${head}${link}</summary>
       <div class="rv-body">
         <h2>${esc(d.headline)}</h2>
@@ -1999,6 +2025,11 @@ function closeReview() {
 
 function advance() {
   clearTimeout(timer);
+  // The Bag is open over the table: nothing moves until it closes (CEO: the hand is never lost or altered)
+  if (bagOpen) {
+    bagHeld = true;
+    return;
+  }
   // Once you are out of the hand, play it out immediately, in slices of about 12ms that yield to the browser between
   // them, so a long fold-out (a postflop bot step costs about 16ms) never blocks a frame for a second (CEO, 23 Nov)
   if (!sess.heroInHand()) {
@@ -2036,6 +2067,87 @@ function handOver() {
 
 // When the hand is over and nothing you did in it was flagged (all green), deal the next one
 // without waiting. A mistake or blunder stops the game so you can read why.
+// The Bag (Learn) opens as a full-screen layer over the table, from More → Learn or the Ranges panel's "What is this?"
+// (CEO): the page and the hand in play stay in memory, the table holds still (no bot acts, nothing deals) and Close puts
+// you back at the same spot. bag.html asks to close with a message; Escape closes it too.
+let bagOpen = false;
+let bagHeld = false;
+let bagReturn = null;
+let bagFrom = '';
+let bagInert = [];
+function openBag(from) {
+  if (bagOpen) return;
+  bagOpen = true;
+  bagFrom = from;
+  bagReturn = document.activeElement;
+  // whatever the table was about to do (a bot's turn, a deal) waits, and runs again on Close
+  clearTimeout(timer);
+  bagHeld = true;
+  const layer = document.createElement('div');
+  layer.id = 'bag-layer';
+  layer.innerHTML = `<iframe title="The Bag" src="bag.html?embed=1${from === 'ranges' ? '&from=ranges' : ''}"></iframe>`;
+  document.body.appendChild(layer);
+  document.body.classList.add('bag-open');
+  // modal for real (QA): everything behind the layer is inert, so no Tab, key or click reaches the table
+  bagInert = makeInert(document.body.children, layer);
+  layer.querySelector('iframe').focus();
+}
+function closeBag() {
+  if (!bagOpen) return;
+  bagOpen = false;
+  const layer = document.getElementById('bag-layer');
+  if (layer) layer.remove();
+  document.body.classList.remove('bag-open');
+  clearInert(bagInert);
+  bagInert = [];
+  if (bagHeld && sess) {
+    bagHeld = false;
+    advance();
+  }
+  // focus goes back where you were, after the table has redrawn: the same control, or (the Ranges panel redraws) its new
+  // link, else the menu button
+  const was = bagReturn;
+  const from = bagFrom;
+  bagReturn = null;
+  setTimeout(() => {
+    const target = focusTarget({ was, body: document.body, from, rangesLink: document.querySelector('#ranges a[data-bag]'), moreButton: $('btn-more'), menuSummary: document.querySelector('details > summary') });
+    if (target) target.focus({ preventScroll: true });
+  }, 0);
+}
+addEventListener('message', (e) => {
+  if (e.origin === location.origin && e.data && e.data.type === 'bag-close') closeBag();
+});
+// while open, the table's hotkeys never act (QA): this runs first (capture, on the window) and nothing else sees the key
+addEventListener(
+  'keydown',
+  (e) => {
+    if (!bagOpen) return;
+    const what = keyWhileOpen(e.key);
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (what === 'close') closeBag();
+    else if (what === 'refocus') bagFrame();
+  },
+  true,
+);
+// focus that lands behind the layer goes back into it
+function bagFrame() {
+  const f = document.querySelector('#bag-layer iframe');
+  if (f) f.focus();
+}
+addEventListener('focusin', (e) => {
+  if (bagOpen && !(e.target.closest && e.target.closest('#bag-layer'))) bagFrame();
+});
+document.addEventListener('click', (e) => {
+  const a = e.target.closest && e.target.closest('a[data-bag]');
+  if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  e.preventDefault();
+  // the phone menu sheet closes behind it
+  const menu = a.closest('details[open]');
+  if (menu) menu.open = false;
+  openBag(a.dataset.bag);
+});
+
 // The auto-deal after a green hand (QA NH1): it never deals while the player is reaching for "Next hand",
 // and the action buttons ignore clicks for 400ms after any deal, so a late click cannot fold, call or
 // raise in a hand the player has not seen.
@@ -2117,6 +2229,10 @@ const autoDealDue = (h) => countdownDue(h.decisions, lowStack());
 function scheduleAuto() {
   clearTimeout(timer);
   if (autoHeld) return;
+  if (bagOpen) {
+    bagHeld = true;
+    return;
+  }
   const h = sess.hand;
   if (!autoDealDue(h)) return stopAuto(); // anything flagged holds the table
   // the same hand's countdown carries on from where it was (a closed pop-up, history or replayer)
@@ -3836,8 +3952,7 @@ function flagBlock(d) {
   const hi = Math.max(...evs, 0);
   const width = (ev) => Math.max(4, Math.round(((ev - lo) / Math.max(1e-9, hi - lo)) * 100));
   const bars = v.options.map((o, i) => `<div class="bar ${i === v.best ? 'best' : ''} ${i === v.mine ? 'yours' : ''}"><span>${esc(o.label)}</span><span class="track"><i style="--w:${width(o.ev)}%"></i></span><span class="mono">${Math.round(o.ev) >= 0 ? '+' : '−'}$${Math.abs(Math.round(o.ev))}</span></div>`).join('');
-  const eq = d.villain && d.villain.picture && d.villain.picture.equity !== null && d.villain.picture.equity !== undefined ? d.villain.picture.equity : null;
-  const duo = eq !== null && d.toCall > 0 ? `<div class="duo"><div class="stat"><span class="label">You beat</span><b>${Math.round(eq * 100)}%</b></div><div class="stat"><span class="label">You needed</span><b>${Math.round(d.odds * 100)}%</b></div></div>` : '';
+  const duo = duoHtml(d);
   return `<h2>${esc(d.headline)}</h2>
     ${anchorHtml(d)}
     ${d.reasons.map((r) => `<p class="why">${esc(r)}</p>`).join('')}

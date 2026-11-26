@@ -178,17 +178,23 @@ function rangeLine(d) {
   if (d.toCall > 0 && d.street === STREET.RIVER && d.opponents >= 2) {
     // one player's range is not the call's: the others still in make it worse (STRAT C3, on the river too)
     const others = d.opponents - 1;
-    s += ` Against ${vil.nick}'s range alone your hand beats ${pct(vil.picture.equity)}; the ${others === 1 ? 'other player' : `${NUM_WORDS[others] || others} others`} still in make${others === 1 ? 's' : ''} it worse.`;
+    s += ` Against ${vil.nick}'s range alone your hand beats ${pct(vil.picture.aheadNow)}; the ${others === 1 ? 'other player' : `${NUM_WORDS[others] || others} others`} still in make${others === 1 ? 's' : ''} it worse.`;
   } else if (d.toCall > 0 && d.street === STREET.RIVER) {
-    s += ` Your hand beats ${pct(vil.picture.equity)} of that; a call needs ${pct(price)}.`;
-  } else if (d.toCall > 0 && d.opponents >= 2) {
-    // one player's equity is not the call's: the others still in make it worse (STRAT C3, section 17)
-    const others = d.opponents - 1;
-    s += ` Against ${vil.nick}'s range alone you are ahead of ${pct(vil.picture.equity)}; the ${others === 1 ? 'other player' : `${NUM_WORDS[others] || others} others`} still in make${others === 1 ? 's' : ''} it worse.`;
+    s += ` Your hand beats ${pct(vil.picture.aheadNow)} of that; a call needs ${pct(price)}.`;
   } else if (d.toCall > 0) {
-    s += ` You are ahead of ${pct(vil.picture.equity)} of that right now and the price needs ${pct(price)}.`;
-    // a money-in flag before the river: the later bets are what make the call lose (QA YB-2)
-    if (d.verdict && d.verdict.rule === 'moneyIn' && vil.picture.equity >= price) s += ' The bets still to come cost more than that edge is worth.';
+    // before the river the figure is E, what you'd win if it went to showdown, never the share ahead right now set
+    // against the price (MATH, STRAT, CEO); multiway it is against this one range, never set against the price
+    const ro = d.verdict && d.verdict.runout && d.verdict.runout.seat === vil.seat ? d.verdict.runout : null;
+    const others = d.opponents - 1;
+    if (!ro) {
+      // no figure without E (an old record): never the share ahead now beside the price
+    } else if (d.opponents >= 2) {
+      s += ` Against ${vil.nick}'s range alone you'd ${winWords(ro.E).verb}; the ${others === 1 ? 'other player' : `${NUM_WORDS[others] || others} others`} still in make${others === 1 ? 's' : ''} it worse.`;
+    } else {
+      s += ` You'd ${winWords(ro.E).verb}${winWords(ro.E).and}the price needs ${share(price, false)}.`;
+      // a money-in flag before the river: the later bets are what make the call lose (QA YB-2)
+      if (d.verdict.rule === 'moneyIn' && ro.E >= price) s += ' The bets still to come cost more than that edge is worth.';
+    }
   }
   return s;
 }
@@ -511,6 +517,79 @@ function overcardWords(d) {
   return over.length ? over.map((r) => RANK_WORD[r]).join(' or ') : null;
 }
 
+// The call or fold line before the river, facing a bet (STRAT's final strings, MATH's build note; CEO): E, what you'd
+// win if it went to showdown, against the price. Which ending shows follows the verdict (the better of call and fold,
+// or close when not graded or the two can't be told apart), never the anchors' works/even/fails. The variant (E >= P or
+// E < P) is chosen on the unrounded E; figures print rounded as everywhere else. Heads-up only (one opponent with money
+// in on this street); multiway, E is against the bettor's range alone and never set against the price. Without E (an
+// old record) the line keeps the price and the ending, with no figure for the hand.
+// A bet or raise line's W (MATH): the share of called play-outs in which you beat every caller at once, so the words
+// are right for any number of callers (STRAT, CEO): "beat every caller about 60% of the time", "almost never beat every
+// caller", "almost always beat every caller", and "right now" before the river
+export function beatEvery(W, river) {
+  const rn = river ? '' : ' right now';
+  if (W < 0.05) return `almost never beat every caller${rn}`;
+  if (W > 0.95) return `almost always beat every caller${rn}`;
+  return `beat every caller ${share(W)} of the time${rn}`;
+}
+
+export function runoutLine(d, v, A) {
+  const ro = v.runout || null;
+  const need = share(A.price, false);
+  const call = v.options.find((o) => o.type === 'call');
+  const fold = v.options.find((o) => o.type === 'fold');
+  const callBest = call && (!fold || call.ev >= fold.ev);
+  // close: not graded, or the other of call and fold is too close to the best to tell apart
+  const other = callBest ? fold : call;
+  // never "Fold." under a fine call or "Call." under a fine fold: the estimate says it is close (STRAT M1)
+  const mineT = v.mine >= 0 && v.options[v.mine] ? v.options[v.mine].type : null;
+  const against = v.grade === 'good' && ((mineT === 'call' && !callBest) || (mineT === 'fold' && callBest));
+  const close = isNotGradedNote(v) || against || !!(other && other.close);
+  // a call keeps the raise tail for a pair up to an overpair or top pair, top kicker (STRAT)
+  const raiseTail = (d.tier ?? -1) >= TIER.WEAK_PAIR && (d.tier ?? -1) <= TIER.OVERPAIR_TPTK ? ' Raising gets called mostly by better hands.' : '';
+  const end = close ? ': close.' : callBest ? `. Call.${raiseTail}` : '. Fold.';
+  const nick = d.villain ? d.villain.nick : 'the bettor';
+  if (!ro) return `The price needs ${need}${end}`;
+  const W = winWords(ro.E);
+  if (!ro.hu) return `Against ${nick}'s range alone you'd ${W.verb}; the others still in make it worse${end}`;
+  if (share(ro.E, false) === need) return `You'd ${W.verb}, about what the price needs${end}`;
+  const base = `You'd ${W.verb}${W.and}need ${need}`;
+  if (close) return `${base}: close.`;
+  const { who } = whoOf(d);
+  if (!callBest && ro.E >= A.price) return d.table && d.table.oop ? `${base}, but out of position against ${who} you won't get there often enough. Fold.` : `${base}, but the bets still to come from ${who} cost more than that edge. Fold.`;
+  if (!callBest) {
+    // the numbers agree with the fold: the bettor's range sentences stay (STRAT F1, POOL batch 12)
+    const rk = rangeKind(d);
+    if (rk === 'real') return `${base}; not enough. Good players bluff just enough to make this close. This player's bets are nearly always real. Fold.`;
+    if (rk === 'loose') return `Even against a player who bluffs this often, you'd ${ro.E < 0.05 ? W.verb : `win only ${share(ro.E, false)} if it went to showdown`}${W.and}need ${need}. Fold.`;
+    return `${base}; not enough. Fold.`;
+  }
+  // E short of the price with a call best: a real draw pays when it hits; a made hand wins more on later streets (STRAT)
+  if (ro.E < A.price) return d.realDraw ? `${base}, but when you hit, ${who} pays you enough to make up the rest. Call.${raiseTail}` : `${base}, but what you win on later streets makes up the rest. Call.${raiseTail}`;
+  return `${base}. Call.${raiseTail}`;
+}
+// "win about 30% if it went to showdown"; at the ends "almost never win" / "almost always win", then ", and need" (STRAT)
+function winWords(E) {
+  if (E < 0.05) return { verb: 'almost never win if it went to showdown', and: ', and ' };
+  if (E > 0.95) return { verb: 'almost always win if it went to showdown', and: ', and ' };
+  return { verb: `win ${share(E)} if it went to showdown`, and: ' and ' };
+}
+// The bettor's range, for the fold sentences: 'real' for a bettor read as passive whose range shows under 15% nothing
+// plus draws (STRAT F1); 'loose' for a maniac, lag or gambler whose range shows 25% or more (STRAT, POOL batch 12)
+function rangeKind(d) {
+  const pic = d.villain && d.villain.picture;
+  const post = pic && pic.post;
+  let top = -1;
+  if (post) for (let k = 0; k < post.length; k++) if (top < 0 || post[k] > post[top]) top = k;
+  const type = top >= 0 ? TYPE_IDS[top] : null;
+  const b = pic && pic.buckets;
+  // on a board that alone makes two pair or better, "nothing better than the board" is the air (STRAT, 20 Nov)
+  const loose = pic && pic.boardAir !== undefined ? Math.round(100 * (pic.boardAir + (b ? b.draw : 0))) : b ? Math.round(100 * (b.air + b.draw)) : 100;
+  if (['nit', 'abc', 'station', 'beginner'].includes(type) && loose < 15) return 'real';
+  if (['maniac', 'lag', 'whale'].includes(type) && loose >= 25) return 'loose';
+  return null;
+}
+
 export function anchorLine(d) {
   const v = d.verdict;
   if (!v.line || !v.anchors || v.mine < 0) return null;
@@ -552,9 +631,9 @@ export function anchorLine(d) {
       const chk = v.options.find((x) => x.type === 'check');
       const top = v.options.reduce((a, x) => (x.ev > a.ev ? x : a), v.options[0]);
       const checkFine = chk && Math.round(top.ev) - Math.round(chk.ev) <= (v.small || 0);
-      if (thin) return `When called you are ${aheadP(o.W, '')} and need ${share(o.need)}. That is thin: ${checkFine ? 'a small bet or a check are both fine' : 'a smaller bet is fine too'}.`;
-      if (s === 'works') return `When this ${kw} is called you are ${aheadP(o.W, now)} and need ${share(o.need)}. These players call with worse: bet for value.`;
-      return `When this ${kw} is called you are ${aheadP(o.W, now)} and need ${share(o.need)}. They mostly call with better hands.`;
+      if (thin) return `When called, you ${beatEvery(o.W, river)} and need ${share(o.need)}. That is thin: ${checkFine ? 'a small bet or a check are both fine' : 'a smaller bet is fine too'}.`;
+      if (s === 'works') return `When called, you ${beatEvery(o.W, river)} and need ${share(o.need)}. These players call with worse: bet for value.`;
+      return `When called, you ${beatEvery(o.W, river)} and need ${share(o.need)}. They mostly call with better hands.`;
     }
     // a real draw below top pair, up to 1.05x the pot: the combined test's two inputs and its verdict (MATH 19b,
     // STRAT); past that the draw does not count and the bluff wording below applies
@@ -584,7 +663,7 @@ export function anchorLine(d) {
     const nowS = river ? '' : ' now';
     // a draw quotes its outs, never "ahead now" (STRAT, QA-VERDICT C8a-W1)
     const drawing = !river && isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR;
-    const called = drawing ? `Called, your draw comes in ${share(hf.ownDrawEquity)}` : W === null || W === undefined || W < 0.05 ? 'Called, you are almost never ahead' : W > 0.95 ? `Called, you are almost always ahead${nowS}` : `Called, you are ahead${nowS} ${share(W)}`;
+    const called = drawing ? `Called, your draw comes in ${share(hf.ownDrawEquity)}` : `Called, you ${beatEvery(W === null || W === undefined ? 0 : W, river)}`;
     const folds = mine.F < 0.05 ? 'almost no one folds' : mine.F > 0.95 ? 'nearly everyone folds' : `everyone folds ${share(mine.F)}`;
     // the middle sentence alone when the headline above already says "not a habit to build"
     const mid = `${called}; ${folds}, and it needs ${share(mine.alpha, false)}.`;
@@ -604,7 +683,7 @@ export function anchorLine(d) {
     const $ = (o) => `$${o.to - (d.currentBet || 0)}`;
     if (ref.to > mine.to) {
       line = madeFor(ref) && ref.W !== null
-        ? `At ${$(ref)} you are still ${aheadP(ref.W, now)} when called, and these players still call: the bigger ${kw} earns more.`
+        ? `At ${$(ref)} you still ${beatEvery(ref.W, river)}, and these players still call: the bigger ${kw} earns more.`
         : `At ${$(ref)} ${foldsP(ref.F)}, against ${share(mine.F, false)} at ${$(mine)}: the bigger ${kw} works better here.`;
     } else {
       line = `At ${$(mine)} ${foldsP(mine.F)}, against ${share(ref.F, false)} at ${$(ref)}: the bigger ${kw} folds out the worse hands you want to keep in.`;
@@ -632,7 +711,8 @@ export function anchorLine(d) {
     } else if (isRealDraw(hf) && hf.tier <= TIER.MIDDLE_PAIR) {
       // a weak or middle pair plus a real draw: both (STRAT P4-2); top pair or better reads as a made hand
       line = `You are ${aheadP(A.Q, river ? '' : ' now')} and your draw comes in ${often(hf.ownDrawEquity)}; the price needs ${need}${tail}`;
-    } else if (s === 'works') line = `You are ${aheadP(A.Q, '').replace('ahead', `ahead${who}`)} and need ${need} at this price. Call.${hf.tier >= TIER.WEAK_PAIR && hf.tier <= TIER.OVERPAIR_TPTK ? ' Raising gets called mostly by better hands.' : ''}`;
+    } else if (!river && d.toCall > 0) line = runoutLine(d, v, A);
+    else if (s === 'works') line = `You are ${aheadP(A.Q, '').replace('ahead', `ahead${who}`)} and need ${need} at this price. Call.${hf.tier >= TIER.WEAK_PAIR && hf.tier <= TIER.OVERPAIR_TPTK ? ' Raising gets called mostly by better hands.' : ''}`;
     else if (s === 'fails') {
       // "nearly always real" only for a bettor read as passive whose range shows under 15% nothing
       // plus draws (STRAT F1); a loose bettor gets its own line, anyone else the neutral one

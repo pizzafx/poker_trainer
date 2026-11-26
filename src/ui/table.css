@@ -3102,6 +3102,9 @@ body.in-drill { overflow: hidden; }
 #ranges .rv > *, #ranges .rv-gridwrap > *, #ranges .rv-grid > *, #ranges .rv-row > * { min-width: 0; }
 #ranges .rv-gridwrap { min-width: 0; }
 #ranges .rv-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+/* the explainer under the header row (DESIGN): one quiet line, wraps on a phone, never truncated */
+#ranges .rv-explain { margin: 10px 0 0; font-size: 13px; line-height: 1.4; color: var(--slate); }
+#ranges .rv-explain .rv-what { color: var(--chalk); text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
 #ranges .rv-who { margin: 0; }
 #ranges .rv-who .chip small { font: 500 10.5px/1 var(--mono); color: var(--slate); margin-left: 5px; }
 @media (max-width: 600px) { #ranges .rv-who .chip:not(.on) { display: none; } }
@@ -3265,3 +3268,7 @@ body.in-drill { overflow: hidden; }
   #ranges .fade, #ranges .rv.reveal .rv-rung .bar i, #ranges .rv.reveal .rv-gm .fill { animation: none; }
   #ranges .rv-gsw i::after, #ranges .rv-expand .chev, #ranges .rv-grid button { transition: none; }
 }
+/* The Bag over the table (CEO): full screen, the page behind it kept as it is */
+#bag-layer { position: fixed; inset: 0; z-index: 200; background: var(--night); }
+#bag-layer iframe { display: block; width: 100%; height: 100%; border: 0; }
+body.bag-open { overflow: hidden; }

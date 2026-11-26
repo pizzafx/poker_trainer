@@ -16,7 +16,7 @@
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/space-grotesk-var.woff2?v=86547af457" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="src/ui/fonts.css?v=1b671c242f">
-<link rel="stylesheet" href="src/ui/table.css?v=e27b6397ec">
+<link rel="stylesheet" href="src/ui/table.css?v=5a8ebb10e6">
 </head>
 <body>
 <!-- Drawn avatars, one symbol per look (assets/avatars/sprite.svg, inlined so <use href="#av-id"> works). -->
@@ -53,11 +53,13 @@
         <button id="btn-more" class="ico" title="More" aria-label="More" aria-haspopup="true" aria-expanded="false" aria-controls="more-menu"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/></svg></button>
         <div id="more-menu" class="hidden">
           <button id="btn-sim-more" title="Plays 40 hands in about a second so you sit down already knowing something about every player. Your results in those hands do not count.">Quick sim<small>Play 40 hands in a second so you sit down knowing the table</small></button>
+          <a href="bag.html" data-bag="learn">Learn<small>Short, hands-on lessons: what a range is</small></a>
           <a href="faq.html" target="_blank" rel="noopener">FAQ<small>Opens in a new tab</small></a>
         </div>
       </div>
       <hr class="m-only">
       <button id="btn-sim-menu" class="m-only" title="Plays 40 hands in about a second so you sit down already knowing something about every player. Your results in those hands do not count.">Quick sim<small>Play 40 hands in a second so you sit down knowing the table</small></button>
+      <a id="btn-learn" class="m-only" href="bag.html" data-bag="learn">Learn<small class="m-only">Short, hands-on lessons: what a range is</small></a>
       <a id="btn-faq" class="m-only" href="faq.html" target="_blank" rel="noopener">FAQ</a>
       <span class="vsep d-only" aria-hidden="true"></span>
       <button id="btn-side" class="ico" title="Coach, ranges and hand log" aria-label="Coach, ranges and hand log"><span class="d-only"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M14.5 4.5v15"/></svg></span><span class="m-txt">Coach &amp; hand log</span></button>
@@ -127,9 +129,9 @@
   "./src/trainer/dispute.js": "./src/trainer/dispute.js?v=f038279f63",
   "./src/trainer/drills.js": "./src/trainer/drills.js?v=7b08b0b52c",
   "./src/trainer/equity.js": "./src/trainer/equity.js?v=3bbb4de805",
-  "./src/trainer/explain.js": "./src/trainer/explain.js?v=4801697161",
-  "./src/trainer/grade.js": "./src/trainer/grade.js?v=e4fd15f4d1",
-  "./src/trainer/judge.js": "./src/trainer/judge.js?v=b080ea9957",
+  "./src/trainer/explain.js": "./src/trainer/explain.js?v=b84d20b93e",
+  "./src/trainer/grade.js": "./src/trainer/grade.js?v=15d5a0517c",
+  "./src/trainer/judge.js": "./src/trainer/judge.js?v=ae2ac0af8f",
   "./src/trainer/judge.worker.js": "./src/trainer/judge.worker.js?v=c1f8a3fcae",
   "./src/trainer/players.js": "./src/trainer/players.js?v=06a6995a77",
   "./src/trainer/range.worker.js": "./src/trainer/range.worker.js?v=14d94d803a",
@@ -138,8 +140,10 @@
   "./src/trainer/replay.js": "./src/trainer/replay.js?v=0d2445159e",
   "./src/trainer/session.js": "./src/trainer/session.js?v=b580daa6b2",
   "./src/trainer/tuning.js": "./src/trainer/tuning.js?v=ac5d58551d",
-  "./src/trainer/version.js": "./src/trainer/version.js?v=bc3da0f92a",
+  "./src/trainer/version.js": "./src/trainer/version.js?v=2b4a28865f",
   "./src/trainer/vs3bet.js": "./src/trainer/vs3bet.js?v=1a174692b2",
+  "./src/ui/bag.js": "./src/ui/bag.js?v=755b7c0777",
+  "./src/ui/baglayer.js": "./src/ui/baglayer.js?v=f96f08609e",
   "./src/ui/countdown.js": "./src/ui/countdown.js?v=1afa8ac2d2",
   "./src/ui/drill.js": "./src/ui/drill.js?v=4b348ceb49",
   "./src/ui/judgeclient.js": "./src/ui/judgeclient.js?v=82454cccbd",
@@ -149,6 +153,6 @@
  }
 }
 </script>
-<script type="module" src="src/ui/app.js?v=a4f4bc1790"></script>
+<script type="module" src="src/ui/app.js?v=a0c85c98f0"></script>
 </body>
 </html>

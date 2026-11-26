@@ -498,7 +498,7 @@ export function rangePicture(belief, seat, s, hero) {
   const w = belief.range(seat);
   const post = posterior(belief.reads[seat]);
   const pre = s.street === STREET.PRE;
-  const out = { seat, buckets: null, equity: null, post };
+  const out = { seat, buckets: null, aheadNow: null, post };
   if (pre) return out;
   const feats = belief.features(s.street);
   // the coach tier on a board that alone makes two pair or better (MATH, STRAT, DESIGN): combos the board makes
@@ -540,7 +540,7 @@ export function rangePicture(belief, seat, s, hero) {
       out.boardParts = boardRangeParts(s.board, bmCombos, { hole: s.hole[hero], score: evaluate([...s.hole[hero], ...s.board]) }).map(([label, x]) => [label, x / total]);
       out.boardAir = boardAir / total;
     }
-    out.equity = (ahead + tie / 2) / total; // share of their range you beat right now
+    out.aheadNow = (ahead + tie / 2) / total; // the share of their range you beat right now (not equity: no run-out)
   }
   return out;
 }

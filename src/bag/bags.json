@@ -1,0 +1,5792 @@
+{
+ "note": "The Bag (scripts/bagbuild.js): every hand and count comes from the bots and the read tracker; STRAT gates in test/bag.test.js",
+ "firstPlay": "T1",
+ "basics": [
+  {
+   "cards": [
+    "As",
+    "Ah"
+   ],
+   "cls": "AA",
+   "raise": 0.95,
+   "stays": true
+  },
+  {
+   "cards": [
+    "Kd",
+    "Kc"
+   ],
+   "cls": "KK",
+   "raise": 0.95,
+   "stays": true
+  },
+  {
+   "cards": [
+    "Qs",
+    "Qd"
+   ],
+   "cls": "QQ",
+   "raise": 1,
+   "stays": true
+  },
+  {
+   "cards": [
+    "Ah",
+    "Kh"
+   ],
+   "cls": "AKs",
+   "raise": 0.99,
+   "stays": true
+  },
+  {
+   "cards": [
+    "9c",
+    "8c"
+   ],
+   "cls": "98s",
+   "raise": 0,
+   "stays": false
+  },
+  {
+   "cards": [
+    "Ks",
+    "9d"
+   ],
+   "cls": "K9o",
+   "raise": 0,
+   "stays": false
+  },
+  {
+   "cards": [
+    "Jh",
+    "4c"
+   ],
+   "cls": "J4o",
+   "raise": 0,
+   "stays": false
+  },
+  {
+   "cards": [
+    "7d",
+    "2s"
+   ],
+   "cls": "72o",
+   "raise": 0,
+   "stays": false
+  }
+ ],
+ "sets": [
+  {
+   "id": "T1",
+   "board": [
+    "Kh",
+    "7c",
+    "2d",
+    "4s",
+    "9h"
+   ],
+   "hero": "As Kc",
+   "cards": {
+    "hero": "As Kc",
+    "start": [
+     {
+      "cards": [
+       "Ks",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.663
+     },
+     {
+      "cards": [
+       "Ad",
+       "Ks"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.402
+     },
+     {
+      "cards": [
+       "Ks",
+       "Th"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.71
+     },
+     {
+      "cards": [
+       "Kd",
+       "6c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.493
+     },
+     {
+      "cards": [
+       "Qh",
+       "9s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.587
+     },
+     {
+      "cards": [
+       "Ts",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.3
+     },
+     {
+      "cards": [
+       "Ah",
+       "7d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.633
+     },
+     {
+      "cards": [
+       "8s",
+       "7h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.095
+     },
+     {
+      "cards": [
+       "5h",
+       "5d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.68
+     },
+     {
+      "cards": [
+       "4c",
+       "3c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.103
+     },
+     {
+      "cards": [
+       "Ah",
+       "Qd"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.601
+     },
+     {
+      "cards": [
+       "Ah",
+       "Td"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.661
+     },
+     {
+      "cards": [
+       "Ac",
+       "8d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.645
+     },
+     {
+      "cards": [
+       "Ad",
+       "5d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.665
+     },
+     {
+      "cards": [
+       "Qs",
+       "Jc"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.786
+     },
+     {
+      "cards": [
+       "Qh",
+       "Ts"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.721
+     },
+     {
+      "cards": [
+       "Qc",
+       "8h"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.269
+     },
+     {
+      "cards": [
+       "Jh",
+       "Th"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.702
+     },
+     {
+      "cards": [
+       "Jc",
+       "6c"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.561
+     },
+     {
+      "cards": [
+       "8h",
+       "6h"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.612
+     }
+    ],
+    "afterCalls": [
+     {
+      "cards": [
+       "4d",
+       "4c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.376
+     },
+     {
+      "cards": [
+       "Kd",
+       "9c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.689
+     },
+     {
+      "cards": [
+       "9d",
+       "7d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.984
+     },
+     {
+      "cards": [
+       "Ks",
+       "Qd"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.658
+     },
+     {
+      "cards": [
+       "Ks",
+       "Jh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.707
+     },
+     {
+      "cards": [
+       "Ks",
+       "Ts"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.631
+     },
+     {
+      "cards": [
+       "Kd",
+       "Tc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.696
+     },
+     {
+      "cards": [
+       "Kd",
+       "8h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.638
+     },
+     {
+      "cards": [
+       "Kd",
+       "6s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.53
+     },
+     {
+      "cards": [
+       "Kd",
+       "5d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.767
+     },
+     {
+      "cards": [
+       "8h",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.338
+     },
+     {
+      "cards": [
+       "Ad",
+       "7h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.917
+     },
+     {
+      "cards": [
+       "Qs",
+       "7s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.913
+     },
+     {
+      "cards": [
+       "Js",
+       "7s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.928
+     },
+     {
+      "cards": [
+       "Th",
+       "7s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.135
+     },
+     {
+      "cards": [
+       "8h",
+       "7h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.997
+     },
+     {
+      "cards": [
+       "7h",
+       "6h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.916
+     },
+     {
+      "cards": [
+       "7h",
+       "3h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.147
+     },
+     {
+      "cards": [
+       "3s",
+       "3h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.353
+     },
+     {
+      "cards": [
+       "Ac",
+       "2c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.305
+     }
+    ],
+    "nitAfterCalls": [
+     {
+      "cards": [
+       "7s",
+       "7d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.213
+     },
+     {
+      "cards": [
+       "Kd",
+       "4h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.002
+     },
+     {
+      "cards": [
+       "Ac",
+       "Ks"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.235
+     },
+     {
+      "cards": [
+       "Ks",
+       "Qs"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.515
+     },
+     {
+      "cards": [
+       "Ks",
+       "Qh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.945
+     },
+     {
+      "cards": [
+       "Ks",
+       "Qd"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.945
+     },
+     {
+      "cards": [
+       "Ks",
+       "Js"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Ks",
+       "Jh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.265
+     },
+     {
+      "cards": [
+       "Ks",
+       "Jd"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.265
+     },
+     {
+      "cards": [
+       "Ks",
+       "Ts"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.956
+     },
+     {
+      "cards": [
+       "Kd",
+       "Td"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.955
+     },
+     {
+      "cards": [
+       "Kd",
+       "Qc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.945
+     },
+     {
+      "cards": [
+       "Kd",
+       "Jh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.265
+     },
+     {
+      "cards": [
+       "Kd",
+       "Jd"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.999
+     },
+     {
+      "cards": [
+       "Kd",
+       "Jc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.265
+     },
+     {
+      "cards": [
+       "Kd",
+       "Th"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.066
+     },
+     {
+      "cards": [
+       "Kd",
+       "Tc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.066
+     },
+     {
+      "cards": [
+       "8s",
+       "8h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.031
+     },
+     {
+      "cards": [
+       "Ts",
+       "7s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.037
+     },
+     {
+      "cards": [
+       "3h",
+       "3d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.021
+     }
+    ],
+    "afterBigBet": [
+     {
+      "cards": [
+       "7s",
+       "7h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.323
+     },
+     {
+      "cards": [
+       "4h",
+       "4d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.479
+     },
+     {
+      "cards": [
+       "4d",
+       "4c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.479
+     },
+     {
+      "cards": [
+       "2h",
+       "2c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.302
+     },
+     {
+      "cards": [
+       "Ks",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Ks",
+       "9c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.949
+     },
+     {
+      "cards": [
+       "Kd",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.949
+     },
+     {
+      "cards": [
+       "Ks",
+       "7s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.262
+     },
+     {
+      "cards": [
+       "Ks",
+       "7h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.243
+     },
+     {
+      "cards": [
+       "Ks",
+       "7d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.243
+     },
+     {
+      "cards": [
+       "Ks",
+       "4h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.09
+     },
+     {
+      "cards": [
+       "Ks",
+       "2s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.292
+     },
+     {
+      "cards": [
+       "9s",
+       "7s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.979
+     },
+     {
+      "cards": [
+       "9d",
+       "7d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.975
+     },
+     {
+      "cards": [
+       "9s",
+       "2s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.057
+     },
+     {
+      "cards": [
+       "Ad",
+       "Ks"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.179
+     },
+     {
+      "cards": [
+       "Kd",
+       "Qh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.106
+     },
+     {
+      "cards": [
+       "Kd",
+       "Jc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.126
+     },
+     {
+      "cards": [
+       "Ks",
+       "8s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.069
+     },
+     {
+      "cards": [
+       "Ah",
+       "7s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.011
+     }
+    ],
+    "ifChecked": [
+     {
+      "cards": [
+       "Ks",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.5
+     },
+     {
+      "cards": [
+       "9s",
+       "7s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.652
+     },
+     {
+      "cards": [
+       "Ks",
+       "Qh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.618
+     },
+     {
+      "cards": [
+       "Ks",
+       "Jh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.662
+     },
+     {
+      "cards": [
+       "Kd",
+       "Jc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.662
+     },
+     {
+      "cards": [
+       "Kd",
+       "Td"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.591
+     },
+     {
+      "cards": [
+       "Kd",
+       "8s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.626
+     },
+     {
+      "cards": [
+       "Ks",
+       "6d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.521
+     },
+     {
+      "cards": [
+       "Ks",
+       "5c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.166
+     },
+     {
+      "cards": [
+       "8s",
+       "8h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.338
+     },
+     {
+      "cards": [
+       "Ah",
+       "7d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.918
+     },
+     {
+      "cards": [
+       "Ac",
+       "7h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.918
+     },
+     {
+      "cards": [
+       "Qd",
+       "7h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.155
+     },
+     {
+      "cards": [
+       "Jd",
+       "7d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.926
+     },
+     {
+      "cards": [
+       "Td",
+       "7d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.913
+     },
+     {
+      "cards": [
+       "8d",
+       "7d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.997
+     },
+     {
+      "cards": [
+       "7d",
+       "6d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.918
+     },
+     {
+      "cards": [
+       "6s",
+       "6d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.32
+     },
+     {
+      "cards": [
+       "3s",
+       "3d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.353
+     },
+     {
+      "cards": [
+       "Qs",
+       "2s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.184
+     }
+    ]
+   },
+   "keepRows": [
+    1,
+    0,
+    0,
+    0,
+    0
+   ],
+   "showIfChecked": true,
+   "capWaived": {
+    "nitAfterCalls": [
+     151,
+     152,
+     153
+    ]
+   },
+   "gate": {
+    "leadFreq": 0.0355,
+    "beatsTopPairAfter": 0.776,
+    "ifCheckedShare": 0.107,
+    "callsStrong": 3,
+    "bigBetStrong": 15,
+    "callsWeak": 10,
+    "nitWeak": 3,
+    "checkedBeats": 2
+   },
+   "verdict": {
+    "lead": "fold",
+    "check": "bet",
+    "inputs": "b98e3120e3d9"
+   }
+  },
+  {
+   "id": "V1",
+   "board": [
+    "Ks",
+    "8d",
+    "3c",
+    "6h",
+    "Jd"
+   ],
+   "hero": "Ah Kd",
+   "cards": {
+    "hero": "Ah Kd",
+    "start": [
+     {
+      "cards": [
+       "Kh",
+       "Jc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.686
+     },
+     {
+      "cards": [
+       "Jc",
+       "8c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.662
+     },
+     {
+      "cards": [
+       "Kh",
+       "Td"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.679
+     },
+     {
+      "cards": [
+       "Kc",
+       "7d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.551
+     },
+     {
+      "cards": [
+       "Qs",
+       "Jh"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.752
+     },
+     {
+      "cards": [
+       "Jh",
+       "Td"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.652
+     },
+     {
+      "cards": [
+       "Jc",
+       "7c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.593
+     },
+     {
+      "cards": [
+       "Qc",
+       "8s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.258
+     },
+     {
+      "cards": [
+       "8c",
+       "2c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.094
+     },
+     {
+      "cards": [
+       "Ts",
+       "6s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.513
+     },
+     {
+      "cards": [
+       "4s",
+       "4h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.592
+     },
+     {
+      "cards": [
+       "2s",
+       "2d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.574
+     },
+     {
+      "cards": [
+       "Ad",
+       "Td"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.523
+     },
+     {
+      "cards": [
+       "As",
+       "7d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.605
+     },
+     {
+      "cards": [
+       "As",
+       "2d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.506
+     },
+     {
+      "cards": [
+       "Ac",
+       "2s"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.506
+     },
+     {
+      "cards": [
+       "Qc",
+       "Td"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.691
+     },
+     {
+      "cards": [
+       "Qd",
+       "7d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.577
+     },
+     {
+      "cards": [
+       "Td",
+       "9h"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.288
+     },
+     {
+      "cards": [
+       "9s",
+       "2s"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.096
+     }
+    ],
+    "afterCalls": [
+     {
+      "cards": [
+       "3h",
+       "3d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.202
+     },
+     {
+      "cards": [
+       "Kh",
+       "8h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.161
+     },
+     {
+      "cards": [
+       "Jh",
+       "8h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.786
+     },
+     {
+      "cards": [
+       "As",
+       "Kh"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.207
+     },
+     {
+      "cards": [
+       "Kc",
+       "Qh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.546
+     },
+     {
+      "cards": [
+       "Kc",
+       "Ts"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.582
+     },
+     {
+      "cards": [
+       "Kh",
+       "9d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.559
+     },
+     {
+      "cards": [
+       "Kh",
+       "7s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.514
+     },
+     {
+      "cards": [
+       "Kc",
+       "7c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.61
+     },
+     {
+      "cards": [
+       "Kc",
+       "5c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.56
+     },
+     {
+      "cards": [
+       "As",
+       "8h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.761
+     },
+     {
+      "cards": [
+       "Ad",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.761
+     },
+     {
+      "cards": [
+       "Qs",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.326
+     },
+     {
+      "cards": [
+       "Qc",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.776
+     },
+     {
+      "cards": [
+       "Tc",
+       "8h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.15
+     },
+     {
+      "cards": [
+       "9d",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.143
+     },
+     {
+      "cards": [
+       "8c",
+       "7d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.117
+     },
+     {
+      "cards": [
+       "7d",
+       "7c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.25
+     },
+     {
+      "cards": [
+       "As",
+       "3s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.249
+     },
+     {
+      "cards": [
+       "3h",
+       "2h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.04
+     }
+    ],
+    "nitAfterCalls": [
+     {
+      "cards": [
+       "Kh",
+       "Js"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.265
+     },
+     {
+      "cards": [
+       "Kh",
+       "Jh"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Kc",
+       "Jh"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.265
+     },
+     {
+      "cards": [
+       "Kc",
+       "Jc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.999
+     },
+     {
+      "cards": [
+       "As",
+       "Kc"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.235
+     },
+     {
+      "cards": [
+       "Ac",
+       "Kh"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.235
+     },
+     {
+      "cards": [
+       "Kh",
+       "Qs"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.945
+     },
+     {
+      "cards": [
+       "Kh",
+       "Qd"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.945
+     },
+     {
+      "cards": [
+       "Kh",
+       "Qc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.945
+     },
+     {
+      "cards": [
+       "Kh",
+       "Th"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.956
+     },
+     {
+      "cards": [
+       "Kc",
+       "Tc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.955
+     },
+     {
+      "cards": [
+       "Kh",
+       "9h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.248
+     },
+     {
+      "cards": [
+       "Kc",
+       "9c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.247
+     },
+     {
+      "cards": [
+       "Kh",
+       "Ts"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.067
+     },
+     {
+      "cards": [
+       "Kh",
+       "Tc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.067
+     },
+     {
+      "cards": [
+       "Kc",
+       "Td"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.067
+     },
+     {
+      "cards": [
+       "Kc",
+       "9d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.025
+     },
+     {
+      "cards": [
+       "Ad",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.035
+     },
+     {
+      "cards": [
+       "Tc",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.098
+     },
+     {
+      "cards": [
+       "As",
+       "3s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.013
+     }
+    ],
+    "afterBigBet": [
+     {
+      "cards": [
+       "6s",
+       "6d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.524
+     },
+     {
+      "cards": [
+       "6d",
+       "6c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.524
+     },
+     {
+      "cards": [
+       "3h",
+       "3d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.339
+     },
+     {
+      "cards": [
+       "Kh",
+       "Jh"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.845
+     },
+     {
+      "cards": [
+       "Kh",
+       "Jc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.895
+     },
+     {
+      "cards": [
+       "Kc",
+       "Js"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.895
+     },
+     {
+      "cards": [
+       "Kh",
+       "8s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.271
+     },
+     {
+      "cards": [
+       "Kh",
+       "8c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.271
+     },
+     {
+      "cards": [
+       "Kh",
+       "6s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.408
+     },
+     {
+      "cards": [
+       "Kc",
+       "6s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.408
+     },
+     {
+      "cards": [
+       "Kh",
+       "3h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.328
+     },
+     {
+      "cards": [
+       "Js",
+       "8s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.997
+     },
+     {
+      "cards": [
+       "Jh",
+       "8h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Jc",
+       "8c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.997
+     },
+     {
+      "cards": [
+       "8s",
+       "6s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.541
+     },
+     {
+      "cards": [
+       "8c",
+       "6c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.541
+     },
+     {
+      "cards": [
+       "Ad",
+       "Kh"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.19
+     },
+     {
+      "cards": [
+       "Kc",
+       "Qc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.082
+     },
+     {
+      "cards": [
+       "Kh",
+       "9c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.042
+     },
+     {
+      "cards": [
+       "Qc",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.016
+     }
+    ],
+    "ifChecked": [
+     {
+      "cards": [
+       "Kh",
+       "Js"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.421
+     },
+     {
+      "cards": [
+       "Kc",
+       "6c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.192
+     },
+     {
+      "cards": [
+       "6d",
+       "3d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.038
+     },
+     {
+      "cards": [
+       "Kc",
+       "Qh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.522
+     },
+     {
+      "cards": [
+       "Kh",
+       "Tc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.552
+     },
+     {
+      "cards": [
+       "Kh",
+       "9d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.555
+     },
+     {
+      "cards": [
+       "Kh",
+       "7s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.511
+     },
+     {
+      "cards": [
+       "Kc",
+       "7d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.511
+     },
+     {
+      "cards": [
+       "Kc",
+       "5h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.138
+     },
+     {
+      "cards": [
+       "9d",
+       "9c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.11
+     },
+     {
+      "cards": [
+       "Ad",
+       "8h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.771
+     },
+     {
+      "cards": [
+       "Ac",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.767
+     },
+     {
+      "cards": [
+       "Qd",
+       "8h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.331
+     },
+     {
+      "cards": [
+       "Th",
+       "8s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.151
+     },
+     {
+      "cards": [
+       "9s",
+       "8s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.83
+     },
+     {
+      "cards": [
+       "8s",
+       "7s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.774
+     },
+     {
+      "cards": [
+       "8s",
+       "5s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.165
+     },
+     {
+      "cards": [
+       "5s",
+       "5d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.27
+     },
+     {
+      "cards": [
+       "As",
+       "3h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.247
+     },
+     {
+      "cards": [
+       "2s",
+       "2h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.269
+     }
+    ]
+   },
+   "keepRows": [
+    1,
+    0,
+    0,
+    0,
+    0
+   ],
+   "showIfChecked": true,
+   "capWaived": {
+    "nitAfterCalls": [
+     151,
+     152
+    ]
+   },
+   "gate": {
+    "leadFreq": 0.038,
+    "beatsTopPairAfter": 0.822,
+    "ifCheckedShare": 0.132,
+    "callsStrong": 3,
+    "bigBetStrong": 16,
+    "callsWeak": 10,
+    "nitWeak": 3,
+    "checkedBeats": 3
+   },
+   "verdict": {
+    "lead": "fold",
+    "check": "bet",
+    "inputs": "1b1fd49ed045"
+   }
+  },
+  {
+   "id": "V2",
+   "board": [
+    "Ad",
+    "9c",
+    "4h",
+    "2s",
+    "Jh"
+   ],
+   "hero": "As Kh",
+   "cards": {
+    "hero": "As Kh",
+    "start": [
+     {
+      "cards": [
+       "Ah",
+       "Jc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.649
+     },
+     {
+      "cards": [
+       "Ac",
+       "2c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.615
+     },
+     {
+      "cards": [
+       "Ac",
+       "Qd"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.586
+     },
+     {
+      "cards": [
+       "Ah",
+       "7c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.619
+     },
+     {
+      "cards": [
+       "Ac",
+       "5c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.649
+     },
+     {
+      "cards": [
+       "Qs",
+       "Jd"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.764
+     },
+     {
+      "cards": [
+       "Jd",
+       "Td"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.685
+     },
+     {
+      "cards": [
+       "Ts",
+       "Tc"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.058
+     },
+     {
+      "cards": [
+       "Qc",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.571
+     },
+     {
+      "cards": [
+       "9h",
+       "6h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.472
+     },
+     {
+      "cards": [
+       "5s",
+       "5d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.667
+     },
+     {
+      "cards": [
+       "3h",
+       "3d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.618
+     },
+     {
+      "cards": [
+       "Kc",
+       "Qh"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.666
+     },
+     {
+      "cards": [
+       "Kd",
+       "8h"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.573
+     },
+     {
+      "cards": [
+       "Ks",
+       "6d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.48
+     },
+     {
+      "cards": [
+       "Qs",
+       "Td"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.704
+     },
+     {
+      "cards": [
+       "Qd",
+       "8s"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.262
+     },
+     {
+      "cards": [
+       "Qc",
+       "5c"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.592
+     },
+     {
+      "cards": [
+       "Td",
+       "6d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.522
+     },
+     {
+      "cards": [
+       "7d",
+       "6d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.599
+     }
+    ],
+    "afterCalls": [
+     {
+      "cards": [
+       "Ah",
+       "Js"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.513
+     },
+     {
+      "cards": [
+       "Ac",
+       "4d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.187
+     },
+     {
+      "cards": [
+       "Jd",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.597
+     },
+     {
+      "cards": [
+       "Ah",
+       "Ks"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.221
+     },
+     {
+      "cards": [
+       "Ah",
+       "Ts"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.539
+     },
+     {
+      "cards": [
+       "Ah",
+       "8s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.576
+     },
+     {
+      "cards": [
+       "Ah",
+       "7s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.549
+     },
+     {
+      "cards": [
+       "Ac",
+       "7c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.59
+     },
+     {
+      "cards": [
+       "Ac",
+       "6c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.645
+     },
+     {
+      "cards": [
+       "Ac",
+       "5d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.531
+     },
+     {
+      "cards": [
+       "Ac",
+       "3d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.494
+     },
+     {
+      "cards": [
+       "Kd",
+       "9h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.676
+     },
+     {
+      "cards": [
+       "Qs",
+       "9h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.663
+     },
+     {
+      "cards": [
+       "Qd",
+       "9h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.663
+     },
+     {
+      "cards": [
+       "Ts",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.339
+     },
+     {
+      "cards": [
+       "Tc",
+       "9h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.339
+     },
+     {
+      "cards": [
+       "9s",
+       "7s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.712
+     },
+     {
+      "cards": [
+       "9d",
+       "6d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.543
+     },
+     {
+      "cards": [
+       "6d",
+       "6c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.217
+     },
+     {
+      "cards": [
+       "5d",
+       "4d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.129
+     }
+    ],
+    "nitAfterCalls": [
+     {
+      "cards": [
+       "Ah",
+       "Js"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Ah",
+       "Jd"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Ah",
+       "Jc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Ah",
+       "9h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.291
+     },
+     {
+      "cards": [
+       "Ac",
+       "Jd"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Js",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.062
+     },
+     {
+      "cards": [
+       "Ac",
+       "Ks"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.241
+     },
+     {
+      "cards": [
+       "Ah",
+       "Qs"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.75
+     },
+     {
+      "cards": [
+       "Ah",
+       "Qc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.75
+     },
+     {
+      "cards": [
+       "Ac",
+       "Qs"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.75
+     },
+     {
+      "cards": [
+       "Ah",
+       "Ts"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.456
+     },
+     {
+      "cards": [
+       "Ah",
+       "Th"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.551
+     },
+     {
+      "cards": [
+       "Ah",
+       "Td"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.456
+     },
+     {
+      "cards": [
+       "Ah",
+       "8h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.32
+     },
+     {
+      "cards": [
+       "Ac",
+       "8c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.32
+     },
+     {
+      "cards": [
+       "Ac",
+       "8h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.038
+     },
+     {
+      "cards": [
+       "Ah",
+       "6h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.097
+     },
+     {
+      "cards": [
+       "Ks",
+       "9s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.051
+     },
+     {
+      "cards": [
+       "Td",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.127
+     },
+     {
+      "cards": [
+       "Kd",
+       "4c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.008
+     }
+    ],
+    "afterBigBet": [
+     {
+      "cards": [
+       "4s",
+       "4d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.355
+     },
+     {
+      "cards": [
+       "2h",
+       "2d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.531
+     },
+     {
+      "cards": [
+       "Ah",
+       "Js"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.922
+     },
+     {
+      "cards": [
+       "Ah",
+       "Jd"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.922
+     },
+     {
+      "cards": [
+       "Ac",
+       "Js"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.922
+     },
+     {
+      "cards": [
+       "Ah",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.258
+     },
+     {
+      "cards": [
+       "Ac",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.258
+     },
+     {
+      "cards": [
+       "Ac",
+       "4s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.28
+     },
+     {
+      "cards": [
+       "Ah",
+       "2d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.368
+     },
+     {
+      "cards": [
+       "Ac",
+       "2c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.471
+     },
+     {
+      "cards": [
+       "Js",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Js",
+       "9d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.829
+     },
+     {
+      "cards": [
+       "Jd",
+       "9h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.829
+     },
+     {
+      "cards": [
+       "Js",
+       "4s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.169
+     },
+     {
+      "cards": [
+       "Jd",
+       "4d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.168
+     },
+     {
+      "cards": [
+       "Jc",
+       "4c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.168
+     },
+     {
+      "cards": [
+       "Ac",
+       "Ks"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.205
+     },
+     {
+      "cards": [
+       "Ah",
+       "Tc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.136
+     },
+     {
+      "cards": [
+       "Ah",
+       "6s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.045
+     },
+     {
+      "cards": [
+       "Ts",
+       "9s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.082
+     }
+    ],
+    "ifChecked": [
+     {
+      "cards": [
+       "Ah",
+       "Jc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.351
+     },
+     {
+      "cards": [
+       "Js",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.522
+     },
+     {
+      "cards": [
+       "4d",
+       "2d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.04
+     },
+     {
+      "cards": [
+       "Ah",
+       "Ts"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.515
+     },
+     {
+      "cards": [
+       "Ah",
+       "8s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.574
+     },
+     {
+      "cards": [
+       "Ac",
+       "8c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.578
+     },
+     {
+      "cards": [
+       "Ac",
+       "7d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.547
+     },
+     {
+      "cards": [
+       "Ac",
+       "6h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.539
+     },
+     {
+      "cards": [
+       "Ac",
+       "5h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.53
+     },
+     {
+      "cards": [
+       "Ac",
+       "3s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.493
+     },
+     {
+      "cards": [
+       "Ks",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.689
+     },
+     {
+      "cards": [
+       "Kc",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.689
+     },
+     {
+      "cards": [
+       "Qh",
+       "9h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.756
+     },
+     {
+      "cards": [
+       "Qc",
+       "9h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.677
+     },
+     {
+      "cards": [
+       "Th",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.345
+     },
+     {
+      "cards": [
+       "9s",
+       "8d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.141
+     },
+     {
+      "cards": [
+       "9h",
+       "7h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.723
+     },
+     {
+      "cards": [
+       "9d",
+       "5d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.153
+     },
+     {
+      "cards": [
+       "5s",
+       "5d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.236
+     },
+     {
+      "cards": [
+       "5c",
+       "4c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.131
+     }
+    ]
+   },
+   "keepRows": [
+    1,
+    0,
+    0,
+    0,
+    0
+   ],
+   "showIfChecked": true,
+   "capWaived": {
+    "nitAfterCalls": [
+     165
+    ]
+   },
+   "gate": {
+    "leadFreq": 0.0351,
+    "beatsTopPairAfter": 0.822,
+    "ifCheckedShare": 0.132,
+    "callsStrong": 3,
+    "bigBetStrong": 16,
+    "callsWeak": 9,
+    "nitWeak": 3,
+    "checkedBeats": 3
+   },
+   "verdict": {
+    "lead": "fold",
+    "check": "bet",
+    "inputs": "613a3d56f6d7"
+   }
+  },
+  {
+   "id": "V4",
+   "board": [
+    "Kc",
+    "9h",
+    "5d",
+    "2s",
+    "Qs"
+   ],
+   "hero": "Ad Kh",
+   "cards": {
+    "hero": "Ad Kh",
+    "start": [
+     {
+      "cards": [
+       "Jd",
+       "Th"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.656
+     },
+     {
+      "cards": [
+       "Ks",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.638
+     },
+     {
+      "cards": [
+       "Qc",
+       "5c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.585
+     },
+     {
+      "cards": [
+       "Kd",
+       "Ts"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.684
+     },
+     {
+      "cards": [
+       "Ks",
+       "6h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.474
+     },
+     {
+      "cards": [
+       "Qh",
+       "Jh"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.683
+     },
+     {
+      "cards": [
+       "Qd",
+       "Td"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.684
+     },
+     {
+      "cards": [
+       "Qd",
+       "6d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.582
+     },
+     {
+      "cards": [
+       "Jh",
+       "9s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.506
+     },
+     {
+      "cards": [
+       "9c",
+       "8h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.118
+     },
+     {
+      "cards": [
+       "6s",
+       "6c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.682
+     },
+     {
+      "cards": [
+       "6s",
+       "5c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.022
+     },
+     {
+      "cards": [
+       "Ah",
+       "2c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.51
+     },
+     {
+      "cards": [
+       "As",
+       "Th"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.635
+     },
+     {
+      "cards": [
+       "Ac",
+       "8h"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.622
+     },
+     {
+      "cards": [
+       "Ah",
+       "6h"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.65
+     },
+     {
+      "cards": [
+       "Ah",
+       "3d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.564
+     },
+     {
+      "cards": [
+       "Jc",
+       "7s"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.092
+     },
+     {
+      "cards": [
+       "Td",
+       "7d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.59
+     },
+     {
+      "cards": [
+       "8c",
+       "3c"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.096
+     }
+    ],
+    "afterCalls": [
+     {
+      "cards": [
+       "Ks",
+       "Qh"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.543
+     },
+     {
+      "cards": [
+       "Ks",
+       "5c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.042
+     },
+     {
+      "cards": [
+       "Qd",
+       "9c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.676
+     },
+     {
+      "cards": [
+       "Ah",
+       "Ks"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.201
+     },
+     {
+      "cards": [
+       "Kd",
+       "Jd"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.504
+     },
+     {
+      "cards": [
+       "Kd",
+       "Th"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.557
+     },
+     {
+      "cards": [
+       "Kd",
+       "8h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.495
+     },
+     {
+      "cards": [
+       "Kd",
+       "7h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.483
+     },
+     {
+      "cards": [
+       "Kd",
+       "6d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.576
+     },
+     {
+      "cards": [
+       "Qd",
+       "Js"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.015
+     },
+     {
+      "cards": [
+       "Ah",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.725
+     },
+     {
+      "cards": [
+       "Js",
+       "9s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.763
+     },
+     {
+      "cards": [
+       "Jd",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.76
+     },
+     {
+      "cards": [
+       "Ts",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.34
+     },
+     {
+      "cards": [
+       "Tc",
+       "9c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.997
+     },
+     {
+      "cards": [
+       "9c",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.803
+     },
+     {
+      "cards": [
+       "9s",
+       "6h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.006
+     },
+     {
+      "cards": [
+       "6s",
+       "6h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.248
+     },
+     {
+      "cards": [
+       "Th",
+       "5h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.078
+     },
+     {
+      "cards": [
+       "3s",
+       "3d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.266
+     }
+    ],
+    "nitAfterCalls": [
+     {
+      "cards": [
+       "Ks",
+       "Qh"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.943
+     },
+     {
+      "cards": [
+       "Ks",
+       "Qd"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.943
+     },
+     {
+      "cards": [
+       "Ks",
+       "Qc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.943
+     },
+     {
+      "cards": [
+       "Kd",
+       "Qh"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.943
+     },
+     {
+      "cards": [
+       "Kd",
+       "Qd"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.513
+     },
+     {
+      "cards": [
+       "Kd",
+       "Qc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.943
+     },
+     {
+      "cards": [
+       "Ks",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.09
+     },
+     {
+      "cards": [
+       "As",
+       "Kd"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.235
+     },
+     {
+      "cards": [
+       "Ac",
+       "Kd"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.235
+     },
+     {
+      "cards": [
+       "Ks",
+       "Js"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Ks",
+       "Jd"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.257
+     },
+     {
+      "cards": [
+       "Kd",
+       "Jd"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.999
+     },
+     {
+      "cards": [
+       "Ks",
+       "Ts"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.956
+     },
+     {
+      "cards": [
+       "Kd",
+       "Td"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.955
+     },
+     {
+      "cards": [
+       "Kd",
+       "Th"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.057
+     },
+     {
+      "cards": [
+       "Kd",
+       "Tc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.057
+     },
+     {
+      "cards": [
+       "Qd",
+       "Jc"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.003
+     },
+     {
+      "cards": [
+       "Jd",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.076
+     },
+     {
+      "cards": [
+       "9d",
+       "8d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.049
+     },
+     {
+      "cards": [
+       "7c",
+       "5c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.014
+     }
+    ],
+    "afterBigBet": [
+     {
+      "cards": [
+       "9s",
+       "9d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.048
+     },
+     {
+      "cards": [
+       "2h",
+       "2d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.549
+     },
+     {
+      "cards": [
+       "2d",
+       "2c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.549
+     },
+     {
+      "cards": [
+       "Ks",
+       "Qd"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.934
+     },
+     {
+      "cards": [
+       "Ks",
+       "Qc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.934
+     },
+     {
+      "cards": [
+       "Kd",
+       "Qd"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.692
+     },
+     {
+      "cards": [
+       "Ks",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.229
+     },
+     {
+      "cards": [
+       "Kd",
+       "9c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.222
+     },
+     {
+      "cards": [
+       "Qh",
+       "9s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.949
+     },
+     {
+      "cards": [
+       "Qh",
+       "9d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.949
+     },
+     {
+      "cards": [
+       "Qh",
+       "9c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.949
+     },
+     {
+      "cards": [
+       "Kd",
+       "2d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.379
+     },
+     {
+      "cards": [
+       "Qh",
+       "5h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.397
+     },
+     {
+      "cards": [
+       "Qc",
+       "5c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.397
+     },
+     {
+      "cards": [
+       "Ks",
+       "5s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.264
+     },
+     {
+      "cards": [
+       "Kd",
+       "9d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.229
+     },
+     {
+      "cards": [
+       "Ac",
+       "Kd"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.184
+     },
+     {
+      "cards": [
+       "Ks",
+       "Th"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.137
+     },
+     {
+      "cards": [
+       "Ks",
+       "7c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.04
+     },
+     {
+      "cards": [
+       "Td",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.093
+     }
+    ],
+    "ifChecked": [
+     {
+      "cards": [
+       "Ks",
+       "Qd"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.38
+     },
+     {
+      "cards": [
+       "Qh",
+       "9c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.47
+     },
+     {
+      "cards": [
+       "As",
+       "Kd"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.17
+     },
+     {
+      "cards": [
+       "Kd",
+       "Jh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.548
+     },
+     {
+      "cards": [
+       "Kd",
+       "Th"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.533
+     },
+     {
+      "cards": [
+       "Kd",
+       "8s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.495
+     },
+     {
+      "cards": [
+       "Ks",
+       "7c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.483
+     },
+     {
+      "cards": [
+       "Kd",
+       "6s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.411
+     },
+     {
+      "cards": [
+       "Kd",
+       "4d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.517
+     },
+     {
+      "cards": [
+       "As",
+       "9c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.737
+     },
+     {
+      "cards": [
+       "Ac",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.737
+     },
+     {
+      "cards": [
+       "Jh",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.618
+     },
+     {
+      "cards": [
+       "Jc",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.618
+     },
+     {
+      "cards": [
+       "Td",
+       "9s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.346
+     },
+     {
+      "cards": [
+       "9s",
+       "8s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.815
+     },
+     {
+      "cards": [
+       "9s",
+       "7d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.111
+     },
+     {
+      "cards": [
+       "9c",
+       "6c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.559
+     },
+     {
+      "cards": [
+       "6h",
+       "6d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.253
+     },
+     {
+      "cards": [
+       "7s",
+       "5s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.211
+     },
+     {
+      "cards": [
+       "3s",
+       "3d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.271
+     }
+    ]
+   },
+   "keepRows": [
+    1,
+    0,
+    0,
+    0,
+    0
+   ],
+   "showIfChecked": true,
+   "capWaived": {
+    "nitAfterCalls": [
+     151,
+     153
+    ]
+   },
+   "gate": {
+    "leadFreq": 0.0338,
+    "beatsTopPairAfter": 0.814,
+    "ifCheckedShare": 0.13,
+    "callsStrong": 3,
+    "bigBetStrong": 16,
+    "callsWeak": 11,
+    "nitWeak": 4,
+    "checkedBeats": 2
+   },
+   "verdict": {
+    "lead": "fold",
+    "check": "bet",
+    "inputs": "de8242710c5d"
+   }
+  },
+  {
+   "id": "V5",
+   "board": [
+    "As",
+    "8h",
+    "3d",
+    "6c",
+    "Ts"
+   ],
+   "hero": "Ac Kd",
+   "cards": {
+    "hero": "Ac Kd",
+    "start": [
+     {
+      "cards": [
+       "6h",
+       "6d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.684
+     },
+     {
+      "cards": [
+       "Ad",
+       "6h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.603
+     },
+     {
+      "cards": [
+       "Ad",
+       "Ks"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.387
+     },
+     {
+      "cards": [
+       "Ad",
+       "9s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.627
+     },
+     {
+      "cards": [
+       "Ah",
+       "2s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.51
+     },
+     {
+      "cards": [
+       "Kh",
+       "Td"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.683
+     },
+     {
+      "cards": [
+       "Js",
+       "Td"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.657
+     },
+     {
+      "cards": [
+       "Tc",
+       "9c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.962
+     },
+     {
+      "cards": [
+       "Qh",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.259
+     },
+     {
+      "cards": [
+       "8d",
+       "2d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.094
+     },
+     {
+      "cards": [
+       "Jh",
+       "6h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.54
+     },
+     {
+      "cards": [
+       "4s",
+       "4d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.596
+     },
+     {
+      "cards": [
+       "Ks",
+       "Qs"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.496
+     },
+     {
+      "cards": [
+       "Kh",
+       "Jc"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.69
+     },
+     {
+      "cards": [
+       "Ks",
+       "7d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.555
+     },
+     {
+      "cards": [
+       "Kc",
+       "4c"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.581
+     },
+     {
+      "cards": [
+       "Qc",
+       "Jd"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.753
+     },
+     {
+      "cards": [
+       "Qh",
+       "7c"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.1
+     },
+     {
+      "cards": [
+       "Jh",
+       "9d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.506
+     },
+     {
+      "cards": [
+       "9h",
+       "5h"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.134
+     }
+    ],
+    "afterCalls": [
+     {
+      "cards": [
+       "Ah",
+       "Th"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.372
+     },
+     {
+      "cards": [
+       "Ah",
+       "6s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.263
+     },
+     {
+      "cards": [
+       "Td",
+       "8d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.997
+     },
+     {
+      "cards": [
+       "Ah",
+       "Kh"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.025
+     },
+     {
+      "cards": [
+       "Ah",
+       "Js"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.468
+     },
+     {
+      "cards": [
+       "Ah",
+       "9s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.567
+     },
+     {
+      "cards": [
+       "Ad",
+       "9c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.567
+     },
+     {
+      "cards": [
+       "Ad",
+       "7d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.569
+     },
+     {
+      "cards": [
+       "Ah",
+       "4s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.491
+     },
+     {
+      "cards": [
+       "Ad",
+       "5s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.514
+     },
+     {
+      "cards": [
+       "Ad",
+       "4d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.739
+     },
+     {
+      "cards": [
+       "Ks",
+       "8s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.726
+     },
+     {
+      "cards": [
+       "Kh",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.66
+     },
+     {
+      "cards": [
+       "Qh",
+       "8s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.3
+     },
+     {
+      "cards": [
+       "Js",
+       "8s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.733
+     },
+     {
+      "cards": [
+       "9s",
+       "8s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.775
+     },
+     {
+      "cards": [
+       "8s",
+       "7s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.703
+     },
+     {
+      "cards": [
+       "8c",
+       "4c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.128
+     },
+     {
+      "cards": [
+       "4s",
+       "4d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.242
+     },
+     {
+      "cards": [
+       "2s",
+       "2h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.244
+     }
+    ],
+    "nitAfterCalls": [
+     {
+      "cards": [
+       "Ah",
+       "Th"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.542
+     },
+     {
+      "cards": [
+       "Ah",
+       "Tc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.449
+     },
+     {
+      "cards": [
+       "Ad",
+       "Tc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.449
+     },
+     {
+      "cards": [
+       "Tc",
+       "8c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.138
+     },
+     {
+      "cards": [
+       "Ad",
+       "Kh"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.231
+     },
+     {
+      "cards": [
+       "Ah",
+       "Qh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.141
+     },
+     {
+      "cards": [
+       "Ah",
+       "Qc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.75
+     },
+     {
+      "cards": [
+       "Ad",
+       "Qs"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.75
+     },
+     {
+      "cards": [
+       "Ah",
+       "Js"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Ah",
+       "Jh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.236
+     },
+     {
+      "cards": [
+       "Ah",
+       "Jd"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Ah",
+       "9h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.565
+     },
+     {
+      "cards": [
+       "Ad",
+       "9d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.565
+     },
+     {
+      "cards": [
+       "Ah",
+       "7h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.23
+     },
+     {
+      "cards": [
+       "Ad",
+       "7d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.23
+     },
+     {
+      "cards": [
+       "Ah",
+       "9d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.046
+     },
+     {
+      "cards": [
+       "Ad",
+       "7s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.035
+     },
+     {
+      "cards": [
+       "Ad",
+       "4h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.021
+     },
+     {
+      "cards": [
+       "Js",
+       "8s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.051
+     },
+     {
+      "cards": [
+       "4h",
+       "4d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.014
+     }
+    ],
+    "afterBigBet": [
+     {
+      "cards": [
+       "8s",
+       "8c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.113
+     },
+     {
+      "cards": [
+       "6s",
+       "6d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.479
+     },
+     {
+      "cards": [
+       "3s",
+       "3c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.309
+     },
+     {
+      "cards": [
+       "Ah",
+       "Td"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.81
+     },
+     {
+      "cards": [
+       "Ah",
+       "Tc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.81
+     },
+     {
+      "cards": [
+       "Ad",
+       "Th"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.81
+     },
+     {
+      "cards": [
+       "Ah",
+       "8s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.189
+     },
+     {
+      "cards": [
+       "Ah",
+       "8c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.189
+     },
+     {
+      "cards": [
+       "Ah",
+       "6h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.379
+     },
+     {
+      "cards": [
+       "Ad",
+       "6h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.346
+     },
+     {
+      "cards": [
+       "Ah",
+       "3h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.235
+     },
+     {
+      "cards": [
+       "Th",
+       "8s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.179
+     },
+     {
+      "cards": [
+       "Td",
+       "8d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.997
+     },
+     {
+      "cards": [
+       "Tc",
+       "8c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Th",
+       "3h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.089
+     },
+     {
+      "cards": [
+       "8d",
+       "6d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.473
+     },
+     {
+      "cards": [
+       "Ah",
+       "Kc"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.16
+     },
+     {
+      "cards": [
+       "Ah",
+       "Js"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.089
+     },
+     {
+      "cards": [
+       "Ad",
+       "7s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.04
+     },
+     {
+      "cards": [
+       "Ad",
+       "2c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.032
+     }
+    ],
+    "ifChecked": [
+     {
+      "cards": [
+       "Ah",
+       "Td"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.426
+     },
+     {
+      "cards": [
+       "Ad",
+       "3s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.132
+     },
+     {
+      "cards": [
+       "6d",
+       "3c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.002
+     },
+     {
+      "cards": [
+       "Ah",
+       "Js"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.567
+     },
+     {
+      "cards": [
+       "Ah",
+       "9s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.712
+     },
+     {
+      "cards": [
+       "Ad",
+       "9d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.686
+     },
+     {
+      "cards": [
+       "Ad",
+       "7h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.668
+     },
+     {
+      "cards": [
+       "Ah",
+       "5c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.646
+     },
+     {
+      "cards": [
+       "Ah",
+       "2d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.543
+     },
+     {
+      "cards": [
+       "Ad",
+       "4h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.618
+     },
+     {
+      "cards": [
+       "Ad",
+       "2c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.543
+     },
+     {
+      "cards": [
+       "Kh",
+       "8s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.848
+     },
+     {
+      "cards": [
+       "Kc",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.933
+     },
+     {
+      "cards": [
+       "Qd",
+       "8d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.928
+     },
+     {
+      "cards": [
+       "Jd",
+       "8d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.941
+     },
+     {
+      "cards": [
+       "9d",
+       "8d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.997
+     },
+     {
+      "cards": [
+       "8d",
+       "7d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.905
+     },
+     {
+      "cards": [
+       "7s",
+       "7c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.294
+     },
+     {
+      "cards": [
+       "4h",
+       "4d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.311
+     },
+     {
+      "cards": [
+       "2s",
+       "2d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.314
+     }
+    ]
+   },
+   "keepRows": [
+    1,
+    0,
+    0,
+    0,
+    0
+   ],
+   "showIfChecked": true,
+   "capWaived": {},
+   "gate": {
+    "leadFreq": 0.0339,
+    "beatsTopPairAfter": 0.829,
+    "ifCheckedShare": 0.131,
+    "callsStrong": 3,
+    "bigBetStrong": 16,
+    "callsWeak": 9,
+    "nitWeak": 2,
+    "checkedBeats": 3
+   },
+   "verdict": {
+    "lead": "fold",
+    "check": "bet",
+    "inputs": "84e7a530c33f"
+   }
+  },
+  {
+   "id": "V8",
+   "board": [
+    "Ah",
+    "Tc",
+    "6s",
+    "3d",
+    "Kh"
+   ],
+   "hero": "Ad Qc",
+   "cards": {
+    "hero": "Ad Qc",
+    "start": [
+     {
+      "cards": [
+       "Qh",
+       "Jc"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.756
+     },
+     {
+      "cards": [
+       "Ac",
+       "Th"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.627
+     },
+     {
+      "cards": [
+       "Kd",
+       "Td"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.631
+     },
+     {
+      "cards": [
+       "Ac",
+       "Qs"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.571
+     },
+     {
+      "cards": [
+       "As",
+       "8h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.611
+     },
+     {
+      "cards": [
+       "As",
+       "4h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.561
+     },
+     {
+      "cards": [
+       "Ks",
+       "Qh"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.65
+     },
+     {
+      "cards": [
+       "Kc",
+       "Jd"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.686
+     },
+     {
+      "cards": [
+       "Kd",
+       "8d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.647
+     },
+     {
+      "cards": [
+       "Ks",
+       "4c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.116
+     },
+     {
+      "cards": [
+       "Qd",
+       "Th"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.69
+     },
+     {
+      "cards": [
+       "Th",
+       "9h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.962
+     },
+     {
+      "cards": [
+       "8s",
+       "8c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.229
+     },
+     {
+      "cards": [
+       "8c",
+       "6c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.576
+     },
+     {
+      "cards": [
+       "4h",
+       "4c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.584
+     },
+     {
+      "cards": [
+       "Qh",
+       "9d"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.551
+     },
+     {
+      "cards": [
+       "Qh",
+       "5h"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.572
+     },
+     {
+      "cards": [
+       "Js",
+       "8s"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.656
+     },
+     {
+      "cards": [
+       "9h",
+       "8h"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.707
+     },
+     {
+      "cards": [
+       "8h",
+       "4h"
+      ],
+      "row": 4,
+      "beatsYou": 0,
+      "w": 0.111
+     }
+    ],
+    "afterCalls": [
+     {
+      "cards": [
+       "Ac",
+       "Ks"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.21
+     },
+     {
+      "cards": [
+       "Ks",
+       "Ts"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.745
+     },
+     {
+      "cards": [
+       "Kc",
+       "Ts"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.818
+     },
+     {
+      "cards": [
+       "As",
+       "Qh"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.47
+     },
+     {
+      "cards": [
+       "Ac",
+       "Jh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.535
+     },
+     {
+      "cards": [
+       "Ac",
+       "9d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.615
+     },
+     {
+      "cards": [
+       "Ac",
+       "8d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.606
+     },
+     {
+      "cards": [
+       "Ac",
+       "7d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.585
+     },
+     {
+      "cards": [
+       "As",
+       "4d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.543
+     },
+     {
+      "cards": [
+       "Ac",
+       "5c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.649
+     },
+     {
+      "cards": [
+       "Kc",
+       "Js"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.017
+     },
+     {
+      "cards": [
+       "Qh",
+       "Td"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.826
+     },
+     {
+      "cards": [
+       "Js",
+       "Td"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.788
+     },
+     {
+      "cards": [
+       "Jd",
+       "Td"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.767
+     },
+     {
+      "cards": [
+       "Th",
+       "9h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.967
+     },
+     {
+      "cards": [
+       "Ts",
+       "8h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.16
+     },
+     {
+      "cards": [
+       "Th",
+       "7h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.755
+     },
+     {
+      "cards": [
+       "7s",
+       "7c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.253
+     },
+     {
+      "cards": [
+       "7d",
+       "6d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.275
+     },
+     {
+      "cards": [
+       "4h",
+       "4c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.268
+     }
+    ],
+    "nitAfterCalls": [
+     {
+      "cards": [
+       "6h",
+       "6c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.276
+     },
+     {
+      "cards": [
+       "Ac",
+       "Ks"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.231
+     },
+     {
+      "cards": [
+       "As",
+       "3s"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.043
+     },
+     {
+      "cards": [
+       "As",
+       "Qh"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.75
+     },
+     {
+      "cards": [
+       "As",
+       "Qd"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.75
+     },
+     {
+      "cards": [
+       "Ac",
+       "Qh"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.75
+     },
+     {
+      "cards": [
+       "Ac",
+       "Qd"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.75
+     },
+     {
+      "cards": [
+       "As",
+       "Jh"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 1
+     },
+     {
+      "cards": [
+       "As",
+       "Jd"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 1
+     },
+     {
+      "cards": [
+       "As",
+       "Jc"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 1
+     },
+     {
+      "cards": [
+       "As",
+       "9s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.562
+     },
+     {
+      "cards": [
+       "Ac",
+       "9c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.562
+     },
+     {
+      "cards": [
+       "As",
+       "8s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.354
+     },
+     {
+      "cards": [
+       "Ac",
+       "9s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.036
+     },
+     {
+      "cards": [
+       "As",
+       "8c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.033
+     },
+     {
+      "cards": [
+       "Ac",
+       "7c"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.221
+     },
+     {
+      "cards": [
+       "Qs",
+       "Ts"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.202
+     },
+     {
+      "cards": [
+       "Jh",
+       "Ts"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.036
+     },
+     {
+      "cards": [
+       "Td",
+       "9d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.107
+     },
+     {
+      "cards": [
+       "8d",
+       "6d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.018
+     }
+    ],
+    "afterBigBet": [
+     {
+      "cards": [
+       "6h",
+       "6d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.409
+     },
+     {
+      "cards": [
+       "3s",
+       "3h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.55
+     },
+     {
+      "cards": [
+       "As",
+       "Ks"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.052
+     },
+     {
+      "cards": [
+       "Ac",
+       "Kd"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.396
+     },
+     {
+      "cards": [
+       "Ac",
+       "Td"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.23
+     },
+     {
+      "cards": [
+       "Ac",
+       "6d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.265
+     },
+     {
+      "cards": [
+       "As",
+       "3c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.374
+     },
+     {
+      "cards": [
+       "Ac",
+       "3c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.441
+     },
+     {
+      "cards": [
+       "Ks",
+       "Th"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Ks",
+       "Td"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Kd",
+       "Th"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 1
+     },
+     {
+      "cards": [
+       "Ks",
+       "6h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.274
+     },
+     {
+      "cards": [
+       "Ks",
+       "6d"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.274
+     },
+     {
+      "cards": [
+       "Ks",
+       "6c"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.274
+     },
+     {
+      "cards": [
+       "Ac",
+       "3h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.374
+     },
+     {
+      "cards": [
+       "Th",
+       "6h"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.256
+     },
+     {
+      "cards": [
+       "As",
+       "Qh"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.092
+     },
+     {
+      "cards": [
+       "Ac",
+       "9s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.05
+     },
+     {
+      "cards": [
+       "As",
+       "2d"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.036
+     },
+     {
+      "cards": [
+       "Th",
+       "8h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.077
+     }
+    ],
+    "ifChecked": [
+     {
+      "cards": [
+       "Ac",
+       "Ts"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.113
+     },
+     {
+      "cards": [
+       "Kd",
+       "Th"
+      ],
+      "row": 0,
+      "beatsYou": 1,
+      "w": 0.584
+     },
+     {
+      "cards": [
+       "As",
+       "Qs"
+      ],
+      "row": 1,
+      "beatsYou": 0.5,
+      "w": 0.128
+     },
+     {
+      "cards": [
+       "Ac",
+       "Js"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.513
+     },
+     {
+      "cards": [
+       "Ac",
+       "9h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.611
+     },
+     {
+      "cards": [
+       "Ac",
+       "8h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.602
+     },
+     {
+      "cards": [
+       "Ac",
+       "7s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.581
+     },
+     {
+      "cards": [
+       "As",
+       "4s"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.748
+     },
+     {
+      "cards": [
+       "Ac",
+       "5h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.564
+     },
+     {
+      "cards": [
+       "Ac",
+       "2h"
+      ],
+      "row": 1,
+      "beatsYou": 0,
+      "w": 0.476
+     },
+     {
+      "cards": [
+       "Qh",
+       "Ts"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.837
+     },
+     {
+      "cards": [
+       "Qd",
+       "Td"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.779
+     },
+     {
+      "cards": [
+       "Jh",
+       "Td"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.799
+     },
+     {
+      "cards": [
+       "Jc",
+       "Td"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.799
+     },
+     {
+      "cards": [
+       "Td",
+       "9s"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.376
+     },
+     {
+      "cards": [
+       "Th",
+       "8h"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.997
+     },
+     {
+      "cards": [
+       "Td",
+       "7d"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.769
+     },
+     {
+      "cards": [
+       "7d",
+       "7c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.257
+     },
+     {
+      "cards": [
+       "7c",
+       "6c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.277
+     },
+     {
+      "cards": [
+       "4d",
+       "4c"
+      ],
+      "row": 2,
+      "beatsYou": 0,
+      "w": 0.272
+     }
+    ]
+   },
+   "keepRows": [
+    1,
+    0,
+    0,
+    0,
+    0
+   ],
+   "showIfChecked": true,
+   "capWaived": {
+    "nitAfterCalls": [
+     166
+    ]
+   },
+   "gate": {
+    "leadFreq": 0.0317,
+    "beatsTopPairAfter": 0.832,
+    "ifCheckedShare": 0.138,
+    "callsStrong": 3,
+    "bigBetStrong": 16,
+    "callsWeak": 10,
+    "nitWeak": 4,
+    "checkedBeats": 2
+   },
+   "verdict": {
+    "lead": "fold",
+    "check": "bet",
+    "inputs": "b6744a67fe15"
+   }
+  }
+ ]
+}

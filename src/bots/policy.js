@@ -4,6 +4,7 @@
 
 import { legal, potSize, STREET } from '../engine/game.js';
 import { TIER, isRealDraw } from '../engine/features.js';
+import { binOf } from './rangetrack.js';
 import { CATEGORY } from '../engine/evaluator.js';
 import { RIVER_PAIR_FOLD_REF } from '../data/riverpairref.js'; // POOL batch 19f (item 0)
 import { RIVER_PAIR_FOLD_REF2 } from '../data/riverpairref2.js'; // POOL batch 19g
@@ -48,8 +49,10 @@ export function buildContext(s, seat = s.toAct) {
   const n = s.n;
   // The part of a bet this player cannot cover is never theirs to win, so leave it out of the pot.
   const pot = potSize(s) - Math.max(0, s.currentBet - s.bet[seat] - L.callAmt);
+  if (s.rt && s.street !== STREET.PRE && s.rt.sync) s.rt.sync(s);
   const ctx = {
     seat,
+    rtState: s.rt && s.rt.betRead ? s : null, // the public range summary, read through RangeTrack.betRead (MATH range-bots spike)
     street: s.street,
     pot,
     toCall: L.callAmt,
@@ -154,6 +157,15 @@ export function buildContext(s, seat = s.toAct) {
   }
   ctx.initiative = lastAggSeat === seat && lastAggStreet === s.street - 1;
   ctx.prevChecked = s.street > STREET.FLOP && !prevStreetBet;
+  // MATH range-bots (PRO's twin rule v1.2, corrected): a quiet line is one where every earlier postflop street was
+  // checked through, so nobody still in has bet or called a bet since the flop came; never true on the flop itself.
+  // flopSuited: the flop came three of one suit (the scare card was there from the start).
+  {
+    let anyBet = false;
+    for (const h of s.history) if (h.street > STREET.PRE && h.street < s.street && (h.type === 'bet' || h.type === 'raise')) { anyBet = true; break; }
+    ctx.quietLine = s.street > STREET.FLOP && !anyBet;
+    ctx.flopSuited = s.board.length >= 3 && (s.board[0] & 3) === (s.board[1] & 3) && (s.board[0] & 3) === (s.board[2] & 3);
+  }
   ctx.myBarrels = myBarrels;
   ctx.priorAggressor = lastAggSeat;
   // POOL batch 19e: the river after a flop and a turn with no bet or raise (a checked-down line)
@@ -759,6 +771,8 @@ function mdKeep(q, ctx) {
   if (q === 0) return ctx.checkedTo && ctx.inPosition ? MD_KEEP_NOW : 1;
   return Math.max(MD_KEEP_MIN, MD_KEEP_FULL ** q);
 }
+export const RANGE_TOP = 0.105;
+export const RANGE_SCALE = 0.5; // strength per unit of 'ahead when called': 7 points of ahead move the bet rate as 0.035 of strength does
 function boardAwareStrength(ctx, f, P = {}) {
   let mf = f.mdFlush ?? 1, ms = f.mdStraight ?? 1;
   if (ctx.toCall > 0 || (mf === 1 && ms === 1)) return f.strength;
@@ -839,7 +853,41 @@ export function postflopPolicy(ctx, P, f) {
     const ctShift = ct ? (P.checkedToShift?.[st] ?? 0) * (ctBehind ? P.ctBehindShiftMult ?? 1 : 1) : 0;
     // POOL batch 19c (item 4, PRO: a station value-bets a dry river no thinner than abc, 5 points under it): riverDryShift
     const valueThr = P.valueBet[st] + mwT * extra + valueShiftFor(P, ctx) + m7 + ctShift + (st === 2 && ctx.boardDry && P.riverDryShift ? P.riverDryShift : 0);
-    let pValue = soft(S, valueThr, 0.035);
+    // MATH range-bots stage 2: a type with rangeRead[0] > 0 moves the strength it bets on toward a range-aware one,
+    // "ahead of the hands that continue against my usual thin bet" against the type's bar (rangeBar[street]), put on
+    // the strength scale around valueThr. At 0 (or with no range summary) it is today's number exactly. Only how
+    // often it bets moves: the sizes below still go by S.
+    let Sv = S;
+    let rr = P.rangeRead ? P.rangeRead[0] : 0;
+    // PRO's twin rule v1.2 (CEO, 19 Nov): for a regular (rangeScaryMw set) the read is damped multiway on a board
+    // with a flush or straight the hand does not hold, since passive players check their draws and multiway someone
+    // has it more often; on a four-flush or one-card-straight board there is no read at all. Heads-up keeps the read.
+    if (rr > 0 && P.rangeScaryMw != null) {
+      const mf = f.mdFlush ?? 1, ms = f.mdStraight ?? 1;
+      if (mf < 0.7 || ms < 0.9) rr = 0; // a four-flush or a one-card straight: full gap always
+      else if (mf < 1 && ctx.flopSuited) rr = 0; // the scare card was already on the flop: full gap always (3b)
+      else if ((mf < 1 || ms < 1) && ctx.nOpp >= 2) rr *= P.rangeScaryMw;
+      // heads-up: [after a quiet line, otherwise] (v1.2 corrected: a gap of 5 is enough only when the other player
+      // has never bet or called since the flop; after any action, and on the flop, the full 10)
+      else if ((mf < 1 || ms < 1) && P.rangeScaryHu) rr *= P.rangeScaryHu[ctx.quietLine ? 0 : 1];
+    }
+    // PRO's A' (CEO, 24 Nov): a recreational reader (rangeScaryPrevChecked) keeps the read on a scary board only when
+    // the street before was checked through by everyone; after any bet there, and on the flop, no read (today's play).
+    if (rr > 0 && P.rangeScaryPrevChecked && ((f.mdFlush ?? 1) < 1 || (f.mdStraight ?? 1) < 1) && !ctx.prevChecked) rr = 0;
+    // not when leading into the last street's aggressor: checking to the raiser is a live custom, not range logic (POOL)
+    if (rr > 0 && ctx.rtState && ctx.canRaise && !ctx.aggressorBehind) {
+      const rd = ctx.rtState.rt.betRead(ctx.rtState, ctx.seat, binOf(f), P.rangeBetFrac);
+      // the range-aware number tops out at RANGE_TOP above the threshold (a 95% bet by itself), so a read never
+      // removes the last few checks a type keeps; rangeUpOnly types (recreational: they bet the label of the hand)
+      // use the read only to bet more often, never less
+      // (a hand that is already above that today keeps its own height as the top). The type's habits stay on top of
+      // the read: the passive player's multiway value bar and the lead into the raiser (m7) still raise the bar.
+      const Sr = valueThr + Math.min(Math.max(P.rangeTop ?? RANGE_TOP, S - valueThr), (rd.ahead - P.rangeBar[st]) * (P.rangeScale ? P.rangeScale[st] : RANGE_SCALE) - m7);
+      Sv = S + rr * (Sr - S);
+      if (P.rangeUpOnly && Sv < S) Sv = S;
+      out.fit = [S - valueThr, rd.ahead]; // for scripts/rangefit.js
+    }
+    let pValue = soft(Sv, valueThr, 0.035);
     // POOL batch 15 (QA-OPP P2): once the table has checked to me or checked a street through, strong hands slowplay
     // less: slowplay x ctSlowMult (0.5; the nit 0.6), the river already uses 0.25
     // POOL batch 16 (PRO's shape b): also after my own bet or raise on the previous street (or as the preflop raiser

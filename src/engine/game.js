@@ -5,6 +5,8 @@
 
 import { fullDeck, drawRandom, removeCard } from './cards.js';
 import { evaluate } from './evaluator.js';
+import { RangeTrack } from '../bots/rangetrack.js';
+import { RANGE_TABLES } from '../bots/rangetables.js';
 
 export const STREET = { PRE: 0, FLOP: 1, TURN: 2, RIVER: 3, DONE: 4 };
 export const STREET_NAMES = ['preflop', 'flop', 'turn', 'river', 'done'];
@@ -82,6 +84,8 @@ export function newHand(cfg) {
     s.minRaise = s.straddleAmt;
     last = s.straddleSeat;
   }
+  // the public range summary (MATH range-bots spike): what each player can still hold, from the board and the action
+  s.rt = cfg.noRange ? null : new RangeTrack(RANGE_TABLES);
   s.toAct = nextToAct(s, last);
   if (s.toAct < 0) endStreet(s, cfg.rng);
   return s;
@@ -156,6 +160,12 @@ export function applyAction(s, action, rng) {
   if (s.done) throw new Error('hand is over');
   const seat = s.toAct;
   const L = legal(s);
+  let rsit = null;
+  if (s.rt && !s.rt.sync) s.rt = RangeTrack.revive(s.rt, RANGE_TABLES); // a state restored from storage
+  if (s.rt && s.street !== STREET.PRE) {
+    s.rt.sync(s);
+    rsit = s.rt.sit(s, seat, L);
+  }
   let type = action.type;
   if (type === 'bet') type = 'raise';
   if (type === 'check' && !L.canCheck) throw new Error('cannot check facing a bet');
@@ -206,6 +216,7 @@ export function applyAction(s, action, rng) {
     throw new Error(`unknown action ${action.type}`);
   }
   s.acted[seat] = true;
+  if (rsit) s.rt.act(seat, rsit, s.history[s.history.length - 1]);
 
   if (liveCount(s) === 1) {
     refundUncalled(s);
@@ -390,6 +401,7 @@ export function cloneState(s) {
     board: s.board.slice(),
     remaining: s.remaining.slice(),
     history: s.history.slice(),
+    rt: s.rt ? (s.rt.clone ? s.rt.clone() : RangeTrack.revive(s.rt, RANGE_TABLES)) : null,
     result: null,
   };
 }

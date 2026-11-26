@@ -831,7 +831,7 @@ export function explain(d) {
   const reasons = [];
   if (v.iso3bet) reasons.push('Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.');
   // a play that loses money by itself (STRAT_YELLOW_BAND C)
-  if (v.rule === 'moneyIn' && v.moneyIn) reasons.push(`On our read this ${mine.type === 'call' ? 'call' : 'bet'} loses money by itself: ${v.moneyIn.loss >= 0.95 * v.moneyIn.put ? 'about all' : `about $${v.moneyIn.loss}`} of the $${v.moneyIn.put} it puts in, compared with ${v.moneyIn.give === 'fold' ? 'folding' : 'checking'}.`);
+  if (v.rule === 'moneyIn' && v.moneyIn) reasons.push(`On our read this ${mine.type === 'call' ? 'call' : 'bet'} loses money by itself: on average, ${v.moneyIn.loss >= 0.95 * v.moneyIn.put ? 'about all' : `about $${v.moneyIn.loss}`} of the $${v.moneyIn.put} it puts in, compared with ${v.moneyIn.give === 'fold' ? 'folding' : 'checking'}.`);
   // R5b's reason under a flagged call of a passive lead into a crowd (STRAT G5)
   if (v.setRaise && best.type === 'call') reasons.push('Calling keeps in the hands you beat; a re-raise folds them.');
   if (v.rule === 'R5b' && best.type === 'fold') reasons.push(`When a passive player leads into a crowd, one pair is often beaten. Folding is worth about $${Math.max(0, Math.round(best.ev) - Math.round(mine.ev))} more on average.`);

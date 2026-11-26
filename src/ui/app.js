@@ -12,6 +12,7 @@ import { createDrill } from './drill.js';
 import { createVerdictQueue } from './verdictqueue.js';
 import { createJudge, showCoachDown, COACH_DOWN_HTML } from './judgeclient.js';
 import { makeInert, clearInert, focusTarget, keyWhileOpen } from './baglayer.js';
+import { reviewWords } from './reviewcopy.js';
 import { createCountdown, countdownDue, armWindow as armMs } from './countdown.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
@@ -321,7 +322,7 @@ function renderStats() {
       <span class="pl-top">Drill · <b>${esc(leakName(drill.cat))}</b></span>
       <span class="pl-res"><b>${drill.clean}</b><small>of ${drill.tried} right</small></span>
       <span class="pl-sub full">Below best, on average: <b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b></span>
-      <span class="pl-sub short">Drill · ${res} · <b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b></span></button>
+      <span class="pl-sub short">Drill · ${res} · <b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b> avg</span></button>
       <button type="button" class="drill-exit" id="drill-exit">Exit drill</button>`;
     fitPlacard();
     return;
@@ -987,7 +988,7 @@ function stripHtml(show, { worst, prev }) {
   const st = worst ? `Worst<span class="st-x"> · ${esc(show.streetName)}</span>` : esc(show.streetName);
   const go = g !== 'good' || ng ? 'Why ›' : tip || note ? '›' : 'Details ›';
   return `<button type="button" class="${cls}" id="toast-open"><span class="st">${st}</span>${markHtml(show)}
-    <span class="main"><span class="act">${esc(mine.label.replace(/\s*\([^)]*\)\s*$/, ''))}</span><span class="rest"><span class="gw"> · <span class="g${best ? ' bp-word' : ''}">${word}</span></span>${cost ? ` <span class="cost">−$${cost}</span>` : ''}${tip ? ` <span class="gw2">·</span> <span class="tipx">${esc(tip)}</span>` : ''}${note ? ` · <span class="tipx">note</span>` : ''}</span></span>
+    <span class="main"><span class="act">${esc(mine.label.replace(/\s*\([^)]*\)\s*$/, ''))}</span><span class="rest"><span class="gw"> · <span class="g${best ? ' bp-word' : ''}">${word}</span></span>${cost ? ` <span class="cost" title="below the best play, on average">−$${cost} avg</span>` : ''}${tip ? ` <span class="gw2">·</span> <span class="tipx">${esc(tip)}</span>` : ''}${note ? ` · <span class="tipx">note</span>` : ''}</span></span>
     <span class="go">${go}</span></button>`;
 }
 function renderToast() {
@@ -1007,7 +1008,7 @@ function renderToast() {
   if (sess.status() === 'hero' && prevTurn.key !== turnKey) prevTurn = { key: turnKey, seen: new Set(h.decisions.filter((x) => !x.pending).map((x) => x.id)) };
   if (hintOn) {
     el.innerHTML = `<div class="toast hint"><svg class="tile" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#1f5c4a"/><rect x=".5" y=".5" width="31" height="31" rx="7.5" fill="none" stroke="#f3f0e8" stroke-opacity=".22"/><g fill="none" stroke="#f3f0e8" stroke-width="2.1"><path d="M9.51 13.56A3.8 3.8 0 1 0 10.4 16H7.3"/><path d="M12.4 12.2h7.2M16 12.2v8.65"/><circle cx="25.4" cy="16" r="3.8"/></g><path d="M3 18.2C10 13.8 19 19.6 29 14.4" fill="none" stroke="#b4e46e" stroke-width="2.1" stroke-linecap="round"/></svg>
-      <span class="t-main">Play it the way you would live. The coach speaks up when a play costs you money.</span>
+      <span class="t-main">Play it the way you would live. The coach speaks up when another play would do better, on average.</span>
       <button type="button" class="t-more" id="hint-ok">Got it</button></div>`;
     $('hint-ok').onclick = () => {
       endHint();
@@ -1880,20 +1881,10 @@ const gradeCls = (d) => `${d.verdict.grade}${isNg(d) ? ' ng' : ''}${isBest(d) ? 
 const gradeWord = (d) => verdictWord(d.verdict, d);
 const bestEdgeLine = (d) => {
   const e = bestPlayEdge(d.verdict, d);
-  return e ? `<p class="best-edge">Clearly ahead of ${esc(e.label.replace(/\s*\([^)]*\)\s*$/, '').toLowerCase())}, the best alternative, by about <b>$${Math.max(1, Math.round(e.gap))}</b>.</p>` : '';
+  return e ? `<p class="best-edge">Clearly ahead of ${esc(e.label.replace(/\s*\([^)]*\)\s*$/, '').toLowerCase())}, the best alternative, by about <b>$${Math.max(1, Math.round(e.gap))}</b> on average.</p>` : '';
 };
 const STREET_LABEL = ['Preflop', 'Flop', 'Turn', 'River'];
 
-// the best option as the review card names it: "folding", "calling", "betting", "raising", "going all-in"
-function ingWord(o) {
-  const n = actionNoun(o);
-  return n === 'all-in' ? 'going all-in' : { fold: 'folding', check: 'checking', call: 'calling', bet: 'betting', raise: 'raising' }[n] || 'the best play';
-}
-function actionNoun(o) {
-  if (!o) return 'play';
-  if (o.type === 'raise') return /^bet/i.test(o.label) ? 'bet' : /^all-in/i.test(o.label) ? 'all-in' : 'raise';
-  return o.type;
-}
 
 function openReview(stored = false) {
   const h = sess.hand;
@@ -1905,20 +1896,10 @@ function openReview(stored = false) {
   const flagged = ds.filter((d) => d.verdict.grade !== 'good');
   const cost = flagged.reduce((a, d) => a + d.cost, 0);
   const net = h.summary.net;
-  // the result is said as a result; a decision's figure is what it is worth on average, never "cost you", and the two
-  // share a sentence only where it says why they differ (STRAT, owner 26 Nov: "it cost me $7. I won the hand")
-  const result = net > 0 ? `You won ${money(net)} this hand.` : net < 0 ? `You lost ${money(-net)} this hand.` : 'You broke even this hand.';
-  const one = flagged.length === 1 && flagged[0].verdict;
-  const oneRef = one && one.options[one.best] ? ` than ${ingWord(one.options[one.best])}` : ' than the best play';
-  const costLine = !flagged.length
-    ? ds.length ? `<span class="ok">${(() => {
-        const nb = ds.filter(isBest).length;
-        const fine = !nb ? 'Every decision was fine' : ds.length === 1 ? 'Your decision was the best play' : `Every decision fine, ${nb} of them the best play`;
-        return net < 0 ? `${fine}: the cards went against you.` : `${fine}.`;
-      })()}</span>` : ''
-    : one
-      ? `<span class="neg">One ${actionNoun(one.options[one.mine])} was worth about ${money(flagged[0].cost)} less${oneRef}${net > 0 ? ' on average: it won this time because of the cards that came' : ', on average'}.</span>`
-      : `<span class="neg">${flagged.length} plays were worth about ${money(cost)} less than the best ones, on average.</span>`;
+  // the result as a result, a decision's figure as what it is worth on average (reviewcopy.js, STRAT, CEO)
+  const words = reviewWords({ net, decisions: ds, showdown: !!(s.result && s.result.showdown), isBest, money });
+  const result = words.result;
+  const costLine = words.cost ? `<span class="${words.cost.cls}">${words.cost.text}</span>` : '';
   const shown = [];
   if (s.result && s.result.showdown) for (let i = 1; i < s.n; i++) if (!s.folded[i]) shown.push(i);
   const wins = h.log.filter((e) => e.kind === 'win').map((e) => e.text);
@@ -3338,7 +3319,7 @@ function reviewModal() {
       <div class="stat"><small>Hands</small><b>${rev.hands}</b></div>
       <div class="stat"><small>Result</small><b class="${rev.net > 0 ? 'pos' : rev.net < 0 ? 'neg' : ''}">${signed(rev.net)}</b></div>
       <div class="stat best-tile"><small>Best plays</small><b class="pos">${sess.decisions.filter((d) => !d.pending && isBest(d)).length}</b><small class="of">of ${rev.judged} judged</small></div>
-      <div class="stat"><small>Cost of mistakes</small><b>${money(rev.lost)}</b></div>
+      <div class="stat"><small>Below best, on average</small><b>${money(rev.lost)}</b></div>
     </div>
     ${(() => {
       const here = {};
@@ -4246,7 +4227,7 @@ function handMarker(r) {
     const worst = flagged.some((d) => d.verdict.grade === 'blunder') ? 'blunder' : 'mistake';
     const cost = flagged.reduce((a, d) => a + (d.cost || 0), 0);
     const word = flagged.length > 1 ? `${flagged.length} flagged` : worst === 'blunder' ? 'Blunder' : 'Mistake';
-    return `<span class="hm ${worst}"><span class="vmark ${worst}">${MARK[worst]}</span>${word} · ${money(cost)}</span>`;
+    return `<span class="hm ${worst}"><span class="vmark ${worst}">${MARK[worst]}</span>${word} · ${money(cost)} avg</span>`;
   }
   // flag > best > tip (CEO, Nov 2026)
   const nb = r.decisions.filter(isBest).length;
@@ -4410,7 +4391,7 @@ function handCardHtml(p) {
     const land = landing(d, 'row');
     if (land) return verdictOfLanded(d).replace('class="hl-v', 'class="hl-v landing');
     if (g === 'good') return `<span class="hl-v good${isNg(d) ? ' ng' : ''}${isBest(d) ? ' best' : ''}">${markHtml(d)}${d.tipKind && !notGraded(d.verdict) ? 'fine · tip' : verdictWord(d.verdict, d)}</span>`;
-    return `<span class="hl-v ${g}">${g === 'blunder' ? 'Blunder' : 'Mistake'} · ${money(d.cost)}${p.why ? ` <button type="button" class="link-btn hl-why" data-why="${decisions.indexOf(d)}">Why ›</button>` : ''}</span>`;
+    return `<span class="hl-v ${g}">${g === 'blunder' ? 'Blunder' : 'Mistake'} · ${money(d.cost)} avg${p.why ? ` <button type="button" class="link-btn hl-why" data-why="${decisions.indexOf(d)}">Why ›</button>` : ''}</span>`;
   };
   let heroN = 0;
   const lines = { 0: [], 1: [], 2: [], 3: [] };
@@ -4472,7 +4453,7 @@ function handCardHtml(p) {
   const flagged = decisions.filter((d) => d.verdict.grade !== 'good');
   const sub = p.live || !p.over
     ? `$${s.sbAmt}/$${bb} · you ${p.live ? 'have' : 'had'} ${money(s.stacks[HERO])}`
-    : `Hand over · ${flagged.length ? `${flagged.length} flagged · ${money(flagged.reduce((a, d) => a + d.cost, 0))}` : decisions.length ? 'every decision fine' : 'no decisions'}`;
+    : `Hand over · ${flagged.length ? `${flagged.length} flagged · ${money(flagged.reduce((a, d) => a + d.cost, 0))} avg` : decisions.length ? 'every decision fine' : 'no decisions'}`;
   return `<div class="hl-card"><div class="hl-top">${cardsInline(holeOrder(s.hole[HERO]))}<div><b>Hand ${p.no}${p.position ? ` · ${p.position}` : ''}</b><small>${sub}</small></div>${p.live ? '<span class="hl-live">Live</span>' : ''}</div>${streets}${show}${p.actions || ''}</div>`;
 }
 

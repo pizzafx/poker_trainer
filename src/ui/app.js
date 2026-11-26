@@ -11,7 +11,7 @@ import { DRILLS } from '../trainer/drills.js';
 import { createDrill } from './drill.js';
 import { createVerdictQueue } from './verdictqueue.js';
 import { createJudge, showCoachDown, COACH_DOWN_HTML } from './judgeclient.js';
-import { makeInert, clearInert, focusTarget } from './baglayer.js';
+import { makeInert, clearInert, focusTarget, keyWhileOpen } from './baglayer.js';
 import { createCountdown, countdownDue, armWindow as armMs } from './countdown.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
@@ -2117,8 +2117,26 @@ function closeBag() {
 addEventListener('message', (e) => {
   if (e.origin === location.origin && e.data && e.data.type === 'bag-close') closeBag();
 });
-addEventListener('keydown', (e) => {
-  if (bagOpen && e.key === 'Escape') closeBag();
+// while open, the table's hotkeys never act (QA): this runs first (capture, on the window) and nothing else sees the key
+addEventListener(
+  'keydown',
+  (e) => {
+    if (!bagOpen) return;
+    const what = keyWhileOpen(e.key);
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (what === 'close') closeBag();
+    else if (what === 'refocus') bagFrame();
+  },
+  true,
+);
+// focus that lands behind the layer goes back into it
+function bagFrame() {
+  const f = document.querySelector('#bag-layer iframe');
+  if (f) f.focus();
+}
+addEventListener('focusin', (e) => {
+  if (bagOpen && !(e.target.closest && e.target.closest('#bag-layer'))) bagFrame();
 });
 document.addEventListener('click', (e) => {
   const a = e.target.closest && e.target.closest('a[data-bag]');

@@ -2,7 +2,7 @@
 // should. Stand-in elements, no browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeInert, clearInert, focusTarget } from '../src/ui/baglayer.js';
+import { makeInert, clearInert, focusTarget, keyWhileOpen } from '../src/ui/baglayer.js';
 
 const el = (name, o = {}) => ({ name, inert: false, isConnected: true, offsetParent: {}, ...o });
 
@@ -38,4 +38,10 @@ test('focus after closing: the control you left from, else the redrawn "What is 
   const hidden = el('menu link', { offsetParent: null });
   assert.equal(focusTarget({ was: hidden, body, from: 'learn', rangesLink: fresh, moreButton: more, menuSummary: summary }), more);
   assert.equal(focusTarget({ was: hidden, body, from: 'learn', rangesLink: null, moreButton: el('More', { offsetParent: null }), menuSummary: summary }), summary);
+});
+
+test('a key on the page behind the open layer: Escape closes, Tab goes back in, every table hotkey is swallowed (QA)', () => {
+  assert.equal(keyWhileOpen('Escape'), 'close');
+  assert.equal(keyWhileOpen('Tab'), 'refocus');
+  for (const k of ['c', 'r', 'f', 'k', 'Enter', ' ', 'ArrowUp', '1']) assert.equal(keyWhileOpen(k), 'swallow', k);
 });

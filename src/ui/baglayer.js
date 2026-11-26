@@ -25,3 +25,12 @@ export function focusTarget({ was, body, from, rangesLink, moreButton, menuSumma
   if (shown(moreButton)) return moreButton;
   return menuSummary || null;
 }
+
+// A key pressed on the page behind the layer while it is open (QA: Tab past The Bag's last control leaves focus on BODY,
+// where the table's hotkeys still answered): Escape closes the layer, Tab goes back into it, and every other key is
+// swallowed before any table handler sees it. Keys inside The Bag itself never reach this page.
+export function keyWhileOpen(key) {
+  if (key === 'Escape') return 'close';
+  if (key === 'Tab') return 'refocus';
+  return 'swallow';
+}

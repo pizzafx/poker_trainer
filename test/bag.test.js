@@ -69,3 +69,11 @@ test('Basics: eight hands, strong to weak; the four a straightforward player rai
   assert.equal(shipped.basics.length, 8);
   assert.deepEqual(shipped.basics.map((h) => h.stays), [true, true, true, true, false, false, false, false]);
 });
+
+// the Bag's inputs hash covers everything its hands and verdicts rest on (CEO, stability batch)
+test('the Bag\'s inputs hash covers the judge, the grading and the bots\' data tables', async () => {
+  const { inputFiles } = await import('../scripts/bagbuild.js');
+  const files = inputFiles();
+  for (const f of ['src/trainer/judge.js', 'src/trainer/grade.js', 'src/trainer/best.js', 'src/bots/policy.js', 'src/bots/rangetables.js', 'src/data/stabfoldref.js', 'src/engine/game.js'])
+    assert.ok(files.includes(f), `${f} is not in the Bag's inputs`);
+});

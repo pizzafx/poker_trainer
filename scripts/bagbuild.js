@@ -39,7 +39,7 @@ export const LINE = '6c 0r15 6c | 6x 0b25 6c | 6x 0b60 6c | 6b150';
 export const CHECK_LINE = '6c 0r15 6c | 6x 0b25 6c | 6x 0b60 6c | 6x';
 
 // STRAT's judge checks (26 Nov), stored with the inputs they were made on (GAME's option b): facing the station's lead the
-// best play is a fold (the call is not graded on the V-sets: no copy may call it a mistake); facing a check, a value bet
+// best play is a fold (the call is never graded fine on the V-sets, not graded or a mistake, and no copy grades the call); facing a check, a value bet
 // is best and checking a blunder. If a set's inputs change, the build test fails until STRAT re-checks and the stored hash
 // is updated.
 export const VERDICTS = {
@@ -50,13 +50,26 @@ export const VERDICTS = {
   V5: { lead: 'fold', check: 'bet' },
   V8: { lead: 'fold', check: 'bet' },
 };
-// the files a set's hands and the judge's verdicts rest on: the engine, the bots, the read tracker and the ladder
-const INPUT_FILES = ['src/engine/game.js', 'src/engine/hands.js', 'src/engine/features.js', 'src/engine/evaluator.js', 'src/engine/cards.js',
-  'src/bots/policy.js', 'src/bots/profiles.js', 'src/trainer/belief.js', 'src/trainer/rangeladder.js', 'src/trainer/coachtier.js'];
+// the files a set's hands and the judge's verdicts rest on: every file reachable by import from the bots, the read
+// tracker, the ladder, the judge and the grading (CEO, stability batch: a judge or data-table change must fail the test
+// until STRAT re-checks; a fixed list missed the judge and the bots' data tables)
+const INPUT_ROOTS = ['src/bots/policy.js', 'src/bots/profiles.js', 'src/trainer/belief.js', 'src/trainer/rangeladder.js', 'src/trainer/coachtier.js',
+  'src/trainer/judge.js', 'src/trainer/grade.js', 'src/trainer/best.js'];
+export function inputFiles(roots = INPUT_ROOTS) {
+  const seen = new Set();
+  const walk = (rel) => {
+    if (seen.has(rel)) return;
+    seen.add(rel);
+    const src = readFileSync(join(ROOT, rel), 'utf8');
+    for (const m of src.matchAll(/^\s*import\s[^'"]*?from\s+['"](\.{1,2}\/[^'"]+)['"]/gm)) walk(join(dirname(rel), m[1]));
+  };
+  roots.forEach(walk);
+  return [...seen].sort();
+}
 export function inputsHash(set) {
   const h = createHash('sha256');
   h.update(JSON.stringify([set.board, set.hole, set.hole2 || null, LINE, CHECK_LINE]));
-  for (const f of INPUT_FILES) h.update(readFileSync(join(ROOT, f)));
+  for (const f of inputFiles()) h.update(readFileSync(join(ROOT, f)));
   return h.digest('hex').slice(0, 12);
 }
 

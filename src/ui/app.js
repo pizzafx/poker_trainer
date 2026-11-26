@@ -1263,6 +1263,13 @@ function duoHtml(d) {
   if (x === null || x === undefined) return '';
   return `<div class="duo"><div class="stat"><span class="label">${label}</span><b>${Math.round(x * 100)}%</b></div><div class="stat"><span class="label">You needed</span><b>${Math.round(d.odds * 100)}%</b></div></div>`;
 }
+// The Ranges explainer by street (STRAT's strings): preflop there is no "beats yours" split yet; before the river "right
+// now", since a draw that is behind can still win
+function rangeExplainer(nick, st) {
+  if (st === 0) return `Every hand ${nick} might hold, from how they've played.`;
+  if (st === 3) return `Every hand ${nick} might hold, and which ones beat yours.`;
+  return `Every hand ${nick} might hold, and which ones beat yours right now.`;
+}
 function coachDecision(h, st) {
   return [...(h.decisions || [])].reverse().find((r) => r.street === st && !r.pending && r.verdict && r.verdict.options) || null;
 }
@@ -1549,7 +1556,9 @@ function renderRanges() {
   const body = waiting
     ? `${guessQ}${strip}${hands}${ladder}<button type="button" class="rv-skip" data-guessskip>Skip, show me</button>`
     : `${guessRes}${head}${strip}${hands}${ladder}${take}${calib}${realBox}${foot}`;
-  el.innerHTML = `${showAllPhone}<div class="rv${rangeReveal === 'guess' ? ' reveal' : ''}">${top}${body}</div>`;
+  // the one-line explainer under the header row (DESIGN, STRAT, CEO): what the panel is, by the street shown; always on
+  const explainer = `<p class="rv-explain">${rangeExplainer(nick, view.st)}</p>`;
+  el.innerHTML = `${showAllPhone}<div class="rv${rangeReveal === 'guess' ? ' reveal' : ''}">${top}${explainer}${body}</div>`;
   rangeReveal = '';
   wireRanges(el, again, { lad, E, pre, g, col, mine, view, post, gKey, cut: lad ? lad.beatsYou : null, nickRaw, phone, waiting });
   restoreRangeFocus(el, hadFocus);

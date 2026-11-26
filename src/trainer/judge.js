@@ -326,7 +326,7 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     const tNow = opts.budgetMs && n >= 200 && (n & 31) === 0 ? performance.now() : 0;
     if (tNow && tNow - t0 > opts.budgetMs) {
       const to = Math.min(N, 800);
-      if (mineIdx >= 0 && n < to) {
+      if (mineIdx >= 0 && n < to && !opts.noExtend) {
         let bestMean = -Infinity;
         const mean = (c) => {
           let sum = 0;
@@ -348,56 +348,10 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
     }
   }
 
-  const evs = res.map((r) => {
-    let sum = 0;
-    for (let k = 0; k < n; k++) sum += r[k];
-    return sum / Math.max(1, n);
-  });
-  let best = 0;
-  for (let c = 1; c < C; c++) if (evs[c] > evs[best]) best = c;
-
   // Which option did the trainee take? (worked out before sampling too, for the budget extension)
   const mine = mineIdx;
-
-  let loss = 0;
-  let se = 0;
-  if (mine >= 0 && mine !== best) {
-    let sum = 0;
-    let sq = 0;
-    for (let k = 0; k < n; k++) {
-      const d = res[best][k] - res[mine][k];
-      sum += d;
-      sq += d * d;
-    }
-    loss = sum / n;
-    se = Math.sqrt(Math.max(0, sq / n - loss * loss) / n);
-  }
-
-  // Which options are too close to the best one to tell apart at this sample size?
-  const close = cands.map((_, c) => {
-    if (c === best) return true;
-    let sum = 0;
-    let sq = 0;
-    for (let k = 0; k < n; k++) {
-      const d = res[best][k] - res[c][k];
-      sum += d;
-      sq += d * d;
-    }
-    const m = sum / n;
-    return m < 2 * Math.sqrt(Math.max(0, sq / n - m * m) / n);
-  });
-
   const pot = potSize(s);
-  const bb = s.bbAmt;
-  const sameKind = mine >= 0 && cands[mine].type === cands[best].type;
-  const sig = loss > 2.2 * se;
-  let grade = 'good';
-  if (mine >= 0 && mine !== best && sig) {
-    const big = redBar(bb, pot) * (sameKind ? 1.6 : 1);
-    const small = Math.max(3 * bb, 0.1 * pot) * (sameKind ? 1.6 : 1);
-    if (loss >= big) grade = 'blunder';
-    else if (loss >= small) grade = 'mistake';
-  }
+  const { evs, best, loss, se, close, grade, sameKind } = gradeRuns(res, n, mine, cands, s);
 
   const anchorOf = (c, i) => {
     if (!A || c.type !== 'raise') return {};
@@ -432,6 +386,96 @@ export function judgeDecision(s, hero, belief, heroAction, opts = {}) {
   const sample = dealtCombos ? { combos: dealtCombos, opps: opps.length, hole: s.hole[hero], board: s.board.slice(), beats: null } : null;
   Object.defineProperty(verdict, 'runs', { value: { res, n, sample }, enumerable: false });
   return verdict;
+}
+
+// The judge's grade from its per-sample results: each option's value, the best, the trainee's paired loss to it
+// with its standard error, which options are too close to the best to tell apart, and the plain grade by the bars.
+function gradeRuns(res, n, mine, cands, s) {
+  const C = cands.length;
+  const evs = res.map((r) => {
+    let sum = 0;
+    for (let k = 0; k < n; k++) sum += r[k];
+    return sum / Math.max(1, n);
+  });
+  let best = 0;
+  for (let c = 1; c < C; c++) if (evs[c] > evs[best]) best = c;
+  let loss = 0;
+  let se = 0;
+  if (mine >= 0 && mine !== best) {
+    let sum = 0;
+    let sq = 0;
+    for (let k = 0; k < n; k++) {
+      const d = res[best][k] - res[mine][k];
+      sum += d;
+      sq += d * d;
+    }
+    loss = sum / n;
+    se = Math.sqrt(Math.max(0, sq / n - loss * loss) / n);
+  }
+  // Which options are too close to the best one to tell apart at this sample size?
+  const close = cands.map((_, c) => {
+    if (c === best) return true;
+    let sum = 0;
+    let sq = 0;
+    for (let k = 0; k < n; k++) {
+      const d = res[best][k] - res[c][k];
+      sum += d;
+      sq += d * d;
+    }
+    const m = sum / n;
+    return m < 2 * Math.sqrt(Math.max(0, sq / n - m * m) / n);
+  });
+  const pot = potSize(s);
+  const bb = s.bbAmt;
+  const sameKind = mine >= 0 && cands[mine].type === cands[best].type;
+  const sig = loss > 2.2 * se;
+  let grade = 'good';
+  if (mine >= 0 && mine !== best && sig) {
+    const big = redBar(bb, pot) * (sameKind ? 1.6 : 1);
+    const small = Math.max(3 * bb, 0.1 * pot) * (sameKind ? 1.6 : 1);
+    if (loss >= big) grade = 'blunder';
+    else if (loss >= small) grade = 'mistake';
+  }
+  return { evs, best, loss, se, close, grade, sameKind };
+}
+
+// The second pass near a line (STRAT S1, B1): a verdict and a second judgement of the same spot on another seed,
+// pooled into one, as if the judge had run both sets of samples. The options must be the same list (same spot, same
+// play); the anchors (opponents' first answers) stay the first run's. Returns a new verdict; the first is unchanged.
+export function poolVerdicts(v, w, s) {
+  if (!v.runs || !w.runs || v.options.length !== w.options.length) return v;
+  if (v.options.some((o, i) => o.type !== w.options[i].type || (o.to || 0) !== (w.options[i].to || 0))) return v;
+  const n1 = v.runs.n;
+  const n2 = w.runs.n;
+  const n = n1 + n2;
+  const res = v.runs.res.map((r, c) => {
+    const out = new Float64Array(n);
+    out.set(r.subarray(0, n1), 0);
+    out.set(w.runs.res[c].subarray(0, n2), n1);
+    return out;
+  });
+  const g = gradeRuns(res, n, v.mine, v.options, s);
+  const out = {
+    ...v,
+    options: v.options.map((o, i) => ({ ...o, ev: g.evs[i], close: g.close[i] })),
+    best: g.best,
+    loss: g.loss,
+    se: g.se,
+    grade: g.grade,
+    sameKind: g.sameKind,
+    samples: n,
+  };
+  const a = v.runs.sample;
+  const b = w.runs.sample;
+  let sample = null;
+  if (a && b && a.opps === b.opps) {
+    const combos = new Uint16Array(n * a.opps);
+    combos.set(a.combos.subarray(0, n1 * a.opps), 0);
+    combos.set(b.combos.subarray(0, n2 * b.opps), n1 * a.opps);
+    sample = { ...a, combos, beats: null };
+  }
+  Object.defineProperty(out, 'runs', { value: { res, n, sample }, enumerable: false });
+  return out;
 }
 
 // How much better option `a` did than option `b` on the same run-outs, with its standard error.
@@ -478,6 +522,29 @@ export function tiltedEvs(v, k) {
     for (let c = 0; c < res.length; c++) e[c] += w * res[c][i];
   }
   return e.map((x) => x / Math.max(1e-9, W));
+}
+
+// The paired gap a - b under the k-tilted weights (as tiltedEvs), with the standard error of a weighted mean
+// (B3: the fragile-read margin needs each scenario's own SE). Without runs, the plain values and no SE.
+export function tiltedGap(v, k, a, b) {
+  if (!v.runs || !v.runs.sample) return { mean: v.options[a].ev - v.options[b].ev, se: 0 };
+  tiltedEvs(v, k); // fills sample.beats
+  const { res, n, sample } = v.runs;
+  let W = 0;
+  let m = 0;
+  for (let i = 0; i < n; i++) {
+    const w = k ** sample.beats[i];
+    W += w;
+    m += w * (res[a][i] - res[b][i]);
+  }
+  m /= Math.max(1e-9, W);
+  let ss = 0;
+  for (let i = 0; i < n; i++) {
+    const w = k ** sample.beats[i];
+    const d = res[a][i] - res[b][i] - m;
+    ss += w * w * d * d;
+  }
+  return { mean: m, se: Math.sqrt(ss) / Math.max(1e-9, W) };
 }
 
 // Re-marks which options are too close to the best one to tell apart (after a guardrail has

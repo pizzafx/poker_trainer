@@ -5,10 +5,14 @@
 // All of these must hold, otherwise the play is "fine":
 //   1. Kind: your kind of play (fold, check, call, bet/raise) is the best kind.
 //   2. Size: your size is the best size, or the reference size a guardrail capped the comparison at,
-//      or within the yellow bar of it. A bigger size than the reference never qualifies.
+//      or within the yellow bar of it. A bigger size than the reference qualifies only when the two are
+//      within noise: the reference ahead by less than max(1 paired SE, $1) (STRAT B4a, CEO).
 //   3. Clearly ahead: the reference beats the best option of every other kind by more than the
 //      coach's margin of error (that option is not marked ≈) and by at least half the yellow bar,
-//      max(1.5 bb, 5% of the pot).
+//      max(1.5 bb, 5% of the pot), and at least 2 paired SEs (B4b), so a tie across kinds reads
+//      "fine" on every seed rather than flipping.
+//   The paired SEs are each option's `pse` (its SE to the best, stored when it was graded); a record
+//   without them has no noise margin.
 //   4. Not trivial: no mark for a fold or a check when the best other kind loses by three yellow
 //      bars or more (folding junk, checking air where betting is clearly bad).
 //   5. No coach note, guardrail, multiway rule or tip on the decision. The size-reference notes
@@ -32,7 +36,7 @@ export function bestPlayEdge(v, d) {
   // 2. size
   if (v.mine !== v.best) {
     if (mine.type !== 'raise') return null;
-    if (v.ref && SIZE_REFS.has(v.ref) && mine.to > ref.to) return null;
+    if (v.ref && SIZE_REFS.has(v.ref) && mine.to > ref.to && ref.ev - mine.ev >= Math.max(mine.pse || 0, 1)) return null;
     if (ref.ev - mine.ev >= bar) return null;
   }
   // 3. clearly ahead of every other kind
@@ -43,7 +47,7 @@ export function bestPlayEdge(v, d) {
   if (alt < 0) return null;
   const other = v.options[alt];
   const gap = ref.ev - other.ev;
-  if (other.close || gap < bar / 2) return null;
+  if (other.close || gap < Math.max(bar / 2, 2 * (other.pse || 0))) return null;
   // 4. not trivial
   if ((mine.type === 'fold' || mine.type === 'check') && gap >= 3 * bar) return null;
   return { alt, label: other.label, gap };

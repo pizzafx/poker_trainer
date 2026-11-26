@@ -8,7 +8,7 @@ import { coachFeatures } from './coachtier.js';
 import { classOf, classNames } from '../engine/hands.js';
 import { buildContext, POS } from '../bots/policy.js';
 import { HERO_PROFILE } from '../bots/profiles.js';
-import { judgeDecision, pairedGap, refreshClose, tiltedEvs, redBar, isoTo } from './judge.js';
+import { judgeDecision, pairedGap, refreshClose, tiltedEvs, tiltedGap, poolVerdicts, redBar, isoTo } from './judge.js';
 import { groupOf, presetRanges, presetRaised, expandRange, LIMPER_OFFSUIT } from './ranges.js';
 import { ladderOf, ladderEquity } from './rangeladder.js';
 
@@ -350,12 +350,51 @@ export function runoutOf(s, belief) {
 }
 
 export function gradeDecision(s, belief, action, judgeOpts, env) {
-  const v = judgeDecision(s, HERO, belief, action, judgeOpts);
+  let v = judgeDecision(s, HERO, belief, action, judgeOpts);
+  // debug (QA-VERDICT, MATH; LD1 option F): the samples the base run wanted, beside v.samples (what it reached)
+  const wanted = judgeOpts.samples;
+  v = secondPass(v, s, belief, action, judgeOpts);
   const ro = runoutOf(s, belief);
   if (ro) v.runout = ro;
-  // debug (QA-VERDICT, MATH; LD1 option F): the samples the base run wanted, beside v.samples (what it reached)
-  v.samplesWanted = judgeOpts.samples;
+  v.samplesWanted = wanted;
   return gradeVerdict(v, s, action, judgeOpts, env);
+}
+
+// The second pass near a line (STRAT S1, B1; MATH's measured best on gain per sample, 26 Nov): when the trainee's
+// paired gap to the best option is within 1.5 standard errors of the effective yellow or red line, the judge runs
+// the spot once more at the first pass's sample count on a seed derived from the decision's (+7919, so it stays
+// deterministic), the two are pooled, and every guardrail and the scenario test then run on the pooled verdict.
+// Inside the decision's budget: the second pass gets the same budget as the first and no extension, and pools what
+// it reached. The money-in rule and the preflop rules are not part of it (STRAT B1). Debug: v.pass2 { want,
+// reached } (QA-VERDICT) and v.stab { pass2, n1, n2, cut } (QA-MOBILE: how often it fires and whether the budget
+// cuts it), on every verdict.
+export const PASS2_SEED = 7919;
+export function nearLine(v, s) {
+  if (!(v.mine >= 0) || v.mine === v.best || !v.runs) return false;
+  const g = pairedGap(v, v.best, v.mine);
+  const k = v.sameKind ? 1.6 : 1;
+  const pot = v.pot;
+  const bb = s.bbAmt;
+  const Y = Math.max(Math.max(3 * bb, 0.1 * pot) * k, 2.2 * g.se);
+  const Rd = Math.max(redBar(bb, pot) * k, 2.2 * g.se);
+  return Math.abs(g.mean - Y) < 1.5 * g.se || Math.abs(g.mean - Rd) < 1.5 * g.se;
+}
+function secondPass(v, s, belief, action, judgeOpts) {
+  const n1 = v.samples;
+  const stab = { pass2: false, n1, n2: 0, cut: false };
+  if (s.street === STREET.PRE || !nearLine(v, s)) {
+    v.stab = stab;
+    return v;
+  }
+  // a replay passes the count the second pass reached (pass2Samples), so it pools the same runs
+  const w = judgeDecision(s, HERO, belief, action, { ...judgeOpts, samples: judgeOpts.pass2Samples || n1, seed: (judgeOpts.seed || 1) + PASS2_SEED, noExtend: true });
+  const pooled = poolVerdicts(v, w, s);
+  stab.pass2 = pooled !== v;
+  stab.n2 = pooled !== v ? w.samples : 0;
+  stab.cut = pooled !== v && w.samples < n1;
+  pooled.pass2 = { want: n1, reached: stab.n2 };
+  pooled.stab = stab;
+  return pooled;
 }
 
 // The guardrails and the tip on a verdict already judged: the play's own grading path after the judge.
@@ -379,6 +418,9 @@ export function gradeVerdict(verdict, s, action, judgeOpts, env) {
     tip = limpOutsideTipFor(verdict, ctx, name, group) || wideLimpTipFor(verdict, ctx, name, group) || limpTipFor(verdict, ctx) || (nitScope ? null : isoLimpTipFor(verdict, ctx, name)) || (nitScope ? null : isoFoldTipFor(verdict, ctx, name, group)) || openTipFor(verdict, ctx, name, group) || (valueVsLoose(name, ctx, env) || verdict.iso3bet ? null : junk3betTipFor(verdict, ctx, name, group, env)) || (verdict.iso3bet ? null : size3betTipFor(verdict, ctx, HERO_PROFILE.raisePct[classOf(s.hole[HERO][0], s.hole[HERO][1])], env));
   } else tip = limpTipFor(verdict, ctx);
   if (tip) verdict.tip = tip;
+  // each option's paired SE to the final best, kept on the record (a stored verdict has no runs) for the best-play
+  // tie rule (STRAT B4, CEO): marks only
+  if (verdict.runs && verdict.best >= 0) verdict.options.forEach((o, i) => (o.pse = i === verdict.best ? 0 : +pairedGap(verdict, verdict.best, i).se.toFixed(2)));
   return verdict;
 }
 
@@ -997,28 +1039,59 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
   const baseBar = small * (v.sameKind ? 1.6 : 1);
   // a quarter of the samples each at six players or more (speed; the base run is one of the scenarios)
   const half = Math.round(judgeOpts.samples / (opp + 1 >= 6 ? 4 : 2));
-  const reOpts = reRunOpts(judgeOpts, half, v); // no time budget (LD1)
-  const runs = [-0.05, 0.05].map((shift) => judgeDecision(s, HERO, env.belief, action, { ...reOpts, shift }));
-  if (opp + 1 < 6 && v.loss <= 3 * baseBar) runs.push(judgeDecision(s, HERO, env.belief, action, { ...reOpts, heroProfile: THIN_HERO }));
-  // each re-run's values lined up with this verdict's options by kind and size, not by position
-  const aligned = runs.map((r) => v.options.map((o) => sameOption(r, o))).map((ix, k) => (ix.every((i) => i >= 0) ? ix.map((i) => runs[k].options[i].ev) : null));
-  const scen = [v.options.map((o) => o.ev), ...aligned.filter(Boolean)];
-  const scenLabels = ['base', ...['calls-5', 'calls+5', 'thin hero'].filter((_, k) => k < aligned.length && aligned[k])];
-  if (v.runs && v.runs.sample) {
-    scen.push(tiltedEvs(v, 2), tiltedEvs(v, 0.5));
-    scenLabels.push('ranges x2', 'ranges x0.5');
-  }
   const usable = v.options.map((o, i) => i !== v.mine && !habitOf(o) && allowed(o));
   const gaps = v.options.map((o, a) => (usable[a] ? pairedGap(v, a, v.mine) : null));
+  const scenBar = (a) => small * (v.options[a].type === mine.type ? 1.6 : 1);
+  // the scenario runs at `want` samples each: every scenario's option values, and the paired SE of each option's gap
+  // to your play in that scenario (STRAT B3: the fragile-read margin is per scenario)
+  const scenarioTable = (want) => {
+    const reOpts = reRunOpts(judgeOpts, want, v); // no time budget (LD1)
+    const runs = [-0.05, 0.05].map((shift) => judgeDecision(s, HERO, env.belief, action, { ...reOpts, shift }));
+    if (opp + 1 < 6 && v.loss <= 3 * baseBar) runs.push(judgeDecision(s, HERO, env.belief, action, { ...reOpts, heroProfile: THIN_HERO }));
+    // each re-run's values lined up with this verdict's options by kind and size, not by position
+    const idx = runs.map((r) => v.options.map((o) => sameOption(r, o)));
+    const keep = idx.map((ix) => ix.every((i) => i >= 0));
+    const scen = [v.options.map((o) => o.ev)];
+    const ses = [(a) => (gaps[a] ? gaps[a].se : 0)];
+    const labels = ['base'];
+    runs.forEach((r, k) => {
+      if (!keep[k]) return;
+      scen.push(idx[k].map((i) => r.options[i].ev));
+      ses.push((a) => pairedGap(r, idx[k][a], idx[k][v.mine]).se);
+      labels.push(['calls-5', 'calls+5', 'thin hero'][k]);
+    });
+    if (v.runs && v.runs.sample) {
+      for (const tk of [2, 0.5]) {
+        scen.push(tiltedEvs(v, tk));
+        ses.push((a) => tiltedGap(v, tk, a, v.mine).se);
+        labels.push(tk === 2 ? 'ranges x2' : 'ranges x0.5');
+      }
+    }
+    return { scen, ses, labels };
+  };
+  const decide = (tab) =>
+    robustVerdict(tab.scen, v.mine, {
+      usable,
+      bar: scenBar,
+      significant: (a) => gaps[a].mean > 2.2 * gaps[a].se,
+      kind: (a) => (v.options[a].type === 'raise' ? 'raise' : v.options[a].type),
+      small,
+      notHabit: v.options.map((o) => !habitOf(o)),
+      se: (k, a) => tab.ses[k](a),
+    });
+  let tab = scenarioTable(half);
+  let r = decide(tab);
+  // S2 (STRAT B2): when, on that run, any scenario's gap for the candidate (the test's pick, else the judge's best) is
+  // within 1.5 of its paired SE of the bar, the scenario test runs again at full samples (the first pass's count)
+  const cand = r.pick >= 0 ? r.pick : v.best;
+  if (half < judgeOpts.samples && cand >= 0 && cand !== v.mine && tab.scen.some((e, k) => Math.abs(e[cand] - e[v.mine] - scenBar(cand)) < 1.5 * tab.ses[k](cand))) {
+    tab = scenarioTable(judgeOpts.samples);
+    r = decide(tab);
+    v.scenFull = true; // debug (QA-VERDICT): the scenario test ran at full samples
+  }
+  const scen = tab.scen;
+  const scenLabels = tab.labels;
   v.scenarios = scen.length; // the scenario test ran (checked by scripts/verdictcheck.js, P3-1b)
-  const r = robustVerdict(scen, v.mine, {
-    usable,
-    bar: (a) => small * (v.options[a].type === mine.type ? 1.6 : 1),
-    significant: (a) => gaps[a].mean > 2.2 * gaps[a].se,
-    kind: (a) => (v.options[a].type === 'raise' ? 'raise' : v.options[a].type),
-    small,
-    notHabit: v.options.map((o) => !habitOf(o)),
-  });
   // debug (QA-VERDICT, MATH; LD1 option F): each scenario's gap from your play to the option the test is about
   // (the one it names, else the judge's best), so an un-graded flag shows which read failed
   const scenRef = r.pick >= 0 ? r.pick : v.best;
@@ -1079,13 +1152,17 @@ export function costlyStands(r, options, costly) {
 //    more, the smallest such shortfall, rounded (a yellow flag naming no option; MATH, Nov 2026);
 //  - else unclear: whether the best kind of play (not counting "not a habit" plays) changes between
 //    scenarios.
-export function robustVerdict(scen, mine, { usable, bar, significant, kind, small, notHabit }) {
+// The fragile-read margin (the owner, 26 Nov; STRAT B3): a mistake stays graded unless an alternative read clearly
+// puts your play within the bar, so a scenario breaks a pick only when its gap is under bar - 2 SE of that scenario's
+// gap (`se(k, a)`, the paired SE in scenario k; none given, no margin), and the same margin applies to near-dominance's
+// "never beats it by more than a bar".
+export function robustVerdict(scen, mine, { usable, bar, significant, kind, small, notHabit, se = () => 0 }) {
   let pick = -1;
   let pickMargin = -Infinity;
   for (let a = 0; a < usable.length; a++) {
     if (!usable[a] || !significant(a)) continue;
     let m = Infinity;
-    for (const e of scen) m = Math.min(m, e[a] - e[mine] - bar(a));
+    scen.forEach((e, k) => (m = Math.min(m, e[a] - e[mine] - bar(a) + 2 * se(k, a))));
     if (m >= 0 && m > pickMargin) {
       pick = a;
       pickMargin = m;
@@ -1101,11 +1178,11 @@ export function robustVerdict(scen, mine, { usable, bar, significant, kind, smal
     if (!usable[a] || !significant(a)) continue;
     let mn = Infinity;
     let sum = 0;
-    for (const e of scen) {
+    scen.forEach((e, k) => {
       const m = e[a] - e[mine];
-      mn = Math.min(mn, m);
+      mn = Math.min(mn, m + 2 * se(k, a));
       sum += m;
-    }
+    });
     const mean = sum / scen.length;
     if (mn >= -bar(a) && mean >= 3 * bar(a) && mean > nearMean) {
       near = a;

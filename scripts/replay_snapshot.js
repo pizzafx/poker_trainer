@@ -46,7 +46,8 @@ export function normalise(rec) {
       table: rec.table,
       took: v.took, // an option label
       action: null,
-      samples: v.samples,
+      samples: v.stab && v.stab.pass2 ? v.stab.n1 : v.samples,
+      pass2Samples: v.stab && v.stab.pass2 ? v.stab.n2 : undefined,
       seed: rec.table && rec.table.judge && rec.table.judge.seed,
       recorded: { grade: v.grade, best: v.best, took: v.took, loss: v.loss, headline: v.headline },
       villainPost: null,
@@ -61,7 +62,8 @@ export function normalise(rec) {
     table: rec.snapshot,
     took: label(v.mine),
     action: rec.action || null,
-    samples: v.samples || (rec.snapshot && rec.snapshot.judge && rec.snapshot.judge.samples),
+    samples: (v.stab && v.stab.pass2 ? v.stab.n1 : v.samples) || (rec.snapshot && rec.snapshot.judge && rec.snapshot.judge.samples),
+    pass2Samples: v.stab && v.stab.pass2 ? v.stab.n2 : undefined,
     seed: rec.judgeSeed ?? (rec.snapshot && rec.snapshot.judge && rec.snapshot.judge.seed),
     recorded: { grade: v.grade, best: label(v.best), took: label(v.mine), loss: v.loss, headline: rec.bestHeadline || rec.headline },
     villainPost: rec.villain && rec.villain.post ? { seat: rec.villain.seat, post: TYPE_IDS.map((_, t) => +rec.villain.post[t] || 0) } : null,
@@ -165,7 +167,7 @@ export function rebuild(recIn, { samples } = {}) {
     },
     name: (i) => t.seats[i].name,
   };
-  const opts = { samples: samples || r.samples || 3000, seed: r.seed ?? 1, heat: t.heat || 0 };
+  const opts = { samples: samples || r.samples || 3000, seed: r.seed ?? 1, heat: t.heat || 0, ...(r.pass2Samples ? { pass2Samples: r.pass2Samples } : {}) };
   return { s, belief, env, opts, rec: r };
 }
 

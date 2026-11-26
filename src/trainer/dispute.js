@@ -106,6 +106,7 @@ export function disputeReport(record, player = {}) {
       loss: v.mine >= 0 ? Math.max(0, Math.round(v.options[v.best].ev) - Math.round(v.options[v.mine].ev)) : 0, // as the coach showed it
       se: Math.round(v.se * 10) / 10,
       samples: v.samples,
+      stab: v.stab || null, // the second pass near a line: its sample counts, so a replay pools the same runs
       options: v.options.map((o, i) => ({ label: o.label, ev: Math.round(o.ev * 10) / 10, close: !!o.close, best: i === v.best, took: i === v.mine })),
       reasons: record.reasons || [],
       theory: record.theory || null,

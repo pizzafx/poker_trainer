@@ -1,6 +1,6 @@
 // A session at one table: seats, hands, the trainee's decisions and the feedback on them.
 
-import { makeRng, cardStr, holeOrder } from '../engine/cards.js';
+import { makeRng, cardStr, holeOrder, parseCards } from '../engine/cards.js';
 import { newHand, applyAction, legal, potSize, positionName, STREET, STREET_NAMES } from '../engine/game.js';
 import { handFeatures, boardTexture, describeHand, TIER, isRealDraw } from '../engine/features.js';
 import { classOf, classNames } from '../engine/hands.js';
@@ -99,6 +99,9 @@ export class Session {
     this.game = { ...g, maxBuy: opts.maxBuy || g.maxBuy };
     this.rake = RAKES[opts.custom ? 'none' : opts.rake || 'tsr'];
     this.rng = makeRng(opts.seed || (Date.now() & 0x7fffffff));
+    // Fixed deals (the tutorial, STRAT, CEO): { [handNo]: { hole: 'As Kd', board: 'Qh 7c 2s Jd 9c' } } fixes the trainee's
+    // cards and the five board cards of that hand; everyone else is dealt and plays as usual. With none, nothing changes.
+    this.fixedHands = opts.fixedHands || null;
     this.samples = opts.samples || 500;
     this.lineup = opts.lineup && opts.lineup.length ? opts.lineup.slice() : null;
     if (this.lineup) {
@@ -229,7 +232,9 @@ export class Session {
       const f = { maniac: 0.3, whale: 0.25, lag: 0.1 }[up.type] || 0;
       if (this.rng() < f && up.stack > 20 * this.game.bb) straddle = this.game.bb * 2;
     }
+    const fx = this.fixedHands && this.fixedHands[this.handNo];
     const state = newHand({
+      ...(fx ? { hole: fx.hole ? [parseCards(fx.hole)] : undefined, board: fx.board ? parseCards(fx.board) : undefined } : {}),
       stacks: this.seats.map((s) => s.stack),
       button: this.button,
       sb: this.game.sb,

@@ -1558,8 +1558,8 @@ function renderRanges() {
     : `${guessRes}${head}${strip}${hands}${ladder}${take}${calib}${realBox}${foot}`;
   // the one-line explainer under the header row (DESIGN, STRAT, CEO): what the panel is, by the board shown (the ladder
   // splits at your hand once there is a board, whichever step is viewed); always on
-  // with the Learn lesson one tap away (The Bag, CEO)
-  const explainer = `<p class="rv-explain">${rangeExplainer(nick, board.length === 0 ? 0 : board.length === 5 ? 3 : 1)} <a class="rv-what" href="bag.html?from=ranges">What is this? ›</a></p>`;
+  // with the Learn lesson one tap away (The Bag, CEO), in its own tab so the hand in play is kept (QA)
+  const explainer = `<p class="rv-explain">${rangeExplainer(nick, board.length === 0 ? 0 : board.length === 5 ? 3 : 1)} <a class="rv-what" target="_blank" rel="noopener" href="bag.html?from=ranges">What is this? ›</a></p>`;
   el.innerHTML = `${showAllPhone}<div class="rv${rangeReveal === 'guess' ? ' reveal' : ''}">${top}${explainer}${body}</div>`;
   rangeReveal = '';
   wireRanges(el, again, { lad, E, pre, g, col, mine, view, post, gKey, cut: lad ? lad.beatsYou : null, nickRaw, phone, waiting });

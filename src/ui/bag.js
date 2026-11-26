@@ -339,9 +339,14 @@ function startRound() {
   for (const k of Object.keys(score)) delete score[k];
   go('intro');
 }
-// Close: from the Ranges panel, back to the table; from Learn, back to Learn (and from Learn's home, to the table)
+// Close: from the Ranges panel (its own tab), back to the table; from Learn, back to Learn (and from Learn's home, to the table)
 function close() {
-  if (FROM_RANGES || $('#title').textContent === 'Learn') location.href = 'play.html';
+  if (FROM_RANGES) {
+    // opened in its own tab from the Ranges panel, so the table and its hand are still there: close this tab, or if the
+    // browser won't, go back to the table
+    window.close();
+    setTimeout(() => (location.href = 'play.html'), 200);
+  } else if ($('#title').textContent === 'Learn') location.href = 'play.html';
   else go('home');
 }
 $('#close').onclick = close;

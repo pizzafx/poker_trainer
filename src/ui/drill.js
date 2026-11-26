@@ -360,7 +360,7 @@ export function createDrill(env) {
     // the lesson: what was best and what yours cost, the rule, this spot's number
     const [bestWord] = optionLabel(best, c);
     const [mineWord] = optionLabel(o, c);
-    const pre = fam === 'best' ? `Right: ${mineWord.toLowerCase()}.` : fam === 'fine' ? `${cost < 3 ? 'Close' : 'Fine here'}: ${bestWord} was best, by about ${fmtBb(cost)}.` : `${bestWord} was best; ${VERB[mineWord.toLowerCase()] || mineWord.toLowerCase()} costs about ${fmtBb(cost)}.`;
+    const pre = fam === 'best' ? `Right: ${mineWord.toLowerCase()}.` : fam === 'fine' ? `${cost < 3 ? 'Close' : 'Fine here'}: ${bestWord} was best, by about ${fmtBb(cost)} on average.` : `${bestWord} was best; ${VERB[mineWord.toLowerCase()] || mineWord.toLowerCase()} is worth about ${fmtBb(cost)} less, on average.`;
     const est = e.estimate[bestFam] || e.estimate[o.family] || Object.values(e.estimate)[0] || '';
     let nudge = '';
     if (!review && scored() && R.wrongRow >= 3 && !R.nudged) {

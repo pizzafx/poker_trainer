@@ -9,7 +9,7 @@ import { valueGain } from '../src/trainer/grade.js';
 test('YB-V4b: an A2 headline does not cite the estimate below when that line is about the call (STRAT)', () => {
   const d = JSON.parse(readFileSync(new URL('./fixtures/records/ybv4b-a2.json', import.meta.url), 'utf8'));
   const e = explain(d);
-  assert.equal(e.headline, 'Fold: fine. (All-in $875 scores about $192 more against these bots, but it is not a play that works against anyone here. Against call $295, folding gives up too little to flag.)');
+  assert.equal(e.headline, 'Fold: fine. (All-in $875 is worth about $192 more on average against these bots, but it is not a play that works against anyone here. Against call $295, folding gives up too little to flag.)');
   assert.doesNotMatch(e.headline, /estimate below/);
 });
 
@@ -77,7 +77,7 @@ test('YB-T1 at the bar: a check ahead by exactly the bar is named with its figur
     const low = explain(rec(7, note)).headline;
     assert.doesNotMatch(low, /checking to trap/, `${note} under the bar, low flush: ${low}`);
   }
-  assert.match(explain(rec(6, 'unclear')).headline, /better by about \$6/);
+  assert.match(explain(rec(6, 'unclear')).headline, /worth about \$6 more on average/);
 });
 
 // STRAT, CEO, PRO (19 Nov): 77/88 limped on the button behind 3+ limpers who mostly read as stations: the pair reason
@@ -119,17 +119,17 @@ const passed = (top, street = STREET.RIVER) => {
   return explain(d).headline;
 };
 test('thin-value copy: a river value bet barely past its need once raises count (h73d214-like, wNet 0.529) is a thin value bet', () => {
-  assert.equal(passed({ W: 0.59, C: 0.7, R: 0.0805 }), 'Check: fine. (A thin value bet scores about $27 more; once raises are counted it barely wins often enough, so checking is fine.)');
+  assert.equal(passed({ W: 0.59, C: 0.7, R: 0.0805 }), 'Check: fine. (A thin value bet is worth about $27 more on average; once raises are counted it barely wins often enough, so checking is fine.)');
 });
 test('thin-value copy: a river bet whose wNet is need + 0.15 is a value bet', () => {
-  assert.equal(passed({ W: 0.65, C: 0.8, R: 0 }), 'Check: fine. (A value bet scores about $27 more; it wins clearly more often than it needs when called, so betting is the better habit.)');
+  assert.equal(passed({ W: 0.65, C: 0.8, R: 0 }), 'Check: fine. (A value bet is worth about $27 more on average; it wins clearly more often than it needs when called, so betting is the better habit.)');
 });
 test('thin-value copy: raises that pull wNet under need keep the real-table line, as "a bet" (h14d37-like, wNet 0.29)', () => {
-  assert.equal(passed({ W: 0.84, C: 0.29, R: 0.55 }), 'Check: fine. (A bet scores about $27 more against these bots; not enough to rely on at a real table.)');
+  assert.equal(passed({ W: 0.84, C: 0.29, R: 0.55 }), 'Check: fine. (A bet is worth about $27 more on average against these bots; not enough to rely on at a real table.)');
   assert.match(passed({ W: 0.84, C: 0.4, R: 0.2 }), /A thin value bet/);
 });
 test('thin-value copy: a river bluff (W under need) and a turn passed bet keep the real-table line', () => {
-  assert.equal(passed({ W: 0, C: 0.8, R: 0 }), 'Check: fine. (A bluff scores about $27 more against these bots; not enough to rely on at a real table.)');
+  assert.equal(passed({ W: 0, C: 0.8, R: 0 }), 'Check: fine. (A bluff is worth about $27 more on average against these bots; not enough to rely on at a real table.)');
   assert.match(passed({ W: 0.84, C: 0.8, R: 0 }, STREET.TURN), /against these bots; not enough to rely on at a real table/);
 });
 
@@ -144,7 +144,7 @@ test('R5b: a passive-lead call left not graded by the scenario test (fragileRead
   });
   const h = explain(rec('fragileRead')).headline;
   // STRAT, CEO: the not-graded line first, then R5b's reason after the scenario; never R5b's "fine" line
-  assert.match(h, /^Call \$12: not graded\. \(Fold scores about \$14 more on our read of .*, but not under every reasonable read.*\. When a passive player leads into a crowd, one pair is often beaten\.\)$/, h);
+  assert.match(h, /^Call \$12: not graded\. \(Fold is worth about \$14 more on average on our read of .*, but not under every reasonable read.*\. When a passive player leads into a crowd, one pair is often beaten\.\)$/, h);
   assert.doesNotMatch(h, /: fine\./);
   // with no note R5b keeps its line
   assert.equal(explain(rec(undefined)).headline, 'Call $12: fine. (When a passive player leads into a crowd, one pair is often beaten.)');
@@ -174,6 +174,6 @@ test('R5b + fragileRead on the real row h11d23: the not-graded line with its sce
   const d = JSON.parse(readFileSync(new URL('./fixtures/records/r5b-fragile-h11d23.json', import.meta.url), 'utf8'));
   assert.equal(d.verdict.rule, 'R5b');
   assert.equal(d.verdict.note, 'fragileRead');
-  assert.equal(explain(d).headline, 'Call $60: not graded. (Fold scores about $25 more on our read of these players, but not under every reasonable read: if their hands are weaker than we read, the gap is only about $12. When a passive player leads into a crowd, one pair is often beaten.)');
+  assert.equal(explain(d).headline, 'Call $60: not graded. (Fold is worth about $25 more on average on our read of these players, but not under every reasonable read: if their hands are weaker than we read, the gap is only about $12 on average. When a passive player leads into a crowd, one pair is often beaten.)');
   assert.equal(verdictWord(d.verdict, d), 'not graded');
 });

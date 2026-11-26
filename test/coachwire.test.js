@@ -37,15 +37,15 @@ const rec = (W, need, evBet, C = 0.8, R = 0) => ({
   hole: parseCards('Ad Ks'), board: parseCards('7s Tc 3h Ts 3c'), liveTypes: ['station'],
   verdict: { grade: 'good', note: 'passedBluff', mine: 0, best: 1, small: 6, anchors: {}, options: [{ type: 'check', label: 'Check', ev: 10 }, { type: 'raise', to: 20, label: 'Bet $20', ev: evBet, F: 0.2, C, R, W, need, alpha: 0.4 }] },
 });
-test('board-made headline: "A bet scores" when the bet wins when called as often as it needs, "A bluff" otherwise', () => {
+test('board-made headline: "A bet is worth" when the bet wins when called as often as it needs, "A bluff" otherwise', () => {
   // STRAT, CEO (thin-value copy): a W 0.7 bet raised often enough that it loses once raises count stays "A bet";
   // with no raises (wNet 0.7, need + 0.20) it is "A value bet"
-  assert.match(explain(rec(0.7, 0.5, 20, 0.3, 0.5)).headline, /\(A bet scores about \$10 more/);
-  assert.match(explain(rec(0.7, 0.5, 20)).headline, /\(A value bet scores about \$10 more/);
-  assert.match(explain(rec(0.1, 0.5, 20)).headline, /\(A bluff scores about \$10 more/);
+  assert.match(explain(rec(0.7, 0.5, 20, 0.3, 0.5)).headline, /\(A bet is worth about \$10 more on average/);
+  assert.match(explain(rec(0.7, 0.5, 20)).headline, /\(A value bet is worth about \$10 more on average/);
+  assert.match(explain(rec(0.1, 0.5, 20)).headline, /\(A bluff is worth about \$10 more on average/);
   // the same for every hand (STRAT, 20 Nov): "A bet scores" on a value bet, "A bluff" otherwise
-  assert.match(explain({ ...rec(0.7, 0.5, 20, 0.3, 0.5), boardMade: false }).headline, /\(A bet scores/);
-  assert.match(explain({ ...rec(0.1, 0.5, 20), boardMade: false }).headline, /\(A bluff scores/);
+  assert.match(explain({ ...rec(0.7, 0.5, 20, 0.3, 0.5), boardMade: false }).headline, /\(A bet is worth/);
+  assert.match(explain({ ...rec(0.1, 0.5, 20), boardMade: false }).headline, /\(A bluff is worth/);
 });
 
 test('range buckets: on a board-made board, combos the board makes read by rank among the live combos', () => {

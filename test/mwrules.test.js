@@ -376,7 +376,7 @@ test('R5b: a one-pair call of a station\'s river lead into a crowd is yellow whe
     assert.equal(call.v.options[call.v.best].type, 'fold');
     const ctx = buildContext(s);
     const e = explain({ verdict: call.v, street: s.street, tier: 2, drawEquity: 0, opponents: 2, toCall: ctx.toCall, raises: ctx.raises, board: s.board, villain: null, odds: ctx.odds });
-    assert.match(e.reasons.join(' '), /When a passive player leads into a crowd, one pair is often beaten\. Folding scores about \$\d+ more\./);
+    assert.match(e.reasons.join(' '), /When a passive player leads into a crowd, one pair is often beaten\. Folding is worth about \$\d+ more on average\./);
   }
 });
 

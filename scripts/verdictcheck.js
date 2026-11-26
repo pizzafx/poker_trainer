@@ -141,9 +141,9 @@ export const INVARIANTS = {
   'C3b a not-graded verdict\'s headline says "not graded", never "fine."': (d, v) => v.grade === 'good' && isNotGradedNote(v) && (!/: not graded\./.test(d.headline || '') || /: fine\./.test(d.headline || '')),
   'C4 a stated dollar gap equals the bars as rounded': (d, v, m) => {
     const h = d.headline || '';
-    const cost = h.match(/costs about \$(\d+)/);
+    const cost = h.match(/is worth about \$(\d+) less/);
     if (cost && v.grade !== 'good' && +cost[1] !== shownCost(v)) return true;
-    for (const mm of h.matchAll(/\(([A-Z][a-z]+(?: to)? \$\d+) scores about \$(\d+) more/g)) {
+    for (const mm of h.matchAll(/\(([A-Z][a-z]+(?: to)? \$\d+) is worth about \$(\d+) more/g)) {
       const g = labelGap(v, m, mm[1]);
       if (g !== null && g !== +mm[2]) return true;
     }
@@ -199,10 +199,10 @@ export const INVARIANTS = {
   'L-S1 limping a strong hand (4+ dealt, not a free check, nobody raised) is a yellow strongLimp flag': (d, v, m) =>
     d.street === STREET.PRE && m.type === 'call' && d.raises === 0 && d.toCall > 0 && d.snapshot && d.snapshot.seats.length > 3 && v.options.some((o) => o.type === 'raise') &&
     STRONG_LIMP.has(classNames[classOf(d.hole[0], d.hole[1])]) && !(v.grade === 'mistake' && v.rule === 'strongLimp'),
-  'U1 "not graded" with a base gap at or above the bar names the reference and says "better by"': (d, v, m, b) => {
+  'U1 "not graded" with a base gap at or above the bar names the reference and says "worth about $X more on average"': (d, v, m, b) => {
     if (v.note !== 'unclear' || b === m) return false;
     const gap = R(b.ev) - R(m.ev);
-    return gap >= v.small * (b.type === m.type ? 1.6 : 1) && !/better by about \$\d+/.test(d.headline || '');
+    return gap >= v.small * (b.type === m.type ? 1.6 : 1) && !/is worth about \$\d+ more on average/.test(d.headline || '');
   },
   'J1 no "seldom fold" in a junk 3-bet tip against an opener read as a regular': (d) => d.tipKind === 'junk3bet' && /seldom fold/.test(d.tip || '') && !!d.villain && (() => { const r = topRead(d, d.villain.nick); return !!r && r.p >= 0.5 && ['tag', 'lag', 'gto'].includes(r.type); })(),
   'J1b a junk 3-bet tip against an opener read as a regular says neither "solid" nor "bluff"': (d) => d.tipKind === 'junk3bet' && /solid|bluff/.test(d.tip || '') && !!d.villain && (() => { const r = topRead(d, d.villain.nick); return !!r && r.p >= 0.5 && ['tag', 'lag', 'gto'].includes(r.type); })(),
@@ -288,7 +288,7 @@ export const INVARIANTS = {
     // 24 Nov, s24 h48 sat exactly at the bar), and a devaluing board takes the hand out of T1
     const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
     if (Math.max(0, Math.round(top.ev) - Math.round(mine.ev)) >= (v.small || 0) || !t1Board(d.hole, d.board)) return false;
-    return /Check scores about \$\d+ more|a check is better by/i.test(d.headline || '');
+    return /check is worth about \$\d+ more/i.test(d.headline || '');
   },
   'YB-T1c the "strong hand for value" copy only with the check within the bar, on a board that does not devalue the hand': (d, v) => {
     if (!/Betting a strong hand for value is the standard play/.test(d.headline || '')) return false;
@@ -296,9 +296,9 @@ export const INVARIANTS = {
     const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
     return Math.max(0, Math.round(top.ev) - Math.round(mine.ev)) >= (v.small || 0) || !t1Board(d.hole, d.board);
   },
-  'YB-T2 an anchor-veto "X scores about $Y more" names the top option, with Y = top - mine': (d, v) => {
+  'YB-T2 an anchor-veto "X is worth about $Y more" names the top option, with Y = top - mine': (d, v) => {
     if (v.note !== 'anchor') return false;
-    const m = (d.headline || '').match(/\(([^()]+?) scores about \$(\d+) more/);
+    const m = (d.headline || '').match(/\(([^()]+?) is worth about \$(\d+) more/);
     if (!m) return false;
     const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
     const y = Math.max(0, Math.round(top.ev) - Math.round(v.options[v.mine].ev));
@@ -323,9 +323,9 @@ export const INVARIANTS = {
   },
   // STRAT (YB-1 / section 17 C2, QA YB-C3; D2 on the habit path, QA YB-D2c)
   'YB-C3b no "up to its price" in any headline': (d) => /up to its price/.test(d.headline || ''),
-  'YB-C3c a money-in call flag reads "costs about $X", X = min(loss, money put in) within $1': (d, v) => {
+  'YB-C3c a money-in call flag reads "is worth about $X less", X = min(loss, money put in) within $1': (d, v) => {
     if (v.rule !== 'moneyIn' || v.grade === 'good' || !v.moneyIn || v.options[v.mine].type !== 'call') return false;
-    const m = (d.headline || '').match(/costs about \$(\d+)/);
+    const m = (d.headline || '').match(/is worth about \$(\d+) less/);
     return !m || Math.abs(+m[1] - Math.min(v.moneyIn.loss, v.moneyIn.put)) > 1;
   },
   'YB-D2c a draw bet over 1.05x pot never quotes "your draw comes in" on the habit line': (d, v) => {

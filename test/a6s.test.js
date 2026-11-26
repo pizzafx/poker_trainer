@@ -75,6 +75,6 @@ test('A6s: checking weak top pair on the turn is green, with a note naming the s
   assert.ok(v.thin, 'a smaller bet rates higher, so there is a note');
   assert.equal(v.thin.nick, 'Jeans');
   assert.ok(v.thin.to - s.currentBet <= 0.75 * v.pot + 0.5, `quoted bet $${v.thin.to} is at most 75% of the $${v.pot} pot`);
-  assert.match(out.headline, /^Check: fine\. \(Against Jeans, a bet of about \$\d+ does about \$\d+ better here\. With 3 players in, a check is defensible; a bet is the more profitable habit\.\)$/);
+  assert.match(out.headline, /^Check: fine\. \(Against Jeans, a bet of about \$\d+ is worth about \$\d+ more here, on average\. With 3 players in, a check is defensible; a bet is the more profitable habit\.\)$/);
   assert.equal(out.cost, 0);
 });

@@ -317,10 +317,10 @@ function renderStats() {
   const wrap = $('placard-wrap');
   if (drill) {
     const res = `${drill.clean} of ${drill.tried} right`;
-    wrap.innerHTML = `<button type="button" id="placard" class="placard drill" aria-label="${esc(`Drill: ${leakName(drill.cat)}. ${res}. Mistakes cost ${money(drill.cost)}. Opens Leak review.`)}">
+    wrap.innerHTML = `<button type="button" id="placard" class="placard drill" aria-label="${esc(`Drill: ${leakName(drill.cat)}. ${res}. Below best, on average: ${money(drill.cost)}. Opens Leak review.`)}">
       <span class="pl-top">Drill · <b>${esc(leakName(drill.cat))}</b></span>
       <span class="pl-res"><b>${drill.clean}</b><small>of ${drill.tried} right</small></span>
-      <span class="pl-sub full">Mistakes cost <b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b></span>
+      <span class="pl-sub full">Below best, on average: <b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b></span>
       <span class="pl-sub short">Drill · ${res} · <b class="${drill.cost > 0 ? 'neg' : ''}">${money(drill.cost)}</b></span></button>
       <button type="button" class="drill-exit" id="drill-exit">Exit drill</button>`;
     fitPlacard();
@@ -339,11 +339,11 @@ function renderStats() {
   const net = sess.heroNet();
   const rev = sess.review();
   const cls = net > 0 ? 'pos' : net < 0 ? 'neg' : '';
-  const said = `Session: ${net > 0 ? 'up ' : net < 0 ? 'down ' : 'even, '}${money(Math.abs(net))} after ${sess.handNo} ${plural(sess.handNo, 'hand')}. Mistakes cost ${money(rev.lost)}; ${rev.flagged} of ${rev.judged} ${plural(rev.judged, 'decision')} flagged. Opens Leak review.`;
+  const said = `Session: ${net > 0 ? 'up ' : net < 0 ? 'down ' : 'even, '}${money(Math.abs(net))} after ${sess.handNo} ${plural(sess.handNo, 'hand')}. Below best, on average: ${money(rev.lost)}; ${rev.flagged} of ${rev.judged} ${plural(rev.judged, 'decision')} flagged. Opens Leak review.`;
   wrap.innerHTML = `<button type="button" id="placard" class="placard" aria-label="${esc(said)}" title="Your session so far · opens Leak review">
     <span class="pl-top">${esc(stakes)} · hand <b>${sess.handNo}</b></span>
     <span class="pl-res"><b class="${cls}">${net === 0 ? '$0' : signed(net).replace('-', '−')}</b><small>session</small></span>
-    <span class="pl-sub full">Mistakes cost <b class="${rev.lost > 0 ? 'neg' : ''}">${money(rev.lost)}</b> · flagged <b>${rev.flagged}</b> of ${rev.judged}</span>
+    <span class="pl-sub full">Below best, on average: <b class="${rev.lost > 0 ? 'neg' : ''}">${money(rev.lost)}</b> · flagged <b>${rev.flagged}</b> of ${rev.judged}</span>
     <span class="pl-sub short">hand ${sess.handNo} · <b class="${rev.flagged ? 'neg' : ''}">${rev.flagged}</b> flagged</span></button>`;
   fitPlacard();
 }
@@ -1524,11 +1524,11 @@ function renderRanges() {
   // the grid, always shown, above the ladder (v2: no drawer, no filter); before a guess its fills are neutral grey
   const hands = rangeGridBlock({ h, s, g, lad, E, pre, col, mine, phone, view, post, waiting });
 
-  // the guess question, and its result after an answer
+  // the guess question, and its result after an answer; no "right now": the explainer above, always on, says it (CEO, STRAT)
   let guessQ = '';
   let guessRes = '';
   if (waiting) {
-    guessQ = `<div class="rv-q">${nick} ${esc(lineText(view.act, view.st))}. How much of their range beats you right now?<small>Make your read, then the coach shows you its own.</small></div>
+    guessQ = `<div class="rv-q">${nick} ${esc(lineText(view.act, view.st))}. How much of their range beats you?<small>Make your read, then the coach shows you its own.</small></div>
       <div class="rv-gchips">${GUESS_BANDS.map((b, i) => `<button type="button" data-guess="${i}">${b.n}<small>${b.r}</small></button>`).join('')}</div>`;
   } else if (revealed) {
     const cut = lad.beatsYou;
@@ -1884,6 +1884,11 @@ const bestEdgeLine = (d) => {
 };
 const STREET_LABEL = ['Preflop', 'Flop', 'Turn', 'River'];
 
+// the best option as the review card names it: "folding", "calling", "betting", "raising", "going all-in"
+function ingWord(o) {
+  const n = actionNoun(o);
+  return n === 'all-in' ? 'going all-in' : { fold: 'folding', check: 'checking', call: 'calling', bet: 'betting', raise: 'raising' }[n] || 'the best play';
+}
 function actionNoun(o) {
   if (!o) return 'play';
   if (o.type === 'raise') return /^bet/i.test(o.label) ? 'bet' : /^all-in/i.test(o.label) ? 'all-in' : 'raise';
@@ -1900,16 +1905,20 @@ function openReview(stored = false) {
   const flagged = ds.filter((d) => d.verdict.grade !== 'good');
   const cost = flagged.reduce((a, d) => a + d.cost, 0);
   const net = h.summary.net;
-  const result = net > 0 ? `You won ${money(net)}.` : net < 0 ? `You lost ${money(-net)}.` : 'You broke even.';
+  // the result is said as a result; a decision's figure is what it is worth on average, never "cost you", and the two
+  // share a sentence only where it says why they differ (STRAT, owner 26 Nov: "it cost me $7. I won the hand")
+  const result = net > 0 ? `You won ${money(net)} this hand.` : net < 0 ? `You lost ${money(-net)} this hand.` : 'You broke even this hand.';
+  const one = flagged.length === 1 && flagged[0].verdict;
+  const oneRef = one && one.options[one.best] ? ` than ${ingWord(one.options[one.best])}` : ' than the best play';
   const costLine = !flagged.length
     ? ds.length ? `<span class="ok">${(() => {
         const nb = ds.filter(isBest).length;
-        if (!nb) return 'Every decision was fine.';
-        return ds.length === 1 ? 'Your decision was the best play.' : `Every decision fine, ${nb} of them the best play.`;
+        const fine = !nb ? 'Every decision was fine' : ds.length === 1 ? 'Your decision was the best play' : `Every decision fine, ${nb} of them the best play`;
+        return net < 0 ? `${fine}: the cards went against you.` : `${fine}.`;
       })()}</span>` : ''
-    : flagged.length === 1
-      ? `<span class="neg">One ${actionNoun(flagged[0].verdict.options[flagged[0].verdict.mine])} cost you about ${money(flagged[0].cost)}.</span>`
-      : `<span class="neg">${flagged.length} plays cost you about ${money(cost)}.</span>`;
+    : one
+      ? `<span class="neg">One ${actionNoun(one.options[one.mine])} was worth about ${money(flagged[0].cost)} less${oneRef}${net > 0 ? ' on average: it won this time because of the cards that came' : ', on average'}.</span>`
+      : `<span class="neg">${flagged.length} plays were worth about ${money(cost)} less than the best ones, on average.</span>`;
   const shown = [];
   if (s.result && s.result.showdown) for (let i = 1; i < s.n; i++) if (!s.folded[i]) shown.push(i);
   const wins = h.log.filter((e) => e.kind === 'win').map((e) => e.text);
@@ -1967,7 +1976,7 @@ function openReview(stored = false) {
     <div class="rv-head">${rec ? '<div class="seg rh-switch" role="radiogroup" aria-label="View"><button type="button" role="radio" aria-checked="true" class="on">Summary</button><button type="button" role="radio" aria-checked="false" id="rv-to-replay">Replay</button></div>' : ''}<p class="label signal">Hand ${h.label || h.no || sess.handNo} · the coach's review</p><h1>${result} ${costLine}</h1></div>
     ${runout}
     <div class="rv-cols"><div class="rv-steps">${rows || '<p class="sub">You made no decisions this hand.</p>'}</div>
-      <aside>${card}<div class="rv-tiles"><div class="stat"><span class="label">This hand</span><b class="${net > 0 ? 'pos' : net < 0 ? 'neg' : ''}">${signed(net)}</b></div><div class="stat"><span class="label">Mistakes cost</span><b>${money(cost)}</b></div></div></aside></div>
+      <aside>${card}<div class="rv-tiles"><div class="stat"><span class="label">This hand</span><b class="${net > 0 ? 'pos' : net < 0 ? 'neg' : ''}">${signed(net)}</b></div><div class="stat"><span class="label"><span class="d-only">Below the best plays, on average</span><span class="m-only">Below best (avg)</span></span><b>${money(cost)}</b></div></div></aside></div>
   </div>
   <div class="rv-bar"><div>${stored
     ? `<p>Hand ${h.label} from your history.</p><button type="button" id="rv-replay"><span class="d-only">Replay this hand</span><span class="m-only">Replay</span></button><button type="button" class="primary" id="rv-back">${RP.from === 'history' ? 'Back to history' : 'Back to the table'}</button>`
@@ -3324,7 +3333,7 @@ function reviewModal() {
     .join('');
   openModal(`
     <h1>Leak review</h1>
-    <p class="sub">Where your money goes, biggest leak first, measured against the best option.</p>
+    <p class="sub">Your leaks, biggest first. Each figure is how far below the best plays you were, on average.</p>
     <div class="kv">
       <div class="stat"><small>Hands</small><b>${rev.hands}</b></div>
       <div class="stat"><small>Result</small><b class="${rev.net > 0 ? 'pos' : rev.net < 0 ? 'neg' : ''}">${signed(rev.net)}</b></div>

@@ -314,12 +314,17 @@ const FLIP_WORDS = {
   'ranges x2': 'if their hands are stronger than we read',
   'ranges x0.5': 'if their hands are weaker than we read',
 };
+// "call $20" -> "calling $20", "fold (the best play ...)" -> "folding (the best play ...)"; anything else is left as it is
+const ING = { fold: 'folding', check: 'checking', call: 'calling', bet: 'betting', raise: 'raising', limp: 'limping' };
+function ing(s) {
+  return s.replace(/^all-in\b/, 'going all-in').replace(/^(fold|check|call|bet|raise|limp)\b/, (w) => ING[w]);
+}
 function flipRead(v) {
   const gs = (v.scenGaps || []).filter((x) => x.label !== 'base' && FLIP_WORDS[x.label]);
   if (!gs.length) return '';
   const m = gs.reduce((a, x) => (x.gap < a.gap ? x : a), gs[0]);
   const g = Math.round(m.gap);
-  return `${FLIP_WORDS[m.label]}, ${g <= 0 ? 'yours does as well or better' : `the gap is only about $${g}`}`;
+  return `${FLIP_WORDS[m.label]}, ${g <= 0 ? 'yours does as well or better' : `the gap is only about $${g} on average`}`;
 }
 
 function goodHeadline(v, mine, best, d = {}) {
@@ -327,7 +332,7 @@ function goodHeadline(v, mine, best, d = {}) {
   const bar = () => v.small || 0; // the yellow bar, the same for every option here (QA E4)
   const top = v.options.reduce((a, o) => (o.ev > a.ev ? o : a), v.options[0]);
   // "scores about $X more", or the fallback wording when the gap is within the bar
-  const more = (o, within) => (gap(o) > bar(o) || !within ? (gap(o) > 0 ? `scores about $${gap(o)} more` : 'scores about the same') : within);
+  const more = (o, within) => (gap(o) > bar(o) || !within ? (gap(o) > 0 ? `is worth about $${gap(o)} more on average` : 'scores about the same') : within);
   const who = d.opponents === 1 ? 'this player' : 'these players';
   // STRAT YB-T2: the "scores more" clause names the option that really scores highest; the same kind of play at
   // another size is "a bigger bet, about $X" (or smaller)
@@ -409,7 +414,7 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'thinValue') {
     if (!v.thin) return `${mine.label}: fine.`;
     // K2/K3: the real figure, rounded as the table shows it; "a little" only below the yellow bar
-    const by = v.thin.small || !(v.thin.gain > 0) ? 'rates a little higher' : `does about $${v.thin.gain} better`;
+    const by = v.thin.small || !(v.thin.gain > 0) ? 'rates a little higher' : `is worth about $${v.thin.gain} more on average`;
     return `${mine.label}: fine. (${v.thin.nick ? `Against ${v.thin.nick}, a bet` : 'A bet'} of about ${v.thin.size} ${by}.)`;
   }
   // "scores higher" only when it does; within the yellow bar but lower, "close to the best play" (QA M1)
@@ -417,7 +422,7 @@ function goodHeadline(v, mine, best, d = {}) {
   if (v.note === 'mwCheck') {
     const m = v.mw || {};
     const whoBet = v.thin && v.thin.nick ? `Against ${v.thin.nick}, a bet` : 'A bet';
-    return `${mine.label}: fine. (${whoBet} of about $${m.to ?? bare(best).replace(/^\D+/, '')} does about $${Math.max(0, m.gain || 0)} better here. With ${m.players || 'several'} players in, a check is defensible; a bet is the more profitable habit.)`;
+    return `${mine.label}: fine. (${whoBet} of about $${m.to ?? bare(best).replace(/^\D+/, '')} is worth about $${Math.max(0, m.gain || 0)} more here, on average. With ${m.players || 'several'} players in, a check is defensible; a bet is the more profitable habit.)`;
   }
   if (v.note === 'mwDraw') return `${mine.label}: fine. (With a draw and several players in, checking or calling is standard; ${bare(best).toLowerCase()} ${more(best)} against these opponents.)`;
   if (v.note === 'mwSize') return `${mine.label}: fine. (A bigger bet ${more(top, 'rates a little higher')}, but with several players in and this hand, a small bet is reasonable.)`;
@@ -435,11 +440,11 @@ function goodHeadline(v, mine, best, d = {}) {
       const refName = best.type === 'check' ? 'a check' : best.type === 'fold' ? 'folding' : best.type === 'call' ? 'a call' : bare(best).toLowerCase();
       if (flip && flip.type === 'raise' && flip.to !== mine.to) {
         const big = /^All-in/.test(flip.label) || (flip.to - (d.currentBet || 0)) >= (2 / 3) * Math.max(1, v.pot);
-        return `${mine.label}: not graded. On our read ${refName} is better by about $${g}. If ${them} a little differently, a ${big ? 'big' : 'small'} ${d.toCall > 0 ? 'raise' : 'bet'} does better instead, so we don't grade it.${habitTail(v, d)}`;
+        return `${mine.label}: not graded. On our read ${refName} is worth about $${g} more on average. If ${them} a little differently, a ${big ? 'big' : 'small'} ${d.toCall > 0 ? 'raise' : 'bet'} does better instead, so we don't grade it.${habitTail(v, d)}`;
       }
-      return `${mine.label}: not graded. On our read ${refName} is better by about $${g}, but that changes if ${them} a little differently, so we don't grade it.${habitTail(v, d)}`;
+      return `${mine.label}: not graded. On our read ${refName} is worth about $${g} more on average, but that changes if ${them} a little differently, so we don't grade it.${habitTail(v, d)}`;
     }
-    return `${mine.label}: not graded. ${g > 0 && best !== mine ? `${bare(best)} scores about $${g} more on our read; the` : 'The'} best play changes with small differences in how ${who} play${d.opponents === 1 ? 's' : ''}.${habitTail(v, d)}`;
+    return `${mine.label}: not graded. ${g > 0 && best !== mine ? `${bare(best)} is worth about $${g} more on average, on our read; the` : 'The'} best play changes with small differences in how ${who} play${d.opponents === 1 ? 's' : ''}.${habitTail(v, d)}`;
   }
   if (v.note === 'checkOOP') return `${mine.label}: fine. (With several players or the preflop raiser still to act behind you, checking one pair is standard.)`;
   if (v.note === 'sizeCheck') return `${mine.label}: fine. (A bet of up to three-quarters of the pot ${more(best, 'rates about the same')}.)`;
@@ -461,7 +466,7 @@ function goodHeadline(v, mine, best, d = {}) {
     const size = SIZES.reduce((a, x) => (Math.abs(x[0] - frac) < Math.abs(a[0] - frac) ? x : a))[1]; // the nearest name (STRAT N4)
     const into = d.opponents >= 2 ? ` into ${NUM_WORDS[d.opponents] || d.opponents} players` : '';
     if (!bigger.length) return `${mine.label}: fine. (This is a sound value size${into}.)`;
-    return `${mine.label}: fine. (Bigger bets score about ${lo === hi ? `$${lo}` : `$${lo}–${hi}`} more against these opponents, mostly because they call too often; ${size} is a sound value size${into}.)`;
+    return `${mine.label}: fine. (Bigger bets are worth about ${lo === hi ? `$${lo}` : `$${lo}–${hi}`} more on average against these opponents, mostly because they call too often; ${size} is a sound value size${into}.)`;
   }
   // STRAT, CEO (thin-value copy): a passed river bet the headline names reads as value when its win rate once raises
   // are counted (wNet, as valueBet) reaches its need: thin under need + 0.10, clear value above. Under need it keeps
@@ -798,7 +803,7 @@ export function explain(d) {
     const sl = v.strongLimp || {};
     return {
       category,
-      headline: `Mistake: limping ${sl.name || 'this hand'}. A hand this strong should raise: limping lets the field in cheaply and gives up value.${cost > 0 ? ` Raising scores about $${cost} more on our read; a standard open is about $${sl.std}.` : ` A standard open is about $${sl.std}.`}`,
+      headline: `Mistake: limping ${sl.name || 'this hand'}. A hand this strong should raise: limping lets the field in cheaply and gives up value.${cost > 0 ? ` Raising is worth about $${cost} more on average, on our read; a standard open is about $${sl.std}.` : ` A standard open is about $${sl.std}.`}`,
       reasons: [],
       theory: null,
       cost,
@@ -813,18 +818,23 @@ export function explain(d) {
   // a call whose cost is capped at its price (rule 7, or the money-in arm) states that cost, and that later
   // streets are graded there; never "up to its price" (STRAT YB-1 / section 17 C2, QA YB-C3)
   const capped = (v.priceCap ?? v.moneyInCap) !== undefined && Math.round(best.ev) - Math.round(mine.ev) > cost;
+  // a decision's figure is what it is worth on average, never what it "cost" you this hand (STRAT, owner 26 Nov); a
+  // plain reference reads "less than folding, on average", a long one puts "on average" before its parentheses
+  const mineIng = ing(mine.label.toLowerCase());
+  const refIng = ing(ref);
+  const less = /\(/.test(refIng) ? `is worth about $${cost} less, on average, than ${refIng}` : `is worth about $${cost} less than ${refIng}, on average`;
   const headline = v.dominated
-    ? `${word}: ${mine.label.toLowerCase()} scores at least $${cost} below the best play here under every reasonable read of these players.`
+    ? `${word}: ${mineIng} is worth at least $${cost} less than the best play here, on average, under every reasonable read of these players.`
     : capped
-      ? `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}; what happens on later streets is graded there.`
-      : `${word}: ${mine.label.toLowerCase()} costs about $${cost} compared with ${ref}.`;
+      ? `${word}: ${mineIng} ${less}; what happens on later streets is graded there.`
+      : `${word}: ${mineIng} ${less}.`;
   const reasons = [];
   if (v.iso3bet) reasons.push('Against this player, calling scores a bit higher: it keeps their bluffs in. Re-raising to isolate is also standard.');
   // a play that loses money by itself (STRAT_YELLOW_BAND C)
   if (v.rule === 'moneyIn' && v.moneyIn) reasons.push(`On our read this ${mine.type === 'call' ? 'call' : 'bet'} loses money by itself: ${v.moneyIn.loss >= 0.95 * v.moneyIn.put ? 'about all' : `about $${v.moneyIn.loss}`} of the $${v.moneyIn.put} it puts in, compared with ${v.moneyIn.give === 'fold' ? 'folding' : 'checking'}.`);
   // R5b's reason under a flagged call of a passive lead into a crowd (STRAT G5)
   if (v.setRaise && best.type === 'call') reasons.push('Calling keeps in the hands you beat; a re-raise folds them.');
-  if (v.rule === 'R5b' && best.type === 'fold') reasons.push(`When a passive player leads into a crowd, one pair is often beaten. Folding scores about $${Math.max(0, Math.round(best.ev) - Math.round(mine.ev))} more.`);
+  if (v.rule === 'R5b' && best.type === 'fold') reasons.push(`When a passive player leads into a crowd, one pair is often beaten. Folding is worth about $${Math.max(0, Math.round(best.ev) - Math.round(mine.ev))} more on average.`);
   const r1 = readLine(d);
   if (r1) reasons.push(r1);
   // preVs3bet: its lines come straight after the read line, so nothing generic sits between "plays like a calling

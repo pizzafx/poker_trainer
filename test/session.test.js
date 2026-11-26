@@ -144,10 +144,10 @@ test('cost shown: whole dollars, equal to the gap between the rounded values, an
       // streets graded there; never "up to its price" (STRAT YB-1 / section 17 C2)
       const cap = Math.round(v.priceCap ?? v.moneyInCap);
       assert.equal(d.cost, cap);
-      assert.ok(d.headline.includes(`costs about $${cap} compared`) && d.headline.includes('later streets is graded there'), d.headline);
+      assert.ok(d.headline.includes(`is worth about $${cap} less`) && d.headline.includes('on average') && d.headline.includes('later streets is graded there'), d.headline);
     } else {
       assert.equal(d.cost, gap);
-      assert.ok(d.headline.includes(`costs about $${d.cost} compared`), d.headline);
+      assert.ok(d.headline.includes(`is worth about $${d.cost} less`) && d.headline.includes('on average'), d.headline);
     }
     sum += d.cost;
   }

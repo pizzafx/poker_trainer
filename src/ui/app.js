@@ -11,6 +11,7 @@ import { DRILLS } from '../trainer/drills.js';
 import { createDrill } from './drill.js';
 import { createVerdictQueue } from './verdictqueue.js';
 import { createJudge, showCoachDown, COACH_DOWN_HTML } from './judgeclient.js';
+import { makeInert, clearInert, focusTarget } from './baglayer.js';
 import { createCountdown, countdownDue, armWindow as armMs } from './countdown.js';
 import { TABLES } from '../trainer/players.js';
 import { presets, defaultRaise } from './presets.js';
@@ -2088,12 +2089,7 @@ function openBag(from) {
   document.body.appendChild(layer);
   document.body.classList.add('bag-open');
   // modal for real (QA): everything behind the layer is inert, so no Tab, key or click reaches the table
-  bagInert = [];
-  for (const c of document.body.children) {
-    if (c === layer || c.inert) continue;
-    c.inert = true;
-    bagInert.push(c);
-  }
+  bagInert = makeInert(document.body.children, layer);
   layer.querySelector('iframe').focus();
 }
 function closeBag() {
@@ -2102,7 +2098,7 @@ function closeBag() {
   const layer = document.getElementById('bag-layer');
   if (layer) layer.remove();
   document.body.classList.remove('bag-open');
-  for (const c of bagInert) c.inert = false;
+  clearInert(bagInert);
   bagInert = [];
   if (bagHeld && sess) {
     bagHeld = false;
@@ -2114,9 +2110,7 @@ function closeBag() {
   const from = bagFrom;
   bagReturn = null;
   setTimeout(() => {
-    const saved = was && was !== document.body && was.isConnected && was.offsetParent !== null ? was : null;
-    const back = saved || (from === 'ranges' ? document.querySelector('#ranges a[data-bag]') : null);
-    const target = back && back.offsetParent !== null ? back : $('btn-more') && $('btn-more').offsetParent !== null ? $('btn-more') : document.querySelector('details > summary');
+    const target = focusTarget({ was, body: document.body, from, rangesLink: document.querySelector('#ranges a[data-bag]'), moreButton: $('btn-more'), menuSummary: document.querySelector('details > summary') });
     if (target) target.focus({ preventScroll: true });
   }, 0);
 }

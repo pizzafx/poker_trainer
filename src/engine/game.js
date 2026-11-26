@@ -60,6 +60,12 @@ export function newHand(cfg) {
       }
     }
   }
+  // a fixed board (the tutorial's deal, test set pieces): its cards leave the deck before anyone else is dealt, and the
+  // streets deal them in order through `plan`
+  if (cfg.board) {
+    for (const c of cfg.board) if (!removeCard(s.remaining, c)) throw new Error('duplicate board card');
+    s.plan = cfg.board.slice();
+  }
   for (let i = 0; i < n; i++) {
     if (!s.hole[i]) {
       s.hole[i] = [drawRandom(s.remaining, cfg.rng), drawRandom(s.remaining, cfg.rng)];

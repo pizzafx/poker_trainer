@@ -190,6 +190,10 @@ const BASE = {
   jam3MinBB: null, // POOL batch 19a: the effective depth jam3Cap starts at
   stabFoldCap: null, // POOL batch 19b: regulars' fold caps facing a stab after a checked-through street (see policy.js)
   foldCap: null, // POOL batch 19: per-type fold caps facing one bet, by price band (PRO's B ceilings v1.2; policy.js foldClassOf)
+  pairedFlopCont: null, // POOL batch 20: paired-flop fold lines facing a bet multiway { cbet3: { mid, low: [1/3, 1/2+] }, cont: { Ahigh, ppUnder: [floors at 1/3, 1/2, 2/3-3/4, pot] } } (null: none)
+  bigStabFoldCap: null, // POOL batch 20: weak/mid fold lines facing a stab after a checked line { river, turn, flopLimped, flopLimpCall: [1/2-2/3 pot, above 2/3] } (null: none)
+  pairedPotShift: null, // POOL batch 20 (item D): share of a non-trips paired-flop bet's under-pot size weight moved to pot, having called a raise (null: none)
+  tripsFlopBet: null, // POOL batch 20 (item B): bet rate on a limped pot's trips flop, nobody has bet, { quads, fh, air } (null: today's play)
   airContCap: null, // POOL batch 19: continuing 10-30bb with no pair and no real draw, [heads-up, multiway] %
   pfCallOffCap: null, // POOL batch 19: preflop call-offs in 3-bet+ pots, { ajkq, other } %
   airCallOff: null, // POOL batch 17: a cap on calling off a stack or 30bb+ with air [ace/king-high, worse]
@@ -242,6 +246,7 @@ const DEFS = {
     sqCont: 0.6, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.06, 0.07], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Tight-passive nit',
+    tripsFlopBet: { quads: 0.25, fh: 0.5, air: 0.04 }, // POOL batch 20 (item B, PRO's trips-board table 2, mid-band)
     airCallOff: [0.03, 0.03], // POOL batch 17
     stackOffRaiseNP: 0.05, // POOL batch 16b
     stackOffRaiseJJ: 0.25, // POOL batch 16b
@@ -332,6 +337,10 @@ const DEFS = {
     leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.05, 0.09], // POOL overcall, owner-approved 13 Nov 2026 (river .07 -> .09, POOL correction)
     name: 'Straightforward recreational',
+    pairedFlopCont: { cbet3: { mid: [30, 80], low: [30, 97] }, cont: { Ahigh: null, ppUnder: [60, 40, 25, 15] } }, // POOL batch 20 (PRO's paired-flop lines, CEO 26 Nov)
+    tripsFlopBet: { quads: 0.3, fh: 0.5, air: 0.12 }, // POOL batch 20 (item B, PRO's trips-board table 2, mid-band)
+    bigStabFoldCap: { river: [55, 60], turn: [null, 70], flopLimped: null, flopLimpCall: null }, // POOL batch 20 (PRO's big-stab ceilings, CEO 26 Nov)
+    pairedPotShift: 0.2, // POOL batch 20 (item D, PRO's paired-flop table 4; calibrated on 1M, Q+ checked-to)
     airCallOff: [0.04, 0.04], // POOL batch 17
     tpLabel: 0.8, // POOL batch 18 (PRO's TPWK floors)
     rangeRead: [0.5, 0.3], // MATH range-bots stage 2 (POOL's table)
@@ -422,6 +431,10 @@ const DEFS = {
     mwOvercall: [0, 0.03, 0.13], // POOL overcall, owner-approved 13 Nov 2026
     ocSize: 0.25, // POOL overcall: a pot-sized overcall hits harder than a half-pot one
     name: 'Loose-passive calling station',
+    pairedFlopCont: { cbet3: null, cont: { Ahigh: [30, 20, 15, 10], ppUnder: [null, null, 75, 70] } }, // POOL batch 20 (PRO's paired-flop lines, CEO 26 Nov)
+    tripsFlopBet: { quads: 0.3, fh: 0.5, air: 0.07 }, // POOL batch 20 (item B, PRO's trips-board table 2, mid-band)
+    bigStabFoldCap: { river: [30, 35], turn: [null, 35], flopLimped: [null, 20], flopLimpCall: [null, 20] }, // POOL batch 20 (PRO's big-stab ceilings, CEO 26 Nov)
+    pairedPotShift: 0.3, // POOL batch 20 (item D, PRO's paired-flop table 4; 1/3 and 1/2 weights only, recalibrated on 1M)
     airCallOff: [0.3, 0.1], // POOL batch 17
     tpLabel: 0.5, // POOL batch 18
     stackOffRaiseNP: 0.05, // POOL batch 16b
@@ -522,6 +535,8 @@ const DEFS = {
     leadIntoRaiserFlop: 0, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.02, 0.13], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Gambler',
+    tripsFlopBet: { quads: 0.4, fh: 0.5, air: 0.2 }, // POOL batch 20 (item B, PRO's trips-board table 2, mid-band)
+    pairedPotShift: 0.36, // POOL batch 20 (item D, PRO's paired-flop table 4; 1/3 and 1/2 weights only; 0.36 trades whale near-pot 38 against half 38)
     smallCont: [0.97,  0.94,  0.9], // POOL batch 16
     initSlow: true, // POOL batch 16
     trapOnce: 0.1, // POOL batch 16
@@ -597,6 +612,7 @@ const DEFS = {
     sqCont: 0.8, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.07, 0.15], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Loose-aggressive maniac',
+    tripsFlopBet: { quads: 0.5, fh: 0.5, air: 0.55 }, // POOL batch 20 (item B, PRO's trips-board table 2, mid-band)
     blurb: 'Raises and barrels constantly with a huge range. Big bets mean much less from him.',
     share: 0.035,
     vpip: [0.42, 0.48, 0.58, 0.5, 0.6],
@@ -672,6 +688,8 @@ const DEFS = {
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.28, 0.25], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Solver-style player',
+    pairedFlopCont: { cbet3: { mid: [45, 70], low: [45, 97] }, cont: null }, // POOL batch 20 (PRO's paired-flop lines, CEO 26 Nov)
+    tripsFlopBet: { quads: 0.32, fh: 0.5, air: 0.27 }, // POOL batch 20 (item B, PRO's trips-board table 2, mid-band)
     smallCont: [0.88,  0.55,  0], // POOL batch 16
     initSlow: true, // POOL batch 16
     trapOnce: 0.1, // POOL batch 16
@@ -778,6 +796,9 @@ const DEFS = {
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.07, 0.1], // POOL overcall, owner-approved 13 Nov 2026
     name: 'Solid regular',
+    pairedFlopCont: { cbet3: { mid: [45, 75], low: [45, 97] }, cont: null }, // POOL batch 20 (PRO's paired-flop lines, CEO 26 Nov)
+    tripsFlopBet: { quads: 0.32, fh: 0.5, air: 0.27 }, // POOL batch 20 (item B, PRO's trips-board table 2, mid-band)
+    pairedPotShift: 0.47, // POOL batch 20 (item D, PRO's paired-flop table 4; 1/3 and 1/2 weights only, recalibrated on 1M)
     smallCont: [0.88,  0.5,  0], // POOL batch 16
     initSlow: true, // POOL batch 16
     trapOnce: 0.1, // POOL batch 16
@@ -871,6 +892,8 @@ const DEFS = {
     tbSqueeze: 0.08, // POOL opponent package (Nov 2026)
     mwOvercall: [0, 0.1, 0.1], // POOL overcall, owner-approved 13 Nov 2026 (river .09 -> .10, POOL correction)
     name: 'Tricky aggressive regular',
+    pairedFlopCont: { cbet3: { mid: [35, 65], low: [35, 95] }, cont: null }, // POOL batch 20 (PRO's paired-flop lines, CEO 26 Nov)
+    tripsFlopBet: { quads: 0.32, fh: 0.5, air: 0.42 }, // POOL batch 20 (item B, PRO's trips-board table 2, mid-band)
     smallCont: [0.88,  0.6,  0.3], // POOL batch 16
     initSlow: true, // POOL batch 16
     trapOnce: 0.1, // POOL batch 16
@@ -969,6 +992,10 @@ const DEFS = {
     leadIntoRaiserFlop: -0.04, // POOL passivity, Revision D (13 Nov 2026)
     mwOvercall: [0, 0.08, 0.15], // POOL overcall, owner-approved 13 Nov 2026 (river .12 -> .15, POOL correction)
     name: 'Total beginner',
+    pairedFlopCont: { cbet3: null, cont: { Ahigh: null, ppUnder: [null, null, 75, 65] } }, // POOL batch 20 (PRO's paired-flop lines, CEO 26 Nov)
+    tripsFlopBet: { quads: 0.4, fh: 0.5, air: 0.2 }, // POOL batch 20 (item B, PRO's trips-board table 2, mid-band)
+    bigStabFoldCap: { river: [40, 45], turn: [null, 45], flopLimped: [null, 20], flopLimpCall: [null, 30] }, // POOL batch 20 (PRO's big-stab ceilings, CEO 26 Nov)
+    pairedPotShift: 0.08, // POOL batch 20 (item D, PRO's paired-flop table 4; calibrated on 1M, Q+ checked-to)
     smallCont: [0.95,  0.88,  0.7], // POOL batch 16
     initSlow: true, // POOL batch 16
     trapOnce: 0.1, // POOL batch 16
@@ -1146,6 +1173,10 @@ const HERO_DEF = {
   // QA-VERDICT's budget-off flip check: 0.27% of grades); test/heroprofile.test.js names both
   tpLabel: 0.25,
   valueMd: 0.87,
+  pairedFlopCont: null, // POOL batch 20: opponent-only
+  bigStabFoldCap: null, // POOL batch 20: opponent-only
+  pairedPotShift: null, // POOL batch 20: opponent-only
+  tripsFlopBet: null, // POOL batch 20: opponent-only until STRAT and MATH rule on the stand-in
   stabFoldCap: null, // POOL batch 19b: opponent-only until STRAT and MATH rule on the stand-in (batch 7-12 precedent)
   rangeRead: null, // MATH range-bots: the stand-in stays as it is until a later stage measures it
   rangeBar: null,

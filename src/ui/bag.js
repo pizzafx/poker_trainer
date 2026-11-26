@@ -5,6 +5,8 @@
 // Opened from More → Learn (bag.html) or the Ranges panel's "What is this?" (bag.html?from=ranges).
 const q = new URLSearchParams(location.search);
 const FROM_RANGES = q.get('from') === 'ranges';
+// opened over the table (play.html's layer): closing hands control back to it instead of navigating
+const EMBED = q.get('embed') === '1' && window.parent !== window;
 const $ = (s) => document.querySelector(s);
 const main = $('#main');
 const dock = $('#dock');
@@ -339,16 +341,17 @@ function startRound() {
   for (const k of Object.keys(score)) delete score[k];
   go('intro');
 }
-// Close: from the Ranges panel (its own tab), back to the table; from Learn, back to Learn (and from Learn's home, to the table)
+// Close: from the Ranges panel, back to the table; from Learn, back to Learn (and from Learn's home, to the table)
 function close() {
-  if (FROM_RANGES) {
-    // opened in its own tab from the Ranges panel, so the table and its hand are still there: close this tab, or if the
-    // browser won't, go back to the table
-    window.close();
-    setTimeout(() => (location.href = 'play.html'), 200);
-  } else if ($('#title').textContent === 'Learn') location.href = 'play.html';
-  else go('home');
+  const toTable = FROM_RANGES || $('#title').textContent === 'Learn';
+  if (!toTable) return go('home');
+  // over the table: the layer closes and the hand is where you left it; opened on its own, go to the table
+  if (EMBED) window.parent.postMessage({ type: 'bag-close' }, location.origin);
+  else location.href = 'play.html';
 }
+addEventListener('keydown', (e) => {
+  if (EMBED && e.key === 'Escape') window.parent.postMessage({ type: 'bag-close' }, location.origin);
+});
 $('#close').onclick = close;
 
 async function load() {

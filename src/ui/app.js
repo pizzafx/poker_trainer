@@ -1558,8 +1558,8 @@ function renderRanges() {
     : `${guessRes}${head}${strip}${hands}${ladder}${take}${calib}${realBox}${foot}`;
   // the one-line explainer under the header row (DESIGN, STRAT, CEO): what the panel is, by the board shown (the ladder
   // splits at your hand once there is a board, whichever step is viewed); always on
-  // with the Learn lesson one tap away (The Bag, CEO), in its own tab so the hand in play is kept (QA)
-  const explainer = `<p class="rv-explain">${rangeExplainer(nick, board.length === 0 ? 0 : board.length === 5 ? 3 : 1)} <a class="rv-what" target="_blank" rel="noopener" href="bag.html?from=ranges">What is this? ›</a></p>`;
+  // with the Learn lesson one tap away (The Bag, CEO), over the table so the hand in play is kept (QA, CEO)
+  const explainer = `<p class="rv-explain">${rangeExplainer(nick, board.length === 0 ? 0 : board.length === 5 ? 3 : 1)} <a class="rv-what" href="bag.html?from=ranges" data-bag="ranges">What is this? ›</a></p>`;
   el.innerHTML = `${showAllPhone}<div class="rv${rangeReveal === 'guess' ? ' reveal' : ''}">${top}${explainer}${body}</div>`;
   rangeReveal = '';
   wireRanges(el, again, { lad, E, pre, g, col, mine, view, post, gKey, cut: lad ? lad.beatsYou : null, nickRaw, phone, waiting });
@@ -2024,6 +2024,11 @@ function closeReview() {
 
 function advance() {
   clearTimeout(timer);
+  // The Bag is open over the table: nothing moves until it closes (CEO: the hand is never lost or altered)
+  if (bagOpen) {
+    bagHeld = true;
+    return;
+  }
   // Once you are out of the hand, play it out immediately, in slices of about 12ms that yield to the browser between
   // them, so a long fold-out (a postflop bot step costs about 16ms) never blocks a frame for a second (CEO, 23 Nov)
   if (!sess.heroInHand()) {
@@ -2061,6 +2066,55 @@ function handOver() {
 
 // When the hand is over and nothing you did in it was flagged (all green), deal the next one
 // without waiting. A mistake or blunder stops the game so you can read why.
+// The Bag (Learn) opens as a full-screen layer over the table, from More → Learn or the Ranges panel's "What is this?"
+// (CEO): the page and the hand in play stay in memory, the table holds still (no bot acts, nothing deals) and Close puts
+// you back at the same spot. bag.html asks to close with a message; Escape closes it too.
+let bagOpen = false;
+let bagHeld = false;
+let bagReturn = null;
+function openBag(from) {
+  if (bagOpen) return;
+  bagOpen = true;
+  bagReturn = document.activeElement;
+  // whatever the table was about to do (a bot's turn, a deal) waits, and runs again on Close
+  clearTimeout(timer);
+  bagHeld = true;
+  const layer = document.createElement('div');
+  layer.id = 'bag-layer';
+  layer.innerHTML = `<iframe title="The Bag" src="bag.html?embed=1${from === 'ranges' ? '&from=ranges' : ''}"></iframe>`;
+  document.body.appendChild(layer);
+  document.body.classList.add('bag-open');
+  layer.querySelector('iframe').focus();
+}
+function closeBag() {
+  if (!bagOpen) return;
+  bagOpen = false;
+  const layer = document.getElementById('bag-layer');
+  if (layer) layer.remove();
+  document.body.classList.remove('bag-open');
+  if (bagReturn && bagReturn.isConnected) bagReturn.focus({ preventScroll: true });
+  bagReturn = null;
+  if (bagHeld && sess) {
+    bagHeld = false;
+    advance();
+  }
+}
+addEventListener('message', (e) => {
+  if (e.origin === location.origin && e.data && e.data.type === 'bag-close') closeBag();
+});
+addEventListener('keydown', (e) => {
+  if (bagOpen && e.key === 'Escape') closeBag();
+});
+document.addEventListener('click', (e) => {
+  const a = e.target.closest && e.target.closest('a[data-bag]');
+  if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  e.preventDefault();
+  // the phone menu sheet closes behind it
+  const menu = a.closest('details[open]');
+  if (menu) menu.open = false;
+  openBag(a.dataset.bag);
+});
+
 // The auto-deal after a green hand (QA NH1): it never deals while the player is reaching for "Next hand",
 // and the action buttons ignore clicks for 400ms after any deal, so a late click cannot fold, call or
 // raise in a hand the player has not seen.
@@ -2142,6 +2196,10 @@ const autoDealDue = (h) => countdownDue(h.decisions, lowStack());
 function scheduleAuto() {
   clearTimeout(timer);
   if (autoHeld) return;
+  if (bagOpen) {
+    bagHeld = true;
+    return;
+  }
   const h = sess.hand;
   if (!autoDealDue(h)) return stopAuto(); // anything flagged holds the table
   // the same hand's countdown carries on from where it was (a closed pop-up, history or replayer)

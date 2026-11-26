@@ -3335,7 +3335,7 @@ function reviewModal() {
       if (chk.length >= 3) {
         const gains = chk.map((d) => (d.verdict.mw && d.verdict.mw.gain) || (d.verdict.thin && d.verdict.thin.gain) || 0).filter((g) => g > 0);
         const avg = gains.length ? Math.round(gains.reduce((a, g) => a + g, 0) / gains.length) : 0;
-        mwRows.push([`Checked one pair in a multiway pot (a bet rated higher ${gains.length} time${gains.length === 1 ? '' : 's'}${avg ? `, about $${avg} each` : ''})`, times(chk.length)]);
+        mwRows.push([`Checked one pair in a multiway pot (a bet rated higher ${gains.length} time${gains.length === 1 ? '' : 's'}${avg ? `, about $${avg} each on average` : ''})`, times(chk.length)]);
       }
       const drw = noted('mwDraw');
       if (drw.length >= 3) mwRows.push(['Checked or called a draw in a multiway pot where a bet or raise rated higher', times(drw.length)]);
@@ -4227,7 +4227,7 @@ function handMarker(r) {
     const worst = flagged.some((d) => d.verdict.grade === 'blunder') ? 'blunder' : 'mistake';
     const cost = flagged.reduce((a, d) => a + (d.cost || 0), 0);
     const word = flagged.length > 1 ? `${flagged.length} flagged` : worst === 'blunder' ? 'Blunder' : 'Mistake';
-    return `<span class="hm ${worst}"><span class="vmark ${worst}">${MARK[worst]}</span>${word} · ${money(cost)} avg</span>`;
+    return `<span class="hm ${worst}"><span class="vmark ${worst}">${MARK[worst]}</span>${word}${cost > 0 ? ` · ${money(cost)} avg` : ''}</span>`;
   }
   // flag > best > tip (CEO, Nov 2026)
   const nb = r.decisions.filter(isBest).length;
@@ -4391,7 +4391,7 @@ function handCardHtml(p) {
     const land = landing(d, 'row');
     if (land) return verdictOfLanded(d).replace('class="hl-v', 'class="hl-v landing');
     if (g === 'good') return `<span class="hl-v good${isNg(d) ? ' ng' : ''}${isBest(d) ? ' best' : ''}">${markHtml(d)}${d.tipKind && !notGraded(d.verdict) ? 'fine · tip' : verdictWord(d.verdict, d)}</span>`;
-    return `<span class="hl-v ${g}">${g === 'blunder' ? 'Blunder' : 'Mistake'} · ${money(d.cost)} avg${p.why ? ` <button type="button" class="link-btn hl-why" data-why="${decisions.indexOf(d)}">Why ›</button>` : ''}</span>`;
+    return `<span class="hl-v ${g}">${g === 'blunder' ? 'Blunder' : 'Mistake'}${d.cost > 0 ? ` · ${money(d.cost)} avg` : ''}${p.why ? ` <button type="button" class="link-btn hl-why" data-why="${decisions.indexOf(d)}">Why ›</button>` : ''}</span>`;
   };
   let heroN = 0;
   const lines = { 0: [], 1: [], 2: [], 3: [] };
@@ -4453,7 +4453,7 @@ function handCardHtml(p) {
   const flagged = decisions.filter((d) => d.verdict.grade !== 'good');
   const sub = p.live || !p.over
     ? `$${s.sbAmt}/$${bb} · you ${p.live ? 'have' : 'had'} ${money(s.stacks[HERO])}`
-    : `Hand over · ${flagged.length ? `${flagged.length} flagged · ${money(flagged.reduce((a, d) => a + d.cost, 0))} avg` : decisions.length ? 'every decision fine' : 'no decisions'}`;
+    : `Hand over · ${flagged.length ? `${flagged.length} flagged${flagged.some((d) => d.cost > 0) ? ` · ${money(flagged.reduce((a, d) => a + d.cost, 0))} avg` : ''}` : decisions.length ? 'every decision fine' : 'no decisions'}`;
   return `<div class="hl-card"><div class="hl-top">${cardsInline(holeOrder(s.hole[HERO]))}<div><b>Hand ${p.no}${p.position ? ` · ${p.position}` : ''}</b><small>${sub}</small></div>${p.live ? '<span class="hl-live">Live</span>' : ''}</div>${streets}${show}${p.actions || ''}</div>`;
 }
 

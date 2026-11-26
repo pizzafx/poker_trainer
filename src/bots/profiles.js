@@ -798,7 +798,7 @@ const DEFS = {
     name: 'Solid regular',
     pairedFlopCont: { cbet3: { mid: [45, 75], low: [45, 97] }, cont: null }, // POOL batch 20 (PRO's paired-flop lines, CEO 26 Nov)
     tripsFlopBet: { quads: 0.32, fh: 0.5, air: 0.27 }, // POOL batch 20 (item B, PRO's trips-board table 2, mid-band)
-    pairedPotShift: 0.47, // POOL batch 20 (item D, PRO's paired-flop table 4; 1/3 and 1/2 weights only, recalibrated on 1M)
+    pairedPotShift: null, // POOL batch 20 (CEO 26 Nov): the tag stays out of D until item C, so no tag cell moves further over its band
     smallCont: [0.88,  0.5,  0], // POOL batch 16
     initSlow: true, // POOL batch 16
     trapOnce: 0.1, // POOL batch 16

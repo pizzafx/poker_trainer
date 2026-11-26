@@ -1,0 +1,398 @@
+{
+  "kind": "snapshot-fixture",
+  "name": "stab-watch-ajs-river-check",
+  "hole": "Ad Jd",
+  "board": "Kc 2s Kh 2h 5s",
+  "pot": 122,
+  "action": {
+    "type": "check"
+  },
+  "took": "Check",
+  "samples": 780,
+  "judgeSeed": 4866,
+  "table": {
+    "game": "home",
+    "blinds": [
+      1,
+      2
+    ],
+    "straddle": 0,
+    "rake": "No rake (time game)",
+    "handNo": 37,
+    "seats": [
+      {
+        "seat": 0,
+        "name": "You",
+        "pos": "BB",
+        "startStack": 200,
+        "stack": 164,
+        "inPot": 36,
+        "folded": false
+      },
+      {
+        "seat": 1,
+        "name": "Jersey",
+        "pos": "UTG",
+        "startStack": 196,
+        "stack": 194,
+        "inPot": 2,
+        "folded": true,
+        "read": [
+          {
+            "type": "whale",
+            "p": 0.862
+          },
+          {
+            "type": "nit",
+            "p": 0.017
+          },
+          {
+            "type": "abc",
+            "p": 0.017
+          }
+        ],
+        "observed": {
+          "hands": 36,
+          "vpip": 21,
+          "pfr": 1,
+          "showdowns": 6
+        }
+      },
+      {
+        "seat": 2,
+        "name": "Hoodie",
+        "pos": "LJ",
+        "startStack": 541,
+        "stack": 505,
+        "inPot": 36,
+        "folded": false,
+        "read": [
+          {
+            "type": "tag",
+            "p": 0.633
+          },
+          {
+            "type": "lag",
+            "p": 0.244
+          },
+          {
+            "type": "nit",
+            "p": 0.018
+          }
+        ],
+        "observed": {
+          "hands": 36,
+          "vpip": 3,
+          "pfr": 3,
+          "showdowns": 1
+        }
+      },
+      {
+        "seat": 3,
+        "name": "New Guy",
+        "pos": "HJ",
+        "startStack": 297,
+        "stack": 297,
+        "inPot": 0,
+        "folded": true,
+        "read": [
+          {
+            "type": "nit",
+            "p": 0.861
+          },
+          {
+            "type": "abc",
+            "p": 0.017
+          },
+          {
+            "type": "station",
+            "p": 0.017
+          }
+        ],
+        "observed": {
+          "hands": 36,
+          "vpip": 7,
+          "pfr": 4,
+          "showdowns": 4
+        }
+      },
+      {
+        "seat": 4,
+        "name": "Jeans",
+        "pos": "CO",
+        "startStack": 58,
+        "stack": 58,
+        "inPot": 0,
+        "folded": true,
+        "read": [
+          {
+            "type": "lag",
+            "p": 0.862
+          },
+          {
+            "type": "nit",
+            "p": 0.017
+          },
+          {
+            "type": "abc",
+            "p": 0.017
+          }
+        ],
+        "observed": {
+          "hands": 36,
+          "vpip": 15,
+          "pfr": 14,
+          "showdowns": 6
+        }
+      },
+      {
+        "seat": 5,
+        "name": "Cardigan",
+        "pos": "BTN",
+        "startStack": 290,
+        "stack": 254,
+        "inPot": 36,
+        "folded": false,
+        "read": [
+          {
+            "type": "abc",
+            "p": 0.454
+          },
+          {
+            "type": "station",
+            "p": 0.422
+          },
+          {
+            "type": "nit",
+            "p": 0.018
+          }
+        ],
+        "observed": {
+          "hands": 36,
+          "vpip": 11,
+          "pfr": 3,
+          "showdowns": 6
+        },
+        "steaming": true
+      },
+      {
+        "seat": 6,
+        "name": "Golf Shirt",
+        "pos": "SB",
+        "startStack": 360,
+        "stack": 348,
+        "inPot": 12,
+        "folded": true,
+        "read": [
+          {
+            "type": "abc",
+            "p": 0.862
+          },
+          {
+            "type": "nit",
+            "p": 0.017
+          },
+          {
+            "type": "station",
+            "p": 0.017
+          }
+        ],
+        "observed": {
+          "hands": 36,
+          "vpip": 11,
+          "pfr": 2,
+          "showdowns": 3
+        }
+      }
+    ],
+    "actions": [
+      {
+        "street": "preflop",
+        "seat": 6,
+        "who": "Golf Shirt",
+        "type": "sb",
+        "to": 1,
+        "amount": 1
+      },
+      {
+        "street": "preflop",
+        "seat": 0,
+        "who": "You",
+        "type": "bb",
+        "to": 2,
+        "amount": 2
+      },
+      {
+        "street": "preflop",
+        "seat": 1,
+        "who": "Jersey",
+        "type": "call",
+        "to": 2,
+        "amount": 2
+      },
+      {
+        "street": "preflop",
+        "seat": 2,
+        "who": "Hoodie",
+        "type": "raise",
+        "to": 12,
+        "amount": 12
+      },
+      {
+        "street": "preflop",
+        "seat": 3,
+        "who": "New Guy",
+        "type": "fold",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "preflop",
+        "seat": 4,
+        "who": "Jeans",
+        "type": "fold",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "preflop",
+        "seat": 5,
+        "who": "Cardigan",
+        "type": "call",
+        "to": 12,
+        "amount": 12
+      },
+      {
+        "street": "preflop",
+        "seat": 6,
+        "who": "Golf Shirt",
+        "type": "call",
+        "to": 12,
+        "amount": 11
+      },
+      {
+        "street": "preflop",
+        "seat": 0,
+        "who": "You",
+        "type": "raise",
+        "to": 36,
+        "amount": 34
+      },
+      {
+        "street": "preflop",
+        "seat": 1,
+        "who": "Jersey",
+        "type": "fold",
+        "to": 2,
+        "amount": 0
+      },
+      {
+        "street": "preflop",
+        "seat": 2,
+        "who": "Hoodie",
+        "type": "call",
+        "to": 36,
+        "amount": 24
+      },
+      {
+        "street": "preflop",
+        "seat": 5,
+        "who": "Cardigan",
+        "type": "call",
+        "to": 36,
+        "amount": 24
+      },
+      {
+        "street": "preflop",
+        "seat": 6,
+        "who": "Golf Shirt",
+        "type": "fold",
+        "to": 12,
+        "amount": 0
+      },
+      {
+        "street": "flop",
+        "seat": 0,
+        "who": "You",
+        "type": "check",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "flop",
+        "seat": 2,
+        "who": "Hoodie",
+        "type": "check",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "flop",
+        "seat": 5,
+        "who": "Cardigan",
+        "type": "check",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "turn",
+        "seat": 0,
+        "who": "You",
+        "type": "check",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "turn",
+        "seat": 2,
+        "who": "Hoodie",
+        "type": "check",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "turn",
+        "seat": 5,
+        "who": "Cardigan",
+        "type": "check",
+        "to": 0,
+        "amount": 0
+      }
+    ],
+    "pot": 122,
+    "heat": 0.013,
+    "heatAt": {
+      "9": 0.013031653626708968,
+      "10": 0.013031653626708968,
+      "11": 0.013031653626708968,
+      "12": 0.013031653626708968
+    },
+    "judge": {
+      "seed": 4866,
+      "samples": 780
+    }
+  },
+  "villainPost": {
+    "seat": 2,
+    "post": [
+      0.01761144778843192,
+      0.01761144778843192,
+      0.01761144778843192,
+      0.01761144778843192,
+      0.01761144778843192,
+      0.01761144778843192,
+      0.6325354884362171,
+      0.24418437704475937,
+      0.01761144778843192
+    ]
+  },
+  "recorded": {
+    "grade": "mistake",
+    "best": "Bet $90 (74% pot)",
+    "took": "Check",
+    "loss": 65.43461538461538,
+    "headline": "Mistake: checking is worth about $66 less, on average, than betting $90 (74% pot)."
+  },
+  "expect": {},
+  "why": "Watch (STRAT, PRO): AdJd checking the river on Kc 2s Kh 2h 5s (batch 20 h37d85). Range-bots: mistake $74; batch 20: mistake $65; stability batch: mistake $65. Pinned only to rebuild; STRAT and PRO rule its grade"
+}

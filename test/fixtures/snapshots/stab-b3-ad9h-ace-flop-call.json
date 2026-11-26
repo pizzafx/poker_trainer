@@ -1,0 +1,321 @@
+{
+  "kind": "snapshot-fixture",
+  "name": "stab-b3-ad9h-ace-flop-call",
+  "hole": "Ad 9h",
+  "board": "6s Jh Ah",
+  "pot": 142,
+  "action": {
+    "type": "call"
+  },
+  "took": "Call $60",
+  "samples": 3000,
+  "judgeSeed": 13244,
+  "table": {
+    "game": "home",
+    "blinds": [
+      1,
+      2
+    ],
+    "straddle": 0,
+    "rake": "No rake (time game)",
+    "handNo": 101,
+    "seats": [
+      {
+        "seat": 0,
+        "name": "You",
+        "pos": "HJ",
+        "startStack": 200,
+        "stack": 180,
+        "inPot": 20,
+        "folded": false
+      },
+      {
+        "seat": 1,
+        "name": "Party Crew",
+        "pos": "CO",
+        "startStack": 504,
+        "stack": 484,
+        "inPot": 20,
+        "folded": false,
+        "read": [
+          {
+            "type": "whale",
+            "p": 0.862
+          },
+          {
+            "type": "nit",
+            "p": 0.017
+          },
+          {
+            "type": "abc",
+            "p": 0.017
+          }
+        ],
+        "observed": {
+          "hands": 100,
+          "vpip": 76,
+          "pfr": 5,
+          "showdowns": 6
+        }
+      },
+      {
+        "seat": 2,
+        "name": "Jersey",
+        "pos": "BTN",
+        "startStack": 2467,
+        "stack": 2447,
+        "inPot": 20,
+        "folded": false,
+        "read": [
+          {
+            "type": "beginner",
+            "p": 0.862
+          },
+          {
+            "type": "nit",
+            "p": 0.017
+          },
+          {
+            "type": "abc",
+            "p": 0.017
+          }
+        ],
+        "observed": {
+          "hands": 100,
+          "vpip": 69,
+          "pfr": 3,
+          "showdowns": 6
+        },
+        "steaming": true
+      },
+      {
+        "seat": 3,
+        "name": "New Guy",
+        "pos": "SB",
+        "startStack": 373,
+        "stack": 371,
+        "inPot": 2,
+        "folded": true,
+        "read": [
+          {
+            "type": "beginner",
+            "p": 0.862
+          },
+          {
+            "type": "nit",
+            "p": 0.017
+          },
+          {
+            "type": "abc",
+            "p": 0.017
+          }
+        ],
+        "observed": {
+          "hands": 100,
+          "vpip": 73,
+          "pfr": 2,
+          "showdowns": 6
+        }
+      },
+      {
+        "seat": 4,
+        "name": "Hoodie",
+        "pos": "BB",
+        "startStack": 868,
+        "stack": 788,
+        "inPot": 80,
+        "folded": false,
+        "read": [
+          {
+            "type": "tag",
+            "p": 0.578
+          },
+          {
+            "type": "lag",
+            "p": 0.299
+          },
+          {
+            "type": "nit",
+            "p": 0.018
+          }
+        ],
+        "observed": {
+          "hands": 100,
+          "vpip": 24,
+          "pfr": 19,
+          "showdowns": 6
+        }
+      },
+      {
+        "seat": 5,
+        "name": "Shades",
+        "pos": "LJ",
+        "startStack": 168,
+        "stack": 168,
+        "inPot": 0,
+        "folded": true,
+        "read": [
+          {
+            "type": "lag",
+            "p": 0.862
+          },
+          {
+            "type": "nit",
+            "p": 0.017
+          },
+          {
+            "type": "abc",
+            "p": 0.017
+          }
+        ],
+        "observed": {
+          "hands": 100,
+          "vpip": 36,
+          "pfr": 35,
+          "showdowns": 6
+        }
+      }
+    ],
+    "actions": [
+      {
+        "street": "preflop",
+        "seat": 3,
+        "who": "New Guy",
+        "type": "sb",
+        "to": 1,
+        "amount": 1
+      },
+      {
+        "street": "preflop",
+        "seat": 4,
+        "who": "Hoodie",
+        "type": "bb",
+        "to": 2,
+        "amount": 2
+      },
+      {
+        "street": "preflop",
+        "seat": 5,
+        "who": "Shades",
+        "type": "fold",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "preflop",
+        "seat": 0,
+        "who": "You",
+        "type": "call",
+        "to": 2,
+        "amount": 2
+      },
+      {
+        "street": "preflop",
+        "seat": 1,
+        "who": "Party Crew",
+        "type": "call",
+        "to": 2,
+        "amount": 2
+      },
+      {
+        "street": "preflop",
+        "seat": 2,
+        "who": "Jersey",
+        "type": "call",
+        "to": 2,
+        "amount": 2
+      },
+      {
+        "street": "preflop",
+        "seat": 3,
+        "who": "New Guy",
+        "type": "call",
+        "to": 2,
+        "amount": 1
+      },
+      {
+        "street": "preflop",
+        "seat": 4,
+        "who": "Hoodie",
+        "type": "raise",
+        "to": 20,
+        "amount": 18
+      },
+      {
+        "street": "preflop",
+        "seat": 0,
+        "who": "You",
+        "type": "call",
+        "to": 20,
+        "amount": 18
+      },
+      {
+        "street": "preflop",
+        "seat": 1,
+        "who": "Party Crew",
+        "type": "call",
+        "to": 20,
+        "amount": 18
+      },
+      {
+        "street": "preflop",
+        "seat": 2,
+        "who": "Jersey",
+        "type": "call",
+        "to": 20,
+        "amount": 18
+      },
+      {
+        "street": "preflop",
+        "seat": 3,
+        "who": "New Guy",
+        "type": "fold",
+        "to": 2,
+        "amount": 0
+      },
+      {
+        "street": "flop",
+        "seat": 4,
+        "who": "Hoodie",
+        "type": "bet",
+        "to": 60,
+        "amount": 60
+      }
+    ],
+    "pot": 142,
+    "heat": 0.179,
+    "heatAt": {},
+    "judge": {
+      "seed": 13244,
+      "samples": 3000
+    }
+  },
+  "villainPost": {
+    "seat": 4,
+    "post": [
+      0.017543881504026682,
+      0.017543881504026682,
+      0.017543881504026682,
+      0.017543881504026682,
+      0.017543881504026682,
+      0.017543881504026682,
+      0.5782196875648566,
+      0.29897314190695656,
+      0.017543881504026682
+    ]
+  },
+  "recorded": {
+    "grade": "good",
+    "best": "Fold",
+    "took": "Call $60",
+    "loss": 41.92366666666667,
+    "headline": "Call $60: not graded. (Fold is worth about $42 more on average on our read of these players, but not under every reasonable read: if their hands are weaker than we read, the gap is only about $8 on average.)"
+  },
+  "expect": {
+    "notGrade": [
+      "good"
+    ],
+    "best": "Fold"
+  },
+  "why": "Ad9h calling a $60 flop bet on 6s Jh Ah (batch 20 h101d286): at least a mistake under the owner's fragile-read rule (STRAT B3); it read 'not graded' before, when the weaker-ranges read sat 1.7 SE under the bar"
+}

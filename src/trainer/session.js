@@ -216,6 +216,45 @@ export class Session {
     return news;
   }
 
+  // The tutorial's fixed deal (STRAT, CEO): the next hand starts with these cards, and everything else is natural.
+  // spec: { hero: 'Ad Qd', byPosition: { HJ: 'Ts 7s' }, board: 'Qc 9d 8s 5h Jc' } (hole is accepted for hero). Other seats
+  // are dealt from what is left by the session rng, and the bots act on their own draws from it; the rng is used exactly
+  // as a normal startHand uses it, apart from the cards fixed.
+  dealFixed(spec) {
+    // a hand still going (after quickSim, the hand it left you in) is folded out first, as quickSim itself does
+    if (this.hand && !this.hand.over) this.foldOut();
+    this.pendingFixed = spec;
+    return this.startHand();
+  }
+
+  // hole cards by seat for a fixed deal, positions read at this hand's button
+  fixedHoles(fx) {
+    const hole = new Array(this.n).fill(null);
+    const hero = fx.hero || fx.hole;
+    if (hero) hole[HERO] = parseCards(hero);
+    for (const [pos, cards] of Object.entries(fx.byPosition || {})) {
+      let seat = -1;
+      for (let i = 0; i < this.n; i++) if (positionName({ n: this.n, button: this.button }, i) === pos) seat = i;
+      if (seat < 0) throw new Error(`no seat at ${pos}`);
+      if (seat === HERO) throw new Error(`${pos} is the trainee's seat`);
+      hole[seat] = parseCards(cards);
+    }
+    return hole;
+  }
+
+  // What the next hand looks like before it is dealt (the tutorial's seed search): the button, the trainee's position and
+  // each seat's type and read as they stand now. Seat changes made at the start of the hand (players leaving and
+  // joining) are not known yet, so the search re-checks after dealing.
+  peekNextButton() {
+    const button = (this.button + 1) % this.n;
+    const pos = (i) => positionName({ n: this.n, button }, i);
+    return {
+      button,
+      heroPos: pos(HERO),
+      seats: this.seats.map((p, i) => (p.hero ? { seat: i, pos: pos(i), hero: true } : { seat: i, pos: pos(i), type: p.type, read: this.readOf(i).ranked[0] })),
+    };
+  }
+
   startHand() {
     this.news = this.handNo === 0 ? [] : this.shuffleSeats();
     // Said once as the table's read of you crosses 0.5, and again only after it has dropped below 0.4 (QA Z1).
@@ -232,9 +271,12 @@ export class Session {
       const f = { maniac: 0.3, whale: 0.25, lag: 0.1 }[up.type] || 0;
       if (this.rng() < f && up.stack > 20 * this.game.bb) straddle = this.game.bb * 2;
     }
-    const fx = this.fixedHands && this.fixedHands[this.handNo];
+    // a fixed deal for this hand: dealFixed (the next hand) or fixedHands[handNo]
+    const fx = this.pendingFixed || (this.fixedHands && this.fixedHands[this.handNo]) || null;
+    this.pendingFixed = null;
+    const fixedHole = fx ? this.fixedHoles(fx) : null;
     const state = newHand({
-      ...(fx ? { hole: fx.hole ? [parseCards(fx.hole)] : undefined, board: fx.board ? parseCards(fx.board) : undefined } : {}),
+      ...(fx ? { hole: fixedHole, board: fx.board ? parseCards(fx.board) : undefined } : {}),
       stacks: this.seats.map((s) => s.stack),
       button: this.button,
       sb: this.game.sb,

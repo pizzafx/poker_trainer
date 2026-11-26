@@ -12,6 +12,7 @@ import { TURN_PAIR_FOLD_REF } from '../data/turnpairref.js'; // POOL batch 19h
 import { RIVER_PAIR_FOLD_REF3 } from '../data/riverpairref3.js'; // POOL batch 19i
 import { TURN_PAIR_FOLD_REF3 } from '../data/turnpairref3.js'; // POOL batch 19i
 import { RIVER_AIR_K, RIVER_AIR_SIZES } from '../data/riverairk.js'; // POOL batch 19i
+import { STAB_FOLD_REF } from '../data/stabfoldref.js'; // POOL batch 20 (big-stab item)
 
 import { EQ_HEADS_UP } from '../data/preflop.js';
 import { classInfo, classIndex, CLASS_COUNT } from '../engine/hands.js';
@@ -224,6 +225,13 @@ export function buildContext(s, seat = s.toAct) {
   ctx.iCheckedPrev = s.street > STREET.FLOP && s.history.some((h) => h.street === s.street - 1 && h.seat === seat && h.type === 'check'); // POOL batch 16
   ctx.iBetPrev = s.street > STREET.FLOP && s.history.some((h) => h.street === s.street - 1 && h.seat === seat && (h.type === 'bet' || h.type === 'raise')); // POOL batch 19d
   ctx.preflopRaised = s.history.some((h) => h.street === STREET.PRE && h.type === 'raise');
+  // POOL batch 20 (big-stab item): this seat limped, then called the one preflop raise (a limp-call)
+  {
+    const ri = s.history.findIndex((h) => h.street === STREET.PRE && h.type === 'raise');
+    ctx.limpCalled = ri >= 0 && !s.history.some((h, i) => i > ri && h.street === STREET.PRE && h.type === 'raise') &&
+      s.history.some((h, i) => i < ri && h.street === STREET.PRE && h.seat === seat && h.type === 'call');
+    ctx.pfRaises = s.history.reduce((a, h) => a + (h.street === STREET.PRE && h.type === 'raise' ? 1 : 0), 0); // 2 = a 3-bet pot
+  }
   {
     const suits = [0, 0, 0, 0];
     let mask = 0;
@@ -986,13 +994,41 @@ export function postflopPolicy(ctx, P, f) {
     // checked to on the flop or turn, passive players bet a weak or middle pair "to see where they are" (POOL pass 3)
     const pairStab = st === 1 && P.pairStabTurn != null ? P.pairStabTurn : P.pairStab; // POOL batch 9: fewer weak-pair stabs on the turn
     const pPair = pairStab && ctx.checkedTo && !ctx.aggressorBehind && st < 2 && f.tier >= TIER.WEAK_PAIR && f.tier <= TIER.MIDDLE_PAIR ? pairStab * Math.max(0, 1 - pValue - pBluff - pBlock) : 0;
-    let bet = pValue + pBluff + pBlock + pPair;
+    const base = pValue + pBluff + pBlock + pPair;
+    let bet = base;
+    // POOL batch 20 (item B, PRO's trips-board table 2): a limped pot's flop that is three of a rank, nobody has bet:
+    // the bet rate is the type's tripsFlopBet { quads, fh, air } (quads: a hole card of the rank; fh: a pocket pair;
+    // air: everyone else, the board's trips plus a kicker). The size mix keeps each part's share (base); a hand that
+    // never bet here today takes sizeBluff (air) or sizeValue.
+    let tripsCls = null;
+    if (P.tripsFlopBet && st === 0 && !ctx.preflopRaised && f.hole && ctx.boardCards && ctx.boardCards.length === 3) {
+      const r0 = ctx.boardCards[0] >> 2;
+      if (ctx.boardCards[1] >> 2 === r0 && ctx.boardCards[2] >> 2 === r0) {
+        const h0 = f.hole[0] >> 2, h1 = f.hole[1] >> 2;
+        tripsCls = h0 === r0 || h1 === r0 ? 'quads' : h0 === h1 ? 'fh' : 'air';
+        if (P.tripsFlopBet[tripsCls] != null) bet = P.tripsFlopBet[tripsCls];
+        else tripsCls = null;
+      }
+    }
     if (!ctx.canRaise) bet = 0;
     out.raise = bet;
     out.check = 1 - bet;
     if (bet > 0) {
       const valueW = S >= 0.8 ? P.sizeValue : P.sizeThin;
-      out.sizes = betSizes(ctx, mixWeights(mixWeights(mixWeights(valueW, pValue / bet, P.sizeBluff, pBluff / bet), 1, [1, 0, 0, 0, 0], pBlock / bet), 1, P.sizeThin, pPair / bet));
+      let w = base > 0
+        ? mixWeights(mixWeights(mixWeights(valueW, pValue / base, P.sizeBluff, pBluff / base), 1, [1, 0, 0, 0, 0], pBlock / base), 1, P.sizeThin, pPair / base)
+        : (tripsCls === 'air' ? P.sizeBluff : valueW);
+      // POOL batch 20 (item D, PRO's paired-flop table 4): live recreational players size big with medium hands, so on a
+      // paired flop, having called a preflop raise (not the raiser), a type with pairedPotShift moves that share of the
+      // 1/3- and 1/2-pot weight of a hand without trips (odd pair, pocket pair, the board pair alone; not a no-pair
+      // draw) to the pot-size bet. Only the size moves: the bet rate is untouched.
+      if (P.pairedPotShift && st === 0 && ctx.preflopRaised && !ctx.initiative && ctx.boardPaired && f.cat < CATEGORY.TRIPS && !(f.cat <= CATEGORY.PAIR && f.drawEquity >= 0.14)) {
+        const k = P.pairedPotShift;
+        // only the 1/3 and 1/2 weights move: the 3/4 bet keeps today's mix, so the read of a 3/4 lead is unchanged (STRAT's p3 set piece)
+        const moved = (w[0] + w[1]) * k;
+        w = [w[0] * (1 - k), w[1] * (1 - k), w[2], w[3] + moved, w[4]];
+      }
+      out.sizes = betSizes(ctx, w);
     }
     return out;
   }
@@ -1332,6 +1368,50 @@ export function postflopPolicy(ctx, P, f) {
       for (let i = 1; i < RIVER_AIR_SIZES.length; i++) if (bf > RIVER_AIR_SIZES[i - 1]) k = bf >= RIVER_AIR_SIZES[i] ? row[i] : row[i - 1] + ((row[i] - row[i - 1]) * (bf - RIVER_AIR_SIZES[i - 1])) / (RIVER_AIR_SIZES[i] - RIVER_AIR_SIZES[i - 1]);
       if (k < 1) pCont = 1 - k * (1 - pCont);
     }
+  }
+  // POOL batch 20 (PRO's big-stab ceilings after checked lines, CEO-approved 26 Nov; PRO_RUBRIC.md "Folds to a stab after
+  // checked-through streets"): a weak or middle pair facing one bet, nobody has called it, on a line where the street before
+  // was checked through (river or turn), or on a limped / limp-called flop, folds at most the type's bigStabFoldCap line:
+  // { river, turn, flopLimped, flopLimpCall: [line at 1/2-2/3 pot, line above 2/3 pot] } (null: no line). 19g's frame:
+  // k = min(1, 0.85 x line / ref), ref the pooled weak+mid fold measured on the batch-20 build (src/data/stabfoldref.js) by
+  // bet size; each hand's fold scales by k, so the weak/mid order and the bettor conditioning hold. Folds only become calls.
+  if (P.bigStabFoldCap && !facingRaise && ctx.toCall > 0 && (f.tier === TIER.WEAK_PAIR || f.tier === TIER.MIDDLE_PAIR) && !((ctx.fullCallersIn ?? ctx.callersIn) > 0)) {
+    const ln = st > 0 ? (ctx.prevChecked ? (st === 2 ? 'river' : 'turn') : null) : !ctx.preflopRaised ? 'flopLimped' : ctx.limpCalled ? 'flopLimpCall' : null;
+    const row = ln ? P.bigStabFoldCap[ln] : null;
+    if (row) {
+      const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall);
+      const b = bf <= 0.5 ? -1 : bf <= 0.67 ? 0 : bf <= 1 ? 1 : bf <= 1.5 ? 2 : 3;
+      const line = b < 0 ? null : row[b === 0 ? 0 : 1];
+      const ref = b < 0 ? null : STAB_FOLD_REF[P.id]?.[ln]?.[b];
+      if (line != null && ref > 0) {
+        const k = Math.min(1, (FOLD_CAP_AIM * line) / ref);
+        if (k < 1) pCont = 1 - k * (1 - pCont);
+      }
+    }
+  }
+  // POOL batch 20 (PRO's paired-flop lines, CEO-approved 26 Nov; PRO_RUBRIC.md "Paired flops"): flop, paired board, facing one
+  // bet with 2+ others still in, a hand without trips folds at most 0.85 x the line (folds only become calls):
+  //  cbet3 { mid, low: [line at about 1/3 pot, at 1/2 pot and up] }: a 3-bet pot, the last preflop raiser bet, the pair Q+;
+  //   mid = a pocket pair between the odd card and the pair (99-JJ on K-K-2), low = a pocket pair under both.
+  //  cont { Ahigh, ppUnder: [continue floors at 1/3, 1/2, 2/3-3/4, pot] }: any pot and bettor; Ahigh = no pair of its own,
+  //   an ace, no real draw; ppUnder = a pocket pair under the board pair. null: no floor at that size.
+  if (P.pairedFlopCont && st === 0 && !facingRaise && ctx.toCall > 0 && ctx.nOpp >= 2 && ctx.boardPaired && f.hole && ctx.boardCards && f.cat < CATEGORY.TRIPS) {
+    const rk = ctx.boardCards.map((c) => c >> 2), pr = rk[0] === rk[1] || rk[0] === rk[2] ? rk[0] : rk[1], oc = rk.find((r) => r !== pr);
+    const h0 = f.hole[0] >> 2, h1 = f.hole[1] >> 2, pp = h0 === h1;
+    const ahead = (ctx.fullCallersIn ?? ctx.callersIn ?? 0);
+    const bf = ctx.toCall / Math.max(1, ctx.pot - ctx.toCall * (1 + ahead));
+    const Q = P.pairedFlopCont;
+    let line = null;
+    // the generic under-pair floor stays out of 3-bet pots: there only the cbet3 line applies (PRO, 26 Nov)
+    if (pp && h0 < pr && Q.cont?.ppUnder && !(ctx.pfRaises >= 2)) { const v = Q.cont.ppUnder[bf < 0.42 ? 0 : bf < 0.6 ? 1 : bf < 0.85 ? 2 : 3]; if (v != null) line = 100 - v; }
+    if (!pp && f.cat <= CATEGORY.PAIR && (h0 === 12 || h1 === 12) && f.drawEquity < 0.14 && Q.cont?.Ahigh) { const v = Q.cont.Ahigh[bf < 0.42 ? 0 : bf < 0.6 ? 1 : bf < 0.85 ? 2 : 3]; if (v != null) line = 100 - v; }
+    if (pp && h0 < pr && pr >= 10 && ctx.pfRaises === 2 && ctx.betByPfr && Q.cbet3) {
+      const row = h0 > oc ? Q.cbet3.mid : Q.cbet3.low, v = row ? row[bf < 0.5 ? 0 : 1] : null;
+      if (v != null) line = line == null ? v : Math.min(line, v);
+    }
+    // the aim: 0.85 x the line under 50; at 50 or more the margin is taken on the continue side (fold <= 100 - (100 - line) / 0.85),
+    // so a line near 100 (97: fold nearly always) moves its cell by a point, not fifteen (POOL; PRO to confirm)
+    if (line != null) pCont = Math.max(pCont, 1 - (line >= 50 ? 100 - (100 - line) / FOLD_CAP_AIM : FOLD_CAP_AIM * line) / 100);
   }
   out.call = (1 - raise) * pCont;
   out.fold = Math.max(0, 1 - out.raise - out.call);

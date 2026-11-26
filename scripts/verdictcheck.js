@@ -397,7 +397,18 @@ export const INVARIANTS = {
   'YB-C2 the money-in flag is yellow, names fold or check ("giving up the pot") and says the play loses money by itself': (d, v) =>
     v.rule === 'moneyIn' && (v.grade !== 'mistake' || v.best !== giveUpOption(v) || !/giving up the pot/.test(d.headline || '') || !(d.reasons || []).some((r) => /loses money by itself/.test(r))),
   'P7-1 no "bets still to come" on the river': (d) => d.street === STREET.RIVER && /bets still to come/.test(d.anchor || ''),
-  'P7-1b line 8a ("bets still to come") only when the judge prefers the fold': (d, v) => /bets still to come/.test(d.anchor || '') && !(v.a4 && v.a4.raw === 'fold'),
+  // scoped to line 8a itself (STRAT, batch 20 gate): the other "bets still to come" line is P7-1c's
+  'P7-1b line 8a ("bets still to come") only when the judge prefers the fold': (d, v) => (v.line === '8a' || /take most of that back/.test(d.anchor || '')) && !(v.a4 && v.a4.raw === 'fold'),
+  // the call-or-fold line's "…the bets still to come from these players cost more than that edge. Fold." says fold is the
+  // better of call and fold, and that what you'd win covers the price (STRAT, batch 20 gate)
+  'P7-1c "cost more than that edge. Fold." only when fold beats the call and E covers the price': (d, v) => {
+    if (!/cost more than that edge\. Fold\./.test(d.anchor || '')) return false;
+    const call = v.options.find((o) => o.type === 'call');
+    const fold = v.options.find((o) => o.type === 'fold');
+    const E = v.runout ? v.runout.E : undefined;
+    const P = v.anchors ? v.anchors.price : undefined;
+    return !call || !fold || fold.ev < call.ev || !(E >= P);
+  },
   'P7-2 no "Close." line when you are almost never ahead': (d, v) => /^Close\./.test(d.anchor || '') && v.anchors && v.anchors.Q !== undefined && callQOf(d, v) < 0.05,
   'P7-2b never "both reasonable" when you are almost never ahead': (d, v) => v.anchors && v.anchors.Q !== undefined && callQOf(d, v) < 0.05 && /both reasonable/.test(d.anchor || ''),
   'P5-1 no "out of position" or "multiway pot" wording with an all-in in play preflop': (d, v) => d.street === STREET.PRE && v.preShove && /out of position|multiway pot/.test(text(d)),

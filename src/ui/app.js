@@ -994,6 +994,9 @@ function stripHtml(show, { worst, prev }) {
 function renderToast() {
   const h = sess.hand;
   const el = $('toast');
+  // the first-visit tip runs to three lines on a phone: its row grows while it shows (DESIGN, CEO: it ran under the
+  // "YOUR TURN" rule); every other strip keeps the fixed 44px row, so the table never jumps
+  el.classList.remove('hint-on');
   // RV2-B: on a phone, a coach that couldn't load says so here, over anything else, and once (role="status")
   if (showCoachDown({ failed: judge.failed, phone: matchMedia('(max-width: 600px)').matches })) {
     if (!el.querySelector('.cs.down')) {
@@ -1007,6 +1010,7 @@ function renderToast() {
   const turnKey = `${h.no}:${h.state.history.length}`;
   if (sess.status() === 'hero' && prevTurn.key !== turnKey) prevTurn = { key: turnKey, seen: new Set(h.decisions.filter((x) => !x.pending).map((x) => x.id)) };
   if (hintOn) {
+    el.classList.add('hint-on');
     el.innerHTML = `<div class="toast hint"><svg class="tile" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#1f5c4a"/><rect x=".5" y=".5" width="31" height="31" rx="7.5" fill="none" stroke="#f3f0e8" stroke-opacity=".22"/><g fill="none" stroke="#f3f0e8" stroke-width="2.1"><path d="M9.51 13.56A3.8 3.8 0 1 0 10.4 16H7.3"/><path d="M12.4 12.2h7.2M16 12.2v8.65"/><circle cx="25.4" cy="16" r="3.8"/></g><path d="M3 18.2C10 13.8 19 19.6 29 14.4" fill="none" stroke="#b4e46e" stroke-width="2.1" stroke-linecap="round"/></svg>
       <span class="t-main">Play it the way you would live. The coach speaks up when another play would do better, on average.</span>
       <button type="button" class="t-more" id="hint-ok">Got it</button></div>`;

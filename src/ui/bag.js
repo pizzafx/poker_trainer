@@ -247,6 +247,8 @@ const SCREENS = {
       dock.innerHTML = '';
       await flipUp(bag);
       $('.bagwrap').insertAdjacentHTML('afterend', `<div class="mini fade-in"><span>Caller: <b>${wkC} weak</b></span><span>·</span><span>Careful: <b>${wkN} weak</b></span></div>`);
+      // the counts line takes the key's place here, so the screen still fits at 360 x 740 (r2final, UX-SIMPLE)
+      $('.key').remove();
       say(`${verdict(score.q2)}A careful player's calls leave far fewer weak hands: ${wkN}, not ${wkC}.<small>Same calls. Different player, different bag.</small>`, () => go('q3'));
     });
   },

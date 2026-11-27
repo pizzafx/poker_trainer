@@ -133,3 +133,11 @@ test('nearLine: a gap within 1.5 SE of the yellow line fires; far from both line
   // without runs nearLine is off (a hand-built verdict); with runs pairedGap gives its own SE, tested by the session test
   assert.equal(nearLine(mk(6, 1), s), false);
 });
+
+test('fragile-read margin: the SE only decides whether a pick holds; which alternative is named goes by the plain shortfall (QA-VERDICT)', () => {
+  // options: 0 = mine; 1 clears the bar by 5 in every read; 2 clears by 2 but is very noisy (SE 6)
+  const scen = [[0, 15, 12], [0, 15, 12]];
+  const opts = { usable: [false, true, true], bar: () => 10, significant: () => true, kind: (a) => ['call', 'fold', 'raise'][a], small: 10, notHabit: [true, true, true] };
+  assert.equal(robustVerdict(scen, 0, { ...opts, se: (k, a) => (a === 2 ? 6 : 0.5) }).pick, 1, 'the noisier option does not win the name on its SE');
+  assert.equal(robustVerdict(scen, 0, opts).pick, 1, 'today: the same pick');
+});

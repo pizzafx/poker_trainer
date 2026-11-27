@@ -1161,11 +1161,18 @@ export function robustVerdict(scen, mine, { usable, bar, significant, kind, smal
   let pickMargin = -Infinity;
   for (let a = 0; a < usable.length; a++) {
     if (!usable[a] || !significant(a)) continue;
+    // the margin decides whether a scenario breaks the pick; which alternative is named still goes by the plain
+    // shortfall, as before, so a noisier option never wins the name on its SE (QA-VERDICT, stability check)
     let m = Infinity;
-    scen.forEach((e, k) => (m = Math.min(m, e[a] - e[mine] - bar(a) + 2 * se(k, a))));
-    if (m >= 0 && m > pickMargin) {
+    let raw = Infinity;
+    scen.forEach((e, k) => {
+      const g = e[a] - e[mine] - bar(a);
+      m = Math.min(m, g + 2 * se(k, a));
+      raw = Math.min(raw, g);
+    });
+    if (m >= 0 && raw > pickMargin) {
       pick = a;
-      pickMargin = m;
+      pickMargin = raw;
     }
   }
   if (pick >= 0) return { pick };

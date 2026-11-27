@@ -353,11 +353,32 @@ export function gradeDecision(s, belief, action, judgeOpts, env) {
   let v = judgeDecision(s, HERO, belief, action, judgeOpts);
   // debug (QA-VERDICT, MATH; LD1 option F): the samples the base run wanted, beside v.samples (what it reached)
   const wanted = judgeOpts.samples;
-  v = secondPass(v, s, belief, action, judgeOpts);
   const ro = runoutOf(s, belief);
-  if (ro) v.runout = ro;
-  v.samplesWanted = wanted;
-  return gradeVerdict(v, s, action, judgeOpts, env);
+  const finish = (x) => {
+    if (ro) x.runout = ro;
+    x.samplesWanted = wanted;
+    return x;
+  };
+  if (s.street === STREET.PRE) {
+    // preflop (MATH, STRAT 26 Nov): the trigger is the final gap and SE after the preflop rules, so the grading runs
+    // once on a copy (cheap preflop); near a line, the pooled verdict is graded again and the preflop rules read it
+    const first = gradeVerdict(finish(copyVerdict(v)), s, action, judgeOpts, env);
+    if (!nearLine(first, s)) {
+      first.stab = { pass2: false, n1: v.samples, n2: 0, cut: false };
+      return first;
+    }
+    return gradeVerdict(finish(secondPass(v, s, belief, action, judgeOpts, true)), s, action, judgeOpts, env);
+  }
+  v = secondPass(v, s, belief, action, judgeOpts);
+  return gradeVerdict(finish(v), s, action, judgeOpts, env);
+}
+
+// A judged verdict to grade without touching the original: its own options, the same (read-only) runs
+function copyVerdict(v) {
+  const c = { ...v, options: v.options.map((o) => ({ ...o })) };
+  if (v.anchors) c.anchors = { ...v.anchors };
+  Object.defineProperty(c, 'runs', { value: v.runs, enumerable: false });
+  return c;
 }
 
 // The second pass near a line (STRAT S1, B1; MATH's measured best on gain per sample, 26 Nov): when the trainee's
@@ -365,7 +386,8 @@ export function gradeDecision(s, belief, action, judgeOpts, env) {
 // the spot once more at the first pass's sample count on a seed derived from the decision's (+7919, so it stays
 // deterministic), the two are pooled, and every guardrail and the scenario test then run on the pooled verdict.
 // Inside the decision's budget: the second pass gets the same budget as the first and no extension, and pools what
-// it reached. The money-in rule and the preflop rules are not part of it (STRAT B1). Debug: v.pass2 { want,
+// it reached. Preflop decisions too (STRAT, 26 Nov: the judge's own lines apply on every street); the money-in rule's
+// and the preflop rules' own extra lines are not part of the trigger (STRAT B1). Debug: v.pass2 { want,
 // reached } (QA-VERDICT) and v.stab { pass2, n1, n2, cut } (QA-MOBILE: how often it fires and whether the budget
 // cuts it), on every verdict.
 export const PASS2_SEED = 7919;
@@ -379,10 +401,10 @@ export function nearLine(v, s) {
   const Rd = Math.max(redBar(bb, pot) * k, 2.2 * g.se);
   return Math.abs(g.mean - Y) < 1.5 * g.se || Math.abs(g.mean - Rd) < 1.5 * g.se;
 }
-function secondPass(v, s, belief, action, judgeOpts) {
+function secondPass(v, s, belief, action, judgeOpts, near = nearLine(v, s)) {
   const n1 = v.samples;
   const stab = { pass2: false, n1, n2: 0, cut: false };
-  if (s.street === STREET.PRE || !nearLine(v, s)) {
+  if (!near) {
     v.stab = stab;
     return v;
   }

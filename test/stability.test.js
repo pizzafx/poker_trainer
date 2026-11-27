@@ -115,7 +115,6 @@ test('every graded decision carries verdict.stab { pass2, n1, n2, cut }, and the
         assert.equal(d.verdict.samples, st.n1 + st.n2);
         assert.equal(st.cut, st.n2 < st.n1);
         assert.deepEqual(d.verdict.pass2, { want: st.n1, reached: st.n2 });
-        assert.notEqual(d.street, 0, 'never preflop');
       } else assert.equal(st.n2, 0);
     }
   }

@@ -140,3 +140,18 @@ test('fragile-read margin: the SE only decides whether a pick holds; which alter
   assert.equal(robustVerdict(scen, 0, { ...opts, se: (k, a) => (a === 2 ? 6 : 0.5) }).pick, 1, 'the noisier option does not win the name on its SE');
   assert.equal(robustVerdict(scen, 0, opts).pick, 1, 'today: the same pick');
 });
+
+// QA-MOBILE's timing gate: the second pass and S2 stay inside the decision's budget
+import { budgetSpent, reRunOpts } from '../src/trainer/grade.js';
+test('budget: a first pass the budget cut or extended leaves no budget for the second pass or S2; a replay passes lean back', () => {
+  const opts = { budgetMs: 2000, samples: 3000 };
+  assert.equal(budgetSpent({ samples: 3000, extended: false }, opts), false, 'full first pass: budget left');
+  assert.equal(budgetSpent({ samples: 900, extended: false }, opts), true, 'cut first pass (a phone)');
+  assert.equal(budgetSpent({ samples: 800, extended: true }, opts), true, 'extended first pass');
+  assert.equal(budgetSpent({ samples: 900 }, { samples: 3000 }), false, 'no budget (tests, replays without a record): never lean');
+  assert.equal(budgetSpent({ samples: 3000 }, { ...opts, lean: true }), true, 'a replay of a lean verdict stays lean');
+});
+test('re-runs scale with the first pass\'s reach, never the pooled count', () => {
+  const v = { samples: 1600, stab: { pass2: true, n1: 800, n2: 800 } };
+  assert.equal(reRunOpts({ samples: 3000, budgetMs: 2000 }, 1500, v).samples, 400, '1500 x 800/3000');
+});

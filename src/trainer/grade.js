@@ -364,7 +364,7 @@ export function gradeDecision(s, belief, action, judgeOpts, env) {
     // once on a copy (cheap preflop); near a line, the pooled verdict is graded again and the preflop rules read it
     const first = gradeVerdict(finish(copyVerdict(v)), s, action, judgeOpts, env);
     if (!nearLine(first, s)) {
-      first.stab = { pass2: false, n1: v.samples, n2: 0, cut: false };
+      first.stab = { pass2: false, n1: v.samples, n2: 0, cut: false, lean: budgetSpent(v, judgeOpts) };
       return first;
     }
     return gradeVerdict(finish(secondPass(v, s, belief, action, judgeOpts, true)), s, action, judgeOpts, env);
@@ -401,10 +401,18 @@ export function nearLine(v, s) {
   const Rd = Math.max(redBar(bb, pot) * k, 2.2 * g.se);
   return Math.abs(g.mean - Y) < 1.5 * g.se || Math.abs(g.mean - Rd) < 1.5 * g.se;
 }
+// The decision's budget is spent when the first pass was cut short or extended (a slow device): then neither the second
+// pass nor S2's full-sample scenario test runs (QA-MOBILE, stability gate: unbudgeted re-runs after a cut first pass
+// went past the client's timeout). `lean` is recorded, and a replay passes it back, so it grades the same way.
+export function budgetSpent(v, judgeOpts) {
+  if (judgeOpts.lean !== undefined) return !!judgeOpts.lean;
+  return !!(judgeOpts.budgetMs > 0 && (v.extended || v.samples < judgeOpts.samples));
+}
 function secondPass(v, s, belief, action, judgeOpts, near = nearLine(v, s)) {
   const n1 = v.samples;
-  const stab = { pass2: false, n1, n2: 0, cut: false };
-  if (!near) {
+  const lean = budgetSpent(v, judgeOpts);
+  const stab = { pass2: false, n1, n2: 0, cut: false, lean };
+  if (!near || lean) {
     v.stab = stab;
     return v;
   }
@@ -451,7 +459,9 @@ export function gradeVerdict(verdict, s, action, judgeOpts, env) {
 // flag, so a slow device saw fewer flags (QA-VERDICT LD1, MATH, CEO). Each runs its share of the samples the
 // base run actually reached (the base run keeps the budget), never fewer than 200 or the share itself.
 export function reRunOpts(judgeOpts, want, v) {
-  const reached = v && v.samples && judgeOpts.samples ? Math.min(1, v.samples / judgeOpts.samples) : 1;
+  // the first pass's reach, not the pooled count of a second pass (QA-MOBILE: pooling grew the re-runs on phones)
+  const n1 = v && v.stab && v.stab.n1 ? v.stab.n1 : v && v.samples;
+  const reached = n1 && judgeOpts.samples ? Math.min(1, n1 / judgeOpts.samples) : 1;
   return { ...judgeOpts, budgetMs: 0, samples: Math.max(Math.min(want, 200), Math.round(want * reached)) };
 }
 
@@ -1106,7 +1116,7 @@ function guardrails(v, s, ctx, action, judgeOpts, env, cmp = {}) {
   // S2 (STRAT B2): when, on that run, any scenario's gap for the candidate (the test's pick, else the judge's best) is
   // within 1.5 of its paired SE of the bar, the scenario test runs again at full samples (the first pass's count)
   const cand = r.pick >= 0 ? r.pick : v.best;
-  if (half < judgeOpts.samples && cand >= 0 && cand !== v.mine && tab.scen.some((e, k) => Math.abs(e[cand] - e[v.mine] - scenBar(cand)) < 1.5 * tab.ses[k](cand))) {
+  if (!(v.stab && v.stab.lean) && half < judgeOpts.samples && cand >= 0 && cand !== v.mine && tab.scen.some((e, k) => Math.abs(e[cand] - e[v.mine] - scenBar(cand)) < 1.5 * tab.ses[k](cand))) {
     tab = scenarioTable(judgeOpts.samples);
     r = decide(tab);
     v.scenFull = true; // debug (QA-VERDICT): the scenario test ran at full samples

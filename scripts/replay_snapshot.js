@@ -48,6 +48,7 @@ export function normalise(rec) {
       action: null,
       samples: v.stab && v.stab.pass2 ? v.stab.n1 : v.samples,
       pass2Samples: v.stab && v.stab.pass2 ? v.stab.n2 : undefined,
+      lean: v.stab ? !!v.stab.lean : undefined,
       seed: rec.table && rec.table.judge && rec.table.judge.seed,
       recorded: { grade: v.grade, best: v.best, took: v.took, loss: v.loss, headline: v.headline },
       villainPost: null,
@@ -64,6 +65,7 @@ export function normalise(rec) {
     action: rec.action || null,
     samples: (v.stab && v.stab.pass2 ? v.stab.n1 : v.samples) || (rec.snapshot && rec.snapshot.judge && rec.snapshot.judge.samples),
     pass2Samples: v.stab && v.stab.pass2 ? v.stab.n2 : undefined,
+    lean: v.stab ? !!v.stab.lean : undefined,
     seed: rec.judgeSeed ?? (rec.snapshot && rec.snapshot.judge && rec.snapshot.judge.seed),
     recorded: { grade: v.grade, best: label(v.best), took: label(v.mine), loss: v.loss, headline: rec.bestHeadline || rec.headline },
     villainPost: rec.villain && rec.villain.post ? { seat: rec.villain.seat, post: TYPE_IDS.map((_, t) => +rec.villain.post[t] || 0) } : null,
@@ -167,7 +169,7 @@ export function rebuild(recIn, { samples } = {}) {
     },
     name: (i) => t.seats[i].name,
   };
-  const opts = { samples: samples || r.samples || 3000, seed: r.seed ?? 1, heat: t.heat || 0, ...(r.pass2Samples ? { pass2Samples: r.pass2Samples } : {}) };
+  const opts = { samples: samples || r.samples || 3000, seed: r.seed ?? 1, heat: t.heat || 0, ...(r.pass2Samples ? { pass2Samples: r.pass2Samples } : {}), ...(r.lean !== undefined ? { lean: r.lean } : {}) };
   return { s, belief, env, opts, rec: r };
 }
 

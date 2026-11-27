@@ -1,0 +1,420 @@
+{
+  "kind": "snapshot-fixture",
+  "name": "stab-tt-aa2-bet-mistake",
+  "hole": "Th Tc",
+  "board": "Ah Ac 2s",
+  "pot": 102,
+  "action": {
+    "type": "raise",
+    "to": 153
+  },
+  "took": "Bet $153 (150% pot)",
+  "samples": 3000,
+  "judgeSeed": 13900,
+  "table": {
+    "game": "casino",
+    "blinds": [
+      2,
+      5
+    ],
+    "straddle": 0,
+    "rake": "Stepped to $5 (reached at a $60 pot) + $2 jackpot drop",
+    "handNo": 106,
+    "seats": [
+      {
+        "seat": 0,
+        "name": "You",
+        "pos": "LJ",
+        "startStack": 1000,
+        "stack": 975,
+        "inPot": 25,
+        "folded": false
+      },
+      {
+        "seat": 1,
+        "name": "Jersey",
+        "pos": "HJ",
+        "startStack": 456,
+        "stack": 456,
+        "inPot": 0,
+        "folded": true,
+        "read": [
+          {
+            "type": "abc",
+            "p": 0.445
+          },
+          {
+            "type": "tag",
+            "p": 0.377
+          },
+          {
+            "type": "lag",
+            "p": 0.063
+          }
+        ],
+        "observed": {
+          "hands": 27,
+          "vpip": 7,
+          "pfr": 4,
+          "showdowns": 1
+        }
+      },
+      {
+        "seat": 2,
+        "name": "Hoodie",
+        "pos": "CO",
+        "startStack": 844,
+        "stack": 844,
+        "inPot": 0,
+        "folded": true,
+        "read": [
+          {
+            "type": "tag",
+            "p": 0.828
+          },
+          {
+            "type": "lag",
+            "p": 0.049
+          },
+          {
+            "type": "nit",
+            "p": 0.018
+          }
+        ],
+        "observed": {
+          "hands": 105,
+          "vpip": 25,
+          "pfr": 20,
+          "showdowns": 4
+        }
+      },
+      {
+        "seat": 3,
+        "name": "Golf Shirt",
+        "pos": "BTN",
+        "startStack": 1163,
+        "stack": 1138,
+        "inPot": 25,
+        "folded": false,
+        "read": [
+          {
+            "type": "abc",
+            "p": 0.862
+          },
+          {
+            "type": "nit",
+            "p": 0.017
+          },
+          {
+            "type": "station",
+            "p": 0.017
+          }
+        ],
+        "observed": {
+          "hands": 91,
+          "vpip": 33,
+          "pfr": 5,
+          "showdowns": 6
+        }
+      },
+      {
+        "seat": 4,
+        "name": "Loud Guy",
+        "pos": "SB",
+        "startStack": 1829,
+        "stack": 1827,
+        "inPot": 2,
+        "folded": true,
+        "read": [
+          {
+            "type": "tag",
+            "p": 0.481
+          },
+          {
+            "type": "lag",
+            "p": 0.221
+          },
+          {
+            "type": "abc",
+            "p": 0.157
+          }
+        ],
+        "observed": {
+          "hands": 35,
+          "vpip": 9,
+          "pfr": 6,
+          "showdowns": 1
+        }
+      },
+      {
+        "seat": 5,
+        "name": "Shades",
+        "pos": "BB",
+        "startStack": 1005,
+        "stack": 980,
+        "inPot": 25,
+        "folded": false,
+        "read": [
+          {
+            "type": "gto",
+            "p": 0.341
+          },
+          {
+            "type": "tag",
+            "p": 0.303
+          },
+          {
+            "type": "lag",
+            "p": 0.245
+          }
+        ],
+        "observed": {
+          "hands": 5,
+          "vpip": 2,
+          "pfr": 2,
+          "showdowns": 0
+        }
+      },
+      {
+        "seat": 6,
+        "name": "Party Crew",
+        "pos": "UTG",
+        "startStack": 790,
+        "stack": 765,
+        "inPot": 25,
+        "folded": false,
+        "read": [
+          {
+            "type": "abc",
+            "p": 0.512
+          },
+          {
+            "type": "station",
+            "p": 0.23
+          },
+          {
+            "type": "whale",
+            "p": 0.149
+          }
+        ],
+        "observed": {
+          "hands": 3,
+          "vpip": 1,
+          "pfr": 0,
+          "showdowns": 0
+        }
+      },
+      {
+        "seat": 7,
+        "name": "Ball Cap",
+        "pos": "UTG+1",
+        "startStack": 1282,
+        "stack": 1282,
+        "inPot": 0,
+        "folded": true,
+        "read": [
+          {
+            "type": "abc",
+            "p": 0.862
+          },
+          {
+            "type": "nit",
+            "p": 0.017
+          },
+          {
+            "type": "station",
+            "p": 0.017
+          }
+        ],
+        "observed": {
+          "hands": 65,
+          "vpip": 27,
+          "pfr": 4,
+          "showdowns": 5
+        }
+      },
+      {
+        "seat": 8,
+        "name": "New Guy",
+        "pos": "UTG+2",
+        "startStack": 616,
+        "stack": 616,
+        "inPot": 0,
+        "folded": true,
+        "read": [
+          {
+            "type": "abc",
+            "p": 0.861
+          },
+          {
+            "type": "nit",
+            "p": 0.017
+          },
+          {
+            "type": "station",
+            "p": 0.017
+          }
+        ],
+        "observed": {
+          "hands": 33,
+          "vpip": 11,
+          "pfr": 1,
+          "showdowns": 2
+        }
+      }
+    ],
+    "actions": [
+      {
+        "street": "preflop",
+        "seat": 4,
+        "who": "Loud Guy",
+        "type": "sb",
+        "to": 2,
+        "amount": 2
+      },
+      {
+        "street": "preflop",
+        "seat": 5,
+        "who": "Shades",
+        "type": "bb",
+        "to": 5,
+        "amount": 5
+      },
+      {
+        "street": "preflop",
+        "seat": 6,
+        "who": "Party Crew",
+        "type": "call",
+        "to": 5,
+        "amount": 5
+      },
+      {
+        "street": "preflop",
+        "seat": 7,
+        "who": "Ball Cap",
+        "type": "fold",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "preflop",
+        "seat": 8,
+        "who": "New Guy",
+        "type": "fold",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "preflop",
+        "seat": 0,
+        "who": "You",
+        "type": "raise",
+        "to": 25,
+        "amount": 25
+      },
+      {
+        "street": "preflop",
+        "seat": 1,
+        "who": "Jersey",
+        "type": "fold",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "preflop",
+        "seat": 2,
+        "who": "Hoodie",
+        "type": "fold",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "preflop",
+        "seat": 3,
+        "who": "Golf Shirt",
+        "type": "call",
+        "to": 25,
+        "amount": 25
+      },
+      {
+        "street": "preflop",
+        "seat": 4,
+        "who": "Loud Guy",
+        "type": "fold",
+        "to": 2,
+        "amount": 0
+      },
+      {
+        "street": "preflop",
+        "seat": 5,
+        "who": "Shades",
+        "type": "call",
+        "to": 25,
+        "amount": 20
+      },
+      {
+        "street": "preflop",
+        "seat": 6,
+        "who": "Party Crew",
+        "type": "call",
+        "to": 25,
+        "amount": 20
+      },
+      {
+        "street": "flop",
+        "seat": 5,
+        "who": "Shades",
+        "type": "check",
+        "to": 0,
+        "amount": 0
+      },
+      {
+        "street": "flop",
+        "seat": 6,
+        "who": "Party Crew",
+        "type": "check",
+        "to": 0,
+        "amount": 0
+      }
+    ],
+    "pot": 102,
+    "heat": 0.363,
+    "heatAt": {
+      "6": 0.36318546850766503,
+      "7": 0.36318546850766503,
+      "8": 0.36318546850766503,
+      "9": 0.36318546850766503,
+      "10": 0.36318546850766503,
+      "11": 0.36318546850766503
+    },
+    "judge": {
+      "seed": 13900,
+      "samples": 3000
+    }
+  },
+  "villainPost": {
+    "seat": 3,
+    "post": [
+      0.01727938528169812,
+      0.8617649177464151,
+      0.01727938528169812,
+      0.01727938528169812,
+      0.01727938528169812,
+      0.01727938528169812,
+      0.01727938528169812,
+      0.01727938528169812,
+      0.01727938528169812
+    ]
+  },
+  "recorded": {
+    "grade": "mistake",
+    "best": "Check",
+    "took": "Bet $153 (150% pot)",
+    "loss": 81.78133333333334,
+    "headline": "Mistake: betting $153 (150% pot) is worth about $82 less, on average, than checking (the best play that works against anyone)."
+  },
+  "expect": {
+    "grade": "mistake"
+  },
+  "why": "TT betting $153 on A-A-2 (stability check h106d202): a mistake, as on main. The fragile-read margin decides only whether a pick holds, never which alternative is named; a leak there once named a noisier option and graded it a blunder (QA-VERDICT)"
+}
